@@ -54,8 +54,6 @@
       <Folder Include="Services\Storage\" />
       <Folder Include="Services\Supabase\" />
       <Folder Include="Services\Theme\" />
-      <Folder Include="Styles\themes\" />
-      <Folder Include="Utilities\Constants\" />
       <Folder Include="Utilities\Extensions\" />
       <Folder Include="Utilities\Helpers\" />
       <Folder Include="wwwroot\icons\" />
