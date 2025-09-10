@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Wed Sep 10 20:49:33 UTC 2025
+Generated: Wed Sep 10 22:36:50 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 9d402f7c0c3d7c555ba645d2fe73d49b794deb2d
+Commit: 8b7025bc699489b7c4fcaeecc99f4e98bb45d36e
 Branch: master
 ==================================
 
@@ -97,7 +97,3 @@ Categories: Men's, Women's, Children's, Baby, Home
 Primary Color: #96994A (Slime Green)
 Theme System: Light/Dark modes with glow effects
 Responsive: Mobile-first design approach
-Font: Open Iconic for icons
-State Management: Local storage using Blazored.LocalStorage
-Build Tool: .NET 7.0
-
