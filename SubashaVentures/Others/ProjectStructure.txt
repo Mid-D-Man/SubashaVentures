@@ -101,3 +101,4 @@ Font: Open Iconic for icons
 State Management: Local storage using Blazored.LocalStorage
 Build Tool: .NET 7.0
 
+ok this 
