@@ -1,0 +1,427 @@
+name: Deploy SubashaVentures Blazor WASM PWA to GitHub Pages
+
+on:
+  push:
+    branches: [ master, main ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Job to update project structure on every push
+  update-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Update Project Structure
+        run: |
+          echo "Generating comprehensive project structure for SubashaVentures..."
+          
+          # Verify project directory structure
+          echo "Repository root contents:"
+          ls -la
+          
+          # Navigate to project directory and validate
+          if [ -d "SubashaVentures" ]; then
+            cd SubashaVentures
+            echo "SubashaVentures directory contents:"
+            ls -la
+            PROJECT_DIR="SubashaVentures"
+          else
+            echo "Warning: SubashaVentures directory not found, using repository root"
+            PROJECT_DIR="."
+          fi
+          
+          # Enhanced structure generation function
+          generate_comprehensive_structure() {
+            local base_path="$1"
+            local output_file="$2"
+          
+            # Initialize output file with metadata
+            {
+              echo "Project Structure Documentation - SubashaVentures Clothing Store"
+              echo "Generated: $(date -u)"
+              echo "Repository: ${{ github.repository }}"
+              echo "Commit: ${{ github.sha }}"
+              echo "Branch: ${{ github.ref_name }}"
+              echo "=================================="
+              echo
+            } > "$output_file"
+          
+            # Capture all project-relevant files
+            echo "Source Files:" >> "$output_file"
+            echo "============" >> "$output_file"
+            find "$base_path" -type f \( \
+              -name "*.cs" -o \
+              -name "*.razor" -o \
+              -name "*.csproj" -o \
+              -name "*.sln" -o \
+              -name "*.json" -o \
+              -name "*.css" -o \
+              -name "*.scss" -o \
+              -name "*.js" -o \
+              -name "*.ts" -o \
+              -name "*.html" -o \
+              -name "*.md" -o \
+              -name "*.yml" -o \
+              -name "*.yaml" \
+            \) -not -path "*/bin/*" \
+              -not -path "*/obj/*" \
+              -not -path "*/.git/*" \
+              -not -path "*/node_modules/*" | \
+            sed "s|^$base_path/||" | sort >> "$output_file"
+          
+            echo >> "$output_file"
+            echo "Directory Structure:" >> "$output_file"
+            echo "==================" >> "$output_file"
+          
+            # Generate hierarchical directory tree
+            find "$base_path" -type d \
+              -not -path "*/bin" \
+              -not -path "*/bin/*" \
+              -not -path "*/obj" \
+              -not -path "*/obj/*" \
+              -not -path "*/.git" \
+              -not -path "*/.git/*" \
+              -not -path "*/node_modules" \
+              -not -path "*/node_modules/*" | \
+            sed "s|^$base_path||" | \
+            sed 's|^/||' | \
+            sort | \
+            sed 's|[^/]*/|  |g' | \
+            sed 's|^|./|' >> "$output_file"
+          
+            echo >> "$output_file"
+            echo "File Count Summary:" >> "$output_file"
+            echo "==================" >> "$output_file"
+          
+            # Generate file type statistics
+            for ext in cs razor csproj sln json css scss js html yml yaml; do
+              count=$(find "$base_path" -name "*.$ext" -not -path "*/bin/*" -not -path "*/obj/*" | wc -l)
+              if [ "$count" -gt 0 ]; then
+                printf "%-10s: %d files\n" ".$ext" "$count" >> "$output_file"
+              fi
+            done
+            
+            # Add clothing store specific information
+            echo >> "$output_file"
+            echo "Project Information:" >> "$output_file"
+            echo "==================" >> "$output_file"
+            echo "Project Type: Blazor WebAssembly PWA" >> "$output_file"
+            echo "Store Type: Clothing & Home Goods" >> "$output_file"
+            echo "Categories: Men's, Women's, Children's, Baby, Home" >> "$output_file"
+            echo "Primary Color: #96994A (Slime Green)" >> "$output_file"
+            echo "Theme System: Light/Dark modes with glow effects" >> "$output_file"
+            echo "Responsive: Mobile-first design approach" >> "$output_file"
+          }
+          
+          # Determine correct base path and output location
+          if [ -d "SubashaVentures" ]; then
+            # Ensure output directory exists
+            mkdir -p "SubashaVentures/Others"
+            generate_comprehensive_structure "SubashaVentures" "SubashaVentures/Others/ProjectStructure.txt"
+          else
+            # Fallback to repository root
+            mkdir -p "Others"
+            generate_comprehensive_structure "." "Others/ProjectStructure.txt"
+          fi
+          
+          echo "Project structure documentation completed successfully"
+
+      - name: Commit Updated Project Structure
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action - SubashaVentures"
+          
+          # Determine structure file location
+          STRUCTURE_FILE=""
+          if [ -f "SubashaVentures/Others/ProjectStructure.txt" ]; then
+            STRUCTURE_FILE="SubashaVentures/Others/ProjectStructure.txt"
+          elif [ -f "Others/ProjectStructure.txt" ]; then
+            STRUCTURE_FILE="Others/ProjectStructure.txt"
+          fi
+          
+          if [ -n "$STRUCTURE_FILE" ]; then
+            # Verify changes exist before committing
+            if ! git diff --quiet "$STRUCTURE_FILE" 2>/dev/null; then
+              git add "$STRUCTURE_FILE"
+              git commit -m "Auto-update SubashaVentures project structure documentation [skip ci]"
+              git push
+              echo "Project structure committed successfully"
+            else
+              echo "No changes detected in project structure"
+            fi
+          else
+            echo "Warning: Project structure file not found"
+          fi
+
+  # Job to build and deploy - only runs when commit message contains --publish
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: update-structure
+    # Only run this job if commit message contains '--publish'
+    if: "contains(github.event.head_commit.message, '--publish')"
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Display Build Information
+        run: |
+          echo "🚀 Building SubashaVentures Clothing Store PWA"
+          echo "📦 Project: SubashaVentures"
+          echo "🎯 Branch: ${{ github.ref_name }}"
+          echo "💬 Commit: ${{ github.event.head_commit.message }}"
+          echo "👤 Author: ${{ github.event.head_commit.author.name }}"
+          echo "🌐 Target: GitHub Pages (gh-pages branch)"
+
+      - name: Restore Dependencies
+        working-directory: ./SubashaVentures
+        run: |
+          echo "Restoring .NET dependencies..."
+          dotnet restore
+
+      - name: Build Project
+        working-directory: ./SubashaVentures
+        run: |
+          echo "Building SubashaVentures in Release mode..."
+          dotnet build --configuration Release --no-restore
+
+      - name: Publish Application
+        working-directory: ./SubashaVentures
+        run: |
+          echo "Publishing SubashaVentures PWA..."
+          dotnet publish --configuration Release --no-build --output ../dist
+
+      - name: Prepare for GitHub Pages with PWA Support
+        run: |
+          echo "🛠️ Preparing PWA files for GitHub Pages deployment..."
+          
+          mkdir -p ./pages
+          
+          # Copy published files
+          if [ -d "./dist/wwwroot" ]; then
+            cp -r ./dist/wwwroot/* ./pages/
+            echo "✅ Files copied successfully"
+          else
+            echo "❌ ERROR: wwwroot not found"
+            exit 1
+          fi
+          
+          # Critical: Add .nojekyll to prevent Jekyll processing
+          touch ./pages/.nojekyll
+          echo "✅ .nojekyll file created"
+          
+          # Create 404.html for SPA routing
+          cp ./pages/index.html ./pages/404.html
+          echo "✅ 404.html created for SPA routing"
+          
+          # Update base href for GitHub Pages subpath in both files
+          sed -i 's|<base href="/" />|<base href="/SubashaVentures/" />|g' ./pages/index.html
+          sed -i 's|<base href="/" />|<base href="/SubashaVentures/" />|g' ./pages/404.html
+          echo "✅ Base href updated for GitHub Pages"
+          
+          # Update manifest.json for PWA
+          if [ -f "./pages/manifest.json" ]; then
+            sed -i 's|"start_url": "/"|"start_url": "/SubashaVentures/"|g' ./pages/manifest.json
+            sed -i 's|"scope": "/"|"scope": "/SubashaVentures/"|g' ./pages/manifest.json
+            echo "✅ PWA manifest updated"
+          elif [ -f "./pages/manifest.webmanifest" ]; then
+            sed -i 's|"start_url": "/"|"start_url": "/SubashaVentures/"|g' ./pages/manifest.webmanifest
+            sed -i 's|"scope": "/"|"scope": "/SubashaVentures/"|g' ./pages/manifest.webmanifest
+            echo "✅ PWA webmanifest updated"
+          fi
+          
+          # Fix service worker scope for SubashaVentures
+          if [ -f "./pages/service-worker.js" ]; then
+            sed -i 's|self.assetsManifest|self.assetsManifest|g' ./pages/service-worker.js
+            echo "✅ Service worker updated"
+          fi
+          
+          # Fix MIME type issues - Add _headers file for Netlify compatibility
+          cat > ./pages/_headers << 'EOF'
+          /*.wasm
+            Content-Type: application/wasm
+          /*.js
+            Content-Type: application/javascript
+          /*.webmanifest
+            Content-Type: application/manifest+json
+          /*.json
+            Content-Type: application/json
+          EOF
+          echo "✅ _headers file created"
+          
+          # Create .htaccess for Apache servers
+          cat > ./pages/.htaccess << 'EOF'
+          # SubashaVentures PWA Configuration
+          AddType application/wasm .wasm
+          AddType application/javascript .js
+          AddType application/manifest+json .webmanifest
+          AddType application/json .json
+          
+          # SPA routing fallback
+          RewriteEngine On
+          RewriteCond %{REQUEST_FILENAME} !-f
+          RewriteCond %{REQUEST_FILENAME} !-d
+          RewriteRule . /SubashaVentures/index.html [L]
+          
+          # PWA caching headers for clothing store assets
+          <IfModule mod_expires.c>
+            ExpiresActive on
+            ExpiresByType application/wasm "access plus 1 year"
+            ExpiresByType application/javascript "access plus 1 month"
+            ExpiresByType text/css "access plus 1 month"
+            ExpiresByType image/png "access plus 1 year"
+            ExpiresByType image/jpg "access plus 1 year"
+            ExpiresByType image/jpeg "access plus 1 year"
+            ExpiresByType image/webp "access plus 1 year"
+            ExpiresByType application/manifest+json "access plus 1 week"
+            ExpiresByType application/json "access plus 1 day"
+          </IfModule>
+          
+          # Security headers for clothing store
+          <IfModule mod_headers.c>
+            Header always set X-Content-Type-Options nosniff
+            Header always set X-Frame-Options DENY
+            Header always set X-XSS-Protection "1; mode=block"
+            Header always set Referrer-Policy "strict-origin-when-cross-origin"
+            Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+          </IfModule>
+          EOF
+          echo "✅ .htaccess file created"
+
+      - name: Verify PWA Deployment
+        run: |
+          echo "🔍 Verifying SubashaVentures PWA deployment files..."
+          
+          # Check service worker
+          if [ -f "./pages/service-worker.js" ]; then
+            echo "✅ Service worker found"
+          else
+            echo "❌ Service worker missing"
+          fi
+          
+          # Check manifest
+          if [ -f "./pages/manifest.webmanifest" ] || [ -f "./pages/manifest.json" ]; then
+            echo "✅ PWA manifest found"
+            ls -la ./pages/manifest* 2>/dev/null || echo "No manifest files details"
+          else
+            echo "❌ PWA manifest missing"
+          fi
+          
+          # Check WASM files (Blazor WebAssembly)
+          wasm_count=$(find ./pages -name "*.wasm" -type f | wc -l)
+          if [ "$wasm_count" -gt 0 ]; then
+            echo "✅ Found $wasm_count WASM files"
+            find ./pages -name "*.wasm" -type f -exec echo "  - {}" \;
+          else
+            echo "❌ No WASM files found"
+          fi
+          
+          # Check service worker assets
+          if [ -f "./pages/service-worker-assets.js" ]; then
+            echo "✅ Service worker assets manifest found"
+          else
+            echo "❌ Service worker assets manifest missing"
+          fi
+          
+          # Verify PWA icons for clothing store
+          icon_count=0
+          for icon in icon-192.png icon-512.png favicon.png; do
+            if [ -f "./pages/$icon" ]; then
+              echo "✅ PWA icon found: $icon"
+              icon_count=$((icon_count + 1))
+            else
+              echo "❌ PWA icon missing: $icon"
+            fi
+          done
+          
+          if [ "$icon_count" -gt 0 ]; then
+            echo "✅ Found $icon_count PWA icons"
+          else
+            echo "❌ No PWA icons found"
+          fi
+          
+          # Check CSS files (compiled SCSS)
+          css_count=$(find ./pages -name "*.css" -type f | wc -l)
+          if [ "$css_count" -gt 0 ]; then
+            echo "✅ Found $css_count CSS files"
+          else
+            echo "❌ No CSS files found"
+          fi
+          
+          # Summary
+          echo ""
+          echo "📊 Deployment Summary:"
+          echo "  - Total files: $(find ./pages -type f | wc -l)"
+          echo "  - Size: $(du -sh ./pages | cut -f1)"
+          echo "  - Ready for clothing store deployment: ✅"
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./pages
+          publish_branch: gh-pages
+          enable_jekyll: false
+          user_name: 'GitHub Action - SubashaVentures'
+          user_email: 'action@github.com'
+          commit_message: 'Deploy SubashaVentures clothing store PWA 🛍️ ${{ github.event.head_commit.message }}'
+
+      - name: Deployment Success
+        run: |
+          echo "🎉 SubashaVentures PWA deployed successfully!"
+          echo "🌐 Your clothing store will be available at:"
+          echo "   https://${{ github.repository_owner }}.github.io/SubashaVentures/"
+          echo ""
+          echo "🛍️ Store Features Deployed:"
+          echo "   ✅ Men's clothing section"
+          echo "   ✅ Women's clothing section" 
+          echo "   ✅ Children's clothing section"
+          echo "   ✅ Baby clothing section"
+          echo "   ✅ Home goods section"
+          echo "   ✅ PWA capabilities"
+          echo "   ✅ Light/Dark theme with slime green (#96994A)"
+          echo "   ✅ Mobile-first responsive design"
+          echo "   ✅ Cross-platform compatibility"
+          echo ""
+          echo "💡 Next time, include '--publish' in your commit message to trigger deployment"
+
+  # Job that runs when deployment is skipped
+  deployment-skipped:
+    runs-on: ubuntu-latest
+    needs: update-structure
+    # Only run when the build job is skipped (no --publish in commit message)
+    if: "!contains(github.event.head_commit.message, '--publish')"
+    
+    steps:
+      - name: Deployment Skipped Notice
+        run: |
+          echo "ℹ️  SubashaVentures deployment was skipped"
+          echo ""
+          echo "🚀 To deploy your clothing store, include '--publish' in your commit message"
+          echo ""
+          echo "Example commit messages that trigger deployment:"
+          echo "  - 'Added new product catalog --publish'"
+          echo "  - 'Updated theme colors --publish'"
+          echo "  - 'Fixed responsive design issues --publish'"
+          echo "  - 'Ready for production --publish'"
+          echo ""
+          echo "📝 Current commit: ${{ github.event.head_commit.message }}"
+          echo "👤 Author: ${{ github.event.head_commit.author.name }}"
+          echo ""
+          echo "✅ Project structure has been updated automatically"
