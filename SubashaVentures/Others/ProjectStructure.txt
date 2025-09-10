@@ -1,208 +1,99 @@
-  ls -R
- SubashaVentures         SubashaVentures.sln     global.json
- 
- ./SubashaVentures:
- -_-note!!!.dix          Layout                  Program.cs              Styles                  bin
- App.razor               Models                  Properties              SubashaVentures.csproj  compilerconfig.json
- Components              Others                  Services                Utilities               obj
- Domain                  Pages                   Shared                  _Imports.razor          wwwroot
- 
- ./SubashaVentures/Components:
- Admin   Auth    Cart    Layout  Product Search  Shared
- 
- ./SubashaVentures/Components/Admin:
- 
- ./SubashaVentures/Components/Auth:
- 
- ./SubashaVentures/Components/Cart:
- 
- ./SubashaVentures/Components/Layout:
- 
- ./SubashaVentures/Components/Product:
- 
- ./SubashaVentures/Components/Search:
- 
- ./SubashaVentures/Components/Shared:
- Buttons Cards   Forms   Loading Modals
- 
- ./SubashaVentures/Components/Shared/Buttons:
- 
- ./SubashaVentures/Components/Shared/Cards:
- 
- ./SubashaVentures/Components/Shared/Forms:
- 
- ./SubashaVentures/Components/Shared/Loading:
- 
- ./SubashaVentures/Components/Shared/Modals:
- 
- ./SubashaVentures/Domain:
- Entities        Enums           Interfaces      ValueObjects
- 
- ./SubashaVentures/Domain/Entities:
- 
- ./SubashaVentures/Domain/Enums:
- 
- ./SubashaVentures/Domain/Interfaces:
- 
- ./SubashaVentures/Domain/ValueObjects:
- 
- ./SubashaVentures/Layout:
- Admin   Client  Main
- 
- ./SubashaVentures/Layout/Admin:
- 
- ./SubashaVentures/Layout/Client:
- 
- ./SubashaVentures/Layout/Main:
- MainLayout.razor        MainLayout.razor.css    NavMenu.razor           NavMenu.razor.css       SurveyPrompt.razor
- 
- ./SubashaVentures/Models:
- Cart            Firebase        Order           Product         Supabase        User
- 
- ./SubashaVentures/Models/Cart:
- 
- ./SubashaVentures/Models/Firebase:
- 
- ./SubashaVentures/Models/Order:
- 
- ./SubashaVentures/Models/Product:
- 
- ./SubashaVentures/Models/Supabase:
- 
- ./SubashaVentures/Models/User:
- 
- ./SubashaVentures/Others:
- -_-info.dix             ProjectStructure.txt
- 
- ./SubashaVentures/Pages:
- Account Admin   Main    Shared  Shop
- 
- ./SubashaVentures/Pages/Account:
- 
- ./SubashaVentures/Pages/Admin:
- 
- ./SubashaVentures/Pages/Main:
- LandingPasge.razor      LandingPasge.razor.cs   LandingPasge.razor.css
- 
- ./SubashaVentures/Pages/Shared:
- 
- ./SubashaVentures/Pages/Shop:
- 
- ./SubashaVentures/Properties:
- launchSettings.json
- 
- ./SubashaVentures/Services:
- Auth            Cart            Firebase        Order           Storage         Supabase        Theme           VisualElements
- 
- ./SubashaVentures/Services/Auth:
- 
- ./SubashaVentures/Services/Cart:
- 
- ./SubashaVentures/Services/Firebase:
- 
- ./SubashaVentures/Services/Order:
- 
- ./SubashaVentures/Services/Storage:
- BlazoredAppLocalStorage.cs      IBlazoredAppLocalStorage.cs
- 
- ./SubashaVentures/Services/Supabase:
- 
- ./SubashaVentures/Services/Theme:
- 
- ./SubashaVentures/Services/VisualElements:
- IThemeServce.cs
- 
- ./SubashaVentures/Shared:
- 
- ./SubashaVentures/Styles:
- abstracts       base            main.scss       themes          utilities
- 
- ./SubashaVentures/Styles/abstracts:
- _colors.scss                    _mixins.scss                    _variables.scss
- _functions.scss                 _responsiveDesignRef.scss
- 
- ./SubashaVentures/Styles/base:
- _base.scss              _reset.scss             _typography.scss
- 
- ./SubashaVentures/Styles/themes:
- _dark.scss      _light.scss
- 
- ./SubashaVentures/Styles/utilities:
- _helper.scss
- 
- ./SubashaVentures/Utilities:
- Constants       Extensions      Helpers
- 
- ./SubashaVentures/Utilities/Constants:
- AppConstants.cs
- 
- ./SubashaVentures/Utilities/Extensions:
- 
- ./SubashaVentures/Utilities/Helpers:
- 
- ./SubashaVentures/bin:
- Debug
- 
- ./SubashaVentures/bin/Debug:
- net7.0
- 
- ./SubashaVentures/bin/Debug/net7.0:
- 
- ./SubashaVentures/obj:
- Debug                                           project.assets.json
- SubashaVentures.csproj.nuget.dgspec.json        project.nuget.cache
- SubashaVentures.csproj.nuget.g.props            project.packagespec.json
- SubashaVentures.csproj.nuget.g.targets          rider.project.model.nuget.info
- 
- ./SubashaVentures/obj/Debug:
- net7.0
- 
- ./SubashaVentures/obj/Debug/net7.0:
- SubashaVentures.AssemblyInfo.cs                                 SubashaVentures.csproj.AssemblyReference.cache
- SubashaVentures.AssemblyInfoInputs.cache                        ref
- SubashaVentures.GeneratedMSBuildEditorConfig.editorconfig       refint
- SubashaVentures.GlobalUsings.g.cs                               staticwebassets
- SubashaVentures.assets.cache
- 
- ./SubashaVentures/obj/Debug/net7.0/ref:
- 
- ./SubashaVentures/obj/Debug/net7.0/refint:
- 
- ./SubashaVentures/obj/Debug/net7.0/staticwebassets:
- 
- ./SubashaVentures/wwwroot:
- css                             icons                           manifest.json                   svg
- favicon.png                     images                          sample-data
- icon-192.png                    index.html                      service-worker.js
- icon-512.png                    js                              service-worker.published.js
- 
- ./SubashaVentures/wwwroot/css:
- app.css         bootstrap       open-iconic     styles.css
- 
- ./SubashaVentures/wwwroot/css/bootstrap:
- bootstrap.min.css       bootstrap.min.css.map
- 
- ./SubashaVentures/wwwroot/css/open-iconic:
- FONT-LICENSE    ICON-LICENSE    README.md       font
- 
- ./SubashaVentures/wwwroot/css/open-iconic/font:
- css     fonts
- 
- ./SubashaVentures/wwwroot/css/open-iconic/font/css:
- open-iconic-bootstrap.min.css
- 
- ./SubashaVentures/wwwroot/css/open-iconic/font/fonts:
- open-iconic.eot         open-iconic.otf         open-iconic.svg         open-iconic.ttf         open-iconic.woff
- 
- ./SubashaVentures/wwwroot/icons:
- 
- ./SubashaVentures/wwwroot/images:
- 
- ./SubashaVentures/wwwroot/js:
- theme.js
- 
- ./SubashaVentures/wwwroot/sample-data:
- weather.json
- 
- ./SubashaVentures/wwwroot/svg:
+Project Structure Documentation - SubashaVentures Clothing Store
+Generated: Wed Sep 10 20:21:09 UTC 2025
+Repository: Mid-D-Man/SubashaVentures
+Commit: 0d81a7cd2afa2dfedede03f25f21e1677ff237cb
+Branch: master
+==================================
 
+Source Files:
+============
+App.razor
+Layout/Main/MainLayout.razor
+Layout/Main/MainLayout.razor.css
+Layout/Main/NavMenu.razor
+Layout/Main/NavMenu.razor.css
+Layout/Main/SurveyPrompt.razor
+Pages/Main/LandingPasge.razor
+Pages/Main/LandingPasge.razor.cs
+Pages/Main/LandingPasge.razor.css
+Program.cs
+Properties/launchSettings.json
+Services/Storage/BlazoredAppLocalStorage.cs
+Services/Storage/IBlazoredAppLocalStorage.cs
+Services/VisualElements/IThemeServce.cs
+Styles/abstracts/_colors.scss
+Styles/abstracts/_functions.scss
+Styles/abstracts/_mixins.scss
+Styles/abstracts/_responsiveDesignRef.scss
+Styles/abstracts/_variables.scss
+Styles/base/_base.scss
+Styles/base/_reset.scss
+Styles/base/_typography.scss
+Styles/main.scss
+Styles/themes/_dark.scss
+Styles/themes/_light.scss
+Styles/utilities/_helper.scss
+SubashaVentures.csproj
+Utilities/Constants/AppConstants.cs
+_Imports.razor
+compilerconfig.json
+wwwroot/css/app.css
+wwwroot/css/bootstrap/bootstrap.min.css
+wwwroot/css/open-iconic/README.md
+wwwroot/css/open-iconic/font/css/open-iconic-bootstrap.min.css
+wwwroot/css/styles.css
+wwwroot/index.html
+wwwroot/js/theme.js
+wwwroot/manifest.json
+wwwroot/sample-data/weather.json
+wwwroot/service-worker.js
+wwwroot/service-worker.published.js
+
+Directory Structure:
+==================
+./
+./Layout
+./  Main
+./Others
+./Pages
+./  Main
+./Properties
+./Services
+./  Storage
+./  VisualElements
+./Styles
+./  abstracts
+./  base
+./  themes
+./  utilities
+./Utilities
+./  Constants
+./wwwroot
+./  css
+./    bootstrap
+./    open-iconic
+./      font
+./        css
+./        fonts
+./  js
+./  sample-data
+
+File Count Summary:
+==================
+.cs       : 6 files
+.razor    : 6 files
+.csproj   : 1 files
+.json     : 4 files
+.css      : 7 files
+.scss     : 12 files
+.js       : 3 files
+.html     : 1 files
+
+Project Information:
+==================
+Project Type: Blazor WebAssembly PWA
+Store Type: Clothing & Home Goods
+Categories: Men's, Women's, Children's, Baby, Home
+Primary Color: #96994A (Slime Green)
+Theme System: Light/Dark modes with glow effects
+Responsive: Mobile-first design approach
