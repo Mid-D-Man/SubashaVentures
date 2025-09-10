@@ -1,0 +1,388 @@
+// =============================================================================
+// DARK THEME - SubashaVentures
+// =============================================================================
+// Dark mode theme with enhanced slime green glow effects
+// =============================================================================
+
+@import '../abstracts/colors';
+
+// ===== DARK THEME ROOT VARIABLES =====
+[data-theme="dark"] {
+  // ===== PRIMARY COLORS (Enhanced for dark mode) =====
+  --primary-color: #{lighten($primary, 15%)};  // Brighter slime green for dark bg
+  --primary-light: #{lighten($primary, 25%)};
+  --primary-dark: #{$primary};
+  --primary-pale: #{rgba(lighten($primary, 15%), 0.1)};
+
+  // ===== SECONDARY COLORS =====
+  --secondary-color: #{lighten($secondary, 15%)};
+  --secondary-light: #{lighten($secondary, 25%)};
+  --secondary-dark: #{$secondary};
+
+  // ===== ACCENT COLORS =====
+  --accent-1: #{lighten($accent-1, 15%)};
+  --accent-1-light: #{lighten($accent-1, 25%)};
+  --accent-1-dark: #{$accent-1};
+  --accent-2: #{lighten($accent-2, 15%)};
+  --accent-2-light: #{lighten($accent-2, 25%)};
+  --accent-2-dark: #{$accent-2};
+
+  // ===== BACKGROUND COLORS =====
+  --bg-primary: #{$gray-900};
+  --bg-secondary: #{$gray-800};
+  --bg-tertiary: #{$gray-700};
+  --bg-surface: #{lighten($gray-800, 2%)};
+  --bg-elevated: #{lighten($gray-800, 4%)};
+  --bg-overlay: rgba(0, 0, 0, 0.8);
+
+  // Brand background variants with glow
+  --bg-brand-primary: #{rgba(lighten($primary, 15%), 0.08)};
+  --bg-brand-secondary: #{rgba(lighten($secondary, 15%), 0.08)};
+
+  // ===== TEXT COLORS =====
+  --text-primary: #{$gray-100};
+  --text-secondary: #{$gray-300};
+  --text-tertiary: #{$gray-400};
+  --text-muted: #{$gray-500};
+  --text-on-primary: #{$gray-900};
+  --text-on-secondary: #{$gray-900};
+  --text-on-surface: #{$gray-100};
+  --text-inverse: #{$gray-900};
+
+  // ===== BORDER COLORS =====
+  --border-light: #{$gray-700};
+  --border-medium: #{$gray-600};
+  --border-heavy: #{$gray-500};
+  --border-primary: #{lighten($primary, 15%)};
+  --border-secondary: #{lighten($secondary, 15%)};
+  --border-focus: #{lighten($primary, 20%)};
+  --border-error: #{lighten($danger, 10%)};
+
+  // ===== SEMANTIC COLORS (Adjusted for dark theme) =====
+  --success-color: #{lighten($success, 10%)};
+  --success-light: #{rgba(lighten($success, 10%), 0.2)};
+  --success-dark: #{$success};
+  --warning-color: #{lighten($warning, 5%)};
+  --warning-light: #{rgba(lighten($warning, 5%), 0.2)};
+  --warning-dark: #{darken($warning, 10%)};
+  --danger-color: #{lighten($danger, 10%)};
+  --danger-light: #{rgba(lighten($danger, 10%), 0.2)};
+  --danger-dark: #{$danger};
+  --info-color: #{lighten($info, 15%)};
+  --info-light: #{rgba(lighten($info, 15%), 0.2)};
+  --info-dark: #{$info};
+
+  // ===== CLOTHING CATEGORY COLORS (Enhanced for dark) =====
+  --mens-color: #{lighten($mens-color, 20%)};
+  --mens-bg: #{rgba(lighten($mens-color, 20%), 0.1)};
+  --womens-color: #{lighten($womens-color, 15%)};
+  --womens-bg: #{rgba(lighten($womens-color, 15%), 0.1)};
+  --children-color: #{lighten($children-color, 10%)};
+  --children-bg: #{rgba(lighten($children-color, 10%), 0.1)};
+  --baby-color: #{lighten($baby-color, 15%)};
+  --baby-bg: #{rgba(lighten($baby-color, 15%), 0.1)};
+  --home-color: #{lighten($home-color, 25%)};
+  --home-bg: #{rgba(lighten($home-color, 25%), 0.1)};
+
+  // ===== INTERACTIVE STATES WITH GLOW EFFECTS =====
+  --hover-primary: #{lighten($primary, 20%)};
+  --hover-secondary: #{lighten($secondary, 20%)};
+  --focus-primary: #{lighten($primary, 25%)};
+  --active-primary: #{lighten($primary, 10%)};
+  --hover-surface: #{lighten($gray-800, 3%)};
+  --hover-overlay: rgba(255, 255, 255, 0.05);
+
+  // ===== ENHANCED SHADOW SYSTEM WITH GLOWS =====
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  --shadow-medium: rgba(0, 0, 0, 0.4);
+  --shadow-heavy: rgba(0, 0, 0, 0.6);
+  --shadow-primary: #{rgba(lighten($primary, 15%), 0.4)};
+  --shadow-glow: #{rgba(lighten($primary, 15%), 0.6)};
+
+  // Enhanced shadow presets with glow effects
+  --shadow-xs: 0 1px 2px var(--shadow-light);
+  --shadow-sm: 0 1px 3px var(--shadow-light), 0 1px 2px var(--shadow-light);
+  --shadow-md: 0 4px 6px var(--shadow-medium), 0 2px 4px var(--shadow-light);
+  --shadow-lg: 0 10px 15px var(--shadow-heavy), 0 4px 6px var(--shadow-medium);
+  --shadow-xl: 0 20px 25px var(--shadow-heavy), 0 10px 10px var(--shadow-medium);
+  --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.8);
+  --shadow-inner: inset 0 2px 4px var(--shadow-medium);
+
+  // Glow shadows for primary elements
+  --shadow-glow-sm: 0 0 10px rgba(184, 187, 106, 0.6);
+  --shadow-glow-md: 0 0 20px rgba(184, 187, 106, 0.6), 0 0 40px rgba(184, 187, 106, 0.4);
+  --shadow-glow-lg: 0 0 30px rgba(184, 187, 106, 0.6), 0 0 60px rgba(184, 187, 106, 0.4);
+
+  // ===== GRADIENTS (Dark theme variants) =====
+  --gradient-primary: linear-gradient(135deg, #B8BB6A 0%, #C8CB7A 100%);
+  --gradient-secondary: linear-gradient(135deg, #BB6AB8 0%, #CB7AC8 100%);
+  --gradient-hero: linear-gradient(135deg, #B8BB6A 0%, #BB6AB8 50%, #6AB8BB 100%);
+  --gradient-card: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-secondary) 100%);
+
+  // ===== COMPONENT SPECIFIC (Dark variants) =====
+
+  // Navigation
+  --nav-bg: #{rgba($gray-800, 0.95)};
+  --nav-border: var(--border-light);
+  --nav-link-color: var(--text-secondary);
+  --nav-link-hover: var(--primary-color);
+  --nav-link-active: var(--primary-color);
+
+  // Cards with glow effects
+  --card-bg: var(--bg-surface);
+  --card-border: var(--border-light);
+  --card-shadow: var(--shadow-sm);
+  --card-hover-shadow: var(--shadow-md), var(--shadow-glow-sm);
+
+  // Buttons with enhanced glow
+  --btn-primary-bg: var(--primary-color);
+  --btn-primary-text: var(--text-on-primary);
+  --btn-primary-hover: var(--hover-primary);
+  --btn-primary-shadow: var(--shadow-glow-sm);
+  --btn-secondary-bg: var(--secondary-color);
+  --btn-secondary-text: var(--text-on-secondary);
+  --btn-secondary-hover: var(--hover-secondary);
+  --btn-outline-border: var(--border-primary);
+  --btn-outline-text: var(--primary-color);
+  --btn-outline-hover-bg: var(--primary-color);
+  --btn-outline-hover-text: var(--text-on-primary);
+
+  // Forms
+  --input-bg: var(--bg-surface);
+  --input-border: var(--border-medium);
+  --input-text: var(--text-primary);
+  --input-placeholder: var(--text-muted);
+  --input-focus-border: var(--border-focus);
+  --input-focus-shadow: 0 0 0 3px #{rgba(lighten($primary, 15%), 0.2)}, var(--shadow-glow-sm);
+  --input-error-border: var(--border-error);
+  --input-error-shadow: 0 0 0 3px #{rgba(lighten($danger, 10%), 0.2)};
+
+  // Modal/Overlay
+  --modal-backdrop: rgba(0, 0, 0, 0.8);
+  --modal-bg: var(--bg-surface);
+  --modal-shadow: var(--shadow-xl), var(--shadow-glow-md);
+
+  // Loading/Skeleton
+  --skeleton-base: #{$gray-700};
+  --skeleton-highlight: #{$gray-600};
+  --loading-spinner: var(--primary-color);
+
+  // ===== COMPONENT THEME INDICATOR =====
+  --theme-name: 'dark';
+}
+
+// ===== DARK THEME SPECIFIC STYLES =====
+[data-theme="dark"] {
+
+  // Enhanced text selection for dark mode
+  ::selection {
+    background-color: var(--primary-pale);
+    color: var(--primary-color);
+  }
+
+  ::-moz-selection {
+    background-color: var(--primary-pale);
+    color: var(--primary-color);
+  }
+
+  // Custom scrollbar for dark theme
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--primary-color);
+      box-shadow: var(--shadow-glow-sm);
+    }
+  }
+
+  // Enhanced focus indicators with glow
+  *:focus-visible {
+    outline: 2px solid var(--focus-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 10px var(--shadow-primary);
+  }
+
+  // Link styling with glow
+  a {
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+
+    &:hover {
+      color: var(--hover-primary);
+      text-shadow: 0 0 8px var(--shadow-primary);
+    }
+
+    &:visited {
+      color: var(--primary-dark);
+    }
+  }
+
+  // Code styling for dark theme
+  code {
+    background-color: var(--bg-secondary);
+    color: var(--primary-color);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    border: 1px solid var(--border-light);
+  }
+
+  pre {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    border: 1px solid var(--border-light);
+  }
+
+  // Table styling for dark theme
+  table {
+    border-collapse: collapse;
+
+    th {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-medium);
+      padding: 0.75rem;
+    }
+
+    td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 0.75rem;
+    }
+
+    tr:hover {
+      background-color: var(--hover-surface);
+    }
+  }
+
+  // Enhanced form controls
+  input, textarea, select {
+    &::placeholder {
+      color: var(--input-placeholder);
+      opacity: 0.7;
+    }
+
+    &:focus {
+      box-shadow: var(--input-focus-shadow);
+      border-color: var(--input-focus-border);
+    }
+
+    &:disabled {
+      background-color: var(--bg-secondary);
+      color: var(--text-muted);
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  // Button enhancements with glow
+  button, .btn {
+    transition: all 0.3s ease-in-out;
+
+    &.btn-primary {
+      box-shadow: var(--btn-primary-shadow);
+
+      &:hover {
+        box-shadow: var(--shadow-glow-md);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+  }
+
+  // Image filters for dark theme
+  img {
+    &[data-theme="dark"] {
+      filter: none;
+    }
+
+    &[data-theme="light"] {
+      display: none;
+    }
+
+    // Auto-adjust images that don't have theme variants
+    &:not([data-theme]) {
+      filter: brightness(0.9) contrast(1.1);
+    }
+  }
+
+  // Glow effects for special elements
+  .glow {
+    box-shadow: var(--shadow-glow-md);
+  }
+
+  .glow-hover {
+    transition: box-shadow 0.3s ease;
+
+    &:hover {
+      box-shadow: var(--shadow-glow-lg);
+    }
+  }
+
+  // Special styling for brand elements
+  .brand-primary {
+    color: var(--primary-color);
+    text-shadow: 0 0 10px var(--shadow-primary);
+  }
+
+  // Enhanced card styling
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+
+    &:hover {
+      box-shadow: var(--card-hover-shadow);
+      transform: translateY(-2px);
+    }
+  }
+}
+
+// ===== DARK THEME MEDIA QUERIES =====
+
+// Automatic dark theme based on system preference
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    // Apply dark theme variables when system prefers dark
+    // and no explicit light theme is set
+    @extend [data-theme="dark"];
+  }
+}
+
+// Reduce glow effects for users who prefer reduced motion
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="dark"] {
+    --shadow-glow-sm: none;
+    --shadow-glow-md: none;
+    --shadow-glow-lg: none;
+
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

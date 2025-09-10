@@ -1,0 +1,331 @@
+// =============================================================================
+// VARIABLES - SubashaVentures Global Variables
+// =============================================================================
+// Global SCSS variables for consistent styling across the clothing store
+// =============================================================================
+
+@import 'colors';
+
+// ===== TYPOGRAPHY VARIABLES =====
+
+// Font families
+$font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-secondary: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+$font-monospace: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Cascadia Code', Consolas, monospace;
+$font-display: 'Poppins', $font-primary;
+
+// Font weights
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+$font-weight-extrabold: 800;
+
+// Font sizes (mobile-first)
+$font-size-xs: 0.75rem;    // 12px
+$font-size-sm: 0.875rem;   // 14px
+$font-size-base: 1rem;     // 16px
+$font-size-lg: 1.125rem;   // 18px
+$font-size-xl: 1.25rem;    // 20px
+$font-size-2xl: 1.5rem;    // 24px
+$font-size-3xl: 1.875rem;  // 30px
+$font-size-4xl: 2.25rem;   // 36px
+$font-size-5xl: 3rem;      // 48px
+$font-size-6xl: 3.75rem;   // 60px
+
+// Line heights
+$line-height-tight: 1.25;
+$line-height-snug: 1.375;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.625;
+$line-height-loose: 2;
+
+// Letter spacing
+$letter-spacing-tight: -0.025em;
+$letter-spacing-normal: 0;
+$letter-spacing-wide: 0.025em;
+$letter-spacing-wider: 0.05em;
+$letter-spacing-widest: 0.1em;
+
+// ===== SPACING VARIABLES =====
+
+// Base spacing unit
+$spacing-unit: 1rem; // 16px
+
+// Spacing scale
+$space-0: 0;
+$space-1: 0.25rem;   // 4px
+$space-2: 0.5rem;    // 8px
+$space-3: 0.75rem;   // 12px
+$space-4: 1rem;      // 16px
+$space-5: 1.25rem;   // 20px
+$space-6: 1.5rem;    // 24px
+$space-8: 2rem;      // 32px
+$space-10: 2.5rem;   // 40px
+$space-12: 3rem;     // 48px
+$space-16: 4rem;     // 64px
+$space-20: 5rem;     // 80px
+$space-24: 6rem;     // 96px
+$space-32: 8rem;     // 128px
+
+// Component-specific spacing
+$padding-xs: $space-1 $space-2;
+$padding-sm: $space-2 $space-3;
+$padding-md: $space-3 $space-4;
+$padding-lg: $space-4 $space-6;
+$padding-xl: $space-6 $space-8;
+
+$margin-xs: $space-1;
+$margin-sm: $space-2;
+$margin-md: $space-4;
+$margin-lg: $space-6;
+$margin-xl: $space-8;
+
+// ===== BREAKPOINTS =====
+
+$breakpoint-xs: 0;
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+$breakpoint-xxl: 1400px;
+
+// Container max widths
+$container-sm: 540px;
+$container-md: 720px;
+$container-lg: 960px;
+$container-xl: 1140px;
+$container-xxl: 1320px;
+
+// ===== LAYOUT VARIABLES =====
+
+// Z-index scale
+$z-dropdown: 1000;
+$z-sticky: 1020;
+$z-fixed: 1030;
+$z-modal-backdrop: 1040;
+$z-modal: 1050;
+$z-popover: 1060;
+$z-tooltip: 1070;
+$z-toast: 1080;
+
+// Grid system
+$grid-columns: 12;
+$grid-gutter-width: 1.5rem;
+$grid-gutter-xs: 1rem;
+$grid-gutter-sm: 1.25rem;
+$grid-gutter-md: 1.5rem;
+$grid-gutter-lg: 2rem;
+$grid-gutter-xl: 2.5rem;
+
+// ===== BORDER VARIABLES =====
+
+// Border widths
+$border-width-0: 0;
+$border-width-thin: 1px;
+$border-width-thick: 2px;
+$border-width-thicker: 3px;
+$border-width-thickest: 4px;
+
+// Border radius
+$border-radius-none: 0;
+$border-radius-sm: 0.25rem;   // 4px
+$border-radius-md: 0.375rem;  // 6px
+$border-radius-lg: 0.5rem;    // 8px
+$border-radius-xl: 0.75rem;   // 12px
+$border-radius-2xl: 1rem;     // 16px
+$border-radius-3xl: 1.5rem;   // 24px
+$border-radius-full: 9999px;
+
+// Component-specific border radius
+$btn-border-radius: $border-radius-md;
+$card-border-radius: $border-radius-lg;
+$input-border-radius: $border-radius-md;
+$modal-border-radius: $border-radius-xl;
+
+// ===== TRANSITION VARIABLES =====
+
+// Transition durations
+$duration-fast: 0.15s;
+$duration-normal: 0.2s;
+$duration-slow: 0.3s;
+$duration-slower: 0.5s;
+
+// Transition easing functions
+$ease-in: cubic-bezier(0.4, 0, 1, 1);
+$ease-out: cubic-bezier(0, 0, 0.2, 1);
+$ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-back: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+// Common transitions
+$transition-fast: all $duration-fast $ease-out;
+$transition-normal: all $duration-normal $ease-out;
+$transition-slow: all $duration-slow $ease-out;
+
+// Component-specific transitions
+$btn-transition: background-color $duration-fast $ease-out,
+border-color $duration-fast $ease-out,
+color $duration-fast $ease-out,
+box-shadow $duration-normal $ease-out,
+transform $duration-fast $ease-out;
+
+$link-transition: color $duration-fast $ease-out;
+
+$card-transition: box-shadow $duration-normal $ease-out,
+transform $duration-fast $ease-out;
+
+// ===== COMPONENT SIZING =====
+
+// Button sizes
+$btn-padding-xs: $space-1 $space-2;
+$btn-padding-sm: $space-2 $space-3;
+$btn-padding-md: $space-3 $space-4;
+$btn-padding-lg: $space-4 $space-6;
+$btn-padding-xl: $space-5 $space-8;
+
+$btn-font-size-xs: $font-size-xs;
+$btn-font-size-sm: $font-size-sm;
+$btn-font-size-md: $font-size-base;
+$btn-font-size-lg: $font-size-lg;
+$btn-font-size-xl: $font-size-xl;
+
+// Input sizes
+$input-padding-xs: $space-1 $space-2;
+$input-padding-sm: $space-2 $space-3;
+$input-padding-md: $space-3 $space-4;
+$input-padding-lg: $space-4 $space-5;
+$input-padding-xl: $space-5 $space-6;
+
+$input-height-xs: 2rem;
+$input-height-sm: 2.25rem;
+$input-height-md: 2.5rem;
+$input-height-lg: 3rem;
+$input-height-xl: 3.5rem;
+
+// Avatar sizes
+$avatar-xs: 1.5rem;
+$avatar-sm: 2rem;
+$avatar-md: 2.5rem;
+$avatar-lg: 3rem;
+$avatar-xl: 4rem;
+$avatar-2xl: 5rem;
+
+// ===== CLOTHING STORE SPECIFIC =====
+
+// Product card dimensions
+$product-card-width-mobile: 100%;
+$product-card-width-tablet: calc(50% - 0.75rem);
+$product-card-width-desktop: calc(33.333% - 1rem);
+$product-card-width-wide: calc(25% - 1rem);
+
+$product-image-aspect-ratio: 1 / 1;
+$product-image-aspect-ratio-wide: 4 / 3;
+
+// Category specific variables
+$category-icon-size: 3rem;
+$category-card-min-height: 8rem;
+$category-banner-height: 12rem;
+
+// Shopping cart
+$cart-item-height: 4rem;
+$cart-sidebar-width: 320px;
+$cart-badge-size: 1.25rem;
+
+// Navigation
+$nav-height: 4rem;
+$nav-height-mobile: 3.5rem;
+$nav-logo-height: 2rem;
+
+// Footer
+$footer-min-height: 16rem;
+
+// ===== ANIMATION VARIABLES =====
+
+// Keyframe durations
+$animation-duration-fast: 0.3s;
+$animation-duration-normal: 0.5s;
+$animation-duration-slow: 0.8s;
+
+// Loading animations
+$loading-spinner-size: 2rem;
+$loading-skeleton-duration: 1.5s;
+
+// Hover effects
+$hover-scale: 1.02;
+$hover-scale-small: 1.01;
+$hover-scale-large: 1.05;
+
+$hover-lift: translateY(-2px);
+$hover-lift-small: translateY(-1px);
+$hover-lift-large: translateY(-4px);
+
+// ===== ACCESSIBILITY VARIABLES =====
+
+// Focus indicators
+$focus-ring-width: 3px;
+$focus-ring-offset: 2px;
+$focus-ring-opacity: 0.5;
+
+// Touch targets (minimum 44x44px for accessibility)
+$touch-target-min-size: 44px;
+
+// ===== DARK MODE SPECIFIC =====
+
+// Glow effects for dark mode
+$glow-blur-sm: 10px;
+$glow-blur-md: 20px;
+$glow-blur-lg: 30px;
+
+$glow-spread-sm: 2px;
+$glow-spread-md: 4px;
+$glow-spread-lg: 6px;
+
+// ===== UTILITY VARIABLES =====
+
+// Aspect ratios
+$aspect-square: 1 / 1;
+$aspect-video: 16 / 9;
+$aspect-photo: 4 / 3;
+$aspect-golden: 1.618 / 1;
+
+// Common measurements
+$full-width: 100%;
+$half-width: 50%;
+$third-width: 33.333%;
+$quarter-width: 25%;
+
+$full-height: 100%;
+$half-height: 50%;
+$screen-height: 100vh;
+$screen-width: 100vw;
+
+// ===== PERFORMANCE OPTIMIZATIONS =====
+
+// Will-change properties for animations
+$will-change-transform: transform;
+$will-change-opacity: opacity;
+$will-change-scroll: scroll-position;
+
+// ===== CLOTHING STORE THEME CUSTOMIZATION =====
+
+// Brand personality (can be overridden per theme)
+$brand-personality-playful: true;
+$brand-personality-elegant: false;
+$brand-personality-modern: true;
+
+// Store layout preferences
+$store-layout-grid-preferred: true;
+$store-layout-list-available: true;
+$store-product-quick-view: true;
+
+// Feature flags
+$enable-animations: true;
+$enable-glow-effects: true;
+$enable-hover-effects: true;
+$enable-parallax: false; // Disabled for better mobile performance
+
+// Performance settings
+$optimize-for-mobile: true;
+$lazy-load-images: true;
+$preload-critical-fonts: true;

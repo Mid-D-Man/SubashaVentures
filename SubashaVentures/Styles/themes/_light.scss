@@ -1,0 +1,315 @@
+// =============================================================================
+// LIGHT THEME - SubashaVentures
+// =============================================================================
+// Default light mode theme using the defined color palette
+// =============================================================================
+
+@import '../abstracts/colors';
+
+// ===== LIGHT THEME ROOT VARIABLES =====
+:root {
+  // ===== PRIMARY COLORS =====
+  --primary-color: #{$primary};
+  --primary-light: #{$primary-light};
+  --primary-dark: #{$primary-dark};
+  --primary-pale: #{$primary-pale};
+
+  // ===== SECONDARY COLORS =====
+  --secondary-color: #{$secondary};
+  --secondary-light: #{$secondary-light};
+  --secondary-dark: #{$secondary-dark};
+
+  // ===== ACCENT COLORS =====
+  --accent-1: #{$accent-1};
+  --accent-1-light: #{$accent-1-light};
+  --accent-1-dark: #{$accent-1-dark};
+  --accent-2: #{$accent-2};
+  --accent-2-light: #{$accent-2-light};
+  --accent-2-dark: #{$accent-2-dark};
+
+  // ===== BACKGROUND COLORS =====
+  --bg-primary: #{$white};
+  --bg-secondary: #{$gray-100};
+  --bg-tertiary: #{$gray-200};
+  --bg-surface: #{$white};
+  --bg-elevated: #{$white};
+  --bg-overlay: rgba(255, 255, 255, 0.95);
+
+  // Brand background variants
+  --bg-brand-primary: #{$bg-primary-subtle};
+  --bg-brand-secondary: #{$bg-secondary-subtle};
+
+  // ===== TEXT COLORS =====
+  --text-primary: #{$gray-900};
+  --text-secondary: #{$gray-700};
+  --text-tertiary: #{$gray-600};
+  --text-muted: #{$gray-500};
+  --text-on-primary: #{$white};
+  --text-on-secondary: #{$white};
+  --text-on-surface: #{$gray-900};
+  --text-inverse: #{$white};
+
+  // ===== BORDER COLORS =====
+  --border-light: #{$gray-200};
+  --border-medium: #{$gray-300};
+  --border-heavy: #{$gray-400};
+  --border-primary: #{$primary};
+  --border-secondary: #{$secondary};
+  --border-focus: #{$primary};
+  --border-error: #{$danger};
+
+  // ===== SEMANTIC COLORS =====
+  --success-color: #{$success};
+  --success-light: #{$success-light};
+  --success-dark: #{$success-dark};
+  --warning-color: #{$warning};
+  --warning-light: #{$warning-light};
+  --warning-dark: #{$warning-dark};
+  --danger-color: #{$danger};
+  --danger-light: #{$danger-light};
+  --danger-dark: #{$danger-dark};
+  --info-color: #{$info};
+  --info-light: #{$info-light};
+  --info-dark: #{$info-dark};
+
+  // ===== CLOTHING CATEGORY COLORS =====
+  --mens-color: #{$mens-color};
+  --mens-bg: #{$mens-bg};
+  --womens-color: #{$womens-color};
+  --womens-bg: #{$womens-bg};
+  --children-color: #{$children-color};
+  --children-bg: #{$children-bg};
+  --baby-color: #{$baby-color};
+  --baby-bg: #{$baby-bg};
+  --home-color: #{$home-color};
+  --home-bg: #{$home-bg};
+
+  // ===== INTERACTIVE STATES =====
+  --hover-primary: #{$hover-primary};
+  --hover-secondary: #{$hover-secondary};
+  --focus-primary: #{$focus-primary};
+  --active-primary: #{$active-primary};
+  --hover-surface: #{$gray-50};
+  --hover-overlay: rgba(0, 0, 0, 0.05);
+
+  // ===== SHADOW SYSTEM =====
+  --shadow-light: #{$shadow-light};
+  --shadow-medium: #{$shadow-medium};
+  --shadow-heavy: #{$shadow-dark};
+  --shadow-primary: #{$shadow-primary};
+  --shadow-glow: #{$shadow-glow};
+
+  // Shadow presets
+  --shadow-xs: 0 1px 2px var(--shadow-light);
+  --shadow-sm: 0 1px 3px var(--shadow-light), 0 1px 2px var(--shadow-light);
+  --shadow-md: 0 4px 6px var(--shadow-light), 0 2px 4px var(--shadow-light);
+  --shadow-lg: 0 10px 15px var(--shadow-medium), 0 4px 6px var(--shadow-light);
+  --shadow-xl: 0 20px 25px var(--shadow-medium), 0 10px 10px var(--shadow-light);
+  --shadow-2xl: 0 25px 50px var(--shadow-dark);
+  --shadow-inner: inset 0 2px 4px var(--shadow-light);
+
+  // ===== GRADIENTS =====
+  --gradient-primary: #{$gradient-primary};
+  --gradient-secondary: #{$gradient-secondary};
+  --gradient-hero: #{$gradient-hero};
+  --gradient-card: #{$gradient-card};
+
+  // ===== COMPONENT SPECIFIC =====
+
+  // Navigation
+  --nav-bg: #{$white};
+  --nav-border: var(--border-light);
+  --nav-link-color: var(--text-secondary);
+  --nav-link-hover: var(--primary-color);
+  --nav-link-active: var(--primary-color);
+
+  // Cards
+  --card-bg: #{$white};
+  --card-border: var(--border-light);
+  --card-shadow: var(--shadow-sm);
+  --card-hover-shadow: var(--shadow-md);
+
+  // Buttons
+  --btn-primary-bg: var(--primary-color);
+  --btn-primary-text: var(--text-on-primary);
+  --btn-primary-hover: var(--hover-primary);
+  --btn-secondary-bg: var(--secondary-color);
+  --btn-secondary-text: var(--text-on-secondary);
+  --btn-secondary-hover: var(--hover-secondary);
+  --btn-outline-border: var(--border-primary);
+  --btn-outline-text: var(--primary-color);
+  --btn-outline-hover-bg: var(--primary-color);
+  --btn-outline-hover-text: var(--text-on-primary);
+
+  // Forms
+  --input-bg: #{$white};
+  --input-border: var(--border-medium);
+  --input-text: var(--text-primary);
+  --input-placeholder: var(--text-muted);
+  --input-focus-border: var(--border-focus);
+  --input-focus-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
+  --input-error-border: var(--border-error);
+  --input-error-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+
+  // Modal/Overlay
+  --modal-backdrop: rgba(0, 0, 0, 0.5);
+  --modal-bg: var(--bg-surface);
+  --modal-shadow: var(--shadow-xl);
+
+  // Loading/Skeleton
+  --skeleton-base: #{$gray-200};
+  --skeleton-highlight: #{$gray-100};
+  --loading-spinner: var(--primary-color);
+
+  // ===== COMPONENT THEME INDICATOR =====
+  --theme-name: 'light';
+}
+
+// ===== LIGHT THEME SPECIFIC STYLES =====
+
+// Enhanced contrast for better readability in light mode
+.light-theme {
+
+  // Text selection styling
+  ::selection {
+    background-color: var(--primary-pale);
+    color: var(--text-primary);
+  }
+
+  ::-moz-selection {
+    background-color: var(--primary-pale);
+    color: var(--text-primary);
+  }
+
+  // Scrollbar styling for webkit browsers
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--border-heavy);
+    }
+  }
+
+  // Enhanced focus indicators for better accessibility
+  *:focus-visible {
+    outline: 2px solid var(--focus-primary);
+    outline-offset: 2px;
+  }
+
+  // Link styling
+  a {
+    color: var(--primary-color);
+
+    &:hover {
+      color: var(--hover-primary);
+    }
+
+    &:visited {
+      color: var(--primary-dark);
+    }
+  }
+
+  // Code styling
+  code {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+  }
+
+  pre {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+  }
+
+  // Table styling
+  table {
+    border-collapse: collapse;
+
+    th {
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-medium);
+      padding: 0.75rem;
+    }
+
+    td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 0.75rem;
+    }
+
+    tr:hover {
+      background-color: var(--hover-surface);
+    }
+  }
+
+  // Form control enhancements
+  input, textarea, select {
+    &::placeholder {
+      color: var(--input-placeholder);
+      opacity: 0.7;
+    }
+
+    &:disabled {
+      background-color: var(--bg-secondary);
+      color: var(--text-muted);
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  // Enhanced button states
+  button, .btn {
+    transition: all 0.2s ease-in-out;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+  }
+
+  // Image optimization for light theme
+  img {
+    &[data-theme="light"] {
+      filter: none;
+    }
+
+    &[data-theme="dark"] {
+      display: none;
+    }
+  }
+}
+
+// ===== PRINT STYLES =====
+@media print {
+  :root {
+    --bg-primary: white;
+    --bg-secondary: white;
+    --bg-surface: white;
+    --text-primary: black;
+    --text-secondary: #333;
+    --border-light: #ccc;
+  }
+
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}

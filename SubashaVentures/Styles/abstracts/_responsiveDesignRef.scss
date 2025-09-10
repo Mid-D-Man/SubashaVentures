@@ -1,0 +1,381 @@
+// =============================================================================
+// RESPONSIVE DESIGN REFERENCE - SubashaVentures
+// =============================================================================
+// Mobile-First Approach with Cross-Platform Responsiveness
+// This file serves as a reference guide - DO NOT import in production
+// =============================================================================
+
+// ===== BREAKPOINT DEFINITIONS =====
+$breakpoints: (
+        xs: 0,          // Extra small devices (portrait phones)
+        sm: 576px,      // Small devices (landscape phones)
+        md: 768px,      // Medium devices (tablets)
+        lg: 992px,      // Large devices (desktops)
+        xl: 1200px,     // Extra large devices (large desktops)
+        xxl: 1400px     // Extra extra large devices (ultra-wide screens)
+);
+
+// ===== CONTAINER MAX-WIDTHS =====
+$container-max-widths: (
+        sm: 540px,
+        md: 720px,
+        lg: 960px,
+        xl: 1140px,
+        xxl: 1320px
+);
+
+// ===== MIXINS FOR RESPONSIVE DESIGN =====
+
+// Media query mixin for min-width (mobile-first)
+@mixin media-up($size) {
+  @if map-has-key($breakpoints, $size) {
+    $breakpoint: map-get($breakpoints, $size);
+    @if $breakpoint > 0 {
+      @media (min-width: $breakpoint) {
+        @content;
+      }
+    } @else {
+      @content;
+    }
+  } @else {
+    @media (min-width: $size) {
+      @content;
+    }
+  }
+}
+
+// Media query mixin for max-width (desktop-first fallback)
+@mixin media-down($size) {
+  @if map-has-key($breakpoints, $size) {
+    $breakpoint: map-get($breakpoints, $size) - 0.02px;
+    @media (max-width: $breakpoint) {
+      @content;
+    }
+  } @else {
+    @media (max-width: $size - 0.02px) {
+      @content;
+    }
+  }
+}
+
+// Media query for specific breakpoint ranges
+@mixin media-between($lower, $upper) {
+  @if map-has-key($breakpoints, $lower) and map-has-key($breakpoints, $upper) {
+    $lower-breakpoint: map-get($breakpoints, $lower);
+    $upper-breakpoint: map-get($breakpoints, $upper) - 0.02px;
+
+    @if $lower-breakpoint > 0 {
+      @media (min-width: $lower-breakpoint) and (max-width: $upper-breakpoint) {
+        @content;
+      }
+    } @else {
+      @media (max-width: $upper-breakpoint) {
+        @content;
+      }
+    }
+  }
+}
+
+// ===== USAGE EXAMPLES =====
+// These are examples - remove in actual implementation
+
+/* 
+// EXAMPLE: Basic responsive component
+.product-card {
+  // Mobile-first base styles (xs)
+  padding: 1rem;
+  margin-bottom: 1rem;
+  
+  // Small devices (sm) and up
+  @include media-up(sm) {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  // Medium devices (md) and up  
+  @include media-up(md) {
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+  }
+  
+  // Large devices (lg) and up
+  @include media-up(lg) {
+    padding: 2.5rem;
+    max-width: 800px;
+  }
+  
+  // Extra large devices (xl) and up
+  @include media-up(xl) {
+    padding: 3rem;
+    max-width: 1000px;
+  }
+}
+
+// EXAMPLE: Navigation menu responsive behavior
+.nav-menu {
+  // Mobile: Hidden by default, show hamburger
+  display: none;
+  position: fixed;
+  top: 0;
+  left: -100%;
+  width: 80%;
+  height: 100vh;
+  background: var(--surface-color);
+  transition: left 0.3s ease;
+  
+  &.active {
+    left: 0;
+    display: block;
+  }
+  
+  // Tablet and up: Show horizontal menu
+  @include media-up(md) {
+    display: flex !important;
+    position: static;
+    width: auto;
+    height: auto;
+    background: transparent;
+    left: auto;
+    
+    &.active {
+      left: auto;
+    }
+  }
+  
+  .nav-item {
+    // Mobile: Stack vertically
+    display: block;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    
+    // Tablet and up: Horizontal layout
+    @include media-up(md) {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-bottom: none;
+    }
+  }
+}
+
+// EXAMPLE: Grid layout system
+.clothing-grid {
+  display: grid;
+  gap: 1rem;
+  
+  // Mobile: Single column
+  grid-template-columns: 1fr;
+  
+  // Small: 2 columns
+  @include media-up(sm) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+  
+  // Medium: 3 columns
+  @include media-up(md) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+  }
+  
+  // Large: 4 columns
+  @include media-up(lg) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  // Extra large: 5 columns for wide screens
+  @include media-up(xxl) {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+// EXAMPLE: Typography scaling
+.hero-title {
+  // Mobile base
+  font-size: 1.75rem;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  
+  @include media-up(sm) {
+    font-size: 2.25rem;
+  }
+  
+  @include media-up(md) {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  @include media-up(lg) {
+    font-size: 3.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  @include media-up(xl) {
+    font-size: 4rem;
+  }
+}
+
+// EXAMPLE: Container with responsive max-widths
+.container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1rem;
+  
+  @include media-up(sm) {
+    max-width: map-get($container-max-widths, sm);
+  }
+  
+  @include media-up(md) {
+    max-width: map-get($container-max-widths, md);
+  }
+  
+  @include media-up(lg) {
+    max-width: map-get($container-max-widths, lg);
+  }
+  
+  @include media-up(xl) {
+    max-width: map-get($container-max-widths, xl);
+  }
+  
+  @include media-up(xxl) {
+    max-width: map-get($container-max-widths, xxl);
+  }
+}
+
+// EXAMPLE: Touch-friendly mobile interactions
+.btn {
+  // Mobile: Larger touch targets
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  
+  // Desktop: More compact
+  @include media-up(md) {
+    min-height: 40px;
+    min-width: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+// EXAMPLE: Image responsive behavior
+.product-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  
+  // Mobile: Square aspect ratio
+  aspect-ratio: 1 / 1;
+  
+  // Tablet and up: More rectangular
+  @include media-up(md) {
+    aspect-ratio: 4 / 3;
+  }
+}
+*/
+
+// ===== CROSS-PLATFORM CONSIDERATIONS =====
+
+// Touch device detection
+@mixin touch-device {
+  @media (hover: none) and (pointer: coarse) {
+    @content;
+  }
+}
+
+// Hover-capable device detection  
+@mixin hover-device {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}
+
+// High DPI/Retina display detection
+@mixin retina {
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    @content;
+  }
+}
+
+// Reduced motion preference
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+// Dark theme preference
+@mixin prefers-dark {
+  @media (prefers-color-scheme: dark) {
+    @content;
+  }
+}
+
+// ===== SPACING SCALE =====
+$spacing: (
+        0: 0,
+        1: 0.25rem,   // 4px
+        2: 0.5rem,    // 8px
+        3: 0.75rem,   // 12px
+        4: 1rem,      // 16px
+        5: 1.25rem,   // 20px
+        6: 1.5rem,    // 24px
+        8: 2rem,      // 32px
+        10: 2.5rem,   // 40px
+        12: 3rem,     // 48px
+        16: 4rem,     // 64px
+        20: 5rem,     // 80px
+        24: 6rem,     // 96px
+        32: 8rem,     // 128px
+);
+
+// ===== TYPOGRAPHY SCALE =====
+$font-sizes: (
+        xs: 0.75rem,    // 12px
+        sm: 0.875rem,   // 14px
+        base: 1rem,     // 16px
+        lg: 1.125rem,   // 18px
+        xl: 1.25rem,    // 20px
+        2xl: 1.5rem,    // 24px
+        3xl: 1.875rem,  // 30px
+        4xl: 2.25rem,   // 36px
+        5xl: 3rem,      // 48px
+        6xl: 3.75rem,   // 60px
+        7xl: 4.5rem,    // 72px
+        8xl: 6rem,      // 96px
+        9xl: 8rem,      // 128px
+);
+
+// ===== BEST PRACTICES CHECKLIST =====
+/*
+✅ MOBILE-FIRST APPROACH:
+   - Start with mobile styles as base
+   - Use @include media-up() for larger screens
+   - Avoid media-down() unless absolutely necessary
+
+✅ TOUCH-FRIENDLY DESIGN:
+   - Minimum 48x48px touch targets
+   - Adequate spacing between interactive elements
+   - Consider thumb reach zones on mobile
+
+✅ PERFORMANCE OPTIMIZATION:
+   - Use efficient selectors
+   - Minimize nested media queries
+   - Consider critical CSS for above-fold content
+
+✅ ACCESSIBILITY:
+   - Respect prefers-reduced-motion
+   - Ensure proper contrast ratios
+   - Maintain focus indicators across all screen sizes
+
+✅ CONTENT STRATEGY:
+   - Progressive enhancement
+   - Essential content first on mobile
+   - Consider loading strategies for images
+
+✅ TESTING:
+   - Test on actual devices, not just browser dev tools
+   - Consider various network conditions
+   - Test with different input methods (touch, mouse, keyboard)
+*/

@@ -1,0 +1,181 @@
+// =============================================================================
+// FUNCTIONS - SubashaVentures LibSassBuilder Compatible Functions
+// =============================================================================
+// Custom functions compatible with LibSassBuilder limitations
+// =============================================================================
+
+// Helper function to remove units (simplified for LibSassBuilder)
+@function strip-unit($number) {
+  @if type-of($number) == 'number' and not unitless($number) {
+    @return $number / ($number * 0 + 1);
+  }
+  @return $number;
+}
+
+// Function for color transparency
+@function alpha-color($color, $alpha) {
+  @return rgba($color, $alpha);
+}
+
+// Simplified responsive font size calculation
+@function calc-fluid-font($min-size, $max-size) {
+  // Returns a string for calc() since LibSassBuilder doesn't support complex calc
+  @return "calc(#{$min-size} + #{strip-unit($max-size - $min-size)} * ((100vw - 320px) / #{strip-unit(1200px - 320px)}))";
+}
+
+// Convert rem to px (approximate)
+@function rem-to-px($rem) {
+  @return $rem * 16;
+}
+
+// Convert px to rem
+@function px-to-rem($px) {
+  @return $px / 16 * 1rem;
+}
+
+// Get spacing value
+@function spacing($multiplier) {
+  @return $multiplier * 0.25rem; // 4px base
+}
+
+// Color variations (manual since no lighten/darken available)
+// These are pre-calculated color variations for the primary color #96994A
+
+$primary-variations: (
+        'base': #96994A,
+        'light-5': #9DA050,
+        'light-10': #A4A756,
+        'light-15': #ABAE5C,
+        'light-20': #B2B562,
+        'light-25': #B9BC68,
+        'dark-5': #8A8E43,
+        'dark-10': #7E823C,
+        'dark-15': #727635,
+        'dark-20': #666A2E,
+        'dark-25': #5A5E27
+);
+
+$secondary-variations: (
+        'base': #9A4A96,
+        'light-5': #A050A0,
+        'light-10': #A756A4,
+        'light-15': #AE5CAB,
+        'light-20': #B562B2,
+        'light-25': #BC68B9,
+        'dark-5': #8E438A,
+        'dark-10': #823C7E,
+        'dark-15': #763572,
+        'dark-20': #6A2E66,
+        'dark-25': #5E275A
+);
+
+// Function to get color variation
+@function get-color-variation($color-map, $variation) {
+  @if $color-map == 'primary' and $variation == 'base' {
+    @return #96994A;
+  } @else if $color-map == 'primary' and $variation == 'light-5' {
+    @return #9DA050;
+  } @else if $color-map == 'primary' and $variation == 'light-10' {
+    @return #A4A756;
+  } @else if $color-map == 'primary' and $variation == 'light-15' {
+    @return #ABAE5C;
+  } @else if $color-map == 'primary' and $variation == 'light-20' {
+    @return #B2B562;
+  } @else if $color-map == 'primary' and $variation == 'light-25' {
+    @return #B9BC68;
+  } @else if $color-map == 'primary' and $variation == 'dark-5' {
+    @return #8A8E43;
+  } @else if $color-map == 'primary' and $variation == 'dark-10' {
+    @return #7E823C;
+  } @else if $color-map == 'primary' and $variation == 'dark-15' {
+    @return #727635;
+  } @else if $color-map == 'primary' and $variation == 'dark-20' {
+    @return #666A2E;
+  } @else if $color-map == 'primary' and $variation == 'dark-25' {
+    @return #5A5E27;
+  } @else if $color-map == 'secondary' and $variation == 'base' {
+    @return #9A4A96;
+  } @else if $color-map == 'secondary' and $variation == 'light-5' {
+    @return #A050A0;
+  } @else if $color-map == 'secondary' and $variation == 'light-10' {
+    @return #A756A4;
+  } @else if $color-map == 'secondary' and $variation == 'light-15' {
+    @return #AE5CAB;
+  } @else if $color-map == 'secondary' and $variation == 'light-20' {
+    @return #B562B2;
+  } @else if $color-map == 'secondary' and $variation == 'light-25' {
+    @return #BC68B9;
+  } @else if $color-map == 'secondary' and $variation == 'dark-5' {
+    @return #8E438A;
+  } @else if $color-map == 'secondary' and $variation == 'dark-10' {
+    @return #823C7E;
+  } @else if $color-map == 'secondary' and $variation == 'dark-15' {
+    @return #763572;
+  } @else if $color-map == 'secondary' and $variation == 'dark-20' {
+    @return #6A2E66;
+  } @else if $color-map == 'secondary' and $variation == 'dark-25' {
+    @return #5E275A;
+  } @else {
+    @return #96994A; // fallback to primary
+  }
+}
+
+// Simplified theme color function
+@function theme-color($theme, $color-name) {
+  @if $theme == 'light' {
+    @if $color-name == 'primary' {
+      @return #96994A;
+    } @else if $color-name == 'secondary' {
+      @return #9A4A96;
+    } @else if $color-name == 'background' {
+      @return #FFFFFF;
+    } @else if $color-name == 'surface' {
+      @return #F8F9FA;
+    } @else if $color-name == 'text-primary' {
+      @return #212529;
+    } @else if $color-name == 'text-secondary' {
+      @return #495057;
+    } @else if $color-name == 'border' {
+      @return #E9ECEF;
+    }
+  } @else if $theme == 'dark' {
+    @if $color-name == 'primary' {
+      @return #B8BB6A;
+    } @else if $color-name == 'secondary' {
+      @return #BB6AB8;
+    } @else if $color-name == 'background' {
+      @return #212529;
+    } @else if $color-name == 'surface' {
+      @return #343A40;
+    } @else if $color-name == 'text-primary' {
+      @return #F8F9FA;
+    } @else if $color-name == 'text-secondary' {
+      @return #DEE2E6;
+    } @else if $color-name == 'border' {
+      @return #495057;
+    }
+  }
+  @return #96994A; // fallback
+}
+
+// Simplified container width calculation
+@function container-width($breakpoint) {
+  @if $breakpoint == 'sm' {
+    @return 540px;
+  } @else if $breakpoint == 'md' {
+    @return 720px;
+  } @else if $breakpoint == 'lg' {
+    @return 960px;
+  } @else if $breakpoint == 'xl' {
+    @return 1140px;
+  } @else if $breakpoint == 'xxl' {
+    @return 1320px;
+  } @else {
+    @return 100%;
+  }
+}
+
+// Aspect ratio calculation
+@function aspect-ratio-padding($width, $height) {
+  @return percentage($height / $width);
+}
