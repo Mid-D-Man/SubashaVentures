@@ -1,0 +1,8 @@
+/*.wasm
+  Content-Type: application/wasm
+/*.js
+  Content-Type: application/javascript
+/*.webmanifest
+  Content-Type: application/manifest+json
+/*.json
+  Content-Type: application/json
