@@ -8,12 +8,70 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.17"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.17" PrivateAssets="all"/>
+        <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+        <PackageReference Include="Blazored.Modal" Version="7.2.0" />
+        <PackageReference Include="Blazored.Toast" Version="4.2.1" />
+        <PackageReference Include="LibSassBuilder" Version="3.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.20" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.20" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
         <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js"/>
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Components\Admin\" />
+      <Folder Include="Components\Auth\" />
+      <Folder Include="Components\Cart\" />
+      <Folder Include="Components\Layout\" />
+      <Folder Include="Components\Product\" />
+      <Folder Include="Components\Search\" />
+      <Folder Include="Components\Shared\Buttons\" />
+      <Folder Include="Components\Shared\Cards\" />
+      <Folder Include="Components\Shared\Forms\" />
+      <Folder Include="Components\Shared\Loading\" />
+      <Folder Include="Components\Shared\Modals\" />
+      <Folder Include="Domain\Entities\" />
+      <Folder Include="Domain\Enums\" />
+      <Folder Include="Domain\Interfaces\" />
+      <Folder Include="Domain\ValueObjects\" />
+      <Folder Include="Layout\" />
+      <Folder Include="Models\Cart\" />
+      <Folder Include="Models\Firebase\" />
+      <Folder Include="Models\Order\" />
+      <Folder Include="Models\Product\" />
+      <Folder Include="Models\Supabase\" />
+      <Folder Include="Models\User\" />
+      <Folder Include="Pages\Account\" />
+      <Folder Include="Pages\Admin\" />
+      <Folder Include="Pages\Shared\" />
+      <Folder Include="Pages\Shop\" />
+      <Folder Include="Services\Auth\" />
+      <Folder Include="Services\Cart\" />
+      <Folder Include="Services\Firebase\" />
+      <Folder Include="Services\Order\" />
+      <Folder Include="Services\Storage\" />
+      <Folder Include="Services\Supabase\" />
+      <Folder Include="Services\Theme\" />
+      <Folder Include="Styles\themes\" />
+      <Folder Include="Utilities\Constants\" />
+      <Folder Include="Utilities\Extensions\" />
+      <Folder Include="Utilities\Helpers\" />
+      <Folder Include="wwwroot\icons\" />
+      <Folder Include="wwwroot\images\" />
+      <Folder Include="wwwroot\svg\" />
+    </ItemGroup>
+ <!-- SCSS Compilation -->
+  <ItemGroup>
+    <Content Remove="Styles\**" />
+    <Compile Remove="Styles\**" />
+    <EmbeddedResource Remove="Styles\**" />
+    <None Remove="Styles\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Styles\**\*.scss" />
+  </ItemGroup>
 
 </Project>

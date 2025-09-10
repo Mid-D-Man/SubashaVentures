@@ -1,0 +1,15 @@
+[
+  {
+    "outputFile": "wwwroot/css/styles.css",
+    "inputFile": "Styles/main.scss",
+    "minify": {
+      "enabled": true
+    },
+    "includeInProject": false,
+    "options": {
+      "sourceMap": false,
+      "sourceMapRoot": "",
+      "outputStyle": "compressed"
+    }
+  }
+]

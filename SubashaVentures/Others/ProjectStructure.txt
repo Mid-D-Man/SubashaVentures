@@ -1,0 +1,188 @@
+ ls -R
+SubashaVentures         SubashaVentures.sln     global.json
+
+./SubashaVentures:
+App.razor               Models                  Properties              SubashaVentures.csproj  compilerconfig.json
+Components              Others                  Services                Utilities               obj
+Domain                  Pages                   Shared                  _Imports.razor          wwwroot
+Layout                  Program.cs              Styles                  bin
+
+./SubashaVentures/Components:
+Admin   Auth    Cart    Layout  Product Search  Shared
+
+./SubashaVentures/Components/Admin:
+
+./SubashaVentures/Components/Auth:
+
+./SubashaVentures/Components/Cart:
+
+./SubashaVentures/Components/Layout:
+
+./SubashaVentures/Components/Product:
+
+./SubashaVentures/Components/Search:
+
+./SubashaVentures/Components/Shared:
+Buttons Cards   Forms   Loading Modals
+
+./SubashaVentures/Components/Shared/Buttons:
+
+./SubashaVentures/Components/Shared/Cards:
+
+./SubashaVentures/Components/Shared/Forms:
+
+./SubashaVentures/Components/Shared/Loading:
+
+./SubashaVentures/Components/Shared/Modals:
+
+./SubashaVentures/Domain:
+Entities        Enums           Interfaces      ValueObjects
+
+./SubashaVentures/Domain/Entities:
+
+./SubashaVentures/Domain/Enums:
+
+./SubashaVentures/Domain/Interfaces:
+
+./SubashaVentures/Domain/ValueObjects:
+
+./SubashaVentures/Layout:
+
+./SubashaVentures/Models:
+Cart            Firebase        Order           Product         Supabase        User
+
+./SubashaVentures/Models/Cart:
+
+./SubashaVentures/Models/Firebase:
+
+./SubashaVentures/Models/Order:
+
+./SubashaVentures/Models/Product:
+
+./SubashaVentures/Models/Supabase:
+
+./SubashaVentures/Models/User:
+
+./SubashaVentures/Others:
+-_-info.dix             ProjectStructure.txt
+
+./SubashaVentures/Pages:
+Account         Admin           Counter.razor   FetchData.razor Index.razor     Shared          Shop
+
+./SubashaVentures/Pages/Account:
+
+./SubashaVentures/Pages/Admin:
+
+./SubashaVentures/Pages/Shared:
+
+./SubashaVentures/Pages/Shop:
+
+./SubashaVentures/Properties:
+launchSettings.json
+
+./SubashaVentures/Services:
+Auth            Cart            Firebase        Order           Storage         Supabase        Theme
+
+./SubashaVentures/Services/Auth:
+
+./SubashaVentures/Services/Cart:
+
+./SubashaVentures/Services/Firebase:
+
+./SubashaVentures/Services/Order:
+
+./SubashaVentures/Services/Storage:
+
+./SubashaVentures/Services/Supabase:
+
+./SubashaVentures/Services/Theme:
+
+./SubashaVentures/Shared:
+MainLayout.razor        MainLayout.razor.css    NavMenu.razor           NavMenu.razor.css       SurveyPrompt.razor
+
+./SubashaVentures/Styles:
+abstracts       base            themes
+
+./SubashaVentures/Styles/abstracts:
+_colors.scss                    _mixins.scss                    _variables.scss
+_functions.scss                 _responsiveDesignRef.scss
+
+./SubashaVentures/Styles/base:
+_base.scss              _reset.scss             _typography.scss
+
+./SubashaVentures/Styles/themes:
+
+./SubashaVentures/Utilities:
+Constants       Extensions      Helpers
+
+./SubashaVentures/Utilities/Constants:
+
+./SubashaVentures/Utilities/Extensions:
+
+./SubashaVentures/Utilities/Helpers:
+
+./SubashaVentures/bin:
+Debug
+
+./SubashaVentures/bin/Debug:
+net7.0
+
+./SubashaVentures/bin/Debug/net7.0:
+
+./SubashaVentures/obj:
+Debug                                           project.assets.json
+SubashaVentures.csproj.nuget.dgspec.json        project.nuget.cache
+SubashaVentures.csproj.nuget.g.props            project.packagespec.json
+SubashaVentures.csproj.nuget.g.targets          rider.project.model.nuget.info
+
+./SubashaVentures/obj/Debug:
+net7.0
+
+./SubashaVentures/obj/Debug/net7.0:
+SubashaVentures.AssemblyInfo.cs                                 SubashaVentures.csproj.AssemblyReference.cache
+SubashaVentures.AssemblyInfoInputs.cache                        ref
+SubashaVentures.GeneratedMSBuildEditorConfig.editorconfig       refint
+SubashaVentures.GlobalUsings.g.cs                               staticwebassets
+SubashaVentures.assets.cache
+
+./SubashaVentures/obj/Debug/net7.0/ref:
+
+./SubashaVentures/obj/Debug/net7.0/refint:
+
+./SubashaVentures/obj/Debug/net7.0/staticwebassets:
+
+./SubashaVentures/wwwroot:
+css                             icons                           manifest.json                   svg
+favicon.png                     images                          sample-data
+icon-192.png                    index.html                      service-worker.js
+icon-512.png                    js                              service-worker.published.js
+
+./SubashaVentures/wwwroot/css:
+app.css         bootstrap       open-iconic     styles.css
+
+./SubashaVentures/wwwroot/css/bootstrap:
+bootstrap.min.css       bootstrap.min.css.map
+
+./SubashaVentures/wwwroot/css/open-iconic:
+FONT-LICENSE    ICON-LICENSE    README.md       font
+
+./SubashaVentures/wwwroot/css/open-iconic/font:
+css     fonts
+
+./SubashaVentures/wwwroot/css/open-iconic/font/css:
+open-iconic-bootstrap.min.css
+
+./SubashaVentures/wwwroot/css/open-iconic/font/fonts:
+open-iconic.eot         open-iconic.otf         open-iconic.svg         open-iconic.ttf         open-iconic.woff
+
+./SubashaVentures/wwwroot/icons:
+
+./SubashaVentures/wwwroot/images:
+
+./SubashaVentures/wwwroot/js:
+theme.js
+
+./SubashaVentures/wwwroot/sample-data:
+weather.json
+
+./SubashaVentures/wwwroot/svg:
