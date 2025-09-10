@@ -36,7 +36,8 @@
       <Folder Include="Domain\Enums\" />
       <Folder Include="Domain\Interfaces\" />
       <Folder Include="Domain\ValueObjects\" />
-      <Folder Include="Layout\" />
+      <Folder Include="Layout\Admin\" />
+      <Folder Include="Layout\Client\" />
       <Folder Include="Models\Cart\" />
       <Folder Include="Models\Firebase\" />
       <Folder Include="Models\Order\" />
@@ -51,9 +52,9 @@
       <Folder Include="Services\Cart\" />
       <Folder Include="Services\Firebase\" />
       <Folder Include="Services\Order\" />
-      <Folder Include="Services\Storage\" />
       <Folder Include="Services\Supabase\" />
       <Folder Include="Services\Theme\" />
+      <Folder Include="Shared\" />
       <Folder Include="Utilities\Extensions\" />
       <Folder Include="Utilities\Helpers\" />
       <Folder Include="wwwroot\icons\" />
