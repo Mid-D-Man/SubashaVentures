@@ -8,20 +8,35 @@
     <base href="/" />
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
+    <link href="css/styles.css" rel="stylesheet" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="SubashaVentures.styles.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+    
+    <!-- Google Fonts - Poppins for brand consistency -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 
 <body>
     <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
+        <!-- Custom SubashaVentures Loading Animation -->
+        <div class="loading-progress">
+            <svg class="loading-circle" viewBox="0 0 100 100" aria-label="Loading SubashaVentures">
+                <defs>
+                    <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color: #96994A;" />
+                        <stop offset="100%" style="stop-color: #5A5E27;" />
+                    </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="45" stroke="url(#pulseGradient)" fill="none" stroke-width="4" />
+            </svg>
+            <div class="logo-s" aria-hidden="true">S</div>
+        </div>
+        <div class="loading-progress-text" role="status" aria-live="polite"></div>
     </div>
 
     <div id="blazor-error-ui">
@@ -29,8 +44,10 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
+
     <script src="_framework/blazor.webassembly.js"></script>
     <script>navigator.serviceWorker.register('service-worker.js');</script>
+    <script src="js/theme.js"></script>
 </body>
 
-</html>
+    </html>
