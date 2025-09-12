@@ -165,12 +165,12 @@ jobs:
             echo "Warning: Project structure file not found"
           fi
 
-  # Job to build and deploy - only runs when commit message contains --publish
+  # Job to build and deploy - FIXED CONDITIONAL LOGIC
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: update-structure
-    # Only run this job if commit message contains '--publish'
-    if: "contains(github.event.head_commit.message, '--publish')"
+    # FIXED: Proper syntax for checking commit message (case insensitive)
+    if: contains(github.event.head_commit.message, '--publish') || contains(github.event.head_commit.message, '--PUBLISH') || contains(github.event.head_commit.message, 'deploy') || contains(github.event.head_commit.message, 'DEPLOY')
     
     steps:
       - uses: actions/checkout@v4
@@ -399,27 +399,29 @@ jobs:
           echo "   ✅ Mobile-first responsive design"
           echo "   ✅ Cross-platform compatibility"
           echo ""
-          echo "💡 Next time, include '--publish' in your commit message to trigger deployment"
+          echo "💡 Deployment triggered by: ${{ github.event.head_commit.message }}"
 
-  # Job that runs when deployment is skipped
+  # Job that runs when deployment is skipped - FIXED CONDITIONAL LOGIC
   deployment-skipped:
     runs-on: ubuntu-latest
     needs: update-structure
-    # Only run when the build job is skipped (no --publish in commit message)
-    if: "!contains(github.event.head_commit.message, '--publish')"
+    # FIXED: Proper syntax for checking when deployment should be skipped
+    if: "!(contains(github.event.head_commit.message, '--publish') || contains(github.event.head_commit.message, '--PUBLISH') || contains(github.event.head_commit.message, 'deploy') || contains(github.event.head_commit.message, 'DEPLOY'))"
     
     steps:
       - name: Deployment Skipped Notice
         run: |
           echo "ℹ️  SubashaVentures deployment was skipped"
           echo ""
-          echo "🚀 To deploy your clothing store, include '--publish' in your commit message"
+          echo "🚀 To deploy your clothing store, include one of these keywords in your commit message:"
+          echo "  - '--publish' (case insensitive)"
+          echo "  - 'deploy' (case insensitive)"
           echo ""
           echo "Example commit messages that trigger deployment:"
           echo "  - 'Added new product catalog --publish'"
           echo "  - 'Updated theme colors --publish'"
-          echo "  - 'Fixed responsive design issues --publish'"
-          echo "  - 'Ready for production --publish'"
+          echo "  - 'Fixed responsive design issues deploy'"
+          echo "  - 'Ready for production DEPLOY'"
           echo ""
           echo "📝 Current commit: ${{ github.event.head_commit.message }}"
           echo "👤 Author: ${{ github.event.head_commit.author.name }}"
