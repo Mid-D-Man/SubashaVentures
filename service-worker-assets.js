@@ -69,7 +69,7 @@
       "url": "icon-512.png"
     },
     {
-      "hash": "sha256-8kwkZvwLy9WER7oC\/SXQkJVHmElc838jXqS2qDFDPJ0=",
+      "hash": "sha256-VVax2Gp0kUI7rP8iQVgPi3JTaW6Yrl2ZI+pQAVmOA1U=",
       "url": "index.html"
     },
     {
@@ -265,5 +265,5 @@
       "url": "_content\/Blazored.Modal\/BlazoredModal.razor.js"
     }
   ],
-  "version": "u7fa\/aG5"
+  "version": "9mQBAXt3"
 };

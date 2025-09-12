@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="utf-8" />
@@ -24,19 +24,20 @@
 <body>
     <div id="app">
         <!-- Custom SubashaVentures Loading Animation -->
-        <div class="loading-progress">
-            <svg class="loading-circle" viewBox="0 0 100 100" aria-label="Loading SubashaVentures">
-                <defs>
-                    <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color: #96994A;" />
-                        <stop offset="100%" style="stop-color: #5A5E27;" />
-                    </linearGradient>
-                </defs>
-                <circle cx="50" cy="50" r="45" stroke="url(#pulseGradient)" fill="none" stroke-width="4" />
-            </svg>
-            <div class="logo-s" aria-hidden="true">S</div>
+        <div class="loading-container">
+            <div class="loading-progress">
+                <svg class="loading-circle" viewBox="0 0 100 100" aria-label="Loading SubashaVentures">
+                    <defs>
+                        <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color: #B8BB6A;" />
+                            <stop offset="100%" style="stop-color: #96994A;" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="50" cy="50" r="45" stroke="url(#pulseGradient)" fill="none" stroke-width="4" />
+                </svg>
+                <div class="logo-s" aria-hidden="true">S</div>
+            </div>
         </div>
-        <div class="loading-progress-text" role="status" aria-live="polite"></div>
     </div>
 
     <div id="blazor-error-ui">
@@ -50,4 +51,4 @@
     <script src="js/theme.js"></script>
 </body>
 
-    </html>
+        </html>
