@@ -5,7 +5,7 @@
       "url": "SubashaVentures.styles.css"
     },
     {
-      "hash": "sha256-10KEeWxsgry5D9LUZc0K86lpIg9RcWdyyBB5sXq6Ypk=",
+      "hash": "sha256-c9fwoTRYqFSOUl\/sB4bbnw9y6CyqpOStJlz+nhQrorc=",
       "url": "css\/app.css"
     },
     {
@@ -69,7 +69,7 @@
       "url": "icon-512.png"
     },
     {
-      "hash": "sha256-rmxMSnseIDzwDZL9EgZPhY+tz3XbEjnGXT7bXZTiokg=",
+      "hash": "sha256-8kwkZvwLy9WER7oC\/SXQkJVHmElc838jXqS2qDFDPJ0=",
       "url": "index.html"
     },
     {
@@ -265,5 +265,5 @@
       "url": "_content\/Blazored.Modal\/BlazoredModal.razor.js"
     }
   ],
-  "version": "ki+4IutE"
+  "version": "u7fa\/aG5"
 };
