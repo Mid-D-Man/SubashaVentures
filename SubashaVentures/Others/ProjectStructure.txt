@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Tue Sep 16 17:18:56 UTC 2025
+Generated: Tue Sep 16 17:19:44 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 22d306999028b15ae0781b859ea6dbfd89ff3eda
+Commit: 743abe89d1fa6e551409fda596c11f2684d56d54
 Branch: master
 ==================================
 
@@ -14,6 +14,7 @@ Layout/Main/NavMenu.razor
 Layout/Main/NavMenu.razor.css
 Layout/Main/SurveyPrompt.razor
 Layout/Main/TopNavigation.razor
+Layout/Main/TopNavigation.razor.css
 Pages/Main/LandingPasge.razor
 Pages/Main/LandingPasge.razor.cs
 Pages/Main/LandingPasge.razor.css
@@ -85,7 +86,7 @@ File Count Summary:
 .razor    : 7 files
 .csproj   : 1 files
 .json     : 4 files
-.css      : 7 files
+.css      : 8 files
 .scss     : 12 files
 .js       : 3 files
 .html     : 1 files
