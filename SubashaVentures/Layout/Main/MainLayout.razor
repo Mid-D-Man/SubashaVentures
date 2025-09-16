@@ -1,17 +1,21 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using SubashaVentures.Components.Layout
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="main-layout">
+    <!-- Top Section - Navigation (6% height) -->
+    <header class="layout-top">
+        <TopNavigation />
+    </header>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
+    <!-- Middle Section - Page Content (64% height with scroll) -->
+    <main class="layout-middle">
+        <div class="page-content">
             @Body
-        </article>
+        </div>
     </main>
+
+    <!-- Bottom Section - Footer Info (30% height) -->
+    <footer class="layout-bottom">
+        <FooterSection />
+    </footer>
 </div>
