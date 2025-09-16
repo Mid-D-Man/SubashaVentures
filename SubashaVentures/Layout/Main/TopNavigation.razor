@@ -1,0 +1,112 @@
+@using SubashaVentures.Components.Shared.Buttons
+
+<nav class="top-navigation">
+    <!-- Brand Logo Section -->
+    <div class="nav-brand">
+        <a href="/" class="brand-link">
+            <div class="brand-logo">
+                <span class="brand-icon">🌟</span>
+                <span class="brand-text">SubashaVentures</span>
+            </div>
+        </a>
+    </div>
+
+    <!-- Desktop Navigation Menu -->
+    <div class="nav-menu desktop-only">
+        <div class="nav-links">
+            <NavLink class="nav-item" href="/" Match="NavLinkMatch.All">
+                <span class="nav-text">Home</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/shop" Match="NavLinkMatch.Prefix">
+                <span class="nav-text">Shop</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/categories" Match="NavLinkMatch.Prefix">
+                <span class="nav-text">Categories</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/about" Match="NavLinkMatch.All">
+                <span class="nav-text">About</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/contact" Match="NavLinkMatch.All">
+                <span class="nav-text">Contact</span>
+            </NavLink>
+        </div>
+    </div>
+
+    <!-- Right Side Actions -->
+    <div class="nav-actions">
+        <!-- Search Toggle -->
+        <PrimaryButton class="nav-action-btn search-btn" OnClick="ToggleSearch">
+            <span class="btn-icon">🔍</span>
+        </PrimaryButton>
+
+        <!-- Theme Toggle -->
+        <PrimaryButton class="nav-action-btn theme-btn" OnClick="ToggleTheme">
+            <span class="btn-icon">@(isDarkMode ? "🌞" : "🌙")</span>
+        </PrimaryButton>
+
+        <!-- Cart -->
+        <PrimaryButton class="nav-action-btn cart-btn" OnClick="ToggleCart">
+            <span class="btn-icon">🛒</span>
+            <span class="cart-badge">3</span>
+        </PrimaryButton>
+
+        <!-- Mobile Menu Toggle -->
+        <PrimaryButton class="nav-action-btn mobile-menu-btn mobile-only" OnClick="ToggleMobileMenu">
+            <span class="btn-icon">@(isMobileMenuOpen ? "✕" : "☰")</span>
+        </PrimaryButton>
+    </div>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu @(isMobileMenuOpen ? "active" : "")">
+        <div class="mobile-menu-content">
+            <div class="mobile-nav-links">
+                <NavLink class="mobile-nav-item" href="/" @onclick="CloseMobileMenu">
+                    <span class="mobile-nav-text">Home</span>
+                </NavLink>
+                <NavLink class="mobile-nav-item" href="/shop" @onclick="CloseMobileMenu">
+                    <span class="mobile-nav-text">Shop</span>
+                </NavLink>
+                <NavLink class="mobile-nav-item" href="/categories" @onclick="CloseMobileMenu">
+                    <span class="mobile-nav-text">Categories</span>
+                </NavLink>
+                <NavLink class="mobile-nav-item" href="/about" @onclick="CloseMobileMenu">
+                    <span class="mobile-nav-text">About</span>
+                </NavLink>
+                <NavLink class="mobile-nav-item" href="/contact" @onclick="CloseMobileMenu">
+                    <span class="mobile-nav-text">Contact</span>
+                </NavLink>
+            </div>
+        </div>
+    </div>
+</nav>
+
+@code {
+    private bool isMobileMenuOpen = false;
+    private bool isDarkMode = false;
+
+    private void ToggleMobileMenu()
+    {
+        isMobileMenuOpen = !isMobileMenuOpen;
+    }
+
+    private void CloseMobileMenu()
+    {
+        isMobileMenuOpen = false;
+    }
+
+    private void ToggleTheme()
+    {
+        isDarkMode = !isDarkMode;
+        // Theme toggle logic would go here
+    }
+
+    private void ToggleSearch()
+    {
+        // Search toggle logic
+    }
+
+    private void ToggleCart()
+    {
+        // Cart toggle logic
+    }
+}
