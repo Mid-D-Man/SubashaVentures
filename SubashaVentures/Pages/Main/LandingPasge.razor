@@ -1,6 +1,220 @@
-@page "/LandingPasge"
-<h3>LandingPasge</h3>
+@page "/"
+@page "/LandingPage"
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Cards
+
+<div class="landing-page">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">
+                    <span class="title-accent">Style</span> That Speaks
+                    <span class="title-highlight">Your Language</span>
+                </h1>
+                <p class="hero-description">
+                    Discover premium clothing and home goods that reflect your unique personality. 
+                    From trendy fashion to cozy home essentials - find everything you love at SubashaVentures.
+                </p>
+                <div class="hero-actions">
+                    <PrimaryButton Size="ButtonSize.Large" class="cta-primary">
+                        🛍️ Shop Now
+                    </PrimaryButton>
+                    <PrimaryButton Variant="ButtonVariant.Outline" Size="ButtonSize.Large" class="cta-secondary">
+                        📖 Our Story
+                    </PrimaryButton>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">10K+</span>
+                        <span class="stat-label">Happy Customers</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">5000+</span>
+                        <span class="stat-label">Products</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">50+</span>
+                        <span class="stat-label">Brands</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="hero-image-container">
+                    <div class="hero-image-placeholder">
+                        👗 Fashion Hub
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="categories-section">
+        <div class="section-header">
+            <h2 class="section-title">Shop by Category</h2>
+            <p class="section-subtitle">Explore our curated collections</p>
+        </div>
+        
+        <div class="categories-grid">
+            <div class="category-card mens">
+                <div class="category-icon">👔</div>
+                <h3 class="category-title">Men's Fashion</h3>
+                <p class="category-description">Stylish clothing for the modern man</p>
+                <PrimaryButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">
+                    Explore Men's
+                </PrimaryButton>
+            </div>
+            
+            <div class="category-card womens">
+                <div class="category-icon">👚</div>
+                <h3 class="category-title">Women's Fashion</h3>
+                <p class="category-description">Elegant styles for every occasion</p>
+                <PrimaryButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">
+                    Explore Women's
+                </PrimaryButton>
+            </div>
+            
+            <div class="category-card children">
+                <div class="category-icon">🧸</div>
+                <h3 class="category-title">Kids & Baby</h3>
+                <p class="category-description">Comfortable clothes for little ones</p>
+                <PrimaryButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">
+                    Explore Kids
+                </PrimaryButton>
+            </div>
+            
+            <div class="category-card home">
+                <div class="category-icon">🏠</div>
+                <h3 class="category-title">Home & Living</h3>
+                <p class="category-description">Beautiful items for your home</p>
+                <PrimaryButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">
+                    Explore Home
+                </PrimaryButton>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Products Section -->
+    <section class="featured-section">
+        <div class="section-header">
+            <h2 class="section-title">Featured Products</h2>
+            <p class="section-subtitle">Our most popular items this season</p>
+        </div>
+        
+        <div class="products-grid">
+            @for (int i = 1; i <= 6; i++)
+            {
+                <div class="product-card">
+                    <div class="product-image">
+                        <div class="product-placeholder">Product @i</div>
+                        <div class="product-overlay">
+                            <PrimaryButton Size="ButtonSize.Small" class="quick-view-btn">
+                                👁️ Quick View
+                            </PrimaryButton>
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <h4 class="product-name">Premium Product @i</h4>
+                        <p class="product-category">Category Name</p>
+                        <div class="product-price">
+                            <span class="current-price">$@(29.99 + i * 10)</span>
+                            <span class="original-price">$@(39.99 + i * 10)</span>
+                        </div>
+                        <div class="product-rating">
+                            ⭐⭐⭐⭐⭐ (4.@i)
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="section-cta">
+            <PrimaryButton Size="ButtonSize.Large">
+                View All Products
+            </PrimaryButton>
+        </div>
+    </section>
+
+    <!-- Newsletter Section -->
+    <section class="newsletter-section">
+        <div class="newsletter-content">
+            <div class="newsletter-text">
+                <h2 class="newsletter-title">Stay in the Loop</h2>
+                <p class="newsletter-description">
+                    Be the first to know about new arrivals, exclusive deals, and style tips.
+                </p>
+            </div>
+            <div class="newsletter-form">
+                <div class="form-group">
+                    <input type="email" placeholder="Enter your email address" class="newsletter-input" />
+                    <PrimaryButton class="newsletter-submit">
+                        Subscribe
+                    </PrimaryButton>
+                </div>
+                <p class="newsletter-privacy">
+                    We respect your privacy. Unsubscribe at any time.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials-section">
+        <div class="section-header">
+            <h2 class="section-title">What Our Customers Say</h2>
+            <p class="section-subtitle">Real reviews from real customers</p>
+        </div>
+        
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                <p class="testimonial-text">
+                    "Amazing quality and fast shipping! The clothes fit perfectly and the style is exactly what I was looking for."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar">👩‍💼</div>
+                    <div class="author-info">
+                        <span class="author-name">Sarah Johnson</span>
+                        <span class="author-location">New York, NY</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="testimonial-card">
+                <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                <p class="testimonial-text">
+                    "Love the home decor section! Found the perfect pieces to complete my living room makeover."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar">👨‍💻</div>
+                    <div class="author-info">
+                        <span class="author-name">Mike Chen</span>
+                        <span class="author-location">San Francisco, CA</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="testimonial-card">
+                <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                <p class="testimonial-text">
+                    "Great selection for kids' clothes. My daughter loves her new outfits and they're so comfortable!"
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar">👩‍👧</div>
+                    <div class="author-info">
+                        <span class="author-name">Emma Davis</span>
+                        <span class="author-location">Austin, TX</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
 
 @code {
-    
+    protected override void OnInitialized()
+    {
+        // Initialize component state here if needed
+    }
 }
