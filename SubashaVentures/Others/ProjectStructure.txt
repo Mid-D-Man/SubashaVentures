@@ -1,13 +1,14 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Tue Sep 16 17:21:39 UTC 2025
+Generated: Tue Sep 16 17:23:33 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: c1a8739f915439a940e2e429162fad1a87f15da0
+Commit: 673a648dfacc9afd53da0c04ddc852f305f82314
 Branch: master
 ==================================
 
 Source Files:
 ============
 App.razor
+Components/Shared/Buttons/PrimaryButton.razor
 Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
 Layout/Main/MainLayout.razor
@@ -56,6 +57,9 @@ wwwroot/service-worker.published.js
 Directory Structure:
 ==================
 ./
+./Components
+./  Shared
+./    Buttons
 ./Layout
 ./  Main
 ./Others
@@ -85,7 +89,7 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 6 files
-.razor    : 8 files
+.razor    : 9 files
 .csproj   : 1 files
 .json     : 4 files
 .css      : 9 files
