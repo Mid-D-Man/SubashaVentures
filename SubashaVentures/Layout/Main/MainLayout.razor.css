@@ -1,81 +1,243 @@
-.page {
+.main-layout {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    
+    /* Background with SubashaVentures theme */
+    background: linear-gradient(135deg, 
+        var(--bg-primary, #ffffff) 0%, 
+        var(--bg-secondary, #f8f9fa) 50%, 
+        var(--primary-pale, #E8E9D9) 100%
+    );
+    background-size: 200% 200%;
+    animation: gradientShift 20s ease infinite;
+    
+    /* Ensure proper layering */
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* Top Section - Navigation */
+.layout-top {
+    height: 6vh;
+    min-height: 60px;
+    max-height: 80px;
+    width: 100%;
+    
+    /* Glassmorphism effect for nav */
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    
+    /* Fixed positioning for nav */
     position: relative;
+    z-index: 100;
+    
+    /* Smooth transitions */
+    transition: all 0.3s ease;
+}
+
+/* Middle Section - Main Content */
+.layout-middle {
+    height: 64vh;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+.page-content {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 153, 74, 0.5) transparent;
+    
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    
+    /* Content padding */
+    padding: 2rem 1rem 1rem 1rem;
+}
+
+.page-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.page-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.page-content::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.5);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.page-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.8);
+    box-shadow: 0 0 10px rgba(150, 153, 74, 0.4);
+}
+
+/* Bottom Section - Footer */
+.layout-bottom {
+    height: 30vh;
+    min-height: 200px;
+    width: 100%;
+    
+    /* Footer styling */
+    background: linear-gradient(180deg, 
+        rgba(150, 153, 74, 0.05) 0%, 
+        rgba(150, 153, 74, 0.1) 100%
+    );
+    border-top: 1px solid rgba(150, 153, 74, 0.2);
+    
+    position: relative;
+    z-index: 10;
+    overflow-y: auto;
+    
+    /* Ensure footer content is accessible */
     display: flex;
     flex-direction: column;
 }
 
-main {
-    flex: 1;
+/* Background animation */
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
-.sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+/* Dark theme adjustments */
+[data-theme="dark"] .main-layout {
+    background: linear-gradient(135deg, 
+        var(--bg-primary, #212529) 0%, 
+        var(--bg-secondary, #343a40) 50%, 
+        rgba(184, 187, 106, 0.1) 100%
+    );
 }
 
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
-    display: flex;
-    align-items: center;
+[data-theme="dark"] .layout-top {
+    background: rgba(33, 37, 41, 0.8);
+    border-bottom: 1px solid rgba(184, 187, 106, 0.2);
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
-    }
+[data-theme="dark"] .layout-bottom {
+    background: linear-gradient(180deg, 
+        rgba(184, 187, 106, 0.05) 0%, 
+        rgba(184, 187, 106, 0.1) 100%
+    );
+    border-top: 1px solid rgba(184, 187, 106, 0.2);
+}
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
-    }
+[data-theme="dark"] .page-content::-webkit-scrollbar-thumb {
+    background: rgba(184, 187, 106, 0.6);
+}
 
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+[data-theme="dark"] .page-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 187, 106, 0.8);
+    box-shadow: 0 0 15px rgba(184, 187, 106, 0.6);
+}
 
-@media (max-width: 640.98px) {
-    .top-row:not(.auth) {
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main-layout {
+        height: 100dvh; /* Dynamic viewport height for mobile */
+    }
+    
+    .layout-top {
+        height: 8vh;
+        min-height: 50px;
+        max-height: 70px;
+        padding: 0 0.5rem;
+    }
+    
+    .layout-middle {
+        height: 62vh;
+    }
+    
+    .layout-bottom {
+        height: 30vh;
+        min-height: 180px;
+    }
+    
+    .page-content {
+        padding: 1rem 0.5rem 0.5rem 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .layout-top {
+        height: 10vh;
+        min-height: 50px;
+    }
+    
+    .layout-middle {
+        height: 60vh;
+    }
+    
+    .layout-bottom {
+        height: 30vh;
+        min-height: 160px;
+    }
+}
+
+/* Performance optimizations */
+.main-layout {
+    will-change: background-position;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.page-content {
+    contain: layout style paint;
+}
+
+/* Print styles */
+@media print {
+    .main-layout {
+        position: static;
+        height: auto;
+        background: white;
+        animation: none;
+    }
+    
+    .layout-top,
+    .layout-bottom {
         display: none;
     }
-
-    .top-row.auth {
-        justify-content: space-between;
+    
+    .layout-middle {
+        height: auto;
+        overflow: visible;
     }
-
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
+    
+    .page-content {
+        overflow: visible;
+        padding: 0;
     }
-}
-
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
-    }
-
-    .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
-    }
-
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
-
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
-    }
-}
+                                }
