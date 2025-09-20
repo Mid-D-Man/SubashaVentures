@@ -113,13 +113,16 @@
     </div>
 
     <!-- Scroll to Top Button -->
-    <PrimaryButton class="scroll-to-top @(showScrollTop ? "visible" : "")" @onclick="ScrollToTop">
+    <PrimaryButton class="@ScrollToTopClass" @onclick="ScrollToTop">
         <span class="scroll-icon">⬆️</span>
     </PrimaryButton>
+
 </footer>
 
 @code {
     private bool showScrollTop = false;
+
+    private string ScrollToTopClass => $"scroll-to-top{(showScrollTop ? " visible" : "")}";
 
     protected override void OnInitialized()
     {
