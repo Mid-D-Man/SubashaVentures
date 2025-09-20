@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Sat Sep 20 11:05:38 UTC 2025
+Generated: Sat Sep 20 12:25:41 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 4c30a99ea0e8ce839ae33c32a2c4a78b71cffd04
+Commit: 5364633fc47d2f0f4997676256531feddac4de22
 Branch: master
 ==================================
 
@@ -12,6 +12,8 @@ Components/Shared/Burgers/BurgerMenu.razor
 Components/Shared/Burgers/BurgerMenu.razor.css
 Components/Shared/Buttons/PrimaryButton.razor
 Components/Shared/Buttons/PrimaryButton.razor.css
+Components/Shared/Buttons/SecondaryButton.razor
+Components/Shared/Buttons/SecondaryButton.razor.css
 Components/Shared/Cards/ProductCard.razor
 Components/Shared/Cards/ProductCard.razor.css
 Domain/Enums/ProductEnums.cs
@@ -19,9 +21,6 @@ Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
 Layout/Main/MainLayout.razor
 Layout/Main/MainLayout.razor.css
-Layout/Main/NavMenu.razor
-Layout/Main/NavMenu.razor.css
-Layout/Main/SurveyPrompt.razor
 Layout/Main/TopNavigation.razor
 Layout/Main/TopNavigation.razor.css
 Pages/Main/LandingPasge.razor
@@ -50,8 +49,10 @@ _Imports.razor
 compilerconfig.json
 wwwroot/css/app.css
 wwwroot/css/bootstrap/bootstrap.min.css
+wwwroot/css/colors.css
 wwwroot/css/open-iconic/README.md
 wwwroot/css/open-iconic/font/css/open-iconic-bootstrap.min.css
+wwwroot/css/responsive.css
 wwwroot/css/styles.css
 wwwroot/index.html
 wwwroot/js/theme.js
@@ -99,10 +100,10 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 7 files
-.razor    : 11 files
+.razor    : 10 files
 .csproj   : 1 files
 .json     : 4 files
-.css      : 12 files
+.css      : 14 files
 .scss     : 12 files
 .js       : 3 files
 .html     : 1 files
