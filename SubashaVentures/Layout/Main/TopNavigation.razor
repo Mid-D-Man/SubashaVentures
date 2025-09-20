@@ -1,8 +1,8 @@
 @using SubashaVentures.Components.Shared.Buttons
 
 <nav class="top-navigation">
-    <!-- Brand Logo Section -->
-    <div class="nav-brand">
+    <!-- Left: Brand Logo -->
+    <div class="nav-left">
         <a href="/" class="brand-link">
             <div class="brand-logo">
                 <span class="brand-icon">🌟</span>
@@ -11,163 +11,155 @@
         </a>
     </div>
 
-    <!-- Right Side: Search + Burger -->
+    <!-- Middle: Filler Space -->
+    <div class="nav-middle"></div>
+
+    <!-- Right: Search + Burger -->
     <div class="nav-right">
-        <!-- Search Bar -->
-        <div class="nav-search">
+        <!-- Left: Search Bar -->
+        <div class="nav-right-left">
             <div class="search-container">
+                <span class="search-icon">🔍</span>
                 <input type="text"
                        class="search-input"
                        placeholder="Search products..."
                        @bind="searchQuery"
                        @onkeypress="HandleSearchKeyPress" />
-                <button class="search-btn" @onclick="HandleSearch" title="Search">
-                    🔍
+                <button class="search-clear @(string.IsNullOrEmpty(searchQuery) ? "hidden" : "")"
+                        @onclick="ClearSearch"
+                        title="Clear search">
+                    ✕
                 </button>
             </div>
         </div>
 
-        <!-- Burger Menu -->
-        <div class="burger-menu-wrapper">
-            <input type="checkbox" id="ck-burger" @bind="isMobileMenuOpen" />
-            <label for="ck-burger" class="burger-toggle">
-                <div class="bar bar--top"></div>
-                <div class="bar bar--middle"></div>
-                <div class="bar bar--bottom"></div>
-            </label>
+        <!-- Middle: Small Filler Space -->
+        <div class="nav-right-middle"></div>
+
+        <!-- Right: Burger Menu -->
+        <div class="nav-right-right">
+            <div class="burger-menu-wrapper">
+                <input type="checkbox" id="ck-burger" @bind="isMobileMenuOpen" />
+                <label for="ck-burger" class="burger-toggle">
+                    <div class="bar bar--top"></div>
+                    <div class="bar bar--middle"></div>
+                    <div class="bar bar--bottom"></div>
+                </label>
+            </div>
         </div>
     </div>
 
     <!-- Dropdown Menu -->
-    <div class="mobile-menu @(isMobileMenuOpen ? "active" : "")">
-        <div class="mobile-menu-content">
-            @if (isLoggedIn)
-            {
-            <!-- Logged in user menu -->
-            <div class="user-info">
-                <span class="user-name">@userName</span>
-                <span class="user-email">@userEmail</span>
+    <div class="dropdown-menu @(isMobileMenuOpen ? "active" : "")">
+        <div class="dropdown-content">
+            <!-- Navigation Section -->
+            <div class="nav-section">
+                <a class="dropdown-item" href="/" @onclick="CloseMenu">Home</a>
+                <a class="dropdown-item" href="/shop" @onclick="CloseMenu">Shop</a>
+                <a class="dropdown-item" href="/categories" @onclick="CloseMenu">Categories</a>
+                <a class="dropdown-item" href="/about" @onclick="CloseMenu">About</a>
+                <a class="dropdown-item" href="/contact" @onclick="CloseMenu">Contact</a>
+                <a class="dropdown-item" href="/deals" @onclick="CloseMenu">Deals</a>
             </div>
-            <hr class="dropdown-divider" />
-            <a class="dropdown-item" href="/profile" @onclick="CloseMenu">
-                My Profile
-            </a>
-            <a class="dropdown-item" href="/orders" @onclick="CloseMenu">
-                My Orders
-            </a>
-            <a class="dropdown-item" href="/wishlist" @onclick="CloseMenu">
-                Wishlist
-            </a>
-            <hr class="dropdown-divider" />
-            <a class="dropdown-item" href="/" @onclick="CloseMenu">
-                Home
-            </a>
-            <a class="dropdown-item" href="/shop" @onclick="CloseMenu">
-                Shop
-            </a>
-            <a class="dropdown-item" href="/categories" @onclick="CloseMenu">
-                Categories
-            </a>
-            <a class="dropdown-item" href="/about" @onclick="CloseMenu">
-                About
-            </a>
-            <a class="dropdown-item" href="/contact" @onclick="CloseMenu">
-                Contact
-            </a>
-            <hr class="dropdown-divider" />
-            <button class="dropdown-item logout-btn" @onclick="HandleLogout">
-                Sign Out
-            </button>
-            }
-            else
-            {
-            <!-- Not logged in menu -->
-            <div class="auth-section">
-                <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateToAuth(true)" class="auth-btn">
-                    Sign In
-                </PrimaryButton>
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="() => NavigateToAuth(false)" class="auth-btn">
-                    Sign Up
+
+            <!-- Separator Line -->
+            <hr class="dropdown-separator" />
+
+            <!-- Action Section -->
+            <div class="action-section">
+                @if (isLoggedIn)
+                {
+                    <div class="user-info">
+                        <span class="user-name">@userName</span>
+                        <span class="user-email">@userEmail</span>
+                    </div>
+                    <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateTo(NavigationDestination.Profile)" class="action-btn">
+                        My Profile
+                    </PrimaryButton>
+                    <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="HandleLogout" class="action-btn">
+                        Sign Out
+                    </SecondaryButton>
+                }
+                else
+                {
+                    <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateTo(NavigationDestination.SignIn)" class="action-btn">
+                        Sign In
+                    </PrimaryButton>
+                }
+
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="() => NavigateTo(NavigationDestination.TrackOrders)" class="action-btn">
+                    Track Orders
                 </SecondaryButton>
             </div>
-            <hr class="dropdown-divider" />
-            <a class="dropdown-item" href="/" @onclick="CloseMenu">
-                Home
-            </a>
-            <a class="dropdown-item" href="/shop" @onclick="CloseMenu">
-                Shop
-            </a>
-            <a class="dropdown-item" href="/categories" @onclick="CloseMenu">
-                Categories
-            </a>
-            <a class="dropdown-item" href="/about" @onclick="CloseMenu">
-                About
-            </a>
-            <a class="dropdown-item" href="/contact" @onclick="CloseMenu">
-                Contact
-            </a>
-            <hr class="dropdown-divider" />
-            <a class="dropdown-item" href="/track-order" @onclick="CloseMenu">
-                Track Order
-            </a>
-            <a class="dropdown-item" href="/help" @onclick="CloseMenu">
-                Help
-            </a>
-            }
         </div>
     </div>
 </nav>
 
 @code {
-private bool isMobileMenuOpen = false;
-private string searchQuery = "";
+    private bool isMobileMenuOpen = false;
+    private string searchQuery = "";
 
-// User state
-private bool isLoggedIn = false; // Change this based on authentication
-private string userName = "John Doe";
-private string userEmail = "john.doe@example.com";
+    // User state
+    private bool isLoggedIn = false;
+    private string userName = "John Doe";
+    private string userEmail = "john.doe@example.com";
 
-private void CloseMenu()
-{
-isMobileMenuOpen = false;
-}
+    // Enum for navigation destinations
+    private enum NavigationDestination
+    {
+        SignIn,
+        Profile,
+        TrackOrders
+    }
 
-private void HandleSearch()
-{
-if (!string.IsNullOrWhiteSpace(searchQuery))
-{
-// Navigate to search results
-// NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
-}
-}
+    private void CloseMenu()
+    {
+        isMobileMenuOpen = false;
+    }
 
-private void HandleSearchKeyPress(KeyboardEventArgs e)
-{
-if (e.Key == "Enter")
-{
-HandleSearch();
-}
-}
+    private void ClearSearch()
+    {
+        searchQuery = "";
+        StateHasChanged();
+    }
 
-private void NavigateToAuth(bool isSignIn)
-{
-CloseMenu();
-if (isSignIn)
-{
-// NavigationManager.NavigateTo("/signin");
-}
-else
-{
-// NavigationManager.NavigateTo("/signup");
-}
-}
+    private void HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            HandleSearch();
+        }
+    }
 
-private async Task HandleLogout()
-{
-CloseMenu();
-// Handle logout logic
-isLoggedIn = false;
-userName = "";
-userEmail = "";
-}
+    private void HandleSearch()
+    {
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            // Navigate to search results
+            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
+        }
+    }
+
+    private void NavigateTo(NavigationDestination destination)
+    {
+        CloseMenu();
+
+        string url = destination switch
+        {
+            NavigationDestination.SignIn => "/signin",
+            NavigationDestination.Profile => "/profile",
+            NavigationDestination.TrackOrders => "/track-order",
+            _ => "/"
+        };
+
+        // NavigationManager.NavigateTo(url);
+    }
+
+    private async Task HandleLogout()
+    {
+        CloseMenu();
+        isLoggedIn = false;
+        userName = "";
+        userEmail = "";
+    }
 }

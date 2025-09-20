@@ -9,8 +9,16 @@
         <div class="hero-content">
             <div class="hero-text">
                 <h1 class="hero-title">
-                    <span class="title-accent">Style</span> That Speaks
-                    <span class="title-highlight">Your Language</span>
+                    <span class="title-static">Style That Speaks</span>
+                    <div class="title-animated">
+                        <div class="flip-container">
+                            <div class="flip-text">
+                                <div><div>Your Language</div></div>
+                                <div><div>Your Story</div></div>
+                                <div><div>Your Style</div></div>
+                            </div>
+                        </div>
+                    </div>
                 </h1>
                 <p class="hero-description">
                     Discover premium clothing and home goods that reflect your unique personality. 
@@ -54,53 +62,59 @@
         <ProgressSlider />
     </section>
 
-    <!-- Categories Section -->
+    <!-- Categories Section - Horizontal Scroll -->
     <section class="categories-section">
         <div class="section-header">
             <h2 class="section-title">Shop by Category</h2>
             <p class="section-subtitle">Explore our curated collections</p>
         </div>
         
-        <div class="categories-grid">
-            <div class="category-card mens">
-                <div class="category-icon">👔</div>
-                <h3 class="category-title">Men's Fashion</h3>
-                <p class="category-description">Stylish clothing for the modern man</p>
-                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                    Explore Men's
-                </SecondaryButton>
-            </div>
-            
-            <div class="category-card womens">
-                <div class="category-icon">👚</div>
-                <h3 class="category-title">Women's Fashion</h3>
-                <p class="category-description">Elegant styles for every occasion</p>
-                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                    Explore Women's
-                </SecondaryButton>
-            </div>
-            
-            <div class="category-card children">
-                <div class="category-icon">🧸</div>
-                <h3 class="category-title">Kids & Baby</h3>
-                <p class="category-description">Comfortable clothes for little ones</p>
-                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                    Explore Kids
-                </SecondaryButton>
-            </div>
-            
-            <div class="category-card home">
-                <div class="category-icon">🏠</div>
-                <h3 class="category-title">Home & Living</h3>
-                <p class="category-description">Beautiful items for your home</p>
-                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                    Explore Home
-                </SecondaryButton>
+        <div class="categories-scroll-container">
+            <div class="categories-horizontal">
+                <!-- Repeat the categories for infinite scroll effect -->
+                @for (int loop = 0; loop < 3; loop++)
+                {
+                    <div class="category-card mens">
+                        <div class="category-icon">👔</div>
+                        <h3 class="category-title">Men's Fashion</h3>
+                        <p class="category-description">Stylish clothing for the modern man</p>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
+                            Explore Men's
+                        </SecondaryButton>
+                    </div>
+                    
+                    <div class="category-card womens">
+                        <div class="category-icon">👚</div>
+                        <h3 class="category-title">Women's Fashion</h3>
+                        <p class="category-description">Elegant styles for every occasion</p>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
+                            Explore Women's
+                        </SecondaryButton>
+                    </div>
+                    
+                    <div class="category-card children">
+                        <div class="category-icon">🧸</div>
+                        <h3 class="category-title">Kids & Baby</h3>
+                        <p class="category-description">Comfortable clothes for little ones</p>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
+                            Explore Kids
+                        </SecondaryButton>
+                    </div>
+                    
+                    <div class="category-card home">
+                        <div class="category-icon">🏠</div>
+                        <h3 class="category-title">Home & Living</h3>
+                        <p class="category-description">Beautiful items for your home</p>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
+                            Explore Home
+                        </SecondaryButton>
+                    </div>
+                }
             </div>
         </div>
     </section>
 
-    <!-- Featured Products Section -->
+    <!-- Featured Products Section - Grid Layout -->
     <section class="featured-section">
         <div class="section-header">
             <h2 class="section-title">Featured Products</h2>
@@ -164,7 +178,7 @@
         </div>
     </section>
 
-    <!-- Testimonials Section -->
+    <!-- Testimonials Section - Grid Layout -->
     <section class="testimonials-section">
         <div class="section-header">
             <h2 class="section-title">What Our Customers Say</h2>
