@@ -382,7 +382,7 @@
 }
 
 /* High contrast mode support */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
     .primary-button {
         border-width: 2px;
     }
