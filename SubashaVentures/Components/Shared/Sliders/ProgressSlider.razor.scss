@@ -1,0 +1,302 @@
+// ProgressSlider SCSS - Testing SCSS compilation
+// Variables
+$primary-color: #96994A;
+$secondary-color: #9A4A96;
+$success-color: #22c55e;
+$warning-color: #f59e0b;
+$danger-color: #ef4444;
+
+$border-radius-sm: 6px;
+$border-radius-md: 12px;
+$border-radius-lg: 16px;
+
+$spacing-sm: 0.5rem;
+$spacing-md: 1rem;
+$spacing-lg: 1.5rem;
+$spacing-xl: 2rem;
+
+// Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin transition($property: all, $duration: 0.3s, $timing: ease) {
+  transition: $property $duration $timing;
+}
+
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+// Main container
+.progress-slider-container {
+  padding: $spacing-xl;
+  margin: $spacing-lg auto;
+  max-width: 500px;
+  background: var(--bg-surface, white);
+  border-radius: $border-radius-lg;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light, rgba(150, 153, 74, 0.2));
+  @include transition();
+
+  &:hover {
+    box-shadow: 0 12px 40px rgba(150, 153, 74, 0.15);
+    transform: translateY(-2px);
+  }
+}
+
+// Title and description
+.slider-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #333);
+  margin: 0 0 $spacing-sm 0;
+  text-align: center;
+}
+
+.slider-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #666);
+  text-align: center;
+  margin: 0 0 $spacing-xl 0;
+  line-height: 1.4;
+}
+
+// Slider wrapper
+.slider-wrapper {
+  margin-bottom: $spacing-lg;
+}
+
+// Progress track
+.progress-track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background: var(--bg-tertiary, #f1f3f4);
+  border-radius: $border-radius-sm;
+  margin-bottom: $spacing-lg;
+  overflow: hidden;
+}
+
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: $border-radius-sm;
+  @include transition(all, 0.4s, cubic-bezier(0.4, 0, 0.2, 1));
+
+  // Dynamic background based on progress
+  background: linear-gradient(90deg,
+          $success-color 0%,
+          $success-color 33%,
+          $warning-color 33%,
+          $warning-color 66%,
+          $danger-color 66%,
+          $danger-color 100%);
+}
+
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: white;
+  border: 3px solid $primary-color;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  @include transition(all, 0.4s, cubic-bezier(0.4, 0, 0.2, 1));
+  cursor: pointer;
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 4px 16px rgba(150, 153, 74, 0.3);
+  }
+}
+
+// Range input (hidden but functional)
+.slider-controls {
+  position: relative;
+  margin-bottom: $spacing-lg;
+}
+
+.range-input {
+  width: 100%;
+  height: 12px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  position: absolute;
+  top: -6px;
+
+  // Webkit styles
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  // Firefox styles
+  &::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    border: none;
+  }
+}
+
+// Progress info
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-lg;
+}
+
+.progress-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--theme-primary, $primary-color);
+}
+
+.progress-status {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-tertiary, #f1f3f4);
+  border-radius: $border-radius-sm;
+}
+
+// Color indicators
+.color-indicators {
+  @include flex-center;
+  gap: $spacing-md;
+}
+
+.color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  opacity: 0.3;
+  @include transition();
+
+  &.green {
+    background: $success-color;
+  }
+
+  &.yellow {
+    background: $warning-color;
+  }
+
+  &.red {
+    background: $danger-color;
+  }
+
+  &.active {
+    opacity: 1;
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px currentColor;
+  }
+}
+
+// Dark mode support
+.dark-mode {
+  .progress-slider-container {
+    background: var(--bg-surface, #343a40);
+    border-color: rgba(184, 187, 106, 0.2);
+
+    &:hover {
+      box-shadow: 0 12px 40px rgba(184, 187, 106, 0.2);
+    }
+  }
+
+  .slider-title {
+    color: var(--text-primary, #f8f9fa);
+  }
+
+  .slider-description {
+    color: var(--text-secondary, #dee2e6);
+  }
+
+  .progress-track {
+    background: var(--bg-tertiary, #495057);
+  }
+
+  .progress-thumb {
+    border-color: var(--theme-primary, #B8BB6A);
+
+    &:hover {
+      box-shadow: 0 4px 16px rgba(184, 187, 106, 0.4);
+    }
+  }
+
+  .progress-value {
+    color: var(--theme-primary, #B8BB6A);
+  }
+
+  .progress-status {
+    background: var(--bg-tertiary, #495057);
+    color: var(--text-secondary, #dee2e6);
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .progress-slider-container {
+    padding: $spacing-lg;
+    margin: $spacing-md;
+  }
+
+  .slider-title {
+    font-size: 1.25rem;
+  }
+
+  .slider-description {
+    font-size: 0.85rem;
+  }
+
+  .progress-value {
+    font-size: 1.25rem;
+  }
+
+  .progress-status {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-slider-container {
+    padding: $spacing-md;
+  }
+
+  .progress-info {
+    flex-direction: column;
+    gap: $spacing-sm;
+    text-align: center;
+  }
+
+  .color-indicators {
+    gap: $spacing-sm;
+  }
+
+  .color-dot {
+    width: 14px;
+    height: 14px;
+  }
+}

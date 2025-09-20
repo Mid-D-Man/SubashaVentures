@@ -1,7 +1,7 @@
 @page "/"
 @page "/LandingPage"
 @using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Components.Shared.Sliders
 
 <div class="landing-page">
     <!-- Hero Section -->
@@ -20,9 +20,9 @@
                     <PrimaryButton Size="PrimaryButton.ButtonSize.Large" class="cta-primary">
                         🛍️ Shop Now
                     </PrimaryButton>
-                    <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline" Size="PrimaryButton.ButtonSize.Large" class="cta-secondary">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" Size="SecondaryButton.ButtonSize.Large" class="cta-secondary">
                         📖 Our Story
-                    </PrimaryButton>
+                    </SecondaryButton>
                 </div>
                 <div class="hero-stats">
                     <div class="stat-item">
@@ -49,6 +49,11 @@
         </div>
     </section>
 
+    <!-- Test SCSS Component -->
+    <section class="test-section">
+        <ProgressSlider />
+    </section>
+
     <!-- Categories Section -->
     <section class="categories-section">
         <div class="section-header">
@@ -61,36 +66,36 @@
                 <div class="category-icon">👔</div>
                 <h3 class="category-title">Men's Fashion</h3>
                 <p class="category-description">Stylish clothing for the modern man</p>
-                <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost" Size="PrimaryButton.ButtonSize.Small">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
                     Explore Men's
-                </PrimaryButton>
+                </SecondaryButton>
             </div>
             
             <div class="category-card womens">
                 <div class="category-icon">👚</div>
                 <h3 class="category-title">Women's Fashion</h3>
                 <p class="category-description">Elegant styles for every occasion</p>
-                <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost" Size="PrimaryButton.ButtonSize.Small">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
                     Explore Women's
-                </PrimaryButton>
+                </SecondaryButton>
             </div>
             
             <div class="category-card children">
                 <div class="category-icon">🧸</div>
                 <h3 class="category-title">Kids & Baby</h3>
                 <p class="category-description">Comfortable clothes for little ones</p>
-                <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost" Size="PrimaryButton.ButtonSize.Small">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
                     Explore Kids
-                </PrimaryButton>
+                </SecondaryButton>
             </div>
             
             <div class="category-card home">
                 <div class="category-icon">🏠</div>
                 <h3 class="category-title">Home & Living</h3>
                 <p class="category-description">Beautiful items for your home</p>
-                <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost" Size="PrimaryButton.ButtonSize.Small">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
                     Explore Home
-                </PrimaryButton>
+                </SecondaryButton>
             </div>
         </div>
     </section>

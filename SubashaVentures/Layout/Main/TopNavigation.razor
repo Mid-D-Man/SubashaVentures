@@ -11,12 +11,21 @@
         </a>
     </div>
 
-    <!-- Right Side Actions -->
-    <div class="nav-actions">
-        <!-- Search Button -->
-        <button class="nav-action-btn search-btn" @onclick="ToggleSearch" title="Search">
-            <span class="btn-icon">🔍</span>
-        </button>
+    <!-- Right Side: Search + Burger -->
+    <div class="nav-right">
+        <!-- Search Bar -->
+        <div class="nav-search">
+            <div class="search-container">
+                <input type="text"
+                       class="search-input"
+                       placeholder="Search products..."
+                       @bind="searchQuery"
+                       @onkeypress="HandleSearchKeyPress" />
+                <button class="search-btn" @onclick="HandleSearch" title="Search">
+                    🔍
+                </button>
+            </div>
+        </div>
 
         <!-- Burger Menu -->
         <div class="burger-menu-wrapper">
@@ -29,60 +38,136 @@
         </div>
     </div>
 
-    <!-- Mobile Menu Dropdown -->
+    <!-- Dropdown Menu -->
     <div class="mobile-menu @(isMobileMenuOpen ? "active" : "")">
         <div class="mobile-menu-content">
-            <div class="mobile-nav-links">
-                <a class="mobile-nav-item" href="/" @onclick="CloseMobileMenu">
-                    <span class="mobile-nav-text">Home</span>
-                </a>
-                <a class="mobile-nav-item" href="/shop" @onclick="CloseMobileMenu">
-                    <span class="mobile-nav-text">Shop</span>
-                </a>
-                <a class="mobile-nav-item" href="/categories" @onclick="CloseMobileMenu">
-                    <span class="mobile-nav-text">Categories</span>
-                </a>
-                <a class="mobile-nav-item" href="/about" @onclick="CloseMobileMenu">
-                    <span class="mobile-nav-text">About</span>
-                </a>
-                <a class="mobile-nav-item" href="/contact" @onclick="CloseMobileMenu">
-                    <span class="mobile-nav-text">Contact</span>
-                </a>
+            @if (isLoggedIn)
+            {
+            <!-- Logged in user menu -->
+            <div class="user-info">
+                <span class="user-name">@userName</span>
+                <span class="user-email">@userEmail</span>
             </div>
-        </div>
-    </div>
-
-    <!-- Search Overlay -->
-    <div class="search-overlay @(isSearchOpen ? "active" : "")">
-        <div class="search-content">
-            <input type="text" class="search-input" placeholder="Search products..." @bind="searchQuery" />
-            <button class="search-close" @onclick="CloseSearch">✕</button>
+            <hr class="dropdown-divider" />
+            <a class="dropdown-item" href="/profile" @onclick="CloseMenu">
+                My Profile
+            </a>
+            <a class="dropdown-item" href="/orders" @onclick="CloseMenu">
+                My Orders
+            </a>
+            <a class="dropdown-item" href="/wishlist" @onclick="CloseMenu">
+                Wishlist
+            </a>
+            <hr class="dropdown-divider" />
+            <a class="dropdown-item" href="/" @onclick="CloseMenu">
+                Home
+            </a>
+            <a class="dropdown-item" href="/shop" @onclick="CloseMenu">
+                Shop
+            </a>
+            <a class="dropdown-item" href="/categories" @onclick="CloseMenu">
+                Categories
+            </a>
+            <a class="dropdown-item" href="/about" @onclick="CloseMenu">
+                About
+            </a>
+            <a class="dropdown-item" href="/contact" @onclick="CloseMenu">
+                Contact
+            </a>
+            <hr class="dropdown-divider" />
+            <button class="dropdown-item logout-btn" @onclick="HandleLogout">
+                Sign Out
+            </button>
+            }
+            else
+            {
+            <!-- Not logged in menu -->
+            <div class="auth-section">
+                <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateToAuth(true)" class="auth-btn">
+                    Sign In
+                </PrimaryButton>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="() => NavigateToAuth(false)" class="auth-btn">
+                    Sign Up
+                </SecondaryButton>
+            </div>
+            <hr class="dropdown-divider" />
+            <a class="dropdown-item" href="/" @onclick="CloseMenu">
+                Home
+            </a>
+            <a class="dropdown-item" href="/shop" @onclick="CloseMenu">
+                Shop
+            </a>
+            <a class="dropdown-item" href="/categories" @onclick="CloseMenu">
+                Categories
+            </a>
+            <a class="dropdown-item" href="/about" @onclick="CloseMenu">
+                About
+            </a>
+            <a class="dropdown-item" href="/contact" @onclick="CloseMenu">
+                Contact
+            </a>
+            <hr class="dropdown-divider" />
+            <a class="dropdown-item" href="/track-order" @onclick="CloseMenu">
+                Track Order
+            </a>
+            <a class="dropdown-item" href="/help" @onclick="CloseMenu">
+                Help
+            </a>
+            }
         </div>
     </div>
 </nav>
 
 @code {
-    private bool isMobileMenuOpen = false;
-    private bool isSearchOpen = false;
-    private string searchQuery = "";
+private bool isMobileMenuOpen = false;
+private string searchQuery = "";
 
-    private void CloseMobileMenu()
-    {
-        isMobileMenuOpen = false;
-    }
+// User state
+private bool isLoggedIn = false; // Change this based on authentication
+private string userName = "John Doe";
+private string userEmail = "john.doe@example.com";
 
-    private void ToggleSearch()
-    {
-        isSearchOpen = !isSearchOpen;
-        if (isSearchOpen)
-        {
-            isMobileMenuOpen = false; // Close menu if search opens
-        }
-    }
+private void CloseMenu()
+{
+isMobileMenuOpen = false;
+}
 
-    private void CloseSearch()
-    {
-        isSearchOpen = false;
-        searchQuery = "";
-    }
+private void HandleSearch()
+{
+if (!string.IsNullOrWhiteSpace(searchQuery))
+{
+// Navigate to search results
+// NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
+}
+}
+
+private void HandleSearchKeyPress(KeyboardEventArgs e)
+{
+if (e.Key == "Enter")
+{
+HandleSearch();
+}
+}
+
+private void NavigateToAuth(bool isSignIn)
+{
+CloseMenu();
+if (isSignIn)
+{
+// NavigationManager.NavigateTo("/signin");
+}
+else
+{
+// NavigationManager.NavigateTo("/signup");
+}
+}
+
+private async Task HandleLogout()
+{
+CloseMenu();
+// Handle logout logic
+isLoggedIn = false;
+userName = "";
+userEmail = "";
+}
 }
