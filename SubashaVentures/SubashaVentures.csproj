@@ -27,7 +27,6 @@
       <Folder Include="Components\Layout\" />
       <Folder Include="Components\Product\" />
       <Folder Include="Components\Search\" />
-      <Folder Include="Components\Shared\Buttons\" />
       <Folder Include="Components\Shared\Forms\" />
       <Folder Include="Components\Shared\Loading\" />
       <Folder Include="Components\Shared\Modals\" />
