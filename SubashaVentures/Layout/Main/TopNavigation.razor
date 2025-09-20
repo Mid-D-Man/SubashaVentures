@@ -1,3 +1,4 @@
+@* TopNavigation.razor *@
 @using SubashaVentures.Components.Shared.Buttons
 
 <nav class="top-navigation">
@@ -11,82 +12,64 @@
         </a>
     </div>
 
-    <!-- Desktop Navigation Menu -->
-    <div class="nav-menu desktop-only">
-        <div class="nav-links">
-            <NavLink class="nav-item" href="/" Match="NavLinkMatch.All">
-                <span class="nav-text">Home</span>
-            </NavLink>
-            <NavLink class="nav-item" href="/shop" Match="NavLinkMatch.Prefix">
-                <span class="nav-text">Shop</span>
-            </NavLink>
-            <NavLink class="nav-item" href="/categories" Match="NavLinkMatch.Prefix">
-                <span class="nav-text">Categories</span>
-            </NavLink>
-            <NavLink class="nav-item" href="/about" Match="NavLinkMatch.All">
-                <span class="nav-text">About</span>
-            </NavLink>
-            <NavLink class="nav-item" href="/contact" Match="NavLinkMatch.All">
-                <span class="nav-text">Contact</span>
-            </NavLink>
+    <!-- Right Side Actions -->
+    <div class="nav-actions">
+        <!-- Search Button -->
+        <button class="nav-action-btn search-btn" @onclick="ToggleSearch" title="Search">
+            <span class="btn-icon">🔍</span>
+        </button>
+
+        <!-- Burger Menu -->
+        <div class="burger-menu-wrapper">
+            <input type="checkbox" id="ck-burger" @bind="isMobileMenuOpen" @onchange="OnBurgerToggle" />
+            <label for="ck-burger" class="burger-toggle">
+                <div class="bar bar--top"></div>
+                <div class="bar bar--middle"></div>
+                <div class="bar bar--bottom"></div>
+            </label>
         </div>
     </div>
 
-    <!-- Right Side Actions -->
-    <div class="nav-actions">
-        <!-- Search Toggle -->
-        <PrimaryButton class="nav-action-btn search-btn" OnClick="ToggleSearch">
-            <span class="btn-icon">🔍</span>
-        </PrimaryButton>
-
-        <!-- Theme Toggle -->
-        <PrimaryButton class="nav-action-btn theme-btn" OnClick="ToggleTheme">
-            <span class="btn-icon">@(isDarkMode ? "🌞" : "🌙")</span>
-        </PrimaryButton>
-
-        <!-- Cart -->
-        <PrimaryButton class="nav-action-btn cart-btn" OnClick="ToggleCart">
-            <span class="btn-icon">🛒</span>
-            <span class="cart-badge">3</span>
-        </PrimaryButton>
-
-        <!-- Mobile Menu Toggle -->
-        <PrimaryButton class="nav-action-btn mobile-menu-btn mobile-only" OnClick="ToggleMobileMenu">
-            <span class="btn-icon">@(isMobileMenuOpen ? "✕" : "☰")</span>
-        </PrimaryButton>
-    </div>
-
-    <!-- Mobile Menu Overlay -->
+    <!-- Mobile Menu Dropdown -->
     <div class="mobile-menu @(isMobileMenuOpen ? "active" : "")">
         <div class="mobile-menu-content">
             <div class="mobile-nav-links">
-                <NavLink class="mobile-nav-item" href="/" @onclick="CloseMobileMenu">
+                <a class="mobile-nav-item" href="/" @onclick="CloseMobileMenu">
                     <span class="mobile-nav-text">Home</span>
-                </NavLink>
-                <NavLink class="mobile-nav-item" href="/shop" @onclick="CloseMobileMenu">
+                </a>
+                <a class="mobile-nav-item" href="/shop" @onclick="CloseMobileMenu">
                     <span class="mobile-nav-text">Shop</span>
-                </NavLink>
-                <NavLink class="mobile-nav-item" href="/categories" @onclick="CloseMobileMenu">
+                </a>
+                <a class="mobile-nav-item" href="/categories" @onclick="CloseMobileMenu">
                     <span class="mobile-nav-text">Categories</span>
-                </NavLink>
-                <NavLink class="mobile-nav-item" href="/about" @onclick="CloseMobileMenu">
+                </a>
+                <a class="mobile-nav-item" href="/about" @onclick="CloseMobileMenu">
                     <span class="mobile-nav-text">About</span>
-                </NavLink>
-                <NavLink class="mobile-nav-item" href="/contact" @onclick="CloseMobileMenu">
+                </a>
+                <a class="mobile-nav-item" href="/contact" @onclick="CloseMobileMenu">
                     <span class="mobile-nav-text">Contact</span>
-                </NavLink>
+                </a>
             </div>
+        </div>
+    </div>
+
+    <!-- Search Overlay -->
+    <div class="search-overlay @(isSearchOpen ? "active" : "")">
+        <div class="search-content">
+            <input type="text" class="search-input" placeholder="Search products..." @bind="searchQuery" />
+            <button class="search-close" @onclick="CloseSearch">✕</button>
         </div>
     </div>
 </nav>
 
 @code {
     private bool isMobileMenuOpen = false;
-    private bool isDarkMode = false;
+    private bool isSearchOpen = false;
+    private string searchQuery = "";
 
-    private void ToggleMobileMenu()
+    private void OnBurgerToggle(ChangeEventArgs e)
     {
-        isMobileMenuOpen = !isMobileMenuOpen;
+        isMobileMenuOpen = (bool)(e.Value ?? false);
     }
 
     private void CloseMobileMenu()
@@ -94,19 +77,18 @@
         isMobileMenuOpen = false;
     }
 
-    private void ToggleTheme()
-    {
-        isDarkMode = !isDarkMode;
-        // Theme toggle logic would go here
-    }
-
     private void ToggleSearch()
     {
-        // Search toggle logic
+        isSearchOpen = !isSearchOpen;
+        if (isSearchOpen)
+        {
+            isMobileMenuOpen = false; // Close menu if search opens
+        }
     }
 
-    private void ToggleCart()
+    private void CloseSearch()
     {
-        // Cart toggle logic
+        isSearchOpen = false;
+        searchQuery = "";
     }
 }

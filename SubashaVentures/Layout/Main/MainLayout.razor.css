@@ -9,55 +9,57 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    
+
     /* Background with SubashaVentures theme */
-    background: linear-gradient(135deg, 
-        var(--bg-primary, #ffffff) 0%, 
-        var(--bg-secondary, #f8f9fa) 50%, 
-        var(--primary-pale, #E8E9D9) 100%
+    background: linear-gradient(135deg,
+    var(--bg-primary, #ffffff) 0%,
+    var(--bg-secondary, #f8f9fa) 50%,
+    var(--primary-pale, #E8E9D9) 100%
     );
     background-size: 200% 200%;
     animation: gradientShift 20s ease infinite;
-    
+
     /* Ensure proper layering */
     z-index: 0;
     margin: 0;
     padding: 0;
 }
 
-/* Top Section - Navigation */
-.layout-top {
-    height: 6vh;
-    min-height: 60px;
-    max-height: 80px;
+/* Fixed Header - Navigation */
+.layout-header {
+    height: 70px;
     width: 100%;
-    
+
     /* Glassmorphism effect for nav */
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    
+
     display: flex;
     align-items: center;
-    padding: 0 1rem;
-    
+
     /* Fixed positioning for nav */
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 100;
-    
+
     /* Smooth transitions */
     transition: all 0.3s ease;
 }
 
-/* Middle Section - Main Content */
-.layout-middle {
-    height: 64vh;
-    width: 100%;
+/* Main Content Area */
+.layout-content {
     flex: 1;
+    width: 100%;
     overflow: hidden;
     position: relative;
     z-index: 1;
+
+    /* Account for fixed header */
+    margin-top: 70px;
 }
 
 .page-content {
@@ -65,17 +67,22 @@
     height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
-    
+
     /* Custom scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.5) transparent;
-    
+
     /* Smooth scrolling */
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-    
+
     /* Content padding */
-    padding: 2rem 1rem 1rem 1rem;
+    padding: 0;
+
+    /* Ensure footer appears at bottom */
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 70px);
 }
 
 .page-content::-webkit-scrollbar {
@@ -97,26 +104,26 @@
     box-shadow: 0 0 10px rgba(150, 153, 74, 0.4);
 }
 
-/* Bottom Section - Footer */
-.layout-bottom {
-    height: 30vh;
-    min-height: 200px;
+/* Page Body Content */
+.page-content > *:not(.page-footer) {
+    flex: 0 0 auto;
+    padding: 2rem 1rem;
+}
+
+/* Footer Section - Part of page content */
+.page-footer {
+    margin-top: auto;
     width: 100%;
-    
-    /* Footer styling */
-    background: linear-gradient(180deg, 
-        rgba(150, 153, 74, 0.05) 0%, 
-        rgba(150, 153, 74, 0.1) 100%
+    background: linear-gradient(180deg,
+    rgba(150, 153, 74, 0.05) 0%,
+    rgba(150, 153, 74, 0.1) 100%
     );
     border-top: 1px solid rgba(150, 153, 74, 0.2);
-    
-    position: relative;
-    z-index: 10;
-    overflow-y: auto;
-    
+
     /* Ensure footer content is accessible */
     display: flex;
     flex-direction: column;
+    min-height: 400px;
 }
 
 /* Background animation */
@@ -134,22 +141,22 @@
 
 /* Dark theme adjustments */
 [data-theme="dark"] .main-layout {
-    background: linear-gradient(135deg, 
-        var(--bg-primary, #212529) 0%, 
-        var(--bg-secondary, #343a40) 50%, 
-        rgba(184, 187, 106, 0.1) 100%
+    background: linear-gradient(135deg,
+    var(--bg-primary, #212529) 0%,
+    var(--bg-secondary, #343a40) 50%,
+    rgba(184, 187, 106, 0.1) 100%
     );
 }
 
-[data-theme="dark"] .layout-top {
+[data-theme="dark"] .layout-header {
     background: rgba(33, 37, 41, 0.8);
     border-bottom: 1px solid rgba(184, 187, 106, 0.2);
 }
 
-[data-theme="dark"] .layout-bottom {
-    background: linear-gradient(180deg, 
-        rgba(184, 187, 106, 0.05) 0%, 
-        rgba(184, 187, 106, 0.1) 100%
+[data-theme="dark"] .page-footer {
+    background: linear-gradient(180deg,
+    rgba(184, 187, 106, 0.05) 0%,
+    rgba(184, 187, 106, 0.1) 100%
     );
     border-top: 1px solid rgba(184, 187, 106, 0.2);
 }
@@ -168,41 +175,43 @@
     .main-layout {
         height: 100dvh; /* Dynamic viewport height for mobile */
     }
-    
-    .layout-top {
-        height: 8vh;
-        min-height: 50px;
-        max-height: 70px;
-        padding: 0 0.5rem;
+
+    .layout-header {
+        height: 60px;
     }
-    
-    .layout-middle {
-        height: 62vh;
+
+    .layout-content {
+        margin-top: 60px;
     }
-    
-    .layout-bottom {
-        height: 30vh;
-        min-height: 180px;
-    }
-    
+
     .page-content {
-        padding: 1rem 0.5rem 0.5rem 0.5rem;
+        min-height: calc(100vh - 60px);
+    }
+
+    .page-content > *:not(.page-footer) {
+        padding: 1rem 0.5rem;
+    }
+
+    .page-footer {
+        min-height: 350px;
     }
 }
 
 @media (max-width: 480px) {
-    .layout-top {
-        height: 10vh;
-        min-height: 50px;
+    .layout-header {
+        height: 55px;
     }
-    
-    .layout-middle {
-        height: 60vh;
+
+    .layout-content {
+        margin-top: 55px;
     }
-    
-    .layout-bottom {
-        height: 30vh;
-        min-height: 160px;
+
+    .page-content {
+        min-height: calc(100vh - 55px);
+    }
+
+    .page-footer {
+        min-height: 320px;
     }
 }
 
@@ -225,19 +234,20 @@
         background: white;
         animation: none;
     }
-    
-    .layout-top,
-    .layout-bottom {
-        display: none;
+
+    .layout-header {
+        position: static;
+        margin-top: 0;
     }
-    
-    .layout-middle {
-        height: auto;
+
+    .layout-content {
+        margin-top: 0;
         overflow: visible;
     }
-    
+
     .page-content {
         overflow: visible;
         padding: 0;
+        min-height: auto;
     }
-                                }
+}

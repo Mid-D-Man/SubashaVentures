@@ -1,20 +1,25 @@
+@* MainLayout.razor - Fixed with proper footer positioning *@
 @inherits LayoutComponentBase
 
 <div class="main-layout">
-    <!-- Top Section - Navigation (6% height) -->
-    <header class="layout-top">
+    <!-- Top Section - Navigation (Fixed Header) -->
+    <header class="layout-header">
         <TopNavigation />
     </header>
 
-    <!-- Middle Section - Page Content (64% height with scroll) -->
-    <main class="layout-middle">
+    <!-- Main Content Section (Scrollable) -->
+    <main class="layout-content">
         <div class="page-content">
             @Body
+            
+            <!-- Footer Section - Part of page content -->
+            <footer class="page-footer">
+                <FooterSection />
+            </footer>
         </div>
     </main>
-
-    <!-- Bottom Section - Footer Info (30% height) -->
-    <footer class="layout-bottom">
-        <FooterSection />
-    </footer>
 </div>
+
+@code {
+    // Any code-behind logic for the layout
+}

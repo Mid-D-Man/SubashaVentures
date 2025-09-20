@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 
 <head>
     <meta charset="utf-8" />
@@ -14,7 +14,7 @@
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
-    
+
     <!-- Google Fonts - Poppins for brand consistency -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,31 +22,32 @@
 </head>
 
 <body>
-    <div id="app">
-        <!-- Custom SubashaVentures Loading Animation -->
-        <div class="loading-container">
-            <svg class="loading-circle" viewBox="0 0 120 120" aria-label="Loading SubashaVentures">
-                <defs>
-                    <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color: #B8BB6A;" />
-                        <stop offset="100%" style="stop-color: #96994A;" />
-                    </linearGradient>
-                </defs>
-                <circle cx="60" cy="60" r="45" stroke="url(#pulseGradient)" fill="none" stroke-width="4" />
-            </svg>
-            <div class="logo-s" aria-hidden="true">S</div>
-        </div>
+<div id="app">
+    <!-- Fixed SubashaVentures Loading Animation - Properly sized and centered -->
+    <div class="loading-progress">
+        <svg class="loading-circle" viewBox="0 0 120 120" aria-label="Loading SubashaVentures">
+            <defs>
+                <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color: #B8BB6A;" />
+                    <stop offset="100%" style="stop-color: #96994A;" />
+                </linearGradient>
+            </defs>
+            <circle cx="60" cy="60" r="45" stroke="url(#pulseGradient)" fill="none" stroke-width="4" />
+        </svg>
+        <div class="logo-s" aria-hidden="true">S</div>
     </div>
+    <div class="loading-progress-text"></div>
+</div>
 
-    <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
-    </div>
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
 
-    <script src="_framework/blazor.webassembly.js"></script>
-    <script>navigator.serviceWorker.register('service-worker.js');</script>
-    <script src="js/theme.js"></script>
+<script src="_framework/blazor.webassembly.js"></script>
+<script>navigator.serviceWorker.register('service-worker.js');</script>
+<script src="js/theme.js"></script>
 </body>
 
-        </html>
+</html>

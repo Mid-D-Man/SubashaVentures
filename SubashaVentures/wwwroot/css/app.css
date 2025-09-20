@@ -39,19 +39,33 @@ a, .btn-link {
     color: red;
 }
 
-/* ===== CUSTOM SUBASHAVENTURES LOADING ANIMATION ===== */
+/* ===== FIXED SUBASHAVENTURES LOADING ANIMATION (10% OF SCREEN) ===== */
 .loading-progress {
-    position: relative;
-    display: block;
-    width: 8rem;
-    height: 8rem;
-    margin: 20vh auto 1rem auto;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Size to 10% of viewport */
+    width: 10vmin;
+    height: 10vmin;
+    min-width: 60px;
+    min-height: 60px;
+    max-width: 120px;
+    max-height: 120px;
+
+    z-index: 9999;
 }
 
 .loading-circle {
     width: 100%;
     height: 100%;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .loading-circle circle {
@@ -67,21 +81,27 @@ a, .btn-link {
     left: 50%;
     transform: translate(-50%, -50%);
     font-family: 'Poppins', sans-serif;
-    font-size: 2.5rem;
+    font-size: calc(3vmin + 0.5rem);
     font-weight: 700;
     color: #96994A;
     animation: textPulse 2s ease-in-out infinite;
     user-select: none;
+    line-height: 1;
+    z-index: 1;
 }
 
 .loading-progress-text {
-    position: absolute;
+    position: fixed;
+    top: calc(50% + 6vmin);
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
     font-weight: 600;
-    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
     color: #495057;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     animation: textFade 2s ease-in-out infinite;
+    white-space: nowrap;
+    z-index: 9999;
 }
 
 .loading-progress-text:after {
@@ -123,35 +143,37 @@ a, .btn-link {
 /* ===== RESPONSIVE LOADING ANIMATION ===== */
 @media (max-width: 768px) {
     .loading-progress {
-        width: 6rem;
-        height: 6rem;
-        margin: 25vh auto 1rem auto;
+        width: 12vmin;
+        height: 12vmin;
+        min-width: 50px;
+        min-height: 50px;
     }
 
     .logo-s {
-        font-size: 2rem;
+        font-size: calc(4vmin + 0.3rem);
     }
 
     .loading-progress-text {
-        font-size: 1rem;
-        inset: calc(25vh + 2.75rem) 0 auto 0.2rem;
+        top: calc(50% + 8vmin);
+        font-size: 0.8rem;
     }
 }
 
 @media (max-width: 480px) {
     .loading-progress {
-        width: 5rem;
-        height: 5rem;
-        margin: 30vh auto 1rem auto;
+        width: 15vmin;
+        height: 15vmin;
+        min-width: 45px;
+        min-height: 45px;
     }
 
     .logo-s {
-        font-size: 1.75rem;
+        font-size: calc(5vmin + 0.2rem);
     }
 
     .loading-progress-text {
-        font-size: 0.9rem;
-        inset: calc(30vh + 2.25rem) 0 auto 0.2rem;
+        top: calc(50% + 10vmin);
+        font-size: 0.75rem;
     }
 }
 
@@ -190,12 +212,12 @@ a, .btn-link {
     .loading-progress-text {
         animation: none;
     }
-    
+
     .logo-s {
         color: #96994A;
         text-shadow: 0 0 5px rgba(150, 153, 74, 0.3);
     }
-    
+
     [data-theme="dark"] .logo-s {
         color: #B8BB6A;
         text-shadow: 0 0 10px rgba(184, 187, 106, 0.5);
@@ -203,16 +225,16 @@ a, .btn-link {
 }
 
 /* ===== HIGH CONTRAST SUPPORT ===== */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
     .logo-s {
         text-shadow: none;
         color: #5A5E27;
     }
-    
+
     .loading-circle circle {
         stroke-width: 6;
     }
-    
+
     [data-theme="dark"] .logo-s {
         color: #C8CB7A;
         text-shadow: none;
@@ -247,5 +269,5 @@ a, .btn-link {
 }
 
 .blazor-error-boundary::after {
-    content: "An error has occurred."
-    }
+    content: "An error has occurred.";
+}
