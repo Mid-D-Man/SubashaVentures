@@ -1,13 +1,15 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Sat Sep 20 10:33:27 UTC 2025
+Generated: Sat Sep 20 10:57:15 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: ff66ff6954542272648deb427a9f5fe36570321f
+Commit: fd37669abc9b521a4681e4845cc7d00786ae832a
 Branch: master
 ==================================
 
 Source Files:
 ============
 App.razor
+Components/Shared/Burgers/BurgerMenu.razor
+Components/Shared/Burgers/BurgerMenu.razor.css
 Components/Shared/Buttons/PrimaryButton.razor
 Components/Shared/Buttons/PrimaryButton.razor.css
 Components/Shared/Cards/ProductCard.razor
@@ -63,6 +65,7 @@ Directory Structure:
 ./
 ./Components
 ./  Shared
+./    Burgers
 ./    Buttons
 ./    Cards
 ./Domain
@@ -96,10 +99,10 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 7 files
-.razor    : 10 files
+.razor    : 11 files
 .csproj   : 1 files
 .json     : 4 files
-.css      : 11 files
+.css      : 12 files
 .scss     : 12 files
 .js       : 3 files
 .html     : 1 files
