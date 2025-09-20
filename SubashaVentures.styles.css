@@ -470,7 +470,7 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom[b-2hmb9etfrw] {
 }
 
 /* High contrast mode support */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
     .primary-button[b-98wp48km97] {
         border-width: 2px;
     }

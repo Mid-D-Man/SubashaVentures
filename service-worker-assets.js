@@ -1,7 +1,7 @@
 ﻿self.assetsManifest = {
   "assets": [
     {
-      "hash": "sha256-yj1RTy\/MiRF97prTU+XQgI3nl\/ajY2QUopJoS2sC\/6E=",
+      "hash": "sha256-NBBY\/7xqbyuRb8tB1R\/mVsi890au1zlvMH6wyATlkow=",
       "url": "SubashaVentures.styles.css"
     },
     {
@@ -281,5 +281,5 @@
       "url": "_content\/Blazored.Modal\/BlazoredModal.razor.js"
     }
   ],
-  "version": "aaoQKH0Q"
+  "version": "GZaWynEW"
 };
