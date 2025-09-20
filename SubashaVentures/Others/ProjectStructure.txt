@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Sat Sep 20 18:58:58 UTC 2025
+Generated: Sat Sep 20 19:04:32 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 6203c6d8356e3e0c3ab135d39bc3bcc9401b7e2e
+Commit: b95e5531af9b00eb5d1519431e17f174cb3bee10
 Branch: master
 ==================================
 
@@ -16,7 +16,6 @@ Components/Shared/Buttons/SecondaryButton.razor
 Components/Shared/Buttons/SecondaryButton.razor.css
 Components/Shared/Cards/ProductCard.razor
 Components/Shared/Cards/ProductCard.razor.css
-Components/Shared/Sliders/ProgressSlider.razor
 Domain/Enums/ProductEnums.cs
 Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
@@ -71,7 +70,6 @@ Directory Structure:
 ./    Burgers
 ./    Buttons
 ./    Cards
-./    Sliders
 ./Domain
 ./  Enums
 ./Layout
@@ -104,7 +102,7 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 7 files
-.razor    : 11 files
+.razor    : 10 files
 .csproj   : 1 files
 .json     : 4 files
 .css      : 14 files
