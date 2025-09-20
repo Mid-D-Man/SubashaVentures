@@ -1,7 +1,7 @@
 ﻿self.assetsManifest = {
   "assets": [
     {
-      "hash": "sha256-NBBY\/7xqbyuRb8tB1R\/mVsi890au1zlvMH6wyATlkow=",
+      "hash": "sha256-b62LUD9FElHBPZ8ne9gyeDWvKiSEsbEKk\/EL2foL4HI=",
       "url": "SubashaVentures.styles.css"
     },
     {
@@ -57,7 +57,7 @@
       "url": "css\/open-iconic\/README.md"
     },
     {
-      "hash": "sha256-47DEQpj8HBSa+\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+      "hash": "sha256-1noCILUnnPBdzwOxDzspXpYeI7+Skz5tcRUH\/hqNXxk=",
       "url": "css\/responsive.css"
     },
     {
@@ -125,7 +125,7 @@
       "url": "_framework\/icudt.dat"
     },
     {
-      "hash": "sha256-uf5ZQcYs1Nc7Ta7Qgq+NhlCRCDWzoRWaa+de2PBdP3M=",
+      "hash": "sha256-DyPgstlLrgCVtCQIfDZ3UhcGPonaPOHh1wi5igrveCU=",
       "url": "_framework\/blazor.boot.json"
     },
     {
@@ -197,7 +197,7 @@
       "url": "_framework\/Microsoft.JSInterop.WebAssembly.dll"
     },
     {
-      "hash": "sha256-CRiahPDuyfahjOzicph5xA5jdlhVOODIQ3OC8YHwHRg=",
+      "hash": "sha256-UXVeap5wFX+HbBjIlFRY2Vg6hBBt2R5gZiOk4GCEVfw=",
       "url": "_framework\/SubashaVentures.dll"
     },
     {
@@ -281,5 +281,5 @@
       "url": "_content\/Blazored.Modal\/BlazoredModal.razor.js"
     }
   ],
-  "version": "GZaWynEW"
+  "version": "BWOjHeV1"
 };
