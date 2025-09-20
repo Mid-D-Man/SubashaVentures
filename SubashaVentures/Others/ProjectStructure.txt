@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Sat Sep 20 18:49:34 UTC 2025
+Generated: Sat Sep 20 18:58:58 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 9b8dbb51416dc11097320c63493f7b8057ef88e0
+Commit: 6203c6d8356e3e0c3ab135d39bc3bcc9401b7e2e
 Branch: master
 ==================================
 
@@ -17,7 +17,6 @@ Components/Shared/Buttons/SecondaryButton.razor.css
 Components/Shared/Cards/ProductCard.razor
 Components/Shared/Cards/ProductCard.razor.css
 Components/Shared/Sliders/ProgressSlider.razor
-Components/Shared/Sliders/ProgressSlider.razor.scss
 Domain/Enums/ProductEnums.cs
 Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
@@ -41,6 +40,7 @@ Styles/abstracts/_variables.scss
 Styles/base/_base.scss
 Styles/base/_reset.scss
 Styles/base/_typography.scss
+Styles/components/ProgressSlider.scss
 Styles/main.scss
 Styles/themes/_dark.scss
 Styles/themes/_light.scss
@@ -86,6 +86,7 @@ Directory Structure:
 ./Styles
 ./  abstracts
 ./  base
+./  components
 ./  themes
 ./  utilities
 ./Utilities
