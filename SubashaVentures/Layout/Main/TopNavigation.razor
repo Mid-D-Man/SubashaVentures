@@ -11,87 +11,14 @@
         </a>
     </div>
 
-    <!-- Search Bar -->
-    <div class="nav-search">
-        <div class="search-container">
-            <input type="text" 
-                   class="search-input" 
-                   placeholder="Search products..." 
-                   @bind="searchQuery"
-                   @onkeypress="HandleSearchKeyPress" />
-            <button class="search-btn" @onclick="HandleSearch" title="Search">
-                🔍
-            </button>
-        </div>
-    </div>
-
     <!-- Right Side Actions -->
     <div class="nav-actions">
-        <!-- Cart Button -->
-        <button class="nav-action-btn cart-btn" @onclick="ToggleCart" title="Shopping Cart">
-            <span class="btn-icon">🛒</span>
-            <span class="cart-count">@cartItemCount</span>
+        <!-- Search Button -->
+        <button class="nav-action-btn search-btn" @onclick="ToggleSearch" title="Search">
+            <span class="btn-icon">🔍</span>
         </button>
 
-        <!-- User Menu Dropdown -->
-        <div class="user-menu-wrapper">
-            <button class="nav-action-btn user-btn" @onclick="ToggleUserMenu" title="Account">
-                <span class="btn-icon">👤</span>
-            </button>
-            
-            <!-- User Dropdown Menu -->
-            <div class="user-dropdown @(isUserMenuOpen ? "active" : "")">
-                <div class="user-dropdown-content">
-                    @if (isLoggedIn)
-                    {
-                        <div class="user-info">
-                            <span class="user-avatar">👤</span>
-                            <div class="user-details">
-                                <span class="user-name">@userName</span>
-                                <span class="user-email">@userEmail</span>
-                            </div>
-                        </div>
-                        <hr class="dropdown-divider" />
-                        <a class="dropdown-item" href="/profile" @onclick="CloseUserMenu">
-                            👤 My Profile
-                        </a>
-                        <a class="dropdown-item" href="/orders" @onclick="CloseUserMenu">
-                            📦 My Orders
-                        </a>
-                        <a class="dropdown-item" href="/wishlist" @onclick="CloseUserMenu">
-                            ❤️ Wishlist
-                        </a>
-                        <a class="dropdown-item" href="/settings" @onclick="CloseUserMenu">
-                            ⚙️ Settings
-                        </a>
-                        <hr class="dropdown-divider" />
-                        <button class="dropdown-item logout-btn" @onclick="HandleLogout">
-                            🚪 Sign Out
-                        </button>
-                    }
-                    else
-                    {
-                        <div class="auth-buttons">
-                            <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateToAuth(true)">
-                                Sign In
-                            </PrimaryButton>
-                            <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="() => NavigateToAuth(false)">
-                                Sign Up
-                            </SecondaryButton>
-                        </div>
-                        <hr class="dropdown-divider" />
-                        <a class="dropdown-item" href="/guest-checkout" @onclick="CloseUserMenu">
-                            🛒 Guest Checkout
-                        </a>
-                        <a class="dropdown-item" href="/track-order" @onclick="CloseUserMenu">
-                            📍 Track Order
-                        </a>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- Mobile Menu Burger -->
+        <!-- Burger Menu -->
         <div class="burger-menu-wrapper">
             <input type="checkbox" id="ck-burger" @bind="isMobileMenuOpen" />
             <label for="ck-burger" class="burger-toggle">
@@ -105,148 +32,57 @@
     <!-- Mobile Menu Dropdown -->
     <div class="mobile-menu @(isMobileMenuOpen ? "active" : "")">
         <div class="mobile-menu-content">
-            <!-- Mobile Search -->
-            <div class="mobile-search">
-                <div class="search-container">
-                    <input type="text" 
-                           class="search-input" 
-                           placeholder="Search products..." 
-                           @bind="mobileSearchQuery"
-                           @onkeypress="HandleMobileSearchKeyPress" />
-                    <button class="search-btn" @onclick="HandleMobileSearch" title="Search">
-                        🔍
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Mobile Navigation Links -->
             <div class="mobile-nav-links">
                 <a class="mobile-nav-item" href="/" @onclick="CloseMobileMenu">
-                    <span class="nav-icon">🏠</span>
                     <span class="mobile-nav-text">Home</span>
                 </a>
                 <a class="mobile-nav-item" href="/shop" @onclick="CloseMobileMenu">
-                    <span class="nav-icon">🛍️</span>
                     <span class="mobile-nav-text">Shop</span>
                 </a>
                 <a class="mobile-nav-item" href="/categories" @onclick="CloseMobileMenu">
-                    <span class="nav-icon">📂</span>
                     <span class="mobile-nav-text">Categories</span>
                 </a>
-                <a class="mobile-nav-item" href="/deals" @onclick="CloseMobileMenu">
-                    <span class="nav-icon">💰</span>
-                    <span class="mobile-nav-text">Deals</span>
-                </a>
                 <a class="mobile-nav-item" href="/about" @onclick="CloseMobileMenu">
-                    <span class="nav-icon">ℹ️</span>
                     <span class="mobile-nav-text">About</span>
                 </a>
                 <a class="mobile-nav-item" href="/contact" @onclick="CloseMobileMenu">
-                    <span class="nav-icon">📞</span>
                     <span class="mobile-nav-text">Contact</span>
                 </a>
             </div>
+        </div>
+    </div>
+
+    <!-- Search Overlay -->
+    <div class="search-overlay @(isSearchOpen ? "active" : "")">
+        <div class="search-content">
+            <input type="text" class="search-input" placeholder="Search products..." @bind="searchQuery" />
+            <button class="search-close" @onclick="CloseSearch">✕</button>
         </div>
     </div>
 </nav>
 
 @code {
     private bool isMobileMenuOpen = false;
-    private bool isUserMenuOpen = false;
+    private bool isSearchOpen = false;
     private string searchQuery = "";
-    private string mobileSearchQuery = "";
-    private int cartItemCount = 3; // Sample cart count
-    
-    // User state
-    private bool isLoggedIn = false; // Change this based on authentication
-    private string userName = "John Doe";
-    private string userEmail = "john.doe@example.com";
 
     private void CloseMobileMenu()
     {
         isMobileMenuOpen = false;
     }
 
-    private void ToggleUserMenu()
+    private void ToggleSearch()
     {
-        isUserMenuOpen = !isUserMenuOpen;
-        if (isUserMenuOpen)
+        isSearchOpen = !isSearchOpen;
+        if (isSearchOpen)
         {
-            isMobileMenuOpen = false; // Close mobile menu if user menu opens
+            isMobileMenuOpen = false; // Close menu if search opens
         }
     }
 
-    private void CloseUserMenu()
+    private void CloseSearch()
     {
-        isUserMenuOpen = false;
-    }
-
-    private void ToggleCart()
-    {
-        // Handle cart toggle
-        CloseUserMenu();
-    }
-
-    private void HandleSearch()
-    {
-        if (!string.IsNullOrWhiteSpace(searchQuery))
-        {
-            // Navigate to search results
-            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
-        }
-    }
-
-    private void HandleMobileSearch()
-    {
-        if (!string.IsNullOrWhiteSpace(mobileSearchQuery))
-        {
-            // Navigate to search results
-            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(mobileSearchQuery)}");
-            CloseMobileMenu();
-        }
-    }
-
-    private void HandleSearchKeyPress(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            HandleSearch();
-        }
-    }
-
-    private void HandleMobileSearchKeyPress(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            HandleMobileSearch();
-        }
-    }
-
-    private void NavigateToAuth(bool isSignIn)
-    {
-        CloseUserMenu();
-        if (isSignIn)
-        {
-            // NavigationManager.NavigateTo("/signin");
-        }
-        else
-        {
-            // NavigationManager.NavigateTo("/signup");
-        }
-    }
-
-    private async Task HandleLogout()
-    {
-        CloseUserMenu();
-        // Handle logout logic
-        isLoggedIn = false;
-        userName = "";
-        userEmail = "";
-    }
-
-    // Close dropdowns when clicking outside
-    protected override void OnInitialized()
-    {
-        // In a real app, you'd set up click outside handlers here
+        isSearchOpen = false;
+        searchQuery = "";
     }
 }
