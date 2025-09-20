@@ -1,13 +1,10 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 
 namespace SubashaVentures.Pages.Main;
 
 public partial class LandingPage : ComponentBase
 {
-    // Component state
-    private bool isLoading = false;
-    private string currentTheme = "light";
-    
     // Sample data for demonstration
     private readonly List<CategoryItem> categories = new()
     {
@@ -39,50 +36,19 @@ public partial class LandingPage : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        // Initialize component
-        isLoading = true;
-        
+        // Initialize component - removed unused isLoading and currentTheme fields
         try
         {
             // Simulate loading data
             await Task.Delay(100);
             
-            // Initialize theme from local storage or system preference
-            await InitializeTheme();
-            
-            // Any other initialization logic
+            // Any initialization logic
             await LoadInitialData();
         }
         catch (Exception ex)
         {
             // Handle initialization errors
             Console.WriteLine($"Error initializing landing page: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task InitializeTheme()
-    {
-        try
-        {
-            // In a real app, you'd check local storage or system preferences
-            // For now, default to light theme
-            currentTheme = "light";
-            
-            // You could also check system preference:
-            // var prefersDark = await JS.InvokeAsync<bool>("window.matchMedia('(prefers-color-scheme: dark)').matches");
-            // currentTheme = prefersDark ? "dark" : "light";
-            
-            await Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error initializing theme: {ex.Message}");
-            currentTheme = "light"; // fallback
         }
     }
 
