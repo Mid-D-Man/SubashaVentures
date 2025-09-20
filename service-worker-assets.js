@@ -1,11 +1,11 @@
 ﻿self.assetsManifest = {
   "assets": [
     {
-      "hash": "sha256-haTOWQcCVlIgdjdVPj9nxUC+49hU7G\/gtiMajV8SQYY=",
+      "hash": "sha256-r4FMb58rD34t2R3Hh07dnifBH8u05O8M3S0uVg8GvS0=",
       "url": "SubashaVentures.styles.css"
     },
     {
-      "hash": "sha256-Y2zExnrZgjLLTYQj2j4GqSN55AmH3PlpGDp8wI6f3oY=",
+      "hash": "sha256-3JMihPiGUBA+g5KOVq+8SmrNy0lbFPqlvUdlIHzuE80=",
       "url": "css\/app.css"
     },
     {
@@ -69,7 +69,7 @@
       "url": "icon-512.png"
     },
     {
-      "hash": "sha256-HPr0jBL6PgzCdIuUklo4nGpDFRjyauLtm5ulzsGwRe0=",
+      "hash": "sha256-HyxGVssWk247V1N08QwIyG4sccPzS+E7\/KdaQv+m15A=",
       "url": "index.html"
     },
     {
@@ -117,7 +117,7 @@
       "url": "_framework\/icudt.dat"
     },
     {
-      "hash": "sha256-1U6qprUKigcyO2p1j4JvVrVhhYJcuNQ9bD4k9ps462o=",
+      "hash": "sha256-+fdURvKLQAsyLhLRr6a40Xc8Dl8YrDJhrzTjjP2+1V0=",
       "url": "_framework\/blazor.boot.json"
     },
     {
@@ -133,7 +133,7 @@
       "url": "_framework\/Blazored.Toast.dll"
     },
     {
-      "hash": "sha256-0EE0JixFVKRxlHdOLIlcYOFXCPcgwVgiMBkt\/E6AvT4=",
+      "hash": "sha256-jZsTtMtylIb3HV+2oqcKsbQxrgj3Ms05YlbmwE+CPLg=",
       "url": "_framework\/Microsoft.AspNetCore.Components.dll"
     },
     {
@@ -189,7 +189,7 @@
       "url": "_framework\/Microsoft.JSInterop.WebAssembly.dll"
     },
     {
-      "hash": "sha256-4sBk30ch7dcxwzdgufV110EFmdZj9544XY0xhofVxHE=",
+      "hash": "sha256-\/cz+0gjW77HCdSEezxvZYti1mvWZIH2tf+xxGzF0NME=",
       "url": "_framework\/SubashaVentures.dll"
     },
     {
@@ -229,7 +229,7 @@
       "url": "_framework\/System.Net.Primitives.dll"
     },
     {
-      "hash": "sha256-v65wVeR0\/Sdlzfa6k0+sl6pDVoX\/DjXMbQ9YJK56uMM=",
+      "hash": "sha256-GZYpYv6zLtsSWiQrEj3Qz07MnUBa0NSOeP8849jQOyM=",
       "url": "_framework\/System.Private.CoreLib.dll"
     },
     {
@@ -237,7 +237,7 @@
       "url": "_framework\/System.Private.Uri.dll"
     },
     {
-      "hash": "sha256-eS\/2Uyaxw3soKRaGFgJjZIqwcPNJzAs7EW4YsQ55Wus=",
+      "hash": "sha256-3Or38q65AW+xEK5TSRm8MroyDf2vi6prGqk+jmghHVs=",
       "url": "_framework\/System.Runtime.dll"
     },
     {
@@ -273,5 +273,5 @@
       "url": "_content\/Blazored.Modal\/BlazoredModal.razor.js"
     }
   ],
-  "version": "S80v99MR"
+  "version": "Tn8bD7PD"
 };
