@@ -1,1 +1,1 @@
-@CONFIG()@DLM()@DATA()@ENUMS()
+@CONFIG()@DLM()@ENUMS()@DATA( _suger: count = 12,color = #FFFFFF)
