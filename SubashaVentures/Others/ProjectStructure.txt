@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures Clothing Store
-Generated: Sat Sep 20 19:04:32 UTC 2025
+Generated: Sun Sep 21 00:41:35 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: b95e5531af9b00eb5d1519431e17f174cb3bee10
+Commit: b417dd3dcde2226b46f4bad8351a4a34295f8ea3
 Branch: master
 ==================================
 
@@ -10,12 +10,16 @@ Source Files:
 App.razor
 Components/Shared/Burgers/BurgerMenu.razor
 Components/Shared/Burgers/BurgerMenu.razor.css
+Components/Shared/Buttons/BrandLogo.razor
+Components/Shared/Buttons/BrandLogo.razor.css
 Components/Shared/Buttons/PrimaryButton.razor
 Components/Shared/Buttons/PrimaryButton.razor.css
 Components/Shared/Buttons/SecondaryButton.razor
 Components/Shared/Buttons/SecondaryButton.razor.css
 Components/Shared/Cards/ProductCard.razor
 Components/Shared/Cards/ProductCard.razor.css
+Components/Shared/Sliders/ProgressSlider.razor
+Components/Shared/Sliders/ProgressSlider.razor.css
 Domain/Enums/ProductEnums.cs
 Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
@@ -70,6 +74,7 @@ Directory Structure:
 ./    Burgers
 ./    Buttons
 ./    Cards
+./    Sliders
 ./Domain
 ./  Enums
 ./Layout
@@ -102,10 +107,10 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 7 files
-.razor    : 10 files
+.razor    : 12 files
 .csproj   : 1 files
 .json     : 4 files
-.css      : 14 files
+.css      : 16 files
 .scss     : 13 files
 .js       : 3 files
 .html     : 1 files
