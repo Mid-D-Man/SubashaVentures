@@ -3606,9 +3606,16 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom[b-4630g1puru] {
     .hero-title[b-ulhd7puebc] {
         font-size: 2.5rem;
     }
+.title-static[b-ulhd7puebc] {
+      width: 20rem;
+  min-width: 10rem;
+}
 
     .title-animated[b-ulhd7puebc] {
         height: 3rem;
+        
+   width: 20rem;
+  min-width: 10rem;
     }
 
     .flip-text > div[b-ulhd7puebc] {
@@ -3789,4 +3796,5 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom[b-4630g1puru] {
     }
 
 }
+
 
