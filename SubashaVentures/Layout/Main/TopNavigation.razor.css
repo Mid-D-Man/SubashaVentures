@@ -12,6 +12,10 @@
     -webkit-backdrop-filter: blur(15px);
     border-bottom: 1px solid var(--nav-border, rgba(150, 153, 74, 0.2));
     transition: all 0.3s ease;
+    
+    /* Ensure proper stacking context */
+    z-index: 100;
+    isolation: isolate;
 }
 
 /* ===== LEFT: BRAND SECTION ===== */
@@ -19,6 +23,7 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
+    z-index: 1;
 }
 
 .brand-link {
@@ -62,7 +67,8 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 1rem; /* Fixed gap instead of nested structure */
+    gap: 1rem;
+    z-index: 1;
 }
 
 /* Search Bar */
@@ -75,11 +81,11 @@
     position: relative;
     display: flex;
     align-items: center;
-    width: 240px; /* Reduced width */
-    height: 36px; /* Reduced height */
+    width: 240px;
+    height: 36px;
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid var(--border-light, rgba(150, 153, 74, 0.3));
-    border-radius: 8px; /* Reduced border radius */
+    border-radius: 8px;
     overflow: hidden;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
@@ -93,7 +99,7 @@
 
 .search-icon {
     position: absolute;
-    left: 10px; /* Reduced padding */
+    left: 10px;
     font-size: 0.85rem;
     color: var(--text-muted, #999);
     pointer-events: none;
@@ -103,11 +109,11 @@
 .search-input {
     flex: 1;
     height: 100%;
-    padding: 0 35px 0 30px; /* Reduced padding */
+    padding: 0 35px 0 30px;
     border: none;
     background: transparent;
     color: var(--text-primary, #333);
-    font-size: 0.85rem; /* Reduced font size */
+    font-size: 0.85rem;
     outline: none;
     font-family: inherit;
 }
@@ -119,7 +125,7 @@
 .search-clear {
     position: absolute;
     right: 6px;
-    width: 20px; /* Reduced size */
+    width: 20px;
     height: 20px;
     border: none;
     background: rgba(150, 153, 74, 0.1);
@@ -151,6 +157,7 @@
 
 .burger-menu-wrapper {
     position: relative;
+    z-index: 10000; /* Ensure burger is always on top */
 }
 
 #ck-burger {
@@ -159,18 +166,19 @@
 
 .burger-toggle {
     position: relative;
-    width: 38px; /* Reduced size */
-    height: 38px; /* Reduced height */
+    width: 38px;
+    height: 38px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 3px 0; /* Reduced padding */
+    padding: 3px 0;
+    z-index: 10001; /* Higher than dropdown */
 }
 
 .bar {
     width: 100%;
-    height: 2.5px; /* Slightly reduced thickness */
+    height: 2.5px;
     background: var(--theme-primary, #96994A);
     border-radius: 1.5px;
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -198,35 +206,53 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
     transform: rotate(-45deg) translate(3px, -3px);
 }
 
-/* ===== DROPDOWN MENU ===== */
+/* ===== DROPDOWN MENU - FIXED VERSION ===== */
 .dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
+    position: fixed; /* Changed from absolute to fixed */
+    top: 70px; /* Match header height */
+    right: 1rem; /* Adjust based on your padding */
     width: 320px;
-    background: var(--bg-surface, rgba(255, 255, 255, 0.95));
+    
+    /* Enhanced background for better visibility */
+    background: var(--bg-surface, rgba(255, 255, 255, 0.98));
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-radius: 0 0 12px 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--border-light, rgba(150, 153, 74, 0.2));
-    border-top: none;
+    
+    /* Enhanced border and shadow */
+    border: 2px solid var(--border-light, rgba(150, 153, 74, 0.4));
+    border-radius: 12px;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.2),
+        0 4px 16px rgba(150, 153, 74, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 
-    transform: translateY(-20px);
+    /* Animation states - CRITICAL FIX */
+    transform: translateY(-20px) scale(0.95);
     opacity: 0;
     visibility: hidden;
+    pointer-events: none; /* Prevent interaction when hidden */
+    
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1000;
+    
+    /* CRITICAL: High z-index to ensure visibility */
+    z-index: 9999;
+    
+    /* Ensure it's not clipped */
+    max-height: 80vh;
+    overflow-y: auto;
 }
 
 .dropdown-menu.active {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
     visibility: visible;
+    pointer-events: auto; /* Re-enable interaction when visible */
 }
 
 .dropdown-content {
-    padding: 1.5rem;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
 }
 
 /* Navigation Section */
@@ -336,9 +362,12 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
 }
 
 .dark-mode .dropdown-menu {
-    background: var(--bg-surface, rgba(33, 37, 41, 0.95));
-    border-color: rgba(184, 187, 106, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: var(--bg-surface, rgba(33, 37, 41, 0.98));
+    border-color: rgba(184, 187, 106, 0.4);
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.6),
+        0 4px 16px rgba(184, 187, 106, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .dark-mode .dropdown-item {
@@ -404,7 +433,8 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
 
     .dropdown-menu {
         width: 280px;
-        right: -0.75rem;
+        right: 0.75rem;
+        top: 60px; /* Adjust for mobile header height */
     }
 }
 
@@ -449,9 +479,10 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
     }
 
     .dropdown-menu {
-        width: calc(100vw - 1rem);
-        right: -0.5rem;
+        width: calc(100vw - 2rem);
+        right: 0.5rem;
         left: auto;
+        top: 55px; /* Adjust for mobile header height */
     }
 
     .dropdown-content {
