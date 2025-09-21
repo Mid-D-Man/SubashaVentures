@@ -24,6 +24,7 @@
 .brand-link {
     text-decoration: none;
     transition: transform 0.3s ease;
+    cursor: pointer;
 }
 
 .brand-link:hover {
@@ -61,9 +62,10 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
+    gap: 1rem; /* Fixed gap instead of nested structure */
 }
 
-/* Right Left: Search Bar */
+/* Search Bar */
 .nav-right-left {
     display: flex;
     align-items: center;
@@ -73,11 +75,11 @@
     position: relative;
     display: flex;
     align-items: center;
-    width: 280px;
-    height: 40px;
+    width: 240px; /* Reduced width */
+    height: 36px; /* Reduced height */
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid var(--border-light, rgba(150, 153, 74, 0.3));
-    border-radius: 10px;
+    border-radius: 8px; /* Reduced border radius */
     overflow: hidden;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
@@ -85,14 +87,14 @@
 
 .search-container:focus-within {
     border-color: var(--theme-primary, #96994A);
-    box-shadow: 0 0 15px rgba(150, 153, 74, 0.2);
+    box-shadow: 0 0 10px rgba(150, 153, 74, 0.2);
     background: rgba(255, 255, 255, 0.95);
 }
 
 .search-icon {
     position: absolute;
-    left: 12px;
-    font-size: 0.9rem;
+    left: 10px; /* Reduced padding */
+    font-size: 0.85rem;
     color: var(--text-muted, #999);
     pointer-events: none;
     z-index: 1;
@@ -101,11 +103,11 @@
 .search-input {
     flex: 1;
     height: 100%;
-    padding: 0 40px 0 35px;
+    padding: 0 35px 0 30px; /* Reduced padding */
     border: none;
     background: transparent;
     color: var(--text-primary, #333);
-    font-size: 0.9rem;
+    font-size: 0.85rem; /* Reduced font size */
     outline: none;
     font-family: inherit;
 }
@@ -116,15 +118,15 @@
 
 .search-clear {
     position: absolute;
-    right: 8px;
-    width: 24px;
-    height: 24px;
+    right: 6px;
+    width: 20px; /* Reduced size */
+    height: 20px;
     border: none;
     background: rgba(150, 153, 74, 0.1);
     color: var(--text-muted, #666);
     border-radius: 50%;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -140,13 +142,7 @@
     display: none;
 }
 
-/* Right Middle: Small Filler Space */
-.nav-right-middle {
-    width: 1rem;
-    flex: 0 0 auto;
-}
-
-/* Right Right: Burger Menu */
+/* Burger Menu */
 .nav-right-right {
     flex: 0 0 auto;
     display: flex;
@@ -163,34 +159,34 @@
 
 .burger-toggle {
     position: relative;
-    width: 40px;
-    height: 30px;
+    width: 32px; /* Reduced size */
+    height: 24px; /* Reduced height */
     cursor: pointer;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 5px 0;
+    padding: 3px 0; /* Reduced padding */
 }
 
 .bar {
     width: 100%;
-    height: 3px;
+    height: 2.5px; /* Slightly reduced thickness */
     background: var(--theme-primary, #96994A);
-    border-radius: 2px;
-    transition: all 0.3s ease;
+    border-radius: 1.5px;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     transform-origin: center;
 }
 
 .bar--top {
-    transform-origin: top left;
+    transform-origin: left center;
 }
 
 .bar--bottom {
-    transform-origin: bottom left;
+    transform-origin: left center;
 }
 
 input[type='checkbox']:checked + .burger-toggle .bar--top {
-    transform: rotate(45deg) translate(2px, 2px);
+    transform: rotate(45deg) translate(3px, 3px);
 }
 
 input[type='checkbox']:checked + .burger-toggle .bar--middle {
@@ -199,7 +195,7 @@ input[type='checkbox']:checked + .burger-toggle .bar--middle {
 }
 
 input[type='checkbox']:checked + .burger-toggle .bar--bottom {
-    transform: rotate(-45deg) translate(2px, -2px);
+    transform: rotate(-45deg) translate(3px, -3px);
 }
 
 /* ===== DROPDOWN MENU ===== */
@@ -212,14 +208,14 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-radius: 0 0 12px 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     border: 1px solid var(--border-light, rgba(150, 153, 74, 0.2));
     border-top: none;
 
-    transform: translateY(-10px);
+    transform: translateY(-20px);
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1000;
 }
 
@@ -318,7 +314,7 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
 .dark-mode .search-container:focus-within {
     border-color: var(--theme-primary, #B8BB6A);
     background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 0 20px rgba(184, 187, 106, 0.4);
+    box-shadow: 0 0 15px rgba(184, 187, 106, 0.4);
 }
 
 .dark-mode .search-input {
@@ -342,6 +338,7 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
 .dark-mode .dropdown-menu {
     background: var(--bg-surface, rgba(33, 37, 41, 0.95));
     border-color: rgba(184, 187, 106, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .dark-mode .dropdown-item {
@@ -380,16 +377,29 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
     }
 
     .search-container {
-        width: 200px;
+        width: 180px;
+        height: 32px;
     }
 
-    .nav-right-middle {
-        width: 0.75rem;
+    .search-input {
+        font-size: 0.8rem;
+        padding: 0 30px 0 26px;
+    }
+
+    .search-icon {
+        left: 8px;
+        font-size: 0.8rem;
+    }
+
+    .search-clear {
+        right: 5px;
+        width: 18px;
+        height: 18px;
     }
 
     .burger-toggle {
-        width: 36px;
-        height: 26px;
+        width: 28px;
+        height: 20px;
     }
 
     .dropdown-menu {
@@ -408,38 +418,34 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom {
     }
 
     .search-container {
-        width: 160px;
-        height: 36px;
+        width: 140px;
+        height: 30px;
     }
 
     .search-input {
-        font-size: 0.85rem;
-        padding: 0 32px 0 30px;
+        font-size: 0.75rem;
+        padding: 0 25px 0 24px;
     }
 
     .search-icon {
-        left: 10px;
-        font-size: 0.8rem;
+        left: 7px;
+        font-size: 0.75rem;
     }
 
     .search-clear {
-        right: 6px;
-        width: 20px;
-        height: 20px;
-        font-size: 0.7rem;
-    }
-
-    .nav-right-middle {
-        width: 0.5rem;
+        right: 4px;
+        width: 16px;
+        height: 16px;
+        font-size: 0.65rem;
     }
 
     .burger-toggle {
-        width: 32px;
-        height: 24px;
+        width: 26px;
+        height: 18px;
     }
 
     .bar {
-        height: 2.5px;
+        height: 2px;
     }
 
     .dropdown-menu {

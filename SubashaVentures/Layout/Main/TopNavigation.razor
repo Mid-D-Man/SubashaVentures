@@ -3,12 +3,7 @@
 <nav class="top-navigation">
     <!-- Left: Brand Logo -->
     <div class="nav-left">
-        <a href="/" class="brand-link">
-            <div class="brand-logo">
-                <span class="brand-icon">🌟</span>
-                <span class="brand-text">SubashaVentures</span>
-            </div>
-        </a>
+        <BrandLogo />
     </div>
 
     <!-- Middle: Filler Space -->
@@ -16,7 +11,7 @@
 
     <!-- Right: Search + Burger -->
     <div class="nav-right">
-        <!-- Left: Search Bar -->
+        <!-- Search Bar -->
         <div class="nav-right-left">
             <div class="search-container">
                 <span class="search-icon">🔍</span>
@@ -33,10 +28,7 @@
             </div>
         </div>
 
-        <!-- Middle: Small Filler Space -->
-        <div class="nav-right-middle"></div>
-
-        <!-- Right: Burger Menu -->
+        <!-- Burger Menu -->
         <div class="nav-right-right">
             <div class="burger-menu-wrapper">
                 <input type="checkbox" id="ck-burger" @bind="isMobileMenuOpen" />
