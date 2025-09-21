@@ -768,9 +768,16 @@
     .hero-title {
         font-size: 2.5rem;
     }
+.title-static {
+      width: 20rem;
+  min-width: 10rem;
+}
 
     .title-animated {
         height: 3rem;
+        
+   width: 20rem;
+  min-width: 10rem;
     }
 
     .flip-text > div {
@@ -951,4 +958,5 @@
     }
 
 }
+
 
