@@ -70,4 +70,8 @@
     <None Include="Styles\**\*.scss" />
   </ItemGroup>
 
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Components\Shared\Sliders\ProgressSlider.razor" />
+  </ItemGroup>
+
 </Project>
