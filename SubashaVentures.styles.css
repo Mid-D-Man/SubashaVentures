@@ -2892,8 +2892,8 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom[b-4630g1puru] {
     display: flex;
     align-items: center;
     position: relative;
-   width: 50rem;
-  min-width: 30rem;
+   width: 40rem;
+  min-width: 20rem;
 }
 
 .flip-container[b-ulhd7puebc] {
@@ -3758,3 +3758,4 @@ input[type='checkbox']:checked + .burger-toggle .bar--bottom[b-4630g1puru] {
     }
 
 }
+
