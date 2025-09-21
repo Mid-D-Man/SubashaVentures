@@ -159,8 +159,8 @@
 
 .burger-toggle {
     position: relative;
-    width: 32px; /* Reduced size */
-    height: 24px; /* Reduced height */
+    width: 38px; /* Reduced size */
+    height: 38px; /* Reduced height */
     cursor: pointer;
     display: flex;
     flex-direction: column;
