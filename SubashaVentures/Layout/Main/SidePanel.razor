@@ -1,4 +1,5 @@
 @* SidePanel.razor - Slide-in navigation panel *@
+@using SubashaVentures.Components.Shared.Buttons
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
         <div class="panel-content">
