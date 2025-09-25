@@ -1,4 +1,5 @@
 @using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Burgers
 
 <nav class="top-navigation">
     <!-- Left: Brand Logo -->
@@ -11,8 +12,8 @@
 
     <!-- Right: Search + Burger -->
     <div class="nav-right">
-        <!-- Search Bar -->
-        <div class="nav-right-left">
+        <!-- Search Bar (Desktop Only) -->
+        <div class="nav-search desktop-only">
             <div class="search-container">
                 <span class="search-icon">🔍</span>
                 <input type="text"
@@ -29,66 +30,26 @@
         </div>
 
         <!-- Burger Menu -->
-        <div class="nav-right-right">
-            <div class="burger-menu-wrapper">
-                <input type="checkbox" id="ck-burger" @bind="isMobileMenuOpen" />
-                <label for="ck-burger" class="burger-toggle">
-                    <div class="bar bar--top"></div>
-                    <div class="bar bar--middle"></div>
-                    <div class="bar bar--bottom"></div>
-                </label>
-            </div>
-        </div>
-    </div>
-
-    <!-- Dropdown Menu -->
-    <div class="dropdown-menu @(isMobileMenuOpen ? "active" : "")">
-        <div class="dropdown-content">
-            <!-- Navigation Section -->
-            <div class="nav-section">
-                <a class="dropdown-item" href="/" @onclick="CloseMenu">Home</a>
-                <a class="dropdown-item" href="/shop" @onclick="CloseMenu">Shop</a>
-                <a class="dropdown-item" href="/categories" @onclick="CloseMenu">Categories</a>
-                <a class="dropdown-item" href="/about" @onclick="CloseMenu">About</a>
-                <a class="dropdown-item" href="/contact" @onclick="CloseMenu">Contact</a>
-                <a class="dropdown-item" href="/deals" @onclick="CloseMenu">Deals</a>
-            </div>
-
-            <!-- Separator Line -->
-            <hr class="dropdown-separator" />
-
-            <!-- Action Section -->
-            <div class="action-section">
-                @if (isLoggedIn)
-                {
-                    <div class="user-info">
-                        <span class="user-name">@userName</span>
-                        <span class="user-email">@userEmail</span>
-                    </div>
-                    <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateTo(NavigationDestination.Profile)" class="action-btn">
-                        My Profile
-                    </PrimaryButton>
-                    <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="HandleLogout" class="action-btn">
-                        Sign Out
-                    </SecondaryButton>
-                }
-                else
-                {
-                    <PrimaryButton Size="PrimaryButton.ButtonSize.Small" @onclick="() => NavigateTo(NavigationDestination.SignIn)" class="action-btn">
-                        Sign In
-                    </PrimaryButton>
-                }
-
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Small" @onclick="() => NavigateTo(NavigationDestination.TrackOrders)" class="action-btn">
-                    Track Orders
-                </SecondaryButton>
-            </div>
+        <div class="nav-burger">
+            <BurgerMenu IsOpen="@isSidePanelOpen" IsOpenChanged="@HandleSidePanelToggle" />
         </div>
     </div>
 </nav>
 
+<!-- Side Panel Component -->
+<SidePanel IsOpen="@isSidePanelOpen"
+           IsOpenChanged="@HandleSidePanelToggle"
+           SearchQuery="@searchQuery"
+           SearchQueryChanged="@OnSearchQueryChanged"
+           IsLoggedIn="@isLoggedIn"
+           UserName="@userName"
+           UserEmail="@userEmail"
+           OnActionClick="@HandleActionClick"
+           OnNavigate="@HandleNavigate"
+           OnSearch="@HandleSearch" />
+
 @code {
-    private bool isMobileMenuOpen = false;
+    private bool isSidePanelOpen = false;
     private string searchQuery = "";
 
     // User state
@@ -96,17 +57,16 @@
     private string userName = "John Doe";
     private string userEmail = "john.doe@example.com";
 
-    // Enum for navigation destinations
-    private enum NavigationDestination
+    private async Task HandleSidePanelToggle(bool isOpen)
     {
-        SignIn,
-        Profile,
-        TrackOrders
+        isSidePanelOpen = isOpen;
+        StateHasChanged();
     }
 
-    private void CloseMenu()
+    private async Task OnSearchQueryChanged(string query)
     {
-        isMobileMenuOpen = false;
+        searchQuery = query;
+        StateHasChanged();
     }
 
     private void ClearSearch()
@@ -125,33 +85,49 @@
 
     private void HandleSearch()
     {
-        if (!string.IsNullOrWhiteSpace(searchQuery))
+        HandleSearch(searchQuery);
+    }
+
+    private void HandleSearch(string query)
+    {
+        if (!string.IsNullOrWhiteSpace(query))
         {
             // Navigate to search results
-            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
+            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
         }
     }
 
-    private void NavigateTo(NavigationDestination destination)
+    private async Task HandleActionClick(SidePanel.ActionType action)
     {
-        CloseMenu();
-
-        string url = destination switch
+        switch (action)
         {
-            NavigationDestination.SignIn => "/signin",
-            NavigationDestination.Profile => "/profile",
-            NavigationDestination.TrackOrders => "/track-order",
-            _ => "/"
-        };
+            case SidePanel.ActionType.SignIn:
+                // NavigationManager.NavigateTo("/signin");
+                break;
+            case SidePanel.ActionType.Register:
+                // NavigationManager.NavigateTo("/register");
+                break;
+            case SidePanel.ActionType.Profile:
+                // NavigationManager.NavigateTo("/profile");
+                break;
+            case SidePanel.ActionType.Logout:
+                await HandleLogout();
+                break;
+        }
+    }
 
+    private async Task HandleNavigate(string url)
+    {
         // NavigationManager.NavigateTo(url);
+        await Task.CompletedTask;
     }
 
     private async Task HandleLogout()
     {
-        CloseMenu();
         isLoggedIn = false;
         userName = "";
         userEmail = "";
+        StateHasChanged();
+        await Task.CompletedTask;
     }
 }
