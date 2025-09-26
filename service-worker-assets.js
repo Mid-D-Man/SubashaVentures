@@ -77,7 +77,7 @@
       "url": "icon-512.png"
     },
     {
-      "hash": "sha256-jtPqSNJwXR9u8LPRnz48BCNv1FKIpuyrnsmxFJSA3dg=",
+      "hash": "sha256-9T\/CVFi+9dHYRwG9QGTCHAEBqqw6fkZUqM3eeDazmNA=",
       "url": "index.html"
     },
     {
@@ -281,5 +281,5 @@
       "url": "_content\/Blazored.Modal\/BlazoredModal.razor.js"
     }
   ],
-  "version": "iN7yP9KZ"
+  "version": "BM5EF7B0"
 };
