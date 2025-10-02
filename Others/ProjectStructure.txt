@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Thu Oct  2 16:54:50 UTC 2025
+Generated: Thu Oct  2 22:37:17 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 174b2b878884e808a2ed1bd6aee49fdab55672bf
+Commit: 4b67055b9622a7c01c1c818b8afe17954810aece
 Branch: master
 ==================================
 
@@ -9,16 +9,44 @@ Source Files:
 ============
 .github/workflows/deploy.yml
 App.razor
+Components/Shared/Burgers/BurgerMenu.razor
+Components/Shared/Burgers/BurgerMenu.razor.css
+Components/Shared/Buttons/BrandLogo.razor
+Components/Shared/Buttons/BrandLogo.razor.css
+Components/Shared/Buttons/PrimaryButton.razor
+Components/Shared/Buttons/PrimaryButton.razor.css
+Components/Shared/Buttons/SecondaryButton.razor
+Components/Shared/Buttons/SecondaryButton.razor.css
+Components/Shared/Cards/ProductCard.razor
+Components/Shared/Cards/ProductCard.razor.css
+Domain/Enums/ProductEnums.cs
+Layout/Main/FooterSection.razor
+Layout/Main/FooterSection.razor.css
+Layout/Main/MainLayout.razor
+Layout/Main/MainLayout.razor.css
+Layout/Main/SidePanel.razor
+Layout/Main/SidePanel.razor.css
+Layout/Main/TopNavigation.razor
+Layout/Main/TopNavigation.razor.css
 MainLayout.razor
-Pages/Index.razor
+Pages/Main/LandingPasge.razor
+Pages/Main/LandingPasge.razor.cs
+Pages/Main/LandingPasge.razor.css
 Program.cs
 Properties/launchSettings.json
+Services/Storage/BlazoredAppLocalStorage.cs
+Services/Storage/IBlazoredAppLocalStorage.cs
+Services/VisualElements/IThemeServce.cs
 SubashaVentures.csproj
 SubashaVentures.sln
+Utilities/Constants/AppConstants.cs
 _Imports.razor
 global.json
 wwwroot/css/app.css
+wwwroot/css/colors.css
+wwwroot/css/responsive.css
 wwwroot/index.html
+wwwroot/js/theme.js
 wwwroot/manifest.json
 wwwroot/service-worker.js
 wwwroot/service-worker.published.js
@@ -31,19 +59,35 @@ Directory Structure:
 ./.idea
 ./  .idea.SubashaVentures
 ./    .idea
+./Components
+./  Shared
+./    Burgers
+./    Buttons
+./    Cards
+./Domain
+./  Enums
+./Layout
+./  Main
 ./Others
 ./Pages
+./  Main
 ./Properties
+./Services
+./  Storage
+./  VisualElements
+./Utilities
+./  Constants
 ./wwwroot
 ./  css
+./  js
 
 File Count Summary:
 ==================
-.cs       : 1 files
-.razor    : 4 files
+.cs       : 7 files
+.razor    : 13 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 3 files
-.css      : 1 files
-.js       : 2 files
+.css      : 13 files
+.js       : 3 files
 .html     : 1 files
