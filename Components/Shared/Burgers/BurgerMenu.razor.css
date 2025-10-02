@@ -1,0 +1,83 @@
+
+.burger-menu-container {
+    position: relative;
+    display: inline-block;
+}
+
+#ck-burger {
+    display: none;
+}
+
+.burger-toggle {
+    position: relative;
+    width: 40px;
+    cursor: pointer;
+    margin: auto;
+    margin-top: 0.45rem;
+    display: block;
+    height: calc(4px * 3 + 8px * 2);
+}
+
+.bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 6.5px;
+    border-radius: calc(8px / 2);
+    background: var(--primary-color, #96994A);
+    color: inherit;
+    opacity: 1;
+    transition: none 0.35s cubic-bezier(.5,-0.35,.35,1.5) 0s;
+}
+
+.bar--top {
+    bottom: calc(50% + 13px + 4px/ 2);
+    transition-property: bottom,transform;
+    transition-delay: calc(0s + 0.35s),0s;
+}
+
+.bar--middle {
+    top: calc(50% / 2);
+    transition-property: opacity;
+    transition-delay: calc(0s + 0.35s);
+}
+
+.bar--bottom {
+    top: calc(50% + 14px/ 2);
+    transition-property: top, transform;
+    transition-delay: calc(0s + 0.35s),0s;
+}
+
+input[type='checkbox']:checked + .burger-toggle .bar--top {
+    bottom: calc(50% - 4px/ 2);
+    transform: rotate(135deg);
+    transition-delay: 0s, calc(0s + 0.35s);
+}
+
+input[type='checkbox']:checked + .burger-toggle .bar--middle {
+    opacity: 0;
+    transition-duration: 0s;
+    transition-delay: calc(0s + 0.35s);
+}
+
+input[type='checkbox']:checked + .burger-toggle .bar--bottom {
+    top: calc(50% - 4px/ 2);
+    transform: rotate(225deg);
+    transition-delay: 0s,calc(0s + 0.35s);
+}
+
+/* Dark theme support */
+[data-theme="dark"] .bar {
+    background: var(--primary-color, #B8BB6A);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .burger-toggle {
+        width: 36px;
+    }
+
+    .bar {
+        height: 5px;
+    }
+}

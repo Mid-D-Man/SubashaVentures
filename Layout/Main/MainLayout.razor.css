@@ -1,0 +1,253 @@
+.main-layout {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    /* Background with SubashaVentures theme */
+    background: linear-gradient(135deg,
+    var(--bg-primary, #ffffff) 0%,
+    var(--bg-secondary, #f8f9fa) 50%,
+    var(--primary-pale, #E8E9D9) 100%
+    );
+    background-size: 200% 200%;
+    animation: gradientShift 20s ease infinite;
+
+    /* Ensure proper layering */
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* Fixed Header - Navigation */
+.layout-header {
+    height: 70px;
+    width: 100%;
+
+    /* Glassmorphism effect for nav */
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+
+    display: flex;
+    align-items: center;
+
+    /* Fixed positioning for nav */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+
+    /* Smooth transitions */
+    transition: all 0.3s ease;
+}
+
+/* Main Content Area */
+.layout-content {
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+
+    /* Account for fixed header */
+    margin-top: 70px;
+}
+
+.page-content {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 153, 74, 0.5) transparent;
+
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+
+    /* Content padding */
+    padding: 0;
+
+    /* Ensure footer appears at bottom */
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 70px);
+}
+
+.page-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.page-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.page-content::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.5);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.page-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.8);
+    box-shadow: 0 0 10px rgba(150, 153, 74, 0.4);
+}
+
+/* Page Body Content */
+.page-content > *:not(.page-footer) {
+    flex: 0 0 auto;
+    padding: 2rem 1rem;
+}
+
+/* Footer Section - Part of page content */
+.page-footer {
+    margin-top: auto;
+    width: 100%;
+    background: linear-gradient(180deg,
+    rgba(150, 153, 74, 0.05) 0%,
+    rgba(150, 153, 74, 0.1) 100%
+    );
+    border-top: 1px solid rgba(150, 153, 74, 0.2);
+
+    /* Ensure footer content is accessible */
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+}
+
+/* Background animation */
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .main-layout {
+    background: linear-gradient(135deg,
+    var(--bg-primary, #212529) 0%,
+    var(--bg-secondary, #343a40) 50%,
+    rgba(184, 187, 106, 0.1) 100%
+    );
+}
+
+[data-theme="dark"] .layout-header {
+    background: rgba(33, 37, 41, 0.8);
+    border-bottom: 1px solid rgba(184, 187, 106, 0.2);
+}
+
+[data-theme="dark"] .page-footer {
+    background: linear-gradient(180deg,
+    rgba(184, 187, 106, 0.05) 0%,
+    rgba(184, 187, 106, 0.1) 100%
+    );
+    border-top: 1px solid rgba(184, 187, 106, 0.2);
+}
+
+[data-theme="dark"] .page-content::-webkit-scrollbar-thumb {
+    background: rgba(184, 187, 106, 0.6);
+}
+
+[data-theme="dark"] .page-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 187, 106, 0.8);
+    box-shadow: 0 0 15px rgba(184, 187, 106, 0.6);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main-layout {
+        height: 100dvh; /* Dynamic viewport height for mobile */
+    }
+
+    .layout-header {
+        height: 60px;
+    }
+
+    .layout-content {
+        margin-top: 60px;
+    }
+
+    .page-content {
+        min-height: calc(100vh - 60px);
+    }
+
+    .page-content > *:not(.page-footer) {
+        padding: 1rem 0.5rem;
+    }
+
+    .page-footer {
+        min-height: 350px;
+    }
+}
+
+@media (max-width: 480px) {
+    .layout-header {
+        height: 55px;
+    }
+
+    .layout-content {
+        margin-top: 55px;
+    }
+
+    .page-content {
+        min-height: calc(100vh - 55px);
+    }
+
+    .page-footer {
+        min-height: 320px;
+    }
+}
+
+/* Performance optimizations */
+.main-layout {
+    will-change: background-position;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.page-content {
+    contain: layout style paint;
+}
+
+/* Print styles */
+@media print {
+    .main-layout {
+        position: static;
+        height: auto;
+        background: white;
+        animation: none;
+    }
+
+    .layout-header {
+        position: static;
+        margin-top: 0;
+    }
+
+    .layout-content {
+        margin-top: 0;
+        overflow: visible;
+    }
+
+    .page-content {
+        overflow: visible;
+        padding: 0;
+        min-height: auto;
+    }
+}

@@ -1,0 +1,134 @@
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Burgers
+
+<nav class="top-navigation">
+    <!-- Left: Brand Logo -->
+    <div class="nav-left">
+        <BrandLogo />
+    </div>
+
+    <!-- Middle: Filler Space -->
+    <div class="nav-middle"></div>
+
+    <!-- Right: Search + Burger -->
+    <div class="nav-right">
+        <!-- Search Bar (Desktop Only) -->
+        <div class="nav-search desktop-only">
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text"
+                       class="search-input"
+                       placeholder="Search products..."
+                       @bind="searchQuery"
+                       @onkeypress="HandleSearchKeyPress" />
+                <button class="search-clear @(string.IsNullOrEmpty(searchQuery) ? "hidden" : "")"
+                        @onclick="ClearSearch"
+                        title="Clear search">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- Burger Menu -->
+        <div class="nav-burger">
+            <BurgerMenu IsOpen="@isSidePanelOpen" IsOpenChanged="@HandleSidePanelToggle" />
+        </div>
+    </div>
+</nav>
+
+<!-- Side Panel Component -->
+<SidePanel IsOpen="@isSidePanelOpen"
+           IsOpenChanged="@HandleSidePanelToggle"
+           SearchQuery="@searchQuery"
+           SearchQueryChanged="@OnSearchQueryChanged"
+           IsLoggedIn="@isLoggedIn"
+           UserName="@userName"
+           UserEmail="@userEmail"
+           OnActionClick="@HandleActionClick"
+           OnNavigate="@HandleNavigate"/>
+
+@code {
+    private bool isSidePanelOpen = false;
+    private string searchQuery = "";
+
+    // User state
+    private bool isLoggedIn = false;
+    private string userName = "John Doe";
+    private string userEmail = "john.doe@example.com";
+
+    private async Task HandleSidePanelToggle(bool isOpen)
+    {
+        isSidePanelOpen = isOpen;
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private async Task OnSearchQueryChanged(string query)
+    {
+        searchQuery = query;
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = "";
+        StateHasChanged();
+    }
+
+    private void HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            HandleSearch();
+        }
+    }
+
+    private void HandleSearch()
+    {
+        HandleSearch(searchQuery);
+    }
+
+    private void HandleSearch(string query)
+    {
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            // Navigate to search results
+            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
+        }
+    }
+
+    private async Task HandleActionClick(SidePanel.ActionType action)
+    {
+        switch (action)
+        {
+            case SidePanel.ActionType.SignIn:
+                // NavigationManager.NavigateTo("/signin");
+                break;
+            case SidePanel.ActionType.Register:
+                // NavigationManager.NavigateTo("/register");
+                break;
+            case SidePanel.ActionType.Profile:
+                // NavigationManager.NavigateTo("/profile");
+                break;
+            case SidePanel.ActionType.Logout:
+                await HandleLogout();
+                break;
+        }
+    }
+
+    private async Task HandleNavigate(string url)
+    {
+        // NavigationManager.NavigateTo(url);
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleLogout()
+    {
+        isLoggedIn = false;
+        userName = "";
+        userEmail = "";
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+}

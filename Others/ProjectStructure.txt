@@ -1,0 +1,105 @@
+Project Structure Documentation - SubashaVentures Clothing Store
+Generated: Thu Oct  2 02:24:21 UTC 2025
+Repository: Mid-D-Man/SubashaVentures
+Commit: b0eec13d5a4ed3662c4f14bcfc6fa9f607402660
+Branch: master
+==================================
+
+Source Files:
+============
+App.razor
+Components/Shared/Burgers/BurgerMenu.razor
+Components/Shared/Burgers/BurgerMenu.razor.css
+Components/Shared/Buttons/BrandLogo.razor
+Components/Shared/Buttons/BrandLogo.razor.css
+Components/Shared/Buttons/PrimaryButton.razor
+Components/Shared/Buttons/PrimaryButton.razor.css
+Components/Shared/Buttons/SecondaryButton.razor
+Components/Shared/Buttons/SecondaryButton.razor.css
+Components/Shared/Cards/ProductCard.razor
+Components/Shared/Cards/ProductCard.razor.css
+Domain/Enums/ProductEnums.cs
+Layout/Main/FooterSection.razor
+Layout/Main/FooterSection.razor.css
+Layout/Main/MainLayout.razor
+Layout/Main/MainLayout.razor.css
+Layout/Main/SidePanel.razor
+Layout/Main/SidePanel.razor.css
+Layout/Main/TopNavigation.razor
+Layout/Main/TopNavigation.razor.css
+Pages/Main/LandingPasge.razor
+Pages/Main/LandingPasge.razor.cs
+Pages/Main/LandingPasge.razor.css
+Program.cs
+Properties/launchSettings.json
+Services/Storage/BlazoredAppLocalStorage.cs
+Services/Storage/IBlazoredAppLocalStorage.cs
+Services/VisualElements/IThemeServce.cs
+SubashaVentures.csproj
+Utilities/Constants/AppConstants.cs
+_Imports.razor
+compilerconfig.json
+wwwroot/css/app.css
+wwwroot/css/bootstrap/bootstrap.min.css
+wwwroot/css/colors.css
+wwwroot/css/open-iconic/README.md
+wwwroot/css/open-iconic/font/css/open-iconic-bootstrap.min.css
+wwwroot/css/responsive.css
+wwwroot/css/styles.css
+wwwroot/index.html
+wwwroot/js/theme.js
+wwwroot/manifest.json
+wwwroot/sample-data/weather.json
+wwwroot/service-worker.js
+wwwroot/service-worker.published.js
+
+Directory Structure:
+==================
+./
+./Components
+./  Shared
+./    Burgers
+./    Buttons
+./    Cards
+./Domain
+./  Enums
+./Layout
+./  Main
+./Others
+./Pages
+./  Main
+./Properties
+./Services
+./  Storage
+./  VisualElements
+./Utilities
+./  Constants
+./wwwroot
+./  css
+./    bootstrap
+./    open-iconic
+./      font
+./        css
+./        fonts
+./  js
+./  sample-data
+
+File Count Summary:
+==================
+.cs       : 7 files
+.razor    : 12 files
+.csproj   : 1 files
+.json     : 4 files
+.css      : 16 files
+.js       : 3 files
+.html     : 1 files
+
+Project Information:
+==================
+Project Type: Blazor WebAssembly PWA
+Framework: .NET 7.0
+Store Type: Clothing & Home Goods
+Categories: Men's, Women's, Children's, Baby, Home
+Primary Color: #96994A (Slime Green)
+Theme System: Light/Dark modes with glow effects
+Responsive: Mobile-first design approach

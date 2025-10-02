@@ -1,0 +1,198 @@
+@* SidePanel.razor - Slide-in navigation panel *@
+@using SubashaVentures.Components.Shared.Buttons
+<div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
+    <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
+        <div class="panel-content">
+            <!-- Panel Header -->
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-icon">🌟</span>
+                    <span class="panel-brand">SubashaVentures</span>
+                </div>
+                <button class="panel-close" @onclick="ClosePanel" aria-label="Close menu">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Search Section -->
+            <div class="panel-search">
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text"
+                           class="search-input"
+                           placeholder="Search products..."
+                           @bind="SearchQuery"
+                           @onkeypress="HandleSearchKeyPress" />
+                    <button class="search-clear @(string.IsNullOrEmpty(SearchQuery) ? "hidden" : "")"
+                            @onclick="ClearSearch"
+                            title="Clear search">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <div class="panel-nav">
+                <div class="nav-section">
+                    <h4 class="section-title">Shop</h4>
+                    <a class="nav-link" href="/" @onclick="HandleNavClick">
+                        <span class="nav-icon">🏠</span>
+                        <span class="nav-text">Home</span>
+                    </a>
+                    <a class="nav-link" href="/shop" @onclick="HandleNavClick">
+                        <span class="nav-icon">🛍️</span>
+                        <span class="nav-text">All Products</span>
+                    </a>
+                    <a class="nav-link" href="/categories" @onclick="HandleNavClick">
+                        <span class="nav-icon">📦</span>
+                        <span class="nav-text">Categories</span>
+                    </a>
+                    <a class="nav-link" href="/deals" @onclick="HandleNavClick">
+                        <span class="nav-icon">🔥</span>
+                        <span class="nav-text">Deals & Sales</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <h4 class="section-title">Categories</h4>
+                    <a class="nav-link" href="/men" @onclick="HandleNavClick">
+                        <span class="nav-icon">👔</span>
+                        <span class="nav-text">Men's Fashion</span>
+                    </a>
+                    <a class="nav-link" href="/women" @onclick="HandleNavClick">
+                        <span class="nav-icon">👚</span>
+                        <span class="nav-text">Women's Fashion</span>
+                    </a>
+                    <a class="nav-link" href="/children" @onclick="HandleNavClick">
+                        <span class="nav-icon">🧸</span>
+                        <span class="nav-text">Kids & Baby</span>
+                    </a>
+                    <a class="nav-link" href="/home" @onclick="HandleNavClick">
+                        <span class="nav-icon">🏠</span>
+                        <span class="nav-text">Home & Living</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <h4 class="section-title">Support</h4>
+                    <a class="nav-link" href="/about" @onclick="HandleNavClick">
+                        <span class="nav-icon">ℹ️</span>
+                        <span class="nav-text">About Us</span>
+                    </a>
+                    <a class="nav-link" href="/contact" @onclick="HandleNavClick">
+                        <span class="nav-icon">📞</span>
+                        <span class="nav-text">Contact</span>
+                    </a>
+                    <a class="nav-link" href="/help" @onclick="HandleNavClick">
+                        <span class="nav-icon">❓</span>
+                        <span class="nav-text">Help Center</span>
+                    </a>
+                    <a class="nav-link" href="/track-order" @onclick="HandleNavClick">
+                        <span class="nav-icon">📦</span>
+                        <span class="nav-text">Track Orders</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- User Actions -->
+            <div class="panel-actions">
+                @if (IsLoggedIn)
+                {
+                    <div class="user-info">
+                        <div class="user-avatar">👤</div>
+                        <div class="user-details">
+                            <span class="user-name">@UserName</span>
+                            <span class="user-email">@UserEmail</span>
+                        </div>
+                    </div>
+                    <button class="action-btn primary" @onclick="() => HandleActionClick(ActionType.Profile)">
+                        <span class="btn-icon">👤</span>
+                        <span class="btn-text">My Profile</span>
+                    </button>
+                    <button class="action-btn secondary" @onclick="() => HandleActionClick(ActionType.Logout)">
+                        <span class="btn-icon">🚪</span>
+                        <span class="btn-text">Sign Out</span>
+                    </button>
+                }
+                else
+                {
+                    <button class="action-btn primary" @onclick="() => HandleActionClick(ActionType.SignIn)">
+                        <span class="btn-icon">🔑</span>
+                        <span class="btn-text">Sign In</span>
+                    </button>
+                    <button class="action-btn secondary" @onclick="() => HandleActionClick(ActionType.Register)">
+                        <span class="btn-icon">📝</span>
+                        <span class="btn-text">Create Account</span>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; } = false;
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public string SearchQuery { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchQueryChanged { get; set; }
+    [Parameter] public bool IsLoggedIn { get; set; } = false;
+    [Parameter] public string UserName { get; set; } = "";
+    [Parameter] public string UserEmail { get; set; } = "";
+    [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
+    [Parameter] public EventCallback<string> OnNavigate { get; set; }
+    [Parameter] public EventCallback<string> OnSearch { get; set; }
+
+    public enum ActionType
+    {
+        SignIn,
+        Register,
+        Profile,
+        Logout
+    }
+
+    private async Task ClosePanel()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    private async Task HandleOverlayClick()
+    {
+        await ClosePanel();
+    }
+
+    private async Task HandleNavClick()
+    {
+        await ClosePanel();
+    }
+
+    private async Task HandleActionClick(ActionType action)
+    {
+        await ClosePanel();
+        if (OnActionClick.HasDelegate)
+        {
+            await OnActionClick.InvokeAsync(action);
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        SearchQuery = "";
+        if (SearchQueryChanged.HasDelegate)
+        {
+            await SearchQueryChanged.InvokeAsync(SearchQuery);
+        }
+    }
+
+    private async Task HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            if (OnSearch.HasDelegate)
+            {
+                await OnSearch.InvokeAsync(SearchQuery);
+            }
+            await ClosePanel();
+        }
+    }
+}
