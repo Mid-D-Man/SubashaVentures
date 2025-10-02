@@ -1,1 +1,49 @@
+Project Structure Documentation - SubashaVentures
+Generated: Thu Oct  2 16:53:48 UTC 2025
+Repository: Mid-D-Man/SubashaVentures
+Commit: 9a577aa7930773f9c9a23a0104cc416aaeec8847
+Branch: master
+==================================
 
+Source Files:
+============
+.github/workflows/deploy.yml
+App.razor
+MainLayout.razor
+Pages/Index.razor
+Program.cs
+Properties/launchSettings.json
+SubashaVentures.csproj
+SubashaVentures.sln
+_Imports.razor
+global.json
+wwwroot/css/app.css
+wwwroot/index.html
+wwwroot/manifest.json
+wwwroot/service-worker.js
+wwwroot/service-worker.published.js
+
+Directory Structure:
+===================
+./.
+./.github
+./  workflows
+./.idea
+./  .idea.SubashaVentures
+./    .idea
+./Others
+./Pages
+./Properties
+./wwwroot
+./  css
+
+File Count Summary:
+==================
+.cs       : 1 files
+.razor    : 4 files
+.csproj   : 1 files
+.sln      : 1 files
+.json     : 3 files
+.css      : 1 files
+.js       : 2 files
+.html     : 1 files
