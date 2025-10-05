@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Oct  5 14:56:34 UTC 2025
+Generated: Sun Oct  5 17:27:36 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 4ce978e999011251db3d5c1664e6aac11124bf5f
+Commit: 6a3ea04a5e44b5d94461e779f1b3a7efce6bcc40
 Branch: master
 ==================================
 
@@ -34,6 +34,7 @@ Pages/Main/LandingPasge.razor.cs
 Pages/Main/LandingPasge.razor.css
 Program.cs
 Properties/launchSettings.json
+Services/Navigation/NavigationService.cs
 Services/Storage/BlazoredAppLocalStorage.cs
 Services/Storage/IBlazoredAppLocalStorage.cs
 Services/VisualElements/IThemeServce.cs
@@ -73,6 +74,7 @@ Directory Structure:
 ./  Main
 ./Properties
 ./Services
+./  Navigation
 ./  Storage
 ./  VisualElements
 ./Utilities
@@ -83,7 +85,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 7 files
+.cs       : 8 files
 .razor    : 13 files
 .csproj   : 1 files
 .sln      : 1 files
