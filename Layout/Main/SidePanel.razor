@@ -37,19 +37,19 @@
             <div class="panel-nav">
                 <div class="nav-section">
                     <h4 class="section-title">Shop</h4>
-                    <a class="nav-link" href="/" @onclick="() => HandleNavClick('/')">
+                    <a class="nav-link" href="@HomeDirectory" @onclick="() => HandleNavClick(HomeDirectory)">
                         <span class="nav-icon">🏠</span>
                         <span class="nav-text">Home</span>
                     </a>
-                    <a class="nav-link" href="/shop" @onclick="() => HandleNavClick('/shop')">
+                    <a class="nav-link" href="@ShopDirectory" @onclick="() => HandleNavClick(ShopDirectory)">
                         <span class="nav-icon">🛍️</span>
                         <span class="nav-text">All Products</span>
                     </a>
-                    <a class="nav-link" href="/categories" @onclick="() => HandleNavClick('/categories')">
+                    <a class="nav-link" href="@CategoriesDirectory" @onclick="() => HandleNavClick(CategoriesDirectory)">
                         <span class="nav-icon">📦</span>
                         <span class="nav-text">Categories</span>
                     </a>
-                    <a class="nav-link" href="/deals" @onclick="() => HandleNavClick('/deals')">
+                    <a class="nav-link" href="@DealsDirectory" @onclick="() => HandleNavClick(DealsDirectory)">
                         <span class="nav-icon">🔥</span>
                         <span class="nav-text">Deals & Sales</span>
                     </a>
@@ -57,19 +57,19 @@
 
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
-                    <a class="nav-link" href="/men" @onclick="() => HandleNavClick('/men')">
+                    <a class="nav-link" href="@MenDirectory" @onclick="() => HandleNavClick(MenDirectory)">
                         <span class="nav-icon">👔</span>
                         <span class="nav-text">Men's Fashion</span>
                     </a>
-                    <a class="nav-link" href="/women" @onclick="() => HandleNavClick('/women')">
+                    <a class="nav-link" href="@WomenDirectory" @onclick="() => HandleNavClick(WomenDirectory)">
                         <span class="nav-icon">👚</span>
                         <span class="nav-text">Women's Fashion</span>
                     </a>
-                    <a class="nav-link" href="/children" @onclick="() => HandleNavClick('/children')">
+                    <a class="nav-link" href="@ChildrenDirectory" @onclick="() => HandleNavClick(ChildrenDirectory)">
                         <span class="nav-icon">🧸</span>
                         <span class="nav-text">Kids & Baby</span>
                     </a>
-                    <a class="nav-link" href="/home" @onclick="() => HandleNavClick('/home')">
+                    <a class="nav-link" href="@HomeLivingDirectory" @onclick="() => HandleNavClick(HomeLivingDirectory)">
                         <span class="nav-icon">🏠</span>
                         <span class="nav-text">Home & Living</span>
                     </a>
@@ -77,19 +77,19 @@
 
                 <div class="nav-section">
                     <h4 class="section-title">Support</h4>
-                    <a class="nav-link" href="/about" @onclick="() => HandleNavClick('/about')">
+                    <a class="nav-link" href="@AboutDirectory" @onclick="() => HandleNavClick(AboutDirectory)">
                         <span class="nav-icon">ℹ️</span>
                         <span class="nav-text">About Us</span>
                     </a>
-                    <a class="nav-link" href="/contact" @onclick="() => HandleNavClick('/contact')">
+                    <a class="nav-link" href="@ContactDirectory" @onclick="() => HandleNavClick(ContactDirectory)">
                         <span class="nav-icon">📞</span>
                         <span class="nav-text">Contact</span>
                     </a>
-                    <a class="nav-link" href="/help" @onclick="() => HandleNavClick('/help')">
+                    <a class="nav-link" href="@HelpDirectory" @onclick="() => HandleNavClick(HelpDirectory)">
                         <span class="nav-icon">❓</span>
                         <span class="nav-text">Help Center</span>
                     </a>
-                    <a class="nav-link" href="/track-order" @onclick="() => HandleNavClick('/track-order')">
+                    <a class="nav-link" href="@TrackOrderDirectory" @onclick="() => HandleNavClick(TrackOrderDirectory)">
                         <span class="nav-icon">📦</span>
                         <span class="nav-text">Track Orders</span>
                     </a>
@@ -133,6 +133,20 @@
 </div>
 
 @code {
+    // Navigation constants
+    private const string HomeDirectory = "/";
+    private const string ShopDirectory = "/shop";
+    private const string CategoriesDirectory = "/categories";
+    private const string DealsDirectory = "/deals";
+    private const string MenDirectory = "/men";
+    private const string WomenDirectory = "/women";
+    private const string ChildrenDirectory = "/children";
+    private const string HomeLivingDirectory = "/home";
+    private const string AboutDirectory = "/about";
+    private const string ContactDirectory = "/contact";
+    private const string HelpDirectory = "/help";
+    private const string TrackOrderDirectory = "/track-order";
+
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
     [Parameter] public string SearchQuery { get; set; } = "";
