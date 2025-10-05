@@ -1,7 +1,7 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Burgers
 
-<nav class="top-navigation">
+<div class="top-navigation">
     <!-- Left: Brand Logo  -->
     <div class="nav-left">
         <BrandLogo />
@@ -34,9 +34,9 @@
             <BurgerMenu IsOpen="@isSidePanelOpen" IsOpenChanged="@HandleSidePanelToggle" />
         </div>   -->
     </div>
-</nav>
+</div>
 
-<!-- Side Panel Component 
+<!-- Side Panel Component -->
 <SidePanel IsOpen="@isSidePanelOpen"
            IsOpenChanged="@HandleSidePanelToggle"
            SearchQuery="@searchQuery"
@@ -46,7 +46,7 @@
            UserEmail="@userEmail"
            OnActionClick="@HandleActionClick"
            OnNavigate="@HandleNavigate"/>
--->
+
 @code {
     private bool isSidePanelOpen = false;
     private string searchQuery = "";
