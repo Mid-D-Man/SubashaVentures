@@ -1,8 +1,9 @@
 @* BurgerMenu.razor *@
 <div class="burger-menu-container">
-    <input type="checkbox" id="ck-burger"
-           @bind-Value="IsOpen"
-           @bind-Value:event="onchange" />
+    <input type="checkbox" 
+           id="ck-burger"
+           checked="@IsOpen"
+           @onchange="HandleToggle" />
     <label for="ck-burger" class="burger-toggle">
         <div class="bar bar--top"></div>
         <div class="bar bar--middle"></div>
@@ -13,4 +14,13 @@
 @code {
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    private async Task HandleToggle(ChangeEventArgs e)
+    {
+        if (e.Value is bool value)
+        {
+            IsOpen = value;
+            await IsOpenChanged.InvokeAsync(IsOpen);
+        }
+    }
 }
