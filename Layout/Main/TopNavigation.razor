@@ -1,5 +1,7 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Burgers
+@inject INavigationService NavService
+@implements IDisposable
 
 <div class="top-navigation">
     <!-- Left: Brand Logo  -->
@@ -19,7 +21,8 @@
                 <input type="text"
                        class="search-input"
                        placeholder="Search products..."
-                       @bind="searchQuery"
+                       value="@searchQuery"
+                       @oninput="HandleSearchInput"
                        @onkeydown="HandleSearchKeyPress" />
                 <button class="search-clear @(string.IsNullOrEmpty(searchQuery) ? "hidden" : "")"
                         @onclick="ClearSearch"
@@ -31,107 +34,69 @@
 
         <!-- Burger Menu -->
         <div class="nav-burger">
-            <BurgerMenu IsOpen="@isSidePanelOpen" IsOpenChanged="@HandleSidePanelToggle" />
+            <BurgerMenu IsOpen="@isSidePanelOpen" 
+                       IsOpenChanged="@HandleBurgerToggle" />
         </div>  
     </div>
 </div>
-
-<!-- Side Panel Component -->
-<SidePanel IsOpen="@isSidePanelOpen"
-           IsOpenChanged="@HandleSidePanelToggle"
-           SearchQuery="@searchQuery"
-           SearchQueryChanged="@OnSearchQueryChanged"
-           IsLoggedIn="@isLoggedIn"
-           UserName="@userName"
-           UserEmail="@userEmail"
-           OnActionClick="@HandleActionClick"
-           OnNavigate="@HandleNavigate"/>
 
 @code {
     private bool isSidePanelOpen = false;
     private string searchQuery = "";
 
-    // User state
-    private bool isLoggedIn = false;
-    private string userName = "John Doe";
-    private string userEmail = "john.doe@example.com";
+    protected override void OnInitialized()
+    {
+        // Subscribe to service events
+        NavService.SidePanelStateChanged += OnSidePanelStateChanged;
+        NavService.SearchQueryChanged += OnSearchQueryChanged;
+        
+        // Initialize from service
+        isSidePanelOpen = NavService.IsSidePanelOpen;
+        searchQuery = NavService.SearchQuery;
+    }
 
-    private async Task HandleSidePanelToggle(bool isOpen)
+    private void OnSidePanelStateChanged(object? sender, bool isOpen)
     {
         isSidePanelOpen = isOpen;
         StateHasChanged();
-        await Task.CompletedTask;
     }
 
-    private async Task OnSearchQueryChanged(string query)
+    private void OnSearchQueryChanged(object? sender, string query)
     {
         searchQuery = query;
         StateHasChanged();
+    }
+
+    private async Task HandleBurgerToggle(bool isOpen)
+    {
+        NavService.SetSidePanelState(isOpen);
         await Task.CompletedTask;
+    }
+
+    private void HandleSearchInput(ChangeEventArgs e)
+    {
+        var query = e.Value?.ToString() ?? "";
+        NavService.UpdateSearchQuery(query);
     }
 
     private void ClearSearch()
     {
-        searchQuery = "";
-        StateHasChanged();
+        NavService.ClearSearchQuery();
     }
 
     private void HandleSearchKeyPress(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
         {
-            HandleSearch();
+            // In real app: NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
+            Console.WriteLine($"Searching for: {searchQuery}");
         }
     }
 
-    private void HandleSearch()
+    public void Dispose()
     {
-        if (!string.IsNullOrWhiteSpace(searchQuery))
-        {
-            HandleSearch(searchQuery);
-        }
-    }
-
-    private void HandleSearch(string query)
-    {
-        if (!string.IsNullOrWhiteSpace(query))
-        {
-            // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
-        }
-    }
-
-    private async Task HandleActionClick(SidePanel.ActionType action)
-    {
-        switch (action)
-        {
-            case SidePanel.ActionType.SignIn:
-                // NavigationManager.NavigateTo("/signin");
-                break;
-            case SidePanel.ActionType.Register:
-                // NavigationManager.NavigateTo("/register");
-                break;
-            case SidePanel.ActionType.Profile:
-                // NavigationManager.NavigateTo("/profile");
-                break;
-            case SidePanel.ActionType.Logout:
-                await HandleLogout();
-                break;
-        }
-    }
-
-    private async Task HandleNavigate(string url)
-    {
-        // NavigationManager.NavigateTo(url);
-        await Task.CompletedTask;
-    }
-
-    private async Task HandleLogout()
-    {
-        isLoggedIn = false;
-        userName = "";
-        userEmail = "";
-        StateHasChanged();
-        await Task.CompletedTask;
+        // Unsubscribe from events
+        NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
+        NavService.SearchQueryChanged -= OnSearchQueryChanged;
     }
 }
-
