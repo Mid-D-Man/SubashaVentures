@@ -1,4 +1,3 @@
-
 .burger-menu-container {
     position: relative;
     display: inline-block;
@@ -32,8 +31,8 @@
 
 .bar--top {
     bottom: calc(50% + 13px + 4px/ 2);
-    transition-property: bottom,transform;
-    transition-delay: calc(0s + 0.35s),0s;
+    transition-property: bottom, transform;
+    transition-delay: calc(0s + 0.35s), 0s;
 }
 
 .bar--middle {
@@ -45,7 +44,7 @@
 .bar--bottom {
     top: calc(50% + 14px/ 2);
     transition-property: top, transform;
-    transition-delay: calc(0s + 0.35s),0s;
+    transition-delay: calc(0s + 0.35s), 0s;
 }
 
 input[type='checkbox']:checked + .burger-toggle .bar--top {
@@ -63,7 +62,7 @@ input[type='checkbox']:checked + .burger-toggle .bar--middle {
 input[type='checkbox']:checked + .burger-toggle .bar--bottom {
     top: calc(50% - 4px/ 2);
     transform: rotate(225deg);
-    transition-delay: 0s,calc(0s + 0.35s);
+    transition-delay: 0s, calc(0s + 0.35s);
 }
 
 /* Dark theme support */

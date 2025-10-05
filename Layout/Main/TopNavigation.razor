@@ -29,10 +29,10 @@
             </div>
         </div>
 
-        <!-- Burger Menu 
+        <!-- Burger Menu -->
         <div class="nav-burger">
             <BurgerMenu IsOpen="@isSidePanelOpen" IsOpenChanged="@HandleSidePanelToggle" />
-        </div>   -->
+        </div>  
     </div>
 </div>
 
@@ -96,7 +96,6 @@
     {
         if (!string.IsNullOrWhiteSpace(query))
         {
-            // Navigate to search results
             // NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
         }
     }
@@ -135,3 +134,4 @@
         await Task.CompletedTask;
     }
 }
+

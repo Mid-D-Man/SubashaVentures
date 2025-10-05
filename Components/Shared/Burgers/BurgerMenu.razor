@@ -1,6 +1,8 @@
 @* BurgerMenu.razor *@
 <div class="burger-menu-container">
-    <input type="checkbox" id="ck-burger" @bind="IsOpen" />
+    <input type="checkbox" id="ck-burger"
+           @bind-Value="IsOpen"
+           @bind-Value:event="onchange" />
     <label for="ck-burger" class="burger-toggle">
         <div class="bar bar--top"></div>
         <div class="bar bar--middle"></div>
@@ -11,12 +13,4 @@
 @code {
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (IsOpenChanged.HasDelegate)
-        {
-            await IsOpenChanged.InvokeAsync(IsOpen);
-        }
-    }
 }
