@@ -1,5 +1,6 @@
-@* SidePanel.razor - Slide-in navigation panel *@
+@* SidePanel.razor *@
 @using SubashaVentures.Components.Shared.Buttons
+
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
         <div class="panel-content">
@@ -21,7 +22,8 @@
                     <input type="text"
                            class="search-input"
                            placeholder="Search products..."
-                           @bind="SearchQuery"
+                           value="@SearchQuery"
+                           @oninput="HandleSearchInput"
                            @onkeydown="HandleSearchKeyPress" />
                     <button class="search-clear @(string.IsNullOrEmpty(SearchQuery) ? "hidden" : "")"
                             @onclick="ClearSearch"
@@ -35,19 +37,19 @@
             <div class="panel-nav">
                 <div class="nav-section">
                     <h4 class="section-title">Shop</h4>
-                    <a class="nav-link" href="/" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/" @onclick="() => HandleNavClick('/')">
                         <span class="nav-icon">🏠</span>
                         <span class="nav-text">Home</span>
                     </a>
-                    <a class="nav-link" href="/shop" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/shop" @onclick="() => HandleNavClick('/shop')">
                         <span class="nav-icon">🛍️</span>
                         <span class="nav-text">All Products</span>
                     </a>
-                    <a class="nav-link" href="/categories" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/categories" @onclick="() => HandleNavClick('/categories')">
                         <span class="nav-icon">📦</span>
                         <span class="nav-text">Categories</span>
                     </a>
-                    <a class="nav-link" href="/deals" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/deals" @onclick="() => HandleNavClick('/deals')">
                         <span class="nav-icon">🔥</span>
                         <span class="nav-text">Deals & Sales</span>
                     </a>
@@ -55,19 +57,19 @@
 
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
-                    <a class="nav-link" href="/men" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/men" @onclick="() => HandleNavClick('/men')">
                         <span class="nav-icon">👔</span>
                         <span class="nav-text">Men's Fashion</span>
                     </a>
-                    <a class="nav-link" href="/women" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/women" @onclick="() => HandleNavClick('/women')">
                         <span class="nav-icon">👚</span>
                         <span class="nav-text">Women's Fashion</span>
                     </a>
-                    <a class="nav-link" href="/children" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/children" @onclick="() => HandleNavClick('/children')">
                         <span class="nav-icon">🧸</span>
                         <span class="nav-text">Kids & Baby</span>
                     </a>
-                    <a class="nav-link" href="/home" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/home" @onclick="() => HandleNavClick('/home')">
                         <span class="nav-icon">🏠</span>
                         <span class="nav-text">Home & Living</span>
                     </a>
@@ -75,19 +77,19 @@
 
                 <div class="nav-section">
                     <h4 class="section-title">Support</h4>
-                    <a class="nav-link" href="/about" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/about" @onclick="() => HandleNavClick('/about')">
                         <span class="nav-icon">ℹ️</span>
                         <span class="nav-text">About Us</span>
                     </a>
-                    <a class="nav-link" href="/contact" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/contact" @onclick="() => HandleNavClick('/contact')">
                         <span class="nav-icon">📞</span>
                         <span class="nav-text">Contact</span>
                     </a>
-                    <a class="nav-link" href="/help" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/help" @onclick="() => HandleNavClick('/help')">
                         <span class="nav-icon">❓</span>
                         <span class="nav-text">Help Center</span>
                     </a>
-                    <a class="nav-link" href="/track-order" @onclick="HandleNavClick">
+                    <a class="nav-link" href="/track-order" @onclick="() => HandleNavClick('/track-order')">
                         <span class="nav-icon">📦</span>
                         <span class="nav-text">Track Orders</span>
                     </a>
@@ -161,9 +163,13 @@
         await ClosePanel();
     }
 
-    private async Task HandleNavClick()
+    private async Task HandleNavClick(string url)
     {
         await ClosePanel();
+        if (OnNavigate.HasDelegate)
+        {
+            await OnNavigate.InvokeAsync(url);
+        }
     }
 
     private async Task HandleActionClick(ActionType action)
@@ -175,12 +181,20 @@
         }
     }
 
-    private async Task ClearSearch()
+    private async Task HandleSearchInput(ChangeEventArgs e)
     {
-        SearchQuery = "";
+        var query = e.Value?.ToString() ?? "";
         if (SearchQueryChanged.HasDelegate)
         {
-            await SearchQueryChanged.InvokeAsync(SearchQuery);
+            await SearchQueryChanged.InvokeAsync(query);
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        if (SearchQueryChanged.HasDelegate)
+        {
+            await SearchQueryChanged.InvokeAsync("");
         }
     }
 
