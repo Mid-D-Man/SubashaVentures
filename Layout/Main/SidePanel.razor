@@ -22,7 +22,7 @@
                            class="search-input"
                            placeholder="Search products..."
                            @bind="SearchQuery"
-                           @onkeypress="HandleSearchKeyPress" />
+                           @onkeydown="HandleSearchKeyPress" />
                     <button class="search-clear @(string.IsNullOrEmpty(SearchQuery) ? "hidden" : "")"
                             @onclick="ClearSearch"
                             title="Clear search">
