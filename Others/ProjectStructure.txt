@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Oct  5 13:49:32 UTC 2025
+Generated: Sun Oct  5 13:58:15 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: e8983dfcfd2a2885f8e9561cb41544fa6ba8f864
+Commit: ebde37db51b606e96ac2e79b6150d9663d826137
 Branch: master
 ==================================
 
@@ -22,8 +22,8 @@ Components/Shared/Cards/ProductCard.razor.css
 Domain/Enums/ProductEnums.cs
 Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
-Layout/Main/MainLayout.razor
-Layout/Main/MainLayout.razor.css
+Layout/Main/LandingPageLayout.razor
+Layout/Main/LandingPageLayout.razor.css
 Layout/Main/SidePanel.razor
 Layout/Main/SidePanel.razor.css
 Layout/Main/TopNavigation.razor
