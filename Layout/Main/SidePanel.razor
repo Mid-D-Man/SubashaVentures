@@ -15,8 +15,41 @@
                 </button>
             </div>
 
+            <!-- User Profile Section - Show when logged in -->
+            @if (IsLoggedIn)
+            {
+                <div class="user-profile-section">
+                    <div class="user-profile-card">
+                        <div class="user-avatar-large">
+                            @UserName.Substring(0, 1).ToUpper()
+                        </div>
+                        <div class="user-info-text">
+                            <span class="user-name-display">@UserName</span>
+                            <span class="user-email-display">@UserEmail</span>
+                        </div>
+                    </div>
+                </div>
+            }
+
             <!-- Navigation Links -->
             <div class="panel-nav">
+                <!-- Profile Section - Only show when logged in -->
+                @if (IsLoggedIn)
+                {
+                    <div class="nav-section">
+                        <h4 class="section-title">My Account</h4>
+                        <a class="nav-link" href="@ProfileDirectory" @onclick="() => HandleNavClick(ProfileDirectory)">
+                            <span class="nav-text">Profile Settings</span>
+                        </a>
+                        <a class="nav-link" href="@OrdersDirectory" @onclick="() => HandleNavClick(OrdersDirectory)">
+                            <span class="nav-text">My Orders</span>
+                        </a>
+                        <a class="nav-link" href="@WishlistDirectory" @onclick="() => HandleNavClick(WishlistDirectory)">
+                            <span class="nav-text">Wishlist</span>
+                        </a>
+                    </div>
+                }
+
                 <div class="nav-section">
                     <h4 class="section-title">Shop</h4>
                     <a class="nav-link" href="@HomeDirectory" @onclick="() => HandleNavClick(HomeDirectory)">
@@ -70,27 +103,14 @@
             <div class="panel-actions">
                 @if (IsLoggedIn)
                 {
-                    <div class="user-info">
-                        <div class="user-avatar">@UserName.Substring(0, 1).ToUpper()</div>
-                        <div class="user-details">
-                            <span class="user-name">@UserName</span>
-                            <span class="user-email">@UserEmail</span>
-                        </div>
-                    </div>
-                    <button class="action-btn primary" @onclick="() => HandleActionClick(ActionType.Profile)">
-                        <span class="btn-text">My Profile</span>
-                    </button>
-                    <button class="action-btn secondary" @onclick="() => HandleActionClick(ActionType.Logout)">
+                    <button class="action-btn sign-out" @onclick="() => HandleActionClick(ActionType.Logout)">
                         <span class="btn-text">Sign Out</span>
                     </button>
                 }
                 else
                 {
-                    <button class="action-btn primary" @onclick="() => HandleActionClick(ActionType.SignIn)">
+                    <button class="action-btn sign-in" @onclick="() => HandleActionClick(ActionType.SignIn)">
                         <span class="btn-text">Sign In</span>
-                    </button>
-                    <button class="action-btn secondary" @onclick="() => HandleActionClick(ActionType.Register)">
-                        <span class="btn-text">Create Account</span>
                     </button>
                 }
             </div>
@@ -112,6 +132,9 @@
     private const string ContactDirectory = "/contact";
     private const string HelpDirectory = "/help";
     private const string TrackOrderDirectory = "/track-order";
+    private const string ProfileDirectory = "/profile";
+    private const string OrdersDirectory = "/orders";
+    private const string WishlistDirectory = "/wishlist";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
