@@ -7,7 +7,7 @@
             <!-- Panel Header -->
             <div class="panel-header">
                 <div class="panel-title">
-                    <span class="panel-icon">🌟</span>
+                    <span class="panel-icon">SV</span>
                     <span class="panel-brand">SubashaVentures</span>
                 </div>
                 <button class="panel-close" @onclick="ClosePanel" aria-label="Close menu">
@@ -15,42 +15,20 @@
                 </button>
             </div>
 
-            <!-- Search Section -->
-            <div class="panel-search">
-                <div class="search-container">
-                    <span class="search-icon">🔍</span>
-                    <input type="text"
-                           class="search-input"
-                           placeholder="Search products..."
-                           value="@SearchQuery"
-                           @oninput="HandleSearchInput"
-                           @onkeydown="HandleSearchKeyPress" />
-                    <button class="search-clear @(string.IsNullOrEmpty(SearchQuery) ? "hidden" : "")"
-                            @onclick="ClearSearch"
-                            title="Clear search">
-                        ✕
-                    </button>
-                </div>
-            </div>
-
             <!-- Navigation Links -->
             <div class="panel-nav">
                 <div class="nav-section">
                     <h4 class="section-title">Shop</h4>
                     <a class="nav-link" href="@HomeDirectory" @onclick="() => HandleNavClick(HomeDirectory)">
-                        <span class="nav-icon">🏠</span>
                         <span class="nav-text">Home</span>
                     </a>
                     <a class="nav-link" href="@ShopDirectory" @onclick="() => HandleNavClick(ShopDirectory)">
-                        <span class="nav-icon">🛍️</span>
                         <span class="nav-text">All Products</span>
                     </a>
                     <a class="nav-link" href="@CategoriesDirectory" @onclick="() => HandleNavClick(CategoriesDirectory)">
-                        <span class="nav-icon">📦</span>
                         <span class="nav-text">Categories</span>
                     </a>
                     <a class="nav-link" href="@DealsDirectory" @onclick="() => HandleNavClick(DealsDirectory)">
-                        <span class="nav-icon">🔥</span>
                         <span class="nav-text">Deals & Sales</span>
                     </a>
                 </div>
@@ -58,19 +36,15 @@
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
                     <a class="nav-link" href="@MenDirectory" @onclick="() => HandleNavClick(MenDirectory)">
-                        <span class="nav-icon">👔</span>
                         <span class="nav-text">Men's Fashion</span>
                     </a>
                     <a class="nav-link" href="@WomenDirectory" @onclick="() => HandleNavClick(WomenDirectory)">
-                        <span class="nav-icon">👚</span>
                         <span class="nav-text">Women's Fashion</span>
                     </a>
                     <a class="nav-link" href="@ChildrenDirectory" @onclick="() => HandleNavClick(ChildrenDirectory)">
-                        <span class="nav-icon">🧸</span>
                         <span class="nav-text">Kids & Baby</span>
                     </a>
                     <a class="nav-link" href="@HomeLivingDirectory" @onclick="() => HandleNavClick(HomeLivingDirectory)">
-                        <span class="nav-icon">🏠</span>
                         <span class="nav-text">Home & Living</span>
                     </a>
                 </div>
@@ -78,19 +52,15 @@
                 <div class="nav-section">
                     <h4 class="section-title">Support</h4>
                     <a class="nav-link" href="@AboutDirectory" @onclick="() => HandleNavClick(AboutDirectory)">
-                        <span class="nav-icon">ℹ️</span>
                         <span class="nav-text">About Us</span>
                     </a>
                     <a class="nav-link" href="@ContactDirectory" @onclick="() => HandleNavClick(ContactDirectory)">
-                        <span class="nav-icon">📞</span>
                         <span class="nav-text">Contact</span>
                     </a>
                     <a class="nav-link" href="@HelpDirectory" @onclick="() => HandleNavClick(HelpDirectory)">
-                        <span class="nav-icon">❓</span>
                         <span class="nav-text">Help Center</span>
                     </a>
                     <a class="nav-link" href="@TrackOrderDirectory" @onclick="() => HandleNavClick(TrackOrderDirectory)">
-                        <span class="nav-icon">📦</span>
                         <span class="nav-text">Track Orders</span>
                     </a>
                 </div>
@@ -101,29 +71,25 @@
                 @if (IsLoggedIn)
                 {
                     <div class="user-info">
-                        <div class="user-avatar">👤</div>
+                        <div class="user-avatar">@UserName.Substring(0, 1).ToUpper()</div>
                         <div class="user-details">
                             <span class="user-name">@UserName</span>
                             <span class="user-email">@UserEmail</span>
                         </div>
                     </div>
                     <button class="action-btn primary" @onclick="() => HandleActionClick(ActionType.Profile)">
-                        <span class="btn-icon">👤</span>
                         <span class="btn-text">My Profile</span>
                     </button>
                     <button class="action-btn secondary" @onclick="() => HandleActionClick(ActionType.Logout)">
-                        <span class="btn-icon">🚪</span>
                         <span class="btn-text">Sign Out</span>
                     </button>
                 }
                 else
                 {
                     <button class="action-btn primary" @onclick="() => HandleActionClick(ActionType.SignIn)">
-                        <span class="btn-icon">🔑</span>
                         <span class="btn-text">Sign In</span>
                     </button>
                     <button class="action-btn secondary" @onclick="() => HandleActionClick(ActionType.Register)">
-                        <span class="btn-icon">📝</span>
                         <span class="btn-text">Create Account</span>
                     </button>
                 }
@@ -192,35 +158,6 @@
         if (OnActionClick.HasDelegate)
         {
             await OnActionClick.InvokeAsync(action);
-        }
-    }
-
-    private async Task HandleSearchInput(ChangeEventArgs e)
-    {
-        var query = e.Value?.ToString() ?? "";
-        if (SearchQueryChanged.HasDelegate)
-        {
-            await SearchQueryChanged.InvokeAsync(query);
-        }
-    }
-
-    private async Task ClearSearch()
-    {
-        if (SearchQueryChanged.HasDelegate)
-        {
-            await SearchQueryChanged.InvokeAsync("");
-        }
-    }
-
-    private async Task HandleSearchKeyPress(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(SearchQuery))
-        {
-            if (OnSearch.HasDelegate)
-            {
-                await OnSearch.InvokeAsync(SearchQuery);
-            }
-            await ClosePanel();
         }
     }
 }
