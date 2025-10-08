@@ -1,0 +1,63 @@
+
+@inherits LayoutComponentBase
+@inject INavigationService NavService
+@implements IDisposable
+
+
+<div class="shop-layout">
+    <!-- Fixed Top Navigation Bar -->
+    <header class="shop-header">
+        <ShopNavigation />
+    </header>
+
+
+    <!-- Main Shop Content Area -->
+    <div class="shop-main">
+        <!-- Desktop: Side Filter Panel (Left) -->
+        <aside class="shop-sidebar desktop-only">
+            <ShopSidebar />
+        </aside>
+
+
+        <!-- Center: Product Grid/List Area -->
+        <main class="shop-content">
+            @Body
+        </main>
+    </div>
+
+
+    <!-- Mobile: Bottom Navigation Bar -->
+    <nav class="shop-bottom-nav mobile-only">
+        <ShopBottomNav />
+    </nav>
+
+
+    <!-- Filter Panel Overlay (Mobile) -->
+    <ShopFilterPanel IsOpen="@isFilterPanelOpen"
+                     IsOpenChanged="@HandleFilterPanelToggle" />
+</div>
+
+
+@code {
+    private bool isFilterPanelOpen = false;
+
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to any necessary service events
+        // NavService events can be used here if needed
+    }
+
+
+    private async Task HandleFilterPanelToggle(bool isOpen)
+    {
+        isFilterPanelOpen = isOpen;
+        await Task.CompletedTask;
+    }
+
+
+    public void Dispose()
+    {
+        // Cleanup subscriptions
+    }
+}
