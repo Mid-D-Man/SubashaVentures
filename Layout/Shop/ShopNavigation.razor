@@ -1,0 +1,176 @@
+@using SubashaVentures.Components.Shared.Buttons
+@inject INavigationService NavService
+@implements IDisposable
+
+<div class="shop-navigation">
+    <!-- Left: Brand/Back -->
+    <div class="shop-nav-left">
+        <a href="/" class="brand-link">
+            <span class="brand-icon">🌟</span>
+            <span class="brand-name">SubashaVentures</span>
+        </a>
+    </div>
+
+    <!-- Center: Search Bar -->
+    <div class="shop-nav-center">
+        <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text"
+                   class="search-input"
+                   placeholder="Search products, brands, categories..."
+                   value="@searchQuery"
+                   @oninput="HandleSearchInput"
+                   @onkeydown="HandleSearchKeyPress" />
+            @if (!string.IsNullOrEmpty(searchQuery))
+            {
+                <button class="search-clear" @onclick="ClearSearch" title="Clear">
+                    ✕
+                </button>
+            }
+            <button class="search-button" @onclick="HandleSearch" title="Search">
+                Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Right: Actions -->
+    <div class="shop-nav-right">
+        <!-- Cart Button -->
+        <button class="nav-action-btn cart-btn" title="Shopping Cart">
+            <span class="action-icon">🛒</span>
+            @if (cartItemCount > 0)
+            {
+                <span class="badge">@cartItemCount</span>
+            }
+        </button>
+
+        <!-- Wishlist Button -->
+        <button class="nav-action-btn wishlist-btn" title="Wishlist">
+            <span class="action-icon">❤️</span>
+            @if (wishlistCount > 0)
+            {
+                <span class="badge">@wishlistCount</span>
+            }
+        </button>
+
+        <!-- User Menu -->
+        <div class="user-menu">
+            @if (isLoggedIn)
+            {
+                <button class="nav-action-btn user-btn" @onclick="ToggleUserDropdown">
+                    <span class="action-icon">👤</span>
+                </button>
+                
+                @if (showUserDropdown)
+                {
+                    <div class="user-dropdown">
+                        <div class="dropdown-header">
+                            <span class="user-name">@userName</span>
+                            <span class="user-email">@userEmail</span>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="/profile" class="dropdown-item">
+                            <span>👤</span> My Profile
+                        </a>
+                        <a href="/orders" class="dropdown-item">
+                            <span>📦</span> My Orders
+                        </a>
+                        <a href="/settings" class="dropdown-item">
+                            <span>⚙️</span> Settings
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item logout" @onclick="HandleLogout">
+                            <span>🚪</span> Sign Out
+                        </button>
+                    </div>
+                }
+            }
+            else
+            {
+                <a href="/signin" class="signin-btn">Sign In</a>
+            }
+        </div>
+
+        <!-- Mobile: Filter Toggle -->
+        <button class="nav-action-btn filter-btn mobile-only" 
+                @onclick="ToggleFilters"
+                title="Filters">
+            <span class="action-icon">⚙️</span>
+        </button>
+    </div>
+</div>
+
+@code {
+    private string searchQuery = "";
+    private bool isLoggedIn = false;
+    private string userName = "John Doe";
+    private string userEmail = "john@example.com";
+    private int cartItemCount = 3;
+    private int wishlistCount = 5;
+    private bool showUserDropdown = false;
+
+    protected override void OnInitialized()
+    {
+        NavService.SearchQueryChanged += OnSearchQueryChanged;
+        searchQuery = NavService.SearchQuery;
+    }
+
+    private void OnSearchQueryChanged(object? sender, string query)
+    {
+        searchQuery = query;
+        StateHasChanged();
+    }
+
+    private void HandleSearchInput(ChangeEventArgs e)
+    {
+        var query = e.Value?.ToString() ?? "";
+        NavService.UpdateSearchQuery(query);
+    }
+
+    private void ClearSearch()
+    {
+        NavService.ClearSearchQuery();
+    }
+
+    private void HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
+        {
+            HandleSearch();
+        }
+    }
+
+    private void HandleSearch()
+    {
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            // Navigate to search results
+            Console.WriteLine($"Searching for: {searchQuery}");
+        }
+    }
+
+    private void ToggleUserDropdown()
+    {
+        showUserDropdown = !showUserDropdown;
+    }
+
+    private void HandleLogout()
+    {
+        isLoggedIn = false;
+        showUserDropdown = false;
+        userName = "";
+        userEmail = "";
+        StateHasChanged();
+    }
+
+    private void ToggleFilters()
+    {
+        // This will trigger the mobile filter panel
+        Console.WriteLine("Toggle filters");
+    }
+
+    public void Dispose()
+    {
+        NavService.SearchQueryChanged -= OnSearchQueryChanged;
+    }
+}
