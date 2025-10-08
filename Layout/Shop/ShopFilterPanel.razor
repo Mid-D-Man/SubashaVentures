@@ -1,0 +1,175 @@
+@* ShopFilterPanel.razor - Mobile filter overlay *@
+
+<div class="filter-panel-overlay @(IsOpen ? "active" : "")" @onclick="ClosePanel">
+    <div class="filter-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
+        <!-- Panel Header -->
+        <div class="filter-panel-header">
+            <h3 class="panel-title">Filters</h3>
+            <button class="panel-close" @onclick="ClosePanel" aria-label="Close filters">
+                ✕
+            </button>
+        </div>
+
+        <!-- Filter Content (Scrollable) -->
+        <div class="filter-panel-content">
+            <!-- Categories Section -->
+            <div class="filter-section">
+                <h4 class="filter-section-title">Categories</h4>
+                <div class="category-chips">
+                    <button class="category-chip @(selectedCategory == "all" ? "active" : "")" 
+                            @onclick='() => SelectCategory("all")'>
+                        📦 All
+                    </button>
+                    <button class="category-chip @(selectedCategory == "men" ? "active" : "")" 
+                            @onclick='() => SelectCategory("men")'>
+                        👔 Men
+                    </button>
+                    <button class="category-chip @(selectedCategory == "women" ? "active" : "")" 
+                            @onclick='() => SelectCategory("women")'>
+                        👚 Women
+                    </button>
+                    <button class="category-chip @(selectedCategory == "kids" ? "active" : "")" 
+                            @onclick='() => SelectCategory("kids")'>
+                        🧸 Kids
+                    </button>
+                    <button class="category-chip @(selectedCategory == "home" ? "active" : "")" 
+                            @onclick='() => SelectCategory("home")'>
+                        🏠 Home
+                    </button>
+                    <button class="category-chip @(selectedCategory == "accessories" ? "active" : "")" 
+                            @onclick='() => SelectCategory("accessories")'>
+                        👜 Accessories
+                    </button>
+                </div>
+            </div>
+
+            <!-- Price Range Section -->
+            <div class="filter-section">
+                <h4 class="filter-section-title">Price Range</h4>
+                <div class="price-range-chips">
+                    <button class="price-chip @(selectedPriceRange == "0-50" ? "active" : "")" 
+                            @onclick='() => SelectPriceRange("0-50")'>
+                        Under $50
+                    </button>
+                    <button class="price-chip @(selectedPriceRange == "50-100" ? "active" : "")" 
+                            @onclick='() => SelectPriceRange("50-100")'>
+                        $50 - $100
+                    </button>
+                    <button class="price-chip @(selectedPriceRange == "100-200" ? "active" : "")" 
+                            @onclick='() => SelectPriceRange("100-200")'>
+                        $100 - $200
+                    </button>
+                    <button class="price-chip @(selectedPriceRange == "200+" ? "active" : "")" 
+                            @onclick='() => SelectPriceRange("200+")'>
+                        $200+
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rating Section -->
+            <div class="filter-section">
+                <h4 class="filter-section-title">Customer Rating</h4>
+                <div class="rating-chips">
+                    @for (int i = 5; i >= 1; i--)
+                    {
+                        var rating = i;
+                        <button class="rating-chip @(selectedRating == rating ? "active" : "")" 
+                                @onclick="() => SelectRating(rating)">
+                            @string.Concat(Enumerable.Repeat("⭐", rating)) & Up
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Sort By Section -->
+            <div class="filter-section">
+                <h4 class="filter-section-title">Sort By</h4>
+                <div class="sort-options">
+                    <button class="sort-option @(sortBy == "relevance" ? "active" : "")" 
+                            @onclick='() => SelectSort("relevance")'>
+                        Relevance
+                    </button>
+                    <button class="sort-option @(sortBy == "price-low" ? "active" : "")" 
+                            @onclick='() => SelectSort("price-low")'>
+                        Price: Low to High
+                    </button>
+                    <button class="sort-option @(sortBy == "price-high" ? "active" : "")" 
+                            @onclick='() => SelectSort("price-high")'>
+                        Price: High to Low
+                    </button>
+                    <button class="sort-option @(sortBy == "rating" ? "active" : "")" 
+                            @onclick='() => SelectSort("rating")'>
+                        Customer Rating
+                    </button>
+                    <button class="sort-option @(sortBy == "newest" ? "active" : "")" 
+                            @onclick='() => SelectSort("newest")'>
+                        Newest First
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Footer -->
+        <div class="filter-panel-footer">
+            <button class="clear-btn" @onclick="ClearFilters">
+                Clear All
+            </button>
+            <button class="apply-btn" @onclick="ApplyFilters">
+                Show Results
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; } = false;
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    private string selectedCategory = "all";
+    private string selectedPriceRange = "";
+    private int selectedRating = 0;
+    private string sortBy = "relevance";
+
+    private void SelectCategory(string category)
+    {
+        selectedCategory = category;
+    }
+
+    private void SelectPriceRange(string range)
+    {
+        selectedPriceRange = selectedPriceRange == range ? "" : range;
+    }
+
+    private void SelectRating(int rating)
+    {
+        selectedRating = selectedRating == rating ? 0 : rating;
+    }
+
+    private void SelectSort(string sort)
+    {
+        sortBy = sort;
+    }
+
+    private async Task ClosePanel()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    private async Task ClearFilters()
+    {
+        selectedCategory = "all";
+        selectedPriceRange = "";
+        selectedRating = 0;
+        sortBy = "relevance";
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private async Task ApplyFilters()
+    {
+        // Apply filters and close panel
+        Console.WriteLine($"Filters: Category={selectedCategory}, Price={selectedPriceRange}, Rating={selectedRating}, Sort={sortBy}");
+        await ClosePanel();
+    }
+}
