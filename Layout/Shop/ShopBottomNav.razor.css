@@ -1,0 +1,180 @@
+/* ===== SHOP BOTTOM NAVIGATION ===== */
+.shop-bottom-navigation {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 0.5rem;
+    background: transparent;
+}
+
+/* ===== BOTTOM NAV ITEM ===== */
+.bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    border-radius: 8px;
+}
+
+.bottom-nav-item:hover {
+    background: rgba(150, 153, 74, 0.1);
+}
+
+.bottom-nav-item.active {
+    background: rgba(150, 153, 74, 0.15);
+}
+
+.bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3px;
+    background: var(--primary-color, #96994A);
+    border-radius: 0 0 3px 3px;
+}
+
+/* ===== NAV ICON ===== */
+.nav-icon {
+    position: relative;
+    font-size: 1.5rem;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+.bottom-nav-item.active .nav-icon {
+    transform: scale(1.1);
+}
+
+/* ===== NAV LABEL ===== */
+.nav-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-secondary, #666);
+    transition: all 0.2s ease;
+}
+
+.bottom-nav-item.active .nav-label {
+    color: var(--primary-color, #96994A);
+    font-weight: 600;
+}
+
+/* ===== NAV BADGE ===== */
+.nav-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    background: #ff4444;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 9px;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== CART NAV SPECIAL STYLING ===== */
+.cart-nav.active .nav-badge {
+    background: var(--primary-color, #96994A);
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .bottom-nav-item:hover {
+    background: rgba(184, 187, 106, 0.1);
+}
+
+[data-theme="dark"] .bottom-nav-item.active {
+    background: rgba(184, 187, 106, 0.15);
+}
+
+[data-theme="dark"] .bottom-nav-item.active::before {
+    background: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .nav-label {
+    color: var(--text-secondary, #dee2e6);
+}
+
+[data-theme="dark"] .bottom-nav-item.active .nav-label {
+    color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .nav-badge {
+    border-color: var(--bg-surface, #2d3238);
+}
+
+[data-theme="dark"] .cart-nav.active .nav-badge {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 480px) {
+    .shop-bottom-navigation {
+        padding: 0 0.25rem;
+    }
+    
+    .bottom-nav-item {
+        gap: 0.2rem;
+        padding: 0.4rem;
+    }
+    
+    .nav-icon {
+        font-size: 1.3rem;
+    }
+    
+    .nav-label {
+        font-size: 0.65rem;
+    }
+    
+    .nav-badge {
+        min-width: 16px;
+        height: 16px;
+        font-size: 0.6rem;
+        top: -4px;
+        right: -6px;
+    }
+}
+
+/* ===== TOUCH FEEDBACK ===== */
+@media (hover: none) and (pointer: coarse) {
+    .bottom-nav-item:active {
+        background: rgba(150, 153, 74, 0.2);
+        transform: scale(0.95);
+    }
+    
+    [data-theme="dark"] .bottom-nav-item:active {
+        background: rgba(184, 187, 106, 0.2);
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    .bottom-nav-item,
+    .nav-icon,
+    .nav-label {
+        transition: none;
+    }
+    
+    .bottom-nav-item.active .nav-icon {
+        transform: none;
+    }
+}
