@@ -1,0 +1,262 @@
+/* ===== SHOP LAYOUT STRUCTURE ===== */
+.shop-layout {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary, #ffffff);
+}
+
+/* ===== SHOP HEADER ===== */
+.shop-header {
+    height: 60px;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(150, 153, 74, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* ===== MAIN SHOP AREA ===== */
+.shop-main {
+    flex: 1;
+    display: flex;
+    margin-top: 60px;
+    overflow: hidden;
+    width: 100%;
+    position: relative;
+}
+
+/* ===== DESKTOP SIDEBAR ===== */
+.shop-sidebar {
+    width: 280px;
+    height: 100%;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.95);
+    border-right: 1px solid rgba(150, 153, 74, 0.15);
+    padding: 1rem;
+    
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
+}
+
+.shop-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.shop-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shop-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.3);
+    border-radius: 3px;
+}
+
+.shop-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.5);
+}
+
+/* ===== SHOP CONTENT AREA ===== */
+.shop-content {
+    flex: 1;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg-secondary, #f8f9fa);
+    padding: 1.5rem;
+    
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 153, 74, 0.4) transparent;
+}
+
+.shop-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.shop-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shop-content::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.4);
+    border-radius: 4px;
+}
+
+.shop-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.6);
+}
+
+/* ===== MOBILE BOTTOM NAVIGATION ===== */
+.shop-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(150, 153, 74, 0.2);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    z-index: 100;
+}
+
+/* ===== RESPONSIVE VISIBILITY ===== */
+.desktop-only {
+    display: block;
+}
+
+.mobile-only {
+    display: none;
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .shop-layout {
+    background: var(--bg-primary, #212529);
+}
+
+[data-theme="dark"] .shop-header {
+    background: rgba(33, 37, 41, 0.98);
+    border-bottom-color: rgba(184, 187, 106, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .shop-sidebar {
+    background: rgba(33, 37, 41, 0.95);
+    border-right-color: rgba(184, 187, 106, 0.15);
+}
+
+[data-theme="dark"] .shop-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(184, 187, 106, 0.4);
+}
+
+[data-theme="dark"] .shop-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 187, 106, 0.6);
+}
+
+[data-theme="dark"] .shop-content {
+    background: var(--bg-secondary, #343a40);
+}
+
+[data-theme="dark"] .shop-content::-webkit-scrollbar-thumb {
+    background: rgba(184, 187, 106, 0.4);
+}
+
+[data-theme="dark"] .shop-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 187, 106, 0.6);
+}
+
+[data-theme="dark"] .shop-bottom-nav {
+    background: rgba(33, 37, 41, 0.98);
+    border-top-color: rgba(184, 187, 106, 0.2);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== TABLET RESPONSIVE (768px - 1024px) ===== */
+@media (max-width: 1024px) {
+    .shop-sidebar {
+        width: 240px;
+        padding: 0.75rem;
+    }
+    
+    .shop-content {
+        padding: 1rem;
+    }
+}
+
+/* ===== MOBILE RESPONSIVE (max-width: 768px) ===== */
+@media (max-width: 768px) {
+    .shop-header {
+        height: 56px;
+    }
+    
+    .shop-main {
+        margin-top: 56px;
+        margin-bottom: 60px; /* Space for bottom nav */
+    }
+    
+    .shop-sidebar {
+        display: none; /* Hidden on mobile, use filter panel instead */
+    }
+    
+    .shop-content {
+        padding: 0.75rem;
+        padding-bottom: 80px; /* Extra space for bottom nav */
+    }
+    
+    .shop-bottom-nav {
+        display: flex;
+    }
+    
+    .desktop-only {
+        display: none;
+    }
+    
+    .mobile-only {
+        display: flex;
+    }
+}
+
+/* ===== SMALL MOBILE (max-width: 480px) ===== */
+@media (max-width: 480px) {
+    .shop-header {
+        height: 52px;
+    }
+    
+    .shop-main {
+        margin-top: 52px;
+    }
+    
+    .shop-content {
+        padding: 0.5rem;
+    }
+    
+    .shop-bottom-nav {
+        height: 56px;
+    }
+}
+
+/* ===== PERFORMANCE OPTIMIZATIONS ===== */
+.shop-layout {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: scroll-position;
+}
+
+.shop-content,
+.shop-sidebar {
+    contain: layout style paint;
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    .shop-layout,
+    .shop-sidebar,
+    .shop-content {
+        scroll-behavior: auto;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: more) {
+    .shop-header,
+    .shop-bottom-nav {
+        border-width: 2px;
+    }
+}
