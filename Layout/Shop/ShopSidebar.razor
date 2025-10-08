@@ -1,0 +1,214 @@
+@* ShopSidebar.razor - Desktop filter sidebar *@
+
+<div class="shop-sidebar-content">
+    <!-- Categories Section -->
+    <div class="filter-section">
+        <h3 class="filter-title">Categories</h3>
+        <div class="category-list">
+            <a href="/shop?category=all" class="category-item @(selectedCategory == "all" ? "active" : "")">
+                <span class="category-icon">📦</span>
+                <span class="category-name">All Products</span>
+                <span class="category-count">(1,234)</span>
+            </a>
+            <a href="/shop?category=men" class="category-item @(selectedCategory == "men" ? "active" : "")">
+                <span class="category-icon">👔</span>
+                <span class="category-name">Men's Fashion</span>
+                <span class="category-count">(456)</span>
+            </a>
+            <a href="/shop?category=women" class="category-item @(selectedCategory == "women" ? "active" : "")">
+                <span class="category-icon">👚</span>
+                <span class="category-name">Women's Fashion</span>
+                <span class="category-count">(678)</span>
+            </a>
+            <a href="/shop?category=kids" class="category-item @(selectedCategory == "kids" ? "active" : "")">
+                <span class="category-icon">🧸</span>
+                <span class="category-name">Kids & Baby</span>
+                <span class="category-count">(234)</span>
+            </a>
+            <a href="/shop?category=home" class="category-item @(selectedCategory == "home" ? "active" : "")">
+                <span class="category-icon">🏠</span>
+                <span class="category-name">Home & Living</span>
+                <span class="category-count">(345)</span>
+            </a>
+            <a href="/shop?category=accessories" class="category-item @(selectedCategory == "accessories" ? "active" : "")">
+                <span class="category-icon">👜</span>
+                <span class="category-name">Accessories</span>
+                <span class="category-count">(123)</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Price Range Filter -->
+    <div class="filter-section">
+        <h3 class="filter-title">Price Range</h3>
+        <div class="price-filter">
+            <div class="price-inputs">
+                <input type="number" 
+                       class="price-input" 
+                       placeholder="Min" 
+                       @bind="minPrice" />
+                <span class="price-separator">-</span>
+                <input type="number" 
+                       class="price-input" 
+                       placeholder="Max" 
+                       @bind="maxPrice" />
+            </div>
+            <button class="apply-price-btn" @onclick="ApplyPriceFilter">
+                Apply
+            </button>
+        </div>
+        <!-- Quick price ranges -->
+        <div class="price-ranges">
+            <button class="price-range-btn @(selectedPriceRange == "0-50" ? "active" : "")" 
+                    @onclick='() => SelectPriceRange("0-50")'>
+                Under $50
+            </button>
+            <button class="price-range-btn @(selectedPriceRange == "50-100" ? "active" : "")" 
+                    @onclick='() => SelectPriceRange("50-100")'>
+                $50 - $100
+            </button>
+            <button class="price-range-btn @(selectedPriceRange == "100-200" ? "active" : "")" 
+                    @onclick='() => SelectPriceRange("100-200")'>
+                $100 - $200
+            </button>
+            <button class="price-range-btn @(selectedPriceRange == "200+" ? "active" : "")" 
+                    @onclick='() => SelectPriceRange("200+")'>
+                $200 & Above
+            </button>
+        </div>
+    </div>
+
+    <!-- Rating Filter -->
+    <div class="filter-section">
+        <h3 class="filter-title">Customer Rating</h3>
+        <div class="rating-filter">
+            @for (int i = 5; i >= 1; i--)
+            {
+                var rating = i;
+                <label class="rating-option">
+                    <input type="checkbox" 
+                           checked="@selectedRatings.Contains(rating)"
+                           @onchange="() => ToggleRating(rating)" />
+                    <span class="rating-stars">
+                        @string.Concat(Enumerable.Repeat("⭐", rating))
+                        @if (rating < 5)
+                        {
+                            @string.Concat(Enumerable.Repeat("☆", 5 - rating))
+                        }
+                    </span>
+                    <span class="rating-text">& Up</span>
+                </label>
+            }
+        </div>
+    </div>
+
+    <!-- Brand Filter -->
+    <div class="filter-section">
+        <h3 class="filter-title">Brands</h3>
+        <div class="brand-search">
+            <input type="text" 
+                   class="brand-search-input" 
+                   placeholder="Search brands..." 
+                   @bind="brandSearchQuery" 
+                   @bind:event="oninput" />
+        </div>
+        <div class="brand-list">
+            @foreach (var brand in FilteredBrands)
+            {
+                <label class="brand-option">
+                    <input type="checkbox" 
+                           checked="@selectedBrands.Contains(brand)"
+                           @onchange="() => ToggleBrand(brand)" />
+                    <span class="brand-name">@brand</span>
+                </label>
+            }
+        </div>
+    </div>
+
+    <!-- Clear Filters -->
+    <div class="filter-actions">
+        <button class="clear-filters-btn" @onclick="ClearAllFilters">
+            Clear All Filters
+        </button>
+    </div>
+</div>
+
+@code {
+    private string selectedCategory = "all";
+    private decimal? minPrice = null;
+    private decimal? maxPrice = null;
+    private string selectedPriceRange = "";
+    private HashSet<int> selectedRatings = new();
+    private HashSet<string> selectedBrands = new();
+    private string brandSearchQuery = "";
+
+    private List<string> allBrands = new()
+    {
+        "Nike", "Adidas", "Zara", "H&M", "Uniqlo",
+        "Gap", "Levi's", "Tommy Hilfiger", "Calvin Klein", "Ralph Lauren"
+    };
+
+    private IEnumerable<string> FilteredBrands =>
+        string.IsNullOrWhiteSpace(brandSearchQuery)
+            ? allBrands
+            : allBrands.Where(b => b.Contains(brandSearchQuery, StringComparison.OrdinalIgnoreCase));
+
+    private void ApplyPriceFilter()
+    {
+        // Apply custom price range
+        Console.WriteLine($"Price filter: {minPrice} - {maxPrice}");
+    }
+
+    private void SelectPriceRange(string range)
+    {
+        selectedPriceRange = selectedPriceRange == range ? "" : range;
+        
+        // Parse and set min/max based on range
+        switch (range)
+        {
+            case "0-50":
+                minPrice = 0;
+                maxPrice = 50;
+                break;
+            case "50-100":
+                minPrice = 50;
+                maxPrice = 100;
+                break;
+            case "100-200":
+                minPrice = 100;
+                maxPrice = 200;
+                break;
+            case "200+":
+                minPrice = 200;
+                maxPrice = null;
+                break;
+        }
+    }
+
+    private void ToggleRating(int rating)
+    {
+        if (selectedRatings.Contains(rating))
+            selectedRatings.Remove(rating);
+        else
+            selectedRatings.Add(rating);
+    }
+
+    private void ToggleBrand(string brand)
+    {
+        if (selectedBrands.Contains(brand))
+            selectedBrands.Remove(brand);
+        else
+            selectedBrands.Add(brand);
+    }
+
+    private void ClearAllFilters()
+    {
+        selectedCategory = "all";
+        minPrice = null;
+        maxPrice = null;
+        selectedPriceRange = "";
+        selectedRatings.Clear();
+        selectedBrands.Clear();
+        brandSearchQuery = "";
+    }
+}
