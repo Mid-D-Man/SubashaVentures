@@ -1,0 +1,390 @@
+/* ===== SHOP SIDEBAR CONTENT ===== */
+.shop-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* ===== FILTER SECTION ===== */
+.filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(150, 153, 74, 0.15);
+}
+
+.filter-section:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.filter-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    margin: 0;
+}
+
+/* ===== CATEGORY LIST ===== */
+.category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.category-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary, #333);
+    background: transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.category-item:hover {
+    background: rgba(150, 153, 74, 0.1);
+}
+
+.category-item.active {
+    background: var(--primary-color, #96994A);
+    color: white;
+}
+
+.category-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.category-name {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.category-count {
+    font-size: 0.8rem;
+    color: var(--text-muted, #999);
+    opacity: 0.8;
+}
+
+.category-item.active .category-count {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== PRICE FILTER ===== */
+.price-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.price-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.price-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid rgba(150, 153, 74, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary, #333);
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.price-input:focus {
+    border-color: var(--primary-color, #96994A);
+    box-shadow: 0 0 0 2px rgba(150, 153, 74, 0.1);
+}
+
+.price-input::placeholder {
+    color: var(--text-muted, #999);
+}
+
+.price-separator {
+    color: var(--text-muted, #999);
+    font-weight: 600;
+}
+
+.apply-price-btn {
+    padding: 0.5rem 1rem;
+    background: var(--primary-color, #96994A);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.apply-price-btn:hover {
+    background: var(--hover-primary, #7A7D3A);
+    transform: translateY(-1px);
+}
+
+.price-ranges {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.price-range-btn {
+    padding: 0.5rem 0.75rem;
+    background: rgba(150, 153, 74, 0.05);
+    color: var(--text-primary, #333);
+    border: 1px solid rgba(150, 153, 74, 0.2);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.price-range-btn:hover {
+    background: rgba(150, 153, 74, 0.1);
+    border-color: var(--primary-color, #96994A);
+}
+
+.price-range-btn.active {
+    background: var(--primary-color, #96994A);
+    color: white;
+    border-color: var(--primary-color, #96994A);
+}
+
+/* ===== RATING FILTER ===== */
+.rating-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.rating-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rating-option:hover {
+    background: rgba(150, 153, 74, 0.05);
+}
+
+.rating-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary-color, #96994A);
+}
+
+.rating-stars {
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.rating-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #666);
+}
+
+/* ===== BRAND FILTER ===== */
+.brand-search {
+    margin-bottom: 0.5rem;
+}
+
+.brand-search-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid rgba(150, 153, 74, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary, #333);
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.brand-search-input:focus {
+    border-color: var(--primary-color, #96994A);
+    box-shadow: 0 0 0 2px rgba(150, 153, 74, 0.1);
+}
+
+.brand-search-input::placeholder {
+    color: var(--text-muted, #999);
+}
+
+.brand-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
+}
+
+.brand-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.brand-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.brand-list::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.3);
+    border-radius: 2px;
+}
+
+.brand-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.brand-option:hover {
+    background: rgba(150, 153, 74, 0.05);
+}
+
+.brand-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary-color, #96994A);
+}
+
+.brand-name {
+    font-size: 0.85rem;
+    color: var(--text-primary, #333);
+}
+
+/* ===== FILTER ACTIONS ===== */
+.filter-actions {
+    margin-top: 1rem;
+}
+
+.clear-filters-btn {
+    width: 100%;
+    padding: 0.75rem;
+    background: transparent;
+    color: var(--primary-color, #96994A);
+    border: 1px solid var(--primary-color, #96994A);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+    background: var(--primary-color, #96994A);
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .filter-title,
+[data-theme="dark"] .category-name,
+[data-theme="dark"] .brand-name {
+    color: var(--text-primary, #f8f9fa);
+}
+
+[data-theme="dark"] .filter-section {
+    border-bottom-color: rgba(184, 187, 106, 0.15);
+}
+
+[data-theme="dark"] .category-item {
+    color: var(--text-primary, #f8f9fa);
+}
+
+[data-theme="dark"] .category-item:hover {
+    background: rgba(184, 187, 106, 0.1);
+}
+
+[data-theme="dark"] .category-item.active {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
+}
+
+[data-theme="dark"] .price-input,
+[data-theme="dark"] .brand-search-input {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(184, 187, 106, 0.3);
+    color: var(--text-primary, #f8f9fa);
+}
+
+[data-theme="dark"] .price-input:focus,
+[data-theme="dark"] .brand-search-input:focus {
+    border-color: var(--primary-color, #B8BB6A);
+    box-shadow: 0 0 0 2px rgba(184, 187, 106, 0.1);
+}
+
+[data-theme="dark"] .apply-price-btn {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
+}
+
+[data-theme="dark"] .price-range-btn {
+    background: rgba(184, 187, 106, 0.05);
+    color: var(--text-primary, #f8f9fa);
+    border-color: rgba(184, 187, 106, 0.2);
+}
+
+[data-theme="dark"] .price-range-btn:hover {
+    background: rgba(184, 187, 106, 0.1);
+    border-color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .price-range-btn.active {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
+}
+
+[data-theme="dark"] .rating-option:hover,
+[data-theme="dark"] .brand-option:hover {
+    background: rgba(184, 187, 106, 0.05);
+}
+
+[data-theme="dark"] .rating-text {
+    color: var(--text-secondary, #dee2e6);
+}
+
+[data-theme="dark"] .clear-filters-btn {
+    color: var(--primary-color, #B8BB6A);
+    border-color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .clear-filters-btn:hover {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+    .shop-sidebar-content {
+        gap: 1.25rem;
+    }
+    
+    .filter-section {
+        gap: 0.5rem;
+        padding-bottom: 1.25rem;
+    }
+}
