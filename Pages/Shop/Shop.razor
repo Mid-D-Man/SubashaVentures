@@ -119,10 +119,10 @@
             <div class="pagination-pages">
                 @for (int i = 1; i <= totalPages; i++)
                 {
-                    var page = i;
-                    <button class="page-btn @(currentPage == page ? "active" : "")"
-                            @onclick="() => GoToPage(page)">
-                        @page
+                    var pageNumber = i;
+                    <button class="page-btn @(currentPage == pageNumber ? "active" : "")"
+                            @onclick="() => GoToPage(pageNumber)">
+                        @pageNumber
                     </button>
                 }
             </div>
