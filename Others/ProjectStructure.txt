@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Fri Oct 10 17:12:46 UTC 2025
+Generated: Fri Oct 10 17:13:25 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 3601d5d4c2d38793ec82033f6eb537e9e2fc1d66
+Commit: 0fb0eb34063c06d6c9a680332bc80e08d0ebcf08
 Branch: master
 ==================================
 
@@ -41,7 +41,7 @@ Layout/Shop/ShopNavigation.razor.css
 Layout/Shop/ShopSidebar.razor
 Layout/Shop/ShopSidebar.razor.css
 MainLayout.razor
-Pages/AdminDashboard.razor
+Pages/Admin/AdminDashboard.razor
 Pages/Main/LandingPasge.razor
 Pages/Main/LandingPasge.razor.cs
 Pages/Main/LandingPasge.razor.css
@@ -90,6 +90,7 @@ Directory Structure:
 ./  Shop
 ./Others
 ./Pages
+./  Admin
 ./  Main
 ./  Shop
 ./Properties
