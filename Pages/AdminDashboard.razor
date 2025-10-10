@@ -1,0 +1,169 @@
+@page "/admin"
+@using SubashaVentures.Layout.Admin
+@layout AdminLayout
+
+<div class="admin-dashboard">
+    <!-- Stats Cards Row -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon revenue">💰</div>
+            <div class="stat-content">
+                <span class="stat-label">Total Revenue</span>
+                <span class="stat-value">$45,231.89</span>
+                <span class="stat-change positive">+20.1% from last month</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon orders">📦</div>
+            <div class="stat-content">
+                <span class="stat-label">Total Orders</span>
+                <span class="stat-value">1,234</span>
+                <span class="stat-change positive">+15% from last month</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon customers">👥</div>
+            <div class="stat-content">
+                <span class="stat-label">Total Customers</span>
+                <span class="stat-value">892</span>
+                <span class="stat-change positive">+8% from last month</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon products">🛍️</div>
+            <div class="stat-content">
+                <span class="stat-label">Total Products</span>
+                <span class="stat-value">567</span>
+                <span class="stat-change neutral">No change</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+        <div class="chart-card large">
+            <div class="card-header">
+                <h3 class="card-title">Revenue Overview</h3>
+                <select class="period-select">
+                    <option>Last 7 days</option>
+                    <option>Last 30 days</option>
+                    <option>Last 90 days</option>
+                </select>
+            </div>
+            <div class="chart-placeholder">
+                <span class="placeholder-text">📈 Revenue Chart Placeholder</span>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="card-header">
+                <h3 class="card-title">Sales by Category</h3>
+            </div>
+            <div class="chart-placeholder">
+                <span class="placeholder-text">🥧 Pie Chart Placeholder</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables Row -->
+    <div class="tables-row">
+        <div class="table-card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Orders</h3>
+                <a href="admin/orders" class="view-all-link">View All →</a>
+            </div>
+            <div class="table-placeholder">
+                <div class="placeholder-row header">
+                    <span>Order ID</span>
+                    <span>Customer</span>
+                    <span>Status</span>
+                    <span>Total</span>
+                </div>
+                <div class="placeholder-row">
+                    <span>#12345</span>
+                    <span>John Doe</span>
+                    <span class="status pending">Pending</span>
+                    <span>$129.99</span>
+                </div>
+                <div class="placeholder-row">
+                    <span>#12344</span>
+                    <span>Jane Smith</span>
+                    <span class="status completed">Completed</span>
+                    <span>$89.50</span>
+                </div>
+                <div class="placeholder-row">
+                    <span>#12343</span>
+                    <span>Bob Johnson</span>
+                    <span class="status processing">Processing</span>
+                    <span>$199.99</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="card-header">
+                <h3 class="card-title">Top Products</h3>
+                <a href="admin/products" class="view-all-link">View All →</a>
+            </div>
+            <div class="table-placeholder">
+                <div class="placeholder-row header">
+                    <span>Product</span>
+                    <span>Sales</span>
+                    <span>Revenue</span>
+                </div>
+                <div class="placeholder-row">
+                    <span>Premium T-Shirt</span>
+                    <span>234</span>
+                    <span>$4,680</span>
+                </div>
+                <div class="placeholder-row">
+                    <span>Denim Jeans</span>
+                    <span>187</span>
+                    <span>$9,350</span>
+                </div>
+                <div class="placeholder-row">
+                    <span>Leather Jacket</span>
+                    <span>98</span>
+                    <span>$14,700</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts/Notifications Row -->
+    <div class="alerts-row">
+        <div class="alert-card warning">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-content">
+                <h4 class="alert-title">Low Stock Alert</h4>
+                <p class="alert-text">5 products are running low on stock</p>
+            </div>
+            <button class="alert-action">View Items</button>
+        </div>
+
+        <div class="alert-card info">
+            <div class="alert-icon">📢</div>
+            <div class="alert-content">
+                <h4 class="alert-title">Pending Orders</h4>
+                <p class="alert-text">12 orders need your attention</p>
+            </div>
+            <button class="alert-action">Review Orders</button>
+        </div>
+
+        <div class="alert-card success">
+            <div class="alert-icon">✅</div>
+            <div class="alert-content">
+                <h4 class="alert-title">System Status</h4>
+                <p class="alert-text">All systems operational</p>
+            </div>
+            <button class="alert-action">View Details</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Page logic will be in .cs file
+}
