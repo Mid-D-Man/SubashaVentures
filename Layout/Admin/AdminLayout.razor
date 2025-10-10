@@ -1,0 +1,86 @@
+@inherits LayoutComponentBase
+
+<div class="admin-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <span class="admin-logo">SV Admin</span>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="admin" class="nav-item @(IsActive("admin"))">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            
+            <a href="admin/products" class="nav-item @(IsActive("admin/products"))">
+                <span class="nav-icon">📦</span>
+                <span class="nav-label">Products</span>
+            </a>
+            
+            <a href="admin/orders" class="nav-item @(IsActive("admin/orders"))">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Orders</span>
+            </a>
+            
+            <a href="admin/users" class="nav-item @(IsActive("admin/users"))">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Users</span>
+            </a>
+            
+            <a href="admin/sales" class="nav-item @(IsActive("admin/sales"))">
+                <span class="nav-icon">💰</span>
+                <span class="nav-label">Sales</span>
+            </a>
+            
+            <a href="admin/settings" class="nav-item @(IsActive("admin/settings"))">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="" class="nav-item">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Back to Store</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="admin-main">
+        <!-- Top Header Bar -->
+        <header class="admin-header">
+            <div class="header-left">
+                <h1 class="page-title">@PageTitle</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="header-btn notifications">
+                    <span class="btn-icon">🔔</span>
+                    <span class="badge">3</span>
+                </button>
+                
+                <div class="admin-user">
+                    <span class="user-name">Admin User</span>
+                    <div class="user-avatar">A</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="admin-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private string PageTitle = "Dashboard";
+    
+    private string IsActive(string path)
+    {
+        // Simple active state - in real app use NavigationManager
+        return ""; // Return "active" if current page matches
+    }
+}
