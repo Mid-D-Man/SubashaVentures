@@ -1,0 +1,105 @@
+@page "/signin"
+@using SubashaVentures.Layout.Auth
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Buttons
+@layout AuthLayout
+
+<div class="signin-page">
+    <div class="form-header">
+        <h2 class="form-title">Welcome Back</h2>
+        <p class="form-subtitle">Sign in to your account to continue</p>
+    </div>
+
+    <form class="signin-form" @onsubmit="HandleSignIn">
+        <!-- Email Field -->
+        <InputField 
+            Label="Email Address"
+            Type="email"
+            @bind-Value="email"
+            Placeholder="john.doe@example.com"
+            PrefixIcon="📧"
+            IsRequired="true"
+            HasError="@(!string.IsNullOrEmpty(emailError))"
+            ErrorMessage="@emailError"
+            ShowClearButton="true"
+            Size="InputField.InputSize.Medium" />
+
+        <!-- Password Field -->
+        <InputField 
+            Label="Password"
+            Type="@(showPassword ? "text" : "password")"
+            @bind-Value="password"
+            Placeholder="Enter your password"
+            PrefixIcon="🔒"
+            SuffixIcon="@(showPassword ? "👁️" : "👁️‍🗨️")"
+            IsRequired="true"
+            HasError="@(!string.IsNullOrEmpty(passwordError))"
+            ErrorMessage="@passwordError"
+            Size="InputField.InputSize.Medium" />
+
+        <!-- Remember Me & Forgot Password -->
+        <div class="form-options">
+            <label class="remember-label">
+                <input type="checkbox" @bind="rememberMe" class="checkbox-input" />
+                <span class="checkbox-text">Remember me</span>
+            </label>
+            
+            <a href="forgot-password" class="forgot-link">Forgot Password?</a>
+        </div>
+
+        <!-- General Error Message -->
+        @if (!string.IsNullOrEmpty(generalError))
+        {
+            <div class="error-banner">
+                <span class="error-icon">⚠️</span>
+                <span class="error-text">@generalError</span>
+            </div>
+        }
+
+        <!-- Sign In Button -->
+        <PrimaryButton 
+            Type="submit" 
+            Size="PrimaryButton.ButtonSize.Large"
+            IsDisabled="@isLoading"
+            CssClass="signin-button">
+            @if (isLoading)
+            {
+                <span>Signing In...</span>
+            }
+            else
+            {
+                <span>Sign In</span>
+            }
+        </PrimaryButton>
+
+        <!-- Divider -->
+        <div class="divider">
+            <span class="divider-line"></span>
+            <span class="divider-text">OR</span>
+            <span class="divider-line"></span>
+        </div>
+
+        <!-- Social Sign In -->
+        <div class="social-buttons">
+            <button type="button" class="social-btn google" @onclick="HandleGoogleSignIn">
+                <span class="social-icon">G</span>
+                <span class="social-text">Continue with Google</span>
+            </button>
+            
+            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignIn">
+                <span class="social-icon">f</span>
+                <span class="social-text">Continue with Facebook</span>
+            </button>
+        </div>
+
+        <!-- Sign Up Link -->
+        <div class="form-footer">
+            <p class="footer-question">Don't have an account?</p>
+            <a href="signup" class="footer-link">Sign Up</a>
+        </div>
+    </form>
+</div>
+
+@code {
+    // Form fields will be in .cs file
+}
