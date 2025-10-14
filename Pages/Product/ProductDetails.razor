@@ -1,0 +1,218 @@
+@page "/product/{productId}"
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Layout.Main
+@layout LandingPageLayout
+
+<div class="product-details-page">
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Loading product...</p>
+        </div>
+    }
+    else if (product == null)
+    {
+        <div class="error-container">
+            <h2>Product Not Found</h2>
+            <p>The product you're looking for doesn't exist.</p>
+            <a href="shop" class="back-link">← Back to Shop</a>
+        </div>
+    }
+    else
+    {
+        <!-- Breadcrumb -->
+        <nav class="breadcrumb">
+            <a href="">Home</a>
+            <span class="separator">›</span>
+            <a href="shop">Shop</a>
+            <span class="separator">›</span>
+            <a href="shop/@product.Category">@product.Category</a>
+            <span class="separator">›</span>
+            <span class="current">@product.Name</span>
+        </nav>
+
+        <div class="product-container">
+            <!-- Left: Image Gallery -->
+            <div class="product-gallery">
+                <div class="main-image">
+                    <img src="@selectedImage" alt="@product.Name" class="product-image" />
+                    @if (product.IsOnSale)
+                    {
+                        <div class="sale-badge">-@product.Discount%</div>
+                    }
+                </div>
+                
+                <div class="thumbnail-gallery">
+                    @foreach (var img in product.Images)
+                    {
+                        <div class="thumbnail @(selectedImage == img ? "active" : "")" 
+                             @onclick="() => SelectImage(img)">
+                            <img src="@img" alt="Product thumbnail" />
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Right: Product Info -->
+            <div class="product-info">
+                <h1 class="product-name">@product.Name</h1>
+                
+                <!-- Rating -->
+                <div class="product-rating">
+                    <div class="stars">
+                        @for (int i = 0; i < 5; i++)
+                        {
+                            <span class="star @(i < Math.Floor(product.Rating) ? "filled" : "")">★</span>
+                        }
+                    </div>
+                    <span class="rating-count">(@product.ReviewCount reviews)</span>
+                </div>
+
+                <!-- Price -->
+                <div class="product-price">
+                    <span class="current-price">₦@product.Price.ToString("N0")</span>
+                    @if (product.OriginalPrice.HasValue)
+                    {
+                        <span class="original-price">₦@product.OriginalPrice.Value.ToString("N0")</span>
+                    }
+                </div>
+
+                <!-- Description -->
+                <p class="product-description">@product.Description</p>
+
+                <!-- Size Selection -->
+                @if (product.Sizes.Any())
+                {
+                    <div class="product-option">
+                        <label class="option-label">Size</label>
+                        <div class="option-buttons">
+                            @foreach (var size in product.Sizes)
+                            {
+                                <button class="option-btn @(selectedSize == size ? "active" : "")"
+                                        @onclick="() => SelectSize(size)">
+                                    @size
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Color Selection -->
+                @if (product.Colors.Any())
+                {
+                    <div class="product-option">
+                        <label class="option-label">Color</label>
+                        <div class="color-options">
+                            @foreach (var color in product.Colors)
+                            {
+                                <button class="color-btn @(selectedColor == color ? "active" : "")"
+                                        style="background-color: @color"
+                                        @onclick="() => SelectColor(color)"
+                                        title="@color">
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Quantity -->
+                <div class="product-option">
+                    <label class="option-label">Quantity</label>
+                    <div class="quantity-selector">
+                        <button class="qty-btn" @onclick="DecreaseQuantity" disabled="@(quantity <= 1)">-</button>
+                        <span class="qty-value">@quantity</span>
+                        <button class="qty-btn" @onclick="IncreaseQuantity" disabled="@(quantity >= product.Stock)">+</button>
+                    </div>
+                    <span class="stock-info">@product.Stock items in stock</span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <PrimaryButton Size="PrimaryButton.ButtonSize.Large" 
+                                   CssClass="add-to-cart-btn"
+                                   OnClick="AddToCart"
+                                   IsDisabled="@(product.Stock == 0)">
+                        🛒 Add to Cart
+                    </PrimaryButton>
+                    
+                    <button class="wishlist-btn @(isInWishlist ? "active" : "")" 
+                            @onclick="ToggleWishlist">
+                        <span class="wishlist-icon">@(isInWishlist ? "❤️" : "🤍")</span>
+                    </button>
+                </div>
+
+                <!-- Product Meta -->
+                <div class="product-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">SKU:</span>
+                        <span class="meta-value">@product.Sku</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Category:</span>
+                        <span class="meta-value">@product.Category</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Brand:</span>
+                        <span class="meta-value">@product.Brand</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs Section -->
+        <div class="product-tabs">
+            <div class="tabs-header">
+                <button class="tab-btn @(activeTab == "description" ? "active" : "")"
+                        @onclick='() => SetActiveTab("description")'>
+                    Description
+                </button>
+                <button class="tab-btn @(activeTab == "reviews" ? "active" : "")"
+                        @onclick='() => SetActiveTab("reviews")'>
+                    Reviews (@product.ReviewCount)
+                </button>
+                <button class="tab-btn @(activeTab == "shipping" ? "active" : "")"
+                        @onclick='() => SetActiveTab("shipping")'>
+                    Shipping
+                </button>
+            </div>
+
+            <div class="tabs-content">
+                @if (activeTab == "description")
+                {
+                    <div class="tab-panel">
+                        <h3>Product Details</h3>
+                        <p>@product.LongDescription</p>
+                    </div>
+                }
+                else if (activeTab == "reviews")
+                {
+                    <div class="tab-panel">
+                        <h3>Customer Reviews</h3>
+                        <p class="placeholder-text">Reviews section placeholder</p>
+                    </div>
+                }
+                else if (activeTab == "shipping")
+                {
+                    <div class="tab-panel">
+                        <h3>Shipping Information</h3>
+                        <p>Standard delivery: 3-5 business days</p>
+                        <p>Express delivery: 1-2 business days</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Related Products -->
+        <div class="related-products">
+            <h2 class="section-title">You May Also Like</h2>
+            <div class="related-grid">
+                <p class="placeholder-text">Related products placeholder</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? ProductId { get; set; }
+}
