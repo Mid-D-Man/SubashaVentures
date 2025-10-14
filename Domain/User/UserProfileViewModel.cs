@@ -38,7 +38,7 @@ public class UserProfileViewModel
     
     // Loyalty/Rewards (if applicable)
     public int LoyaltyPoints { get; set; }
-    public string MembershipTier { get; set; } = "Bronze"; // Bronze, Silver, Gold, Platinum
+    public MembershipTier MembershipTier { get; set; } = MembershipTier.Bronze;
     
     // Timestamps
     public DateTime CreatedAt { get; set; }
