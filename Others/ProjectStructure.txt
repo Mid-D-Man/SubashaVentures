@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Oct 14 16:07:58 UTC 2025
+Generated: Tue Oct 14 16:09:02 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 445b8dd74085fbe9dff9674814f9a9ffa0846905
+Commit: 4a30fb3c4ea912c75bb65e27cec9cef300de1faa
 Branch: master
 ==================================
 
@@ -23,6 +23,7 @@ Components/Shared/Forms/InputField.razor
 Components/Shared/Forms/InputField.razor.css
 Domain/Cart/CartItemViewModel.cs
 Domain/Cart/CartSummaryViewModel.cs
+Domain/Checkout/CheckoutViewModel.cs
 Domain/Enums/ProductEnums.cs
 Domain/Product/CategoryViewModel.cs
 Domain/Product/ProductCardDto.cs
@@ -102,6 +103,7 @@ Directory Structure:
 ./    Forms
 ./Domain
 ./  Cart
+./  Checkout
 ./  Enums
 ./  Product
 ./  User
@@ -129,7 +131,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 24 files
+.cs       : 25 files
 .razor    : 22 files
 .csproj   : 1 files
 .sln      : 1 files
