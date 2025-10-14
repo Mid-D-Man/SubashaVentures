@@ -1,0 +1,65 @@
+@inherits LayoutComponentBase
+
+<div class="auth-layout">
+    <!-- Left Side: Image/Background -->
+    <div class="auth-visual">
+        <div class="visual-overlay"></div>
+        <div class="visual-content">
+            <a href="" class="brand-link">
+                <span class="brand-icon">SV</span>
+                <span class="brand-name">SubashaVentures</span>
+            </a>
+            
+            <div class="visual-text">
+                <h1 class="visual-title">Welcome to Your Style Destination</h1>
+                <p class="visual-description">
+                    Discover premium clothing and home goods that reflect your unique personality.
+                    Join thousands of satisfied customers today.
+                </p>
+            </div>
+            
+            <div class="visual-features">
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span class="feature-text">Premium Quality Products</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span class="feature-text">Fast & Free Shipping</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span class="feature-text">Easy Returns & Exchanges</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Background Image Placeholder -->
+        <div class="background-image"></div>
+    </div>
+
+    <!-- Right Side: Form Content -->
+    <div class="auth-form-section">
+        <div class="form-container">
+            <!-- Back to Store Link -->
+            <a href="" class="back-link">
+                <span class="back-icon">←</span>
+                <span class="back-text">Back to Store</span>
+            </a>
+            
+            <!-- Form Content (from child pages) -->
+            <div class="form-content">
+                @Body
+            </div>
+            
+            <!-- Footer -->
+            <div class="auth-footer">
+                <p class="footer-text">© 2024 SubashaVentures. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Layout code if needed
+}
