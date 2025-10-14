@@ -1,0 +1,140 @@
+@page "/signup"
+@using SubashaVentures.Layout.Auth
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Buttons
+@layout AuthLayout
+
+<div class="signup-page">
+    <div class="form-header">
+        <h2 class="form-title">Create Account</h2>
+        <p class="form-subtitle">Join us and start your shopping journey</p>
+    </div>
+
+    <form class="signup-form" @onsubmit="HandleSignUp">
+        <!-- Name Fields Row -->
+        <div class="form-row">
+            <InputField 
+                Label="First Name"
+                Type="text"
+                @bind-Value="firstName"
+                Placeholder="John"
+                IsRequired="true"
+                HasError="@(!string.IsNullOrEmpty(firstNameError))"
+                ErrorMessage="@firstNameError"
+                Size="InputField.InputSize.Medium" />
+            
+            <InputField 
+                Label="Last Name"
+                Type="text"
+                @bind-Value="lastName"
+                Placeholder="Doe"
+                IsRequired="true"
+                HasError="@(!string.IsNullOrEmpty(lastNameError))"
+                ErrorMessage="@lastNameError"
+                Size="InputField.InputSize.Medium" />
+        </div>
+
+        <!-- Email Field -->
+        <InputField 
+            Label="Email Address"
+            Type="email"
+            @bind-Value="email"
+            Placeholder="john.doe@example.com"
+            PrefixIcon="📧"
+            IsRequired="true"
+            HasError="@(!string.IsNullOrEmpty(emailError))"
+            ErrorMessage="@emailError"
+            ShowClearButton="true"
+            Size="InputField.InputSize.Medium" />
+
+        <!-- Password Field -->
+        <InputField 
+            Label="Password"
+            Type="@(showPassword ? "text" : "password")"
+            @bind-Value="password"
+            Placeholder="Enter your password"
+            PrefixIcon="🔒"
+            SuffixIcon="@(showPassword ? "👁️" : "👁️‍🗨️")"
+            IsRequired="true"
+            HasError="@(!string.IsNullOrEmpty(passwordError))"
+            ErrorMessage="@passwordError"
+            HelperText="Must be at least 8 characters"
+            Size="InputField.InputSize.Medium" />
+
+        <!-- Confirm Password Field -->
+        <InputField 
+            Label="Confirm Password"
+            Type="@(showConfirmPassword ? "text" : "password")"
+            @bind-Value="confirmPassword"
+            Placeholder="Confirm your password"
+            PrefixIcon="🔒"
+            SuffixIcon="@(showConfirmPassword ? "👁️" : "👁️‍🗨️")"
+            IsRequired="true"
+            HasError="@(!string.IsNullOrEmpty(confirmPasswordError))"
+            ErrorMessage="@confirmPasswordError"
+            Size="InputField.InputSize.Medium" />
+
+        <!-- Terms & Conditions -->
+        <div class="terms-checkbox">
+            <label class="checkbox-label">
+                <input type="checkbox" @bind="acceptTerms" class="checkbox-input" />
+                <span class="checkbox-text">
+                    I agree to the 
+                    <a href="terms" class="terms-link" target="_blank">Terms & Conditions</a> 
+                    and 
+                    <a href="privacy" class="terms-link" target="_blank">Privacy Policy</a>
+                </span>
+            </label>
+            @if (!string.IsNullOrEmpty(termsError))
+            {
+                <span class="terms-error">@termsError</span>
+            }
+        </div>
+
+        <!-- Sign Up Button -->
+        <PrimaryButton 
+            Type="submit" 
+            Size="PrimaryButton.ButtonSize.Large"
+            IsDisabled="@isLoading"
+            CssClass="signup-button">
+            @if (isLoading)
+            {
+                <span>Creating Account...</span>
+            }
+            else
+            {
+                <span>Sign Up</span>
+            }
+        </PrimaryButton>
+
+        <!-- Divider -->
+        <div class="divider">
+            <span class="divider-line"></span>
+            <span class="divider-text">OR</span>
+            <span class="divider-line"></span>
+        </div>
+
+        <!-- Social Sign Up -->
+        <div class="social-buttons">
+            <button type="button" class="social-btn google" @onclick="HandleGoogleSignUp">
+                <span class="social-icon">G</span>
+                <span class="social-text">Continue with Google</span>
+            </button>
+            
+            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignUp">
+                <span class="social-icon">f</span>
+                <span class="social-text">Continue with Facebook</span>
+            </button>
+        </div>
+
+        <!-- Sign In Link -->
+        <div class="form-footer">
+            <p class="footer-question">Already have an account?</p>
+            <a href="signin" class="footer-link">Sign In</a>
+        </div>
+    </form>
+</div>
+
+@code {
+    // Form fields will be in .cs file
+}
