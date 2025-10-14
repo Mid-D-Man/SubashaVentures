@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Oct 14 16:28:37 UTC 2025
+Generated: Tue Oct 14 16:29:41 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: abd991d03041a3341eab2d2c1559dccdfdcc125b
+Commit: 7d33afdc0f5e1c27eae85daadc9fe17aebfdb438
 Branch: master
 ==================================
 
@@ -61,6 +61,7 @@ Layout/Shop/ShopSidebar.razor.css
 MainLayout.razor
 Models/ISecureEntity.cs
 Models/Supabase/AddressModel.cs
+Models/Supabase/CartModel.cs
 Models/Supabase/OrderItemModel.cs
 Models/Supabase/OrderModel.cs
 Models/Supabase/UserModel.cs
@@ -143,7 +144,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 33 files
+.cs       : 34 files
 .razor    : 22 files
 .csproj   : 1 files
 .sln      : 1 files
