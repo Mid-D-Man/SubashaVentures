@@ -1,0 +1,332 @@
+/* ===== SIGNIN PAGE ===== */
+.signin-page {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== FORM HEADER ===== */
+.form-header {
+    margin-bottom: 2rem;
+}
+
+.form-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary, #333);
+    margin: 0 0 0.5rem 0;
+}
+
+.form-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary, #666);
+    margin: 0;
+}
+
+/* ===== SIGNIN FORM ===== */
+.signin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* ===== FORM OPTIONS ===== */
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: -0.5rem;
+}
+
+.remember-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary-color, #96994A);
+}
+
+.checkbox-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #666);
+}
+
+.forgot-link {
+    font-size: 0.9rem;
+    color: var(--primary-color, #96994A);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.forgot-link:hover {
+    color: var(--hover-primary, #7A7D3A);
+    text-decoration: underline;
+}
+
+/* ===== ERROR BANNER ===== */
+.error-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+}
+
+.error-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.error-text {
+    font-size: 0.9rem;
+    color: #dc2626;
+    font-weight: 500;
+}
+
+/* ===== SIGN IN BUTTON ===== */
+.signin-button {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+/* ===== DIVIDER ===== */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.5rem 0;
+}
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(150, 153, 74, 0.2);
+}
+
+.divider-text {
+    font-size: 0.85rem;
+    color: var(--text-muted, #999);
+    font-weight: 600;
+}
+
+/* ===== SOCIAL BUTTONS ===== */
+.social-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.social-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    border: 1px solid rgba(150, 153, 74, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.social-btn:hover {
+    background: rgba(150, 153, 74, 0.05);
+    border-color: var(--primary-color, #96994A);
+    transform: translateY(-1px);
+}
+
+.social-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.social-btn.google .social-icon {
+    color: #4285f4;
+    background: rgba(66, 133, 244, 0.1);
+}
+
+.social-btn.facebook .social-icon {
+    color: #1877f2;
+    background: rgba(24, 119, 242, 0.1);
+}
+
+.social-text {
+    color: var(--text-primary, #333);
+}
+
+/* ===== FORM FOOTER ===== */
+.form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.footer-question {
+    font-size: 0.9rem;
+    color: var(--text-secondary, #666);
+    margin: 0;
+}
+
+.footer-link {
+    font-size: 0.9rem;
+    color: var(--primary-color, #96994A);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.footer-link:hover {
+    color: var(--hover-primary, #7A7D3A);
+    text-decoration: underline;
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .form-title {
+    color: var(--text-primary, #f8f9fa);
+}
+
+[data-theme="dark"] .form-subtitle,
+[data-theme="dark"] .checkbox-text,
+[data-theme="dark"] .footer-question {
+    color: var(--text-secondary, #dee2e6);
+}
+
+[data-theme="dark"] .forgot-link,
+[data-theme="dark"] .footer-link {
+    color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .forgot-link:hover,
+[data-theme="dark"] .footer-link:hover {
+    color: var(--hover-primary, #9A9D5A);
+}
+
+[data-theme="dark"] .error-banner {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="dark"] .error-text {
+    color: #f87171;
+}
+
+[data-theme="dark"] .divider-line {
+    background: rgba(184, 187, 106, 0.2);
+}
+
+[data-theme="dark"] .divider-text {
+    color: var(--text-muted, #9ca3af);
+}
+
+[data-theme="dark"] .social-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(184, 187, 106, 0.3);
+}
+
+[data-theme="dark"] .social-btn:hover {
+    background: rgba(184, 187, 106, 0.1);
+    border-color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .social-text {
+    color: var(--text-primary, #f8f9fa);
+}
+
+[data-theme="dark"] .social-btn.google .social-icon {
+    background: rgba(66, 133, 244, 0.15);
+}
+
+[data-theme="dark"] .social-btn.facebook .social-icon {
+    background: rgba(24, 119, 242, 0.15);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .form-header {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-title {
+        font-size: 1.75rem;
+    }
+    
+    .form-subtitle {
+        font-size: 0.95rem;
+    }
+    
+    .signin-form {
+        gap: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-title {
+        font-size: 1.5rem;
+    }
+    
+    .form-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .signin-form {
+        gap: 1rem;
+    }
+    
+    .form-options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .checkbox-text {
+        font-size: 0.85rem;
+    }
+    
+    .forgot-link {
+        font-size: 0.85rem;
+    }
+    
+    .social-btn {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9rem;
+    }
+    
+    .form-footer {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    .social-btn,
+    .forgot-link,
+    .footer-link {
+        transition: none;
+    }
+    
+    .social-btn:hover {
+        transform: none;
+    }
+      }
