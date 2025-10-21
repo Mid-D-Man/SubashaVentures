@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Oct 21 20:19:14 UTC 2025
+Generated: Tue Oct 21 20:20:37 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 4f4afc37a18bd2bb741849d7e1d55beca5eaefab
+Commit: 94e30c9bfc0cfc502aefe9ffcbcdba517e940c49
 Branch: master
 ==================================
 
@@ -116,6 +116,7 @@ wwwroot/css/colors.css
 wwwroot/css/loading.css
 wwwroot/css/responsive.css
 wwwroot/index.html
+wwwroot/js/loading.js
 wwwroot/js/theme.js
 wwwroot/manifest.json
 wwwroot/service-worker.js
@@ -180,5 +181,5 @@ File Count Summary:
 .sln      : 1 files
 .json     : 3 files
 .css      : 29 files
-.js       : 3 files
+.js       : 4 files
 .html     : 1 files
