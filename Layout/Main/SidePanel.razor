@@ -1,5 +1,6 @@
-@* SidePanel.razor  *@
+@* Layout/Main/SidePanel.razor *@
 @using SubashaVentures.Components.Shared.Buttons
+@inject NavigationManager NavigationManager
 
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
@@ -38,13 +39,13 @@
                 {
                     <div class="nav-section">
                         <h4 class="section-title">My Account</h4>
-                        <a class="nav-link" href="@ProfileDirectory" @onclick="() => HandleNavClick(ProfileDirectory)">
+                        <a class="nav-link" @onclick="() => NavigateTo(ProfileDirectory)">
                             <span class="nav-text">Profile Settings</span>
                         </a>
-                        <a class="nav-link" href="@OrdersDirectory" @onclick="() => HandleNavClick(OrdersDirectory)">
+                        <a class="nav-link" @onclick="() => NavigateTo(OrdersDirectory)">
                             <span class="nav-text">My Orders</span>
                         </a>
-                        <a class="nav-link" href="@WishlistDirectory" @onclick="() => HandleNavClick(WishlistDirectory)">
+                        <a class="nav-link" @onclick="() => NavigateTo(WishlistDirectory)">
                             <span class="nav-text">Wishlist</span>
                         </a>
                     </div>
@@ -52,48 +53,48 @@
 
                 <div class="nav-section">
                     <h4 class="section-title">Shop</h4>
-                    <a class="nav-link" href="@HomeDirectory" @onclick="() => HandleNavClick(HomeDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(HomeDirectory)">
                         <span class="nav-text">Home</span>
                     </a>
-                    <a class="nav-link" href="@ShopDirectory" @onclick="() => HandleNavClick(ShopDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(ShopDirectory)">
                         <span class="nav-text">All Products</span>
                     </a>
-                    <a class="nav-link" href="@DealsDirectory" @onclick="() => HandleNavClick(DealsDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(DealsDirectory)">
                         <span class="nav-text">Deals & Sales</span>
                     </a>
                 </div>
 
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
-                    <a class="nav-link" href="@MenDirectory" @onclick="() => HandleNavClick(MenDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(MenDirectory)">
                         <span class="nav-text">Men's Fashion</span>
                     </a>
-                    <a class="nav-link" href="@WomenDirectory" @onclick="() => HandleNavClick(WomenDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(WomenDirectory)">
                         <span class="nav-text">Women's Fashion</span>
                     </a>
-                    <a class="nav-link" href="@KidsDirectory" @onclick="() => HandleNavClick(KidsDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(KidsDirectory)">
                         <span class="nav-text">Kids & Baby</span>
                     </a>
-                    <a class="nav-link" href="@HomeGoodsDirectory" @onclick="() => HandleNavClick(HomeGoodsDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(HomeGoodsDirectory)">
                         <span class="nav-text">Home & Living</span>
                     </a>
-                    <a class="nav-link" href="@AccessoriesDirectory" @onclick="() => HandleNavClick(AccessoriesDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(AccessoriesDirectory)">
                         <span class="nav-text">Accessories</span>
                     </a>
                 </div>
 
                 <div class="nav-section">
                     <h4 class="section-title">Support</h4>
-                    <a class="nav-link" href="@AboutDirectory" @onclick="() => HandleNavClick(AboutDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(AboutDirectory)">
                         <span class="nav-text">About Us</span>
                     </a>
-                    <a class="nav-link" href="@ContactDirectory" @onclick="() => HandleNavClick(ContactDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(ContactDirectory)">
                         <span class="nav-text">Contact</span>
                     </a>
-                    <a class="nav-link" href="@HelpDirectory" @onclick="() => HandleNavClick(HelpDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(HelpDirectory)">
                         <span class="nav-text">Help Center</span>
                     </a>
-                    <a class="nav-link" href="@TrackOrderDirectory" @onclick="() => HandleNavClick(TrackOrderDirectory)">
+                    <a class="nav-link" @onclick="() => NavigateTo(TrackOrderDirectory)">
                         <span class="nav-text">Track Orders</span>
                     </a>
                 </div>
@@ -103,13 +104,13 @@
             <div class="panel-actions">
                 @if (IsLoggedIn)
                 {
-                    <button class="action-btn sign-out" @onclick="() => HandleActionClick(ActionType.Logout)">
+                    <button class="action-btn sign-out" @onclick="HandleLogout">
                         <span class="btn-text">Sign Out</span>
                     </button>
                 }
                 else
                 {
-                    <button class="action-btn sign-in" @onclick="() => HandleActionClick(ActionType.SignIn)">
+                    <button class="action-btn sign-in" @onclick="HandleSignIn">
                         <span class="btn-text">Sign In</span>
                     </button>
                 }
@@ -119,22 +120,24 @@
 </div>
 
 @code {
-    // Navigation constants - NO LEADING SLASHES for GitHub Pages
-    private const string HomeDirectory = "";
-    private const string ShopDirectory = "shop";
-    private const string DealsDirectory = "shop/deals";
-    private const string MenDirectory = "shop/men";
-    private const string WomenDirectory = "shop/women";
-    private const string KidsDirectory = "shop/kids";
-    private const string HomeGoodsDirectory = "shop/home";
-    private const string AccessoriesDirectory = "shop/accessories";
-    private const string AboutDirectory = "about";
-    private const string ContactDirectory = "contact";
-    private const string HelpDirectory = "help";
-    private const string TrackOrderDirectory = "orders";
-    private const string ProfileDirectory = "profile";
-    private const string OrdersDirectory = "orders";
-    private const string WishlistDirectory = "wishlist";
+    // Navigation constants
+    private const string HomeDirectory = "/";
+    private const string ShopDirectory = "/shop";
+    private const string DealsDirectory = "/shop/deals";
+    private const string MenDirectory = "/shop/men";
+    private const string WomenDirectory = "/shop/women";
+    private const string KidsDirectory = "/shop/kids";
+    private const string HomeGoodsDirectory = "/shop/home";
+    private const string AccessoriesDirectory = "/shop/accessories";
+    private const string AboutDirectory = "/about";
+    private const string ContactDirectory = "/contact";
+    private const string HelpDirectory = "/help";
+    private const string TrackOrderDirectory = "/orders/track";
+    private const string ProfileDirectory = "/profile";
+    private const string OrdersDirectory = "/orders";
+    private const string WishlistDirectory = "/wishlist";
+    private const string SignInDirectory = "/signin";
+    private const string SignUpDirectory = "/signup";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
@@ -166,29 +169,35 @@
         await ClosePanel();
     }
 
-    private async Task HandleNavClick(string url)
+    private async Task NavigateTo(string url)
     {
         await ClosePanel();
+        NavigationManager.NavigateTo(url);
+        
         if (OnNavigate.HasDelegate)
         {
             await OnNavigate.InvokeAsync(url);
         }
     }
 
-    private async Task HandleActionClick(ActionType action)
+    private async Task HandleSignIn()
     {
         await ClosePanel();
+        NavigationManager.NavigateTo(SignInDirectory);
+        
         if (OnActionClick.HasDelegate)
         {
-            await OnActionClick.InvokeAsync(action);
-            if(action == ActionType.SignIn)
-            {
-                // Optionally clear search on logout
-                if (OnSearch.HasDelegate)
-                {
-                    await HandleNavClick("signin");
-                }
-            }
+            await OnActionClick.InvokeAsync(ActionType.SignIn);
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await ClosePanel();
+        
+        if (OnActionClick.HasDelegate)
+        {
+            await OnActionClick.InvokeAsync(ActionType.Logout);
         }
     }
 }
