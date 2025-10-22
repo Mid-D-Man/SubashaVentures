@@ -1,6 +1,5 @@
 // Services/SupaBase/SupabaseConfigService.cs
 using Supabase;
-
 namespace SubashaVentures.Services.SupaBase
 {
     public interface ISupabaseConfigService
@@ -43,8 +42,7 @@ namespace SubashaVentures.Services.SupaBase
                     var options = new SupabaseOptions
                     {
                         AutoRefreshToken = true,
-                        AutoConnectRealtime = true,
-                        SessionHandler = new SupabaseSessionHandler()
+                        AutoConnectRealtime = true
                     };
 
                     _client = new Client(_supabaseUrl, _supabaseKey, options);

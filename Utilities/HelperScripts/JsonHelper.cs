@@ -1,19 +1,63 @@
 
 using System.Xml.Linq;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
+using System.Xml.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace SubashaVentures.Utilities.HelperScripts
 {
     /// <summary>
-    /// Helper class for JSON operations using Newtonsoft.Json
+    /// Helper class for JSON operations using System.Text.Json
+    /// Centralized JSON configuration for consistent serialization across Firebase and Supabase
     /// </summary>
     public static class JsonHelper
     {
+        #region JSON Options Configuration
+
+        /// <summary>
+        /// Default JSON serializer options used across the application
+        /// Ensures consistency between Firebase and Supabase operations
+        /// </summary>
+        public static readonly JsonSerializerOptions DefaultOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = false,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+
+        /// <summary>
+        /// Indented JSON options for readable output (debugging, logging)
+        /// </summary>
+        public static readonly JsonSerializerOptions IndentedOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = true,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+
+        /// <summary>
+        /// Strict JSON options for API compatibility
+        /// </summary>
+        public static readonly JsonSerializerOptions StrictOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = false,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+            WriteIndented = false
+        };
+
+        #endregion
+
         #region JSON Serialization
 
         /// <summary>
-        /// Serialize an object to JSON string
+        /// Serialize an object to JSON string using default options
         /// </summary>
         /// <typeparam name="T">The type of object to serialize</typeparam>
         /// <param name="obj">The object to serialize</param>
@@ -26,15 +70,8 @@ namespace SubashaVentures.Utilities.HelperScripts
                 if (obj == null)
                     return null;
 
-                var settings = new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = indented ? Newtonsoft.Json.Formatting.Indented : Newtonsoft.Json.Formatting.None,
-                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                    DateFormatHandling = DateFormatHandling.IsoDateFormat
-                };
-
-                return JsonConvert.SerializeObject(obj, settings);
+                var options = indented ? IndentedOptions : DefaultOptions;
+                return JsonSerializer.Serialize(obj, options);
             }
             catch (Exception ex)
             {
@@ -44,32 +81,24 @@ namespace SubashaVentures.Utilities.HelperScripts
         }
 
         /// <summary>
-        /// Serialize an object to JSON string with camelCase property names
+        /// Serialize an object to JSON string with custom options
         /// </summary>
         /// <typeparam name="T">The type of object to serialize</typeparam>
         /// <param name="obj">The object to serialize</param>
-        /// <param name="indented">Whether to format the JSON with indentation</param>
+        /// <param name="options">Custom JSON serializer options</param>
         /// <returns>JSON string or null if serialization fails</returns>
-        public static string SerializeCamelCase<T>(T obj, bool indented = false)
+        public static string SerializeWithOptions<T>(T obj, JsonSerializerOptions options)
         {
             try
             {
                 if (obj == null)
                     return null;
 
-                var settings = new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = indented ? Newtonsoft.Json.Formatting.Indented : Newtonsoft.Json.Formatting.None,
-                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                    ContractResolver = new CamelCasePropertyNamesContractResolver()
-                };
-
-                return JsonConvert.SerializeObject(obj, settings);
+                return JsonSerializer.Serialize(obj, options);
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON camelCase serialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON serialization error: {ex.Message}", DebugClass.Exception);
                 return null;
             }
         }
@@ -79,7 +108,7 @@ namespace SubashaVentures.Utilities.HelperScripts
         #region JSON Deserialization
 
         /// <summary>
-        /// Deserialize a JSON string to an object
+        /// Deserialize a JSON string to an object using default options
         /// </summary>
         /// <typeparam name="T">The type to deserialize to</typeparam>
         /// <param name="json">The JSON string to deserialize</param>
@@ -91,14 +120,7 @@ namespace SubashaVentures.Utilities.HelperScripts
                 if (!MID_HelperFunctions.IsValidString(json))
                     return default;
 
-                var settings = new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore,
-                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                    DateFormatHandling = DateFormatHandling.IsoDateFormat
-                };
-
-                return JsonConvert.DeserializeObject<T>(json, settings);
+                return JsonSerializer.Deserialize<T>(json, DefaultOptions);
             }
             catch (Exception ex)
             {
@@ -108,23 +130,72 @@ namespace SubashaVentures.Utilities.HelperScripts
         }
 
         /// <summary>
-        /// Deserialize a JSON string to a dynamic object
+        /// Deserialize a JSON string to an object with custom options
+        /// </summary>
+        /// <typeparam name="T">The type to deserialize to</typeparam>
+        /// <param name="json">The JSON string to deserialize</param>
+        /// <param name="options">Custom JSON serializer options</param>
+        /// <returns>The deserialized object or default if deserialization fails</returns>
+        public static T DeserializeWithOptions<T>(string json, JsonSerializerOptions options)
+        {
+            try
+            {
+                if (!MID_HelperFunctions.IsValidString(json))
+                    return default;
+
+                return JsonSerializer.Deserialize<T>(json, options);
+            }
+            catch (Exception ex)
+            {
+                MID_HelperFunctions.DebugMessage($"JSON deserialization error: {ex.Message}", DebugClass.Exception);
+                return default;
+            }
+        }
+
+        /// <summary>
+        /// Deserialize a JSON string to a JsonDocument for dynamic access
         /// </summary>
         /// <param name="json">The JSON string to deserialize</param>
-        /// <returns>The deserialized dynamic object or null if deserialization fails</returns>
-        public static dynamic DeserializeDynamic(string json)
+        /// <returns>The deserialized JsonDocument or null if deserialization fails</returns>
+        public static JsonDocument DeserializeToDocument(string json)
         {
             try
             {
                 if (!MID_HelperFunctions.IsValidString(json))
                     return null;
 
-                return JsonConvert.DeserializeObject(json);
+                return JsonDocument.Parse(json);
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON dynamic deserialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON document deserialization error: {ex.Message}", DebugClass.Exception);
                 return null;
+            }
+        }
+
+        #endregion
+
+        #region JSON Validation
+
+        /// <summary>
+        /// Validate if a string is valid JSON
+        /// </summary>
+        /// <param name="json">The JSON string to validate</param>
+        /// <returns>True if valid JSON, false otherwise</returns>
+        public static bool IsValidJson(string json)
+        {
+            try
+            {
+                if (!MID_HelperFunctions.IsValidString(json))
+                    return false;
+
+                using var doc = JsonDocument.Parse(json);
+                return true;
+            }
+            catch (JsonException ex)
+            {
+                MID_HelperFunctions.DebugMessage($"JSON validation error: {ex.Message}", DebugClass.Exception);
+                return false;
             }
         }
 
@@ -136,8 +207,7 @@ namespace SubashaVentures.Utilities.HelperScripts
         /// Convert JSON to XML
         /// </summary>
         /// <param name="json">The JSON string to convert</param>
-        /// <param name="rootElementName">The name of the root XML element</param>
-        /// <returns>XML string or null if conversion fails</returns>
+        /// <param name="rootElementName">The name of the root XML element/// <returns>XML string or null if conversion fails</returns>
         public static string JsonToXml(string json, string rootElementName = "root")
         {
             try
@@ -145,12 +215,12 @@ namespace SubashaVentures.Utilities.HelperScripts
                 if (!MID_HelperFunctions.IsValidString(json))
                     return null;
 
-                var jsonObject = JsonConvert.DeserializeObject(json);
+                using var jsonDoc = JsonDocument.Parse(json);
                 var xmlDoc = new XDocument();
                 var rootElement = new XElement(rootElementName);
                 xmlDoc.Add(rootElement);
                 
-                ConvertJsonToXml(jsonObject, rootElement);
+                ConvertJsonToXml(jsonDoc.RootElement, rootElement);
                 
                 return xmlDoc.ToString();
             }
@@ -160,8 +230,6 @@ namespace SubashaVentures.Utilities.HelperScripts
                 return null;
             }
         }
-
-       
 
         /// <summary>
         /// Convert XML to JSON
@@ -177,14 +245,15 @@ namespace SubashaVentures.Utilities.HelperScripts
                     return null;
 
                 var xmlDoc = XDocument.Parse(xml);
-                var jsonObject = new JObject();
+                var jsonObject = new Dictionary<string, object>();
                 
                 foreach (var element in xmlDoc.Root.Elements())
                 {
                     ConvertXmlToJson(element, jsonObject);
                 }
-                
-                return jsonObject.ToString(indented ? Newtonsoft.Json.Formatting.Indented : Newtonsoft.Json.Formatting.None);
+
+                var options = indented ? IndentedOptions : DefaultOptions;
+                return JsonSerializer.Serialize(jsonObject, options);
             }
             catch (Exception ex)
             {
@@ -193,95 +262,9 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
         }
 
-      
         #endregion
 
-        #region Helper Methods
-
-        /// <summary>
-        /// Convert JSON object to XML recursively
-        /// </summary>
-        private static void ConvertJsonToXml(object jsonObject, XElement parentElement)
-        {
-            if (jsonObject is JObject jObject)
-            {
-                foreach (var property in jObject.Properties())
-                {
-                    if (property.Value is JValue jValue)
-                    {
-                        var element = new XElement(property.Name);
-                        if (jValue.Value != null)
-                        {
-                            element.Value = jValue.Value.ToString();
-                        }
-                        parentElement.Add(element);
-                    }
-                    else if (property.Value is JObject childObject)
-                    {
-                        var element = new XElement(property.Name);
-                        parentElement.Add(element);
-                        ConvertJsonToXml(childObject, element);
-                    }
-                    else if (property.Value is JArray jArray)
-                    {
-                        var element = new XElement(property.Name);
-                        parentElement.Add(element);
-                        ConvertJsonToXml(jArray, element);
-                    }
-                }
-            }
-            else if (jsonObject is JArray jArray)
-            {
-                foreach (var item in jArray)
-                {
-                    var element = new XElement("item");
-                    parentElement.Add(element);
-                    ConvertJsonToXml(item, element);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Convert XML element to JSON recursively
-        /// </summary>
-        private static void ConvertXmlToJson(XElement element, JObject parentObject)
-        {
-            if (!element.HasElements)
-            {
-                parentObject[element.Name.LocalName] = element.Value;
-            }
-            else
-            {
-                var childObject = new JObject();
-                foreach (var childElement in element.Elements())
-                {
-                    ConvertXmlToJson(childElement, childObject);
-                }
-                parentObject[element.Name.LocalName] = childObject;
-            }
-        }
-
-        /// <summary>
-        /// Validate if a string is valid JSON
-        /// </summary>
-        /// <param name="json">The JSON string to validate</param>
-        /// <returns>True if valid JSON, false otherwise</returns>
-        public static bool IsValidJson(string json)
-        {
-            try
-            {
-                if (!MID_HelperFunctions.IsValidString(json))
-                    return false;
-
-                JToken.Parse(json);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                MID_HelperFunctions.DebugMessage($"JSON validation error: {ex.Message}", DebugClass.Exception);
-                return false;
-            }
-        }
+        #region JSON Manipulation
 
         /// <summary>
         /// Merge two JSON objects
@@ -297,20 +280,232 @@ namespace SubashaVentures.Utilities.HelperScripts
                 if (!IsValidJson(json1) || !IsValidJson(json2))
                     return null;
 
-                var obj1 = JObject.Parse(json1);
-                var obj2 = JObject.Parse(json2);
+                using var doc1 = JsonDocument.Parse(json1);
+                using var doc2 = JsonDocument.Parse(json2);
+
+                var merged = new Dictionary<string, object>();
                 
-                obj1.Merge(obj2, new JsonMergeSettings { 
-                    MergeArrayHandling = MergeArrayHandling.Union,
-                    MergeNullValueHandling = MergeNullValueHandling.Merge
-                });
+                // Add properties from first JSON
+                foreach (var property in doc1.RootElement.EnumerateObject())
+                {
+                    merged[property.Name] = ConvertJsonElement(property.Value);
+                }
                 
-                return obj1.ToString(indented ? Newtonsoft.Json.Formatting.Indented : Newtonsoft.Json.Formatting.None);
+                // Merge properties from second JSON (overwrites if exists)
+                foreach (var property in doc2.RootElement.EnumerateObject())
+                {
+                    merged[property.Name] = ConvertJsonElement(property.Value);
+                }
+
+                var options = indented ? IndentedOptions : DefaultOptions;
+                return JsonSerializer.Serialize(merged, options);
             }
             catch (Exception ex)
             {
                 MID_HelperFunctions.DebugMessage($"JSON merge error: {ex.Message}", DebugClass.Exception);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Clone a JSON object
+        /// </summary>
+        /// <typeparam name="T">The type to clone</typeparam>
+        /// <param name="obj">The object to clone</param>
+        /// <returns>Cloned object or default if cloning fails</returns>
+        public static T Clone<T>(T obj)
+        {
+            try
+            {
+                if (obj == null)
+                    return default;
+
+                var json = Serialize(obj);
+                return Deserialize<T>(json);
+            }
+            catch (Exception ex)
+            {
+                MID_HelperFunctions.DebugMessage($"JSON clone error: {ex.Message}", DebugClass.Exception);
+                return default;
+            }
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Convert JsonElement to XML recursively
+        /// </summary>
+        private static void ConvertJsonToXml(JsonElement element, XElement parentElement)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        var childElement = new XElement(property.Name);
+                        parentElement.Add(childElement);
+                        ConvertJsonToXml(property.Value, childElement);
+                    }
+                    break;
+
+                case JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        var itemElement = new XElement("item");
+                        parentElement.Add(itemElement);
+                        ConvertJsonToXml(item, itemElement);
+                    }
+                    break;
+
+                case JsonValueKind.String:
+                    parentElement.Value = element.GetString() ?? string.Empty;
+                    break;
+
+                case JsonValueKind.Number:
+                    parentElement.Value = element.GetRawText();
+                    break;
+
+                case JsonValueKind.True:
+                case JsonValueKind.False:
+                    parentElement.Value = element.GetBoolean().ToString().ToLowerInvariant();
+                    break;
+
+                case JsonValueKind.Null:
+                    parentElement.SetAttributeValue("null", "true");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Convert XML element to JSON recursively
+        /// </summary>
+        private static void ConvertXmlToJson(XElement element, Dictionary<string, object> parentObject)
+        {
+            if (!element.HasElements)
+            {
+                parentObject[element.Name.LocalName] = element.Value;
+            }
+            else
+            {
+                var childObject = new Dictionary<string, object>();
+                foreach (var childElement in element.Elements())
+                {
+                    ConvertXmlToJson(childElement, childObject);
+                }
+                parentObject[element.Name.LocalName] = childObject;
+            }
+        }
+
+        /// <summary>
+        /// Convert JsonElement to object for manipulation
+        /// </summary>
+        private static object ConvertJsonElement(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    var dict = new Dictionary<string, object>();
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        dict[property.Name] = ConvertJsonElement(property.Value);
+                    }
+                    return dict;
+
+                case JsonValueKind.Array:
+                    var list = new List<object>();
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        list.Add(ConvertJsonElement(item));
+                    }
+                    return list;
+
+                case JsonValueKind.String:
+                    return element.GetString();
+
+                case JsonValueKind.Number:
+                    if (element.TryGetInt32(out int intValue))
+                        return intValue;
+                    if (element.TryGetInt64(out long longValue))
+                        return longValue;
+                    if (element.TryGetDouble(out double doubleValue))
+                        return doubleValue;
+                    return element.GetDecimal();
+
+                case JsonValueKind.True:
+                    return true;
+
+                case JsonValueKind.False:
+                    return false;
+
+                case JsonValueKind.Null:
+                    return null;
+
+                default:
+                    return element.GetRawText();
+            }
+        }
+
+        #endregion
+
+        #region Compatibility Methods
+
+        /// <summary>
+        /// Get a JSON property value safely
+        /// </summary>
+        /// <param name="json">The JSON string</param>
+        /// <param name="propertyName">The property name to retrieve</param>
+        /// <returns>The property value or null if not found</returns>
+        public static string GetPropertyValue(string json, string propertyName)
+        {
+            try
+            {
+                if (!IsValidJson(json))
+                    return null;
+
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty(propertyName, out var property))
+                {
+                    return property.GetRawText();
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                MID_HelperFunctions.DebugMessage($"Error getting property value: {ex.Message}", DebugClass.Exception);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Set a JSON property value
+        /// </summary>
+        /// <param name="json">The JSON string</param>
+        /// <param name="propertyName">The property name to set</param>
+        /// <param name="value">The value to set</param>
+        /// <returns>Updated JSON string or original if operation fails</returns>
+        public static string SetPropertyValue(string json, string propertyName, object value)
+        {
+            try
+            {
+                if (!IsValidJson(json))
+                    return json;
+
+                var dict = Deserialize<Dictionary<string, object>>(json);
+                if (dict != null)
+                {
+                    dict[propertyName] = value;
+                    return Serialize(dict);
+                }
+
+                return json;
+            }
+            catch (Exception ex)
+            {
+                MID_HelperFunctions.DebugMessage($"Error setting property value: {ex.Message}", DebugClass.Exception);
+                return json;
             }
         }
 

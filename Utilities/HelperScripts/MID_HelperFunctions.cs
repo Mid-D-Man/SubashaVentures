@@ -7,8 +7,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 using Microsoft.JSInterop;
-using Newtonsoft.Json;
-
 namespace SubashaVentures.Utilities.HelperScripts
 {
     /// <summary>
@@ -502,6 +500,7 @@ namespace SubashaVentures.Utilities.HelperScripts
 
         /// <summary>
         /// Convert any class or struct to a JSON string with pretty formatting
+        /// Uses centralized JsonHelper for consistency
         /// </summary>
         /// <typeparam name="T">The type to serialize</typeparam>
         /// <param name="obj">The object to serialize</param>
@@ -509,15 +508,7 @@ namespace SubashaVentures.Utilities.HelperScripts
         /// <returns>JSON string representation</returns>
         public static string ToJson<T>(T obj, bool prettyPrint = true) where T : notnull
         {
-            try
-            {
-                return JsonConvert.SerializeObject(obj, prettyPrint ? Formatting.Indented : Formatting.None);
-            }
-            catch (Exception ex)
-            {
-                _ = DebugMessageAsync($"Failed to serialize object to JSON: {ex.Message}", DebugClass.Exception);
-                return "{}";
-            }
+            return JsonHelper.Serialize(obj, prettyPrint);
         }
 
         /// <summary>

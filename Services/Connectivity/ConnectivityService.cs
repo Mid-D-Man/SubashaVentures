@@ -1,4 +1,4 @@
-// ConnectivityService.cs
+// Services/Connectivity/ConnectivityService.cs
 using Microsoft.JSInterop;
 using System.Text.Json;
 using SubashaVentures.Domain.ValueObjects;
@@ -27,7 +27,6 @@ public class ConnectivityService : IAsyncDisposable
         {
             await _jsRuntime.InvokeVoidAsync("connectivityChecker.init", _dotNetRef);
             
-            // Get initial status
             var status = await GetConnectivityStatusAsync();
             _isOnline = status.IsOnline;
             _networkQuality = status.NetworkQuality;
@@ -108,7 +107,7 @@ public class ConnectivityService : IAsyncDisposable
                     .Select(x => x.GetBoolean()).ToList(),
                 ConnectionInfo = report.TryGetProperty("connectionInfo", out var connInfo) && 
                                connInfo.ValueKind != JsonValueKind.Null
-                    ? JsonSerializer.Deserialize<ConnectionInfo>(connInfo.GetRawText())
+                    ? JsonSerializer.Deserialize<ConnectionInfo>(connInfo.GetRawText(), JsonHelper.DefaultOptions)
                     : null
             };
         }
@@ -148,7 +147,6 @@ public class ConnectivityService : IAsyncDisposable
         }
     }
 
-    // Properties for quick access
     public bool IsOnline => _isOnline;
     public string NetworkQuality => _networkQuality;
     public string ConnectionStability => _connectionStability;
@@ -165,4 +163,3 @@ public class ConnectivityService : IAsyncDisposable
         _dotNetRef?.Dispose();
     }
 }
-
