@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Oct 21 20:20:37 UTC 2025
+Generated: Wed Oct 22 15:47:05 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 94e30c9bfc0cfc502aefe9ffcbcdba517e940c49
+Commit: 8968576759377d894c6bdc6c4efbafbeac743e7f
 Branch: master
 ==================================
 
@@ -26,6 +26,7 @@ Domain/Cart/CartItemViewModel.cs
 Domain/Cart/CartSummaryViewModel.cs
 Domain/Checkout/CheckoutViewModel.cs
 Domain/Enums/ProductEnums.cs
+Domain/Enums/SystemEnums.cs
 Domain/Miscellaneous/PromoCodeViewModel.cs
 Domain/Miscellaneous/ShippingMethodViewModel.cs
 Domain/Product/CategoryViewModel.cs
@@ -38,6 +39,7 @@ Domain/User/Order/OrderSummaryDto.cs
 Domain/User/Order/OrderViewModel.cs
 Domain/User/UserProfileViewModel.cs
 Domain/User/WishlistItemViewModel.cs
+Domain/ValueObjects/SystemData.cs
 Layout/Admin/AdminLayout.razor
 Layout/Admin/Adminlayout.razor.css
 Layout/Auth/AuthLayout.razor
@@ -101,21 +103,38 @@ Pages/Shop/Shop.razor.cs
 Pages/Shop/Shop.razor.css
 Program.cs
 Properties/launchSettings.json
+Services/Connectivity/ConnectivityService.cs
+Services/Firebase/FirestoreService.cs
+Services/Firebase/IFirestoreService.cs
 Services/Navigation/INavigationService.cs
 Services/Navigation/NavigationService.cs
-Services/Storage/BlazoredAppLocalStorage.cs
-Services/Storage/IBlazoredAppLocalStorage.cs
+Services/Storage/BlazorAppLocalStorageService.cs
+Services/Storage/IBlazorAppLocalStorageService.cs
+Services/Supabase/ISupabaseAuthService.cs
+Services/Supabase/SupabaseAuthService.cs
+Services/Supabase/SupabaseConfigService.cs
+Services/Time/IServerTimeService.cs
+Services/Time/ServerTimeService.cs
 Services/VisualElements/IThemeServce.cs
 SubashaVentures.csproj
 SubashaVentures.sln
 Utilities/Constants/AppConstants.cs
+Utilities/HelperScripts/JsonHelper.cs
+Utilities/HelperScripts/MID_HelperFunctions.cs
+Utilities/ObjectPooling/MID_ComponentObjectPool.cs
 _Imports.razor
+firebase.json
+firestore.indexes.json
 global.json
+wwwroot/appsettings.json
 wwwroot/css/app.css
 wwwroot/css/colors.css
 wwwroot/css/loading.css
 wwwroot/css/responsive.css
 wwwroot/index.html
+wwwroot/js/connectivityServices.js
+wwwroot/js/firebaseSetup.js
+wwwroot/js/firestoreModule.js
 wwwroot/js/loading.js
 wwwroot/js/theme.js
 wwwroot/manifest.json
@@ -145,6 +164,7 @@ Directory Structure:
 ./  Product
 ./  User
 ./    Order
+./  ValueObjects
 ./Layout
 ./  Admin
 ./  Auth
@@ -164,22 +184,28 @@ Directory Structure:
 ./  Shop
 ./Properties
 ./Services
+./  Connectivity
+./  Firebase
 ./  Navigation
 ./  Storage
+./  Supabase
+./  Time
 ./  VisualElements
 ./Utilities
 ./  Constants
+./  HelperScripts
+./  ObjectPooling
 ./wwwroot
 ./  css
 ./  js
 
 File Count Summary:
 ==================
-.cs       : 46 files
+.cs       : 59 files
 .razor    : 28 files
 .csproj   : 1 files
 .sln      : 1 files
-.json     : 3 files
+.json     : 6 files
 .css      : 29 files
-.js       : 4 files
+.js       : 7 files
 .html     : 1 files
