@@ -16,7 +16,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // ==================== HTTP CLIENT ====================
 builder.Services.AddScoped(sp => new HttpClient 
-{ 
+{  
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress),
     Timeout = TimeSpan.FromSeconds(30)
 });
