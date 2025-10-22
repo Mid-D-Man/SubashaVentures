@@ -1,10 +1,17 @@
+// Pages/Auth/SignUp.razor.cs
 using Microsoft.AspNetCore.Components;
-using System.ComponentModel.DataAnnotations;
+using SubashaVentures.Services.Supabase;
+using SubashaVentures.Models.Supabase;
+using SubashaVentures.Utilities.HelperScripts;
 
 namespace SubashaVentures.Pages.Auth;
 
 public partial class SignUp : ComponentBase
 {
+    [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private ILogger<SignUp> Logger { get; set; } = default!;
+
     // Form fields
     private string firstName = "";
     private string lastName = "";
@@ -45,20 +52,50 @@ public partial class SignUp : ComponentBase
         
         try
         {
-            // Simulate API call
-            await Task.Delay(1500);
+            // Create user data
+            var userData = new UserModel
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                EmailNotifications = true,
+                SmsNotifications = false,
+                PreferredLanguage = "en",
+                Currency = "NGN",
+                AccountStatus = "Active",
+                MembershipTier = "Bronze"
+            };
+
+            // Attempt sign up with Supabase
+            var result = await AuthService.SignUpAsync(email, password, userData);
             
-            // In real app: await AuthService.SignUp(firstName, lastName, email, password);
-            
-            // Success - navigate to sign in or dashboard
-            Console.WriteLine($"Sign up successful for: {email}");
-            // NavigationManager.NavigateTo("/signin");
+            if (result.Success)
+            {
+                Logger.LogInformation("User signed up successfully: {Email}", email);
+                
+                // Show success message and redirect to sign in
+                // In production, you might want to show a verification message
+                NavigationManager.NavigateTo("/signin?registered=true");
+            }
+            else
+            {
+                // Handle sign up failure
+                if (result.ErrorCode == "USER_EXISTS")
+                {
+                    emailError = "An account with this email already exists.";
+                }
+                else
+                {
+                    emailError = result.Message ?? "Failed to create account. Please try again.";
+                }
+                
+                Logger.LogWarning("Sign up failed for {Email}: {Message}", email, result.Message);
+            }
         }
         catch (Exception ex)
         {
-            // Handle sign up error
-            emailError = "An error occurred during sign up. Please try again.";
-            Console.WriteLine($"Sign up error: {ex.Message}");
+            emailError = "An error occurred during sign up. Please try again later.";
+            Logger.LogError(ex, "Error during sign up for {Email}", email);
         }
         finally
         {
@@ -82,6 +119,11 @@ public partial class SignUp : ComponentBase
             firstNameError = "First name must be at least 2 characters";
             isValid = false;
         }
+        else if (!IsValidName(firstName))
+        {
+            firstNameError = "First name contains invalid characters";
+            isValid = false;
+        }
         
         // Validate last name
         if (string.IsNullOrWhiteSpace(lastName))
@@ -92,6 +134,11 @@ public partial class SignUp : ComponentBase
         else if (lastName.Length < 2)
         {
             lastNameError = "Last name must be at least 2 characters";
+            isValid = false;
+        }
+        else if (!IsValidName(lastName))
+        {
+            lastNameError = "Last name contains invalid characters";
             isValid = false;
         }
         
@@ -169,6 +216,12 @@ public partial class SignUp : ComponentBase
         }
     }
 
+    private static bool IsValidName(string name)
+    {
+        // Only allow letters, spaces, hyphens, and apostrophes
+        return name.All(c => char.IsLetter(c) || c == ' ' || c == '-' || c == '\'');
+    }
+
     private static bool IsStrongPassword(string password)
     {
         // Check for at least one uppercase, one lowercase, and one digit
@@ -181,17 +234,51 @@ public partial class SignUp : ComponentBase
 
     private async Task HandleGoogleSignUp()
     {
-        // Implement Google OAuth sign up
-        Console.WriteLine("Google sign up clicked");
-        await Task.CompletedTask;
-        // In real app: await AuthService.SignUpWithGoogle();
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+            
+            Logger.LogInformation("Attempting Google sign up");
+            
+            emailError = "Google sign up is not yet implemented. Please use email/password.";
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            emailError = "Failed to sign up with Google. Please try again.";
+            Logger.LogError(ex, "Google sign up error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task HandleFacebookSignUp()
     {
-        // Implement Facebook OAuth sign up
-        Console.WriteLine("Facebook sign up clicked");
-        await Task.CompletedTask;
-        // In real app: await AuthService.SignUpWithFacebook();
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+            
+            Logger.LogInformation("Attempting Facebook sign up");
+            
+            emailError = "Facebook sign up is not yet implemented. Please use email/password.";
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            emailError = "Failed to sign up with Facebook. Please try again.";
+            Logger.LogError(ex, "Facebook sign up error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 }
