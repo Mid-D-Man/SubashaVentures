@@ -1,21 +1,106 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// wwwroot/js/firebaseSetup.js
+console.log("Firebase setup script loaded");
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-    apiKey: "AIzaSyB_CcjQaquB9Sj0MMogxIEVBK-rlFmHE9g",
-    authDomain: "subashaventureswebstore.firebaseapp.com",
-    projectId: "subashaventureswebstore",
-    storageBucket: "subashaventureswebstore.firebasestorage.app",
-    messagingSenderId: "1056961189823",
-    appId: "1:1056961189823:web:1e1850118e58b91504b30a",
-    measurementId: "G-60Y3CK40G8"
+// Firebase initialization function that accepts config from C#
+window.initializeFirebaseFromConfig = function(config) {
+    try {
+        console.log("Initializing Firebase with config from appsettings...");
+        
+        // Validate config
+        if (!config || !config.apiKey || !config.projectId) {
+            throw new Error("Invalid Firebase configuration");
+        }
+
+        // Check if Firebase is already initialized
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            console.log("Firebase already initialized");
+            return true;
+        }
+
+        // Wait for Firebase SDK to load
+        const waitForFirebase = new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = 50;
+            
+            const checkFirebase = setInterval(() => {
+                attempts++;
+                
+                if (typeof firebase !== 'undefined') {
+                    clearInterval(checkFirebase);
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(checkFirebase);
+                    reject(new Error('Firebase SDK failed to load'));
+                }
+            }, 100);
+        });
+
+        return waitForFirebase.then(() => {
+            // Initialize Firebase
+            const app = firebase.initializeApp(config);
+            
+            // Initialize Firestore
+            const db = firebase.firestore();
+            db.settings({
+                ignoreUndefinedProperties: true,
+                timestampsInSnapshots: true,
+                cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+            });
+
+            // Enable persistence for offline support
+            db.enablePersistence({ synchronizeTabs: true })
+                .then(() => {
+                    console.log("Firestore persistence enabled");
+                })
+                .catch((err) => {
+                    if (err.code === 'failed-precondition') {
+                        console.warn("Multiple tabs open, persistence enabled in first tab only");
+                    } else if (err.code === 'unimplemented') {
+                        console.warn("Browser doesn't support persistence");
+                    } else {
+                        console.error("Persistence error:", err);
+                    }
+                });
+
+            // Initialize Analytics if measurementId provided
+            if (config.measurementId) {
+                try {
+                    firebase.analytics();
+                    console.log("Firebase Analytics initialized");
+                } catch (e) {
+                    console.warn("Analytics initialization failed:", e);
+                }
+            }
+
+            console.log("Firebase initialized successfully");
+            return true;
+        });
+
+    } catch (error) {
+        console.error("Error initializing Firebase:", error);
+        throw error;
+    }
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// Check if Firebase is initialized
+window.isFirebaseInitialized = function() {
+    return typeof firebase !== 'undefined' && 
+           firebase.apps && 
+           firebase.apps.length > 0;
+};
+
+// Get Firebase app instance
+window.getFirebaseApp = function() {
+    if (window.isFirebaseInitialized()) {
+        return firebase.app();
+    }
+    return null;
+};
+
+// Get Firestore instance
+window.getFirestore = function() {
+    if (window.isFirebaseInitialized()) {
+        return firebase.firestore();
+    }
+    return null;
+};
