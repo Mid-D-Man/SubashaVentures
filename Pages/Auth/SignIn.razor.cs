@@ -1,9 +1,16 @@
+// Pages/Auth/SignIn.razor.cs
 using Microsoft.AspNetCore.Components;
+using SubashaVentures.Services.Supabase;
+using SubashaVentures.Utilities.HelperScripts;
 
 namespace SubashaVentures.Pages.Auth;
 
 public partial class SignIn : ComponentBase
 {
+    [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private ILogger<SignIn> Logger { get; set; } = default!;
+
     // Form fields
     private string email = "";
     private string password = "";
@@ -37,27 +44,32 @@ public partial class SignIn : ComponentBase
         
         try
         {
-            // Simulate API call
-            await Task.Delay(1500);
+            // Attempt sign in with Supabase
+            var result = await AuthService.SignInAsync(email, password);
             
-            // In real app: 
-            // var result = await AuthService.SignIn(email, password, rememberMe);
-            // if (result.Success) { ... }
-            
-            // For demo - simulate success
-            Console.WriteLine($"Sign in successful for: {email}");
-            
-            // Navigate to home or dashboard
-            // NavigationManager.NavigateTo("/");
+            if (result.Success)
+            {
+                Logger.LogInformation("User signed in successfully: {Email}", email);
+                
+                // Navigate to home page or previous page
+                NavigationManager.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                // Handle sign in failure
+                generalError = result.Message ?? "Invalid email or password. Please try again.";
+                Logger.LogWarning("Sign in failed for {Email}: {Message}", email, result.Message);
+            }
         }
         catch (UnauthorizedAccessException)
         {
             generalError = "Invalid email or password. Please try again.";
+            Logger.LogWarning("Unauthorized access attempt for {Email}", email);
         }
         catch (Exception ex)
         {
             generalError = "An error occurred during sign in. Please try again later.";
-            Console.WriteLine($"Sign in error: {ex.Message}");
+            Logger.LogError(ex, "Error during sign in for {Email}", email);
         }
         finally
         {
@@ -119,23 +131,55 @@ public partial class SignIn : ComponentBase
 
     private async Task HandleGoogleSignIn()
     {
-        // Implement Google OAuth sign in
-        Console.WriteLine("Google sign in clicked");
-        await Task.CompletedTask;
-        
-        // In real app:
-        // await AuthService.SignInWithGoogle();
-        // NavigationManager.NavigateTo("/");
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+            
+            // Google OAuth sign in
+            Logger.LogInformation("Attempting Google sign in");
+            
+            // Note: OAuth redirect flows work differently in Blazor WASM
+            // You'll need to implement this based on Supabase's OAuth flow
+            generalError = "Google sign in is not yet implemented. Please use email/password.";
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            generalError = "Failed to sign in with Google. Please try again.";
+            Logger.LogError(ex, "Google sign in error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task HandleFacebookSignIn()
     {
-        // Implement Facebook OAuth sign in
-        Console.WriteLine("Facebook sign in clicked");
-        await Task.CompletedTask;
-        
-        // In real app:
-        // await AuthService.SignInWithFacebook();
-        // NavigationManager.NavigateTo("/");
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+            
+            // Facebook OAuth sign in
+            Logger.LogInformation("Attempting Facebook sign in");
+            
+            generalError = "Facebook sign in is not yet implemented. Please use email/password.";
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            generalError = "Failed to sign in with Facebook. Please try again.";
+            Logger.LogError(ex, "Facebook sign in error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 }
