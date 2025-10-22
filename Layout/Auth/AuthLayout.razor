@@ -1,11 +1,13 @@
+<!-- Layout/Auth/AuthLayout.razor -->
 @inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
 
 <div class="auth-layout">
     <!-- Left Side: Image/Background -->
     <div class="auth-visual">
         <div class="visual-overlay"></div>
         <div class="visual-content">
-            <a href="" class="brand-link">
+            <a @onclick="NavigateToHome" class="brand-link" style="cursor: pointer;">
                 <span class="brand-icon">SV</span>
                 <span class="brand-name">SubashaVentures</span>
             </a>
@@ -42,7 +44,7 @@
     <div class="auth-form-section">
         <div class="form-container">
             <!-- Back to Store Link -->
-            <a href="" class="back-link">
+            <a @onclick="NavigateToHome" class="back-link" style="cursor: pointer;">
                 <span class="back-icon">←</span>
                 <span class="back-text">Back to Store</span>
             </a>
@@ -61,5 +63,8 @@
 </div>
 
 @code {
-    // Layout code if needed
+    private void NavigateToHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
 }
