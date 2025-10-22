@@ -1,101 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>SubashaVentures - Fashion & Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>SubashaVentures</title>
     <base href="/" />
-
-    <!-- CSS -->
     <link href="css/app.css" rel="stylesheet" />
     <link href="css/colors.css" rel="stylesheet" />
     <link href="css/responsive.css" rel="stylesheet" />
+    <link href="css/loading.css" rel="stylesheet" />
     <link href="SubashaVentures.styles.css" rel="stylesheet" />
-
-    <!-- PWA -->
     <link href="manifest.json" rel="manifest" />
-    <meta name="theme-color" content="#96994A" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
 </head>
-
 <body>
-<div id="app">
-    <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>Loading SubashaVentures...</p>
+    <div id="app">
+        <div id="loading-screen">
+            <div class="loader-container">
+                <span class="loader"></span>
+                <div class="brand-text">SV</div>
+                <div class="percentage-text" id="loading-percentage">0%</div>
+            </div>
+        </div>
     </div>
-</div>
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
-</div>
-
-<!-- Firebase SDK - Load BEFORE Blazor -->
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-
-<!-- Firebase Configuration -->
-<script>
-    // IMPORTANT: Replace with your actual Firebase config
-    const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT.firebaseapp.com",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_PROJECT.appspot.com",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID",
-        databaseURL: "https://YOUR_PROJECT.firebaseio.com/"
-    };
-
-    if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        console.log('Firebase initialized successfully');
-    } else {
-        console.error('Firebase SDK not loaded');
-    }
-</script>
-
-<!-- Firestore Module -->
-<script src="js/firestoreModule.js"></script>
-
-<!-- Blazor Framework -->
-<script src="_framework/blazor.webassembly.js"></script>
-
-<!-- Service Worker -->
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('service-worker.js');
-    }
-</script>
-
-<!-- Theme Switcher -->
-<script src="js/theme.js"></script>
-
-<!-- Error Handling -->
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const errorUI = document.getElementById('blazor-error-ui');
-
-        window.addEventListener('error', (e) => {
-            console.error('Global error:', e.error);
-            errorUI.style.display = 'block';
-        });
-
-        errorUI.querySelector('.dismiss').addEventListener('click', () => {
-            errorUI.style.display = 'none';
-        });
-
-        errorUI.querySelector('.reload').addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.reload();
-        });
-    });
-</script>
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="js/loading.js"></script>
+    <script src="service-worker.js"></script>
 </body>
-
 </html>

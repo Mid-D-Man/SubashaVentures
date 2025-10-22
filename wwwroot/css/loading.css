@@ -1,0 +1,341 @@
+/* ===== LOADING SCREEN ===== */
+#loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Animated gradient background */
+    background: linear-gradient(
+        135deg,
+        #96994A 0%,
+        #B8BB6A 25%,
+        #9A4A96 50%,
+        #4A9699 75%,
+        #96994A 100%
+    );
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { 
+        background-position: 0% 50%; 
+    }
+    50% { 
+        background-position: 100% 50%; 
+    }
+}
+
+/* Floating particles animation */
+#loading-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255,255,255,0.08) 0%, transparent 50%);
+    animation: particleFloat 20s ease-in-out infinite;
+}
+
+@keyframes particleFloat {
+    0%, 100% { 
+        transform: translate(0, 0) scale(1); 
+    }
+    33% { 
+        transform: translate(30px, -30px) scale(1.1); 
+    }
+    66% { 
+        transform: translate(-20px, 20px) scale(0.9); 
+    }
+}
+
+/* Loader container - dead center */
+.loader-container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+}
+
+/* Diamond loader - your exact specifications */
+.loader {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    background-color: rgba(0, 0, 0, 0.5);
+    transform: rotate(45deg);
+    overflow: hidden;
+}
+
+.loader:after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    margin: auto;
+    background: #222b32;
+}
+
+.loader:before {
+    content: '';
+    position: absolute;
+    inset: -15px;
+    margin: auto;
+    background: #de3500;
+    animation: diamondLoader 2s linear infinite;
+}
+
+@keyframes diamondLoader {
+    0%, 10% {
+        transform: translate(-64px, -64px) rotate(-45deg);
+    }
+    90%, 100% {
+        transform: translate(0px, 0px) rotate(-45deg);
+    }
+}
+
+/* Brand text */
+.brand-text {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    letter-spacing: -2px;
+    animation: brandPulse 2s ease-in-out infinite;
+}
+
+@keyframes brandPulse {
+    0%, 100% { 
+        transform: scale(1);
+        text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    50% { 
+        transform: scale(1.05);
+        text-shadow: 0 6px 30px rgba(0,0,0,0.6);
+    }
+}
+
+/* Percentage text */
+.percentage-text {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.95);
+    text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+}
+
+/* ===== RESPONSIVE - MOBILE FIRST ===== */
+
+/* Extra small devices (phones, less than 576px) */
+@media (max-width: 575px) {
+    .loader {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .loader:after {
+        inset: 6px;
+    }
+    
+    .loader:before {
+        inset: -12px;
+    }
+    
+    @keyframes diamondLoader {
+        0%, 10% {
+            transform: translate(-48px, -48px) rotate(-45deg);
+        }
+        90%, 100% {
+            transform: translate(0px, 0px) rotate(-45deg);
+        }
+    }
+    
+    .brand-text {
+        font-size: 2rem;
+    }
+    
+    .percentage-text {
+        font-size: 1rem;
+    }
+    
+    .loader-container {
+        gap: 1rem;
+    }
+}
+
+/* Small devices (landscape phones, 576px and up) */
+@media (min-width: 576px) and (max-width: 767px) {
+    .loader {
+        width: 56px;
+        height: 56px;
+    }
+    
+    .loader:after {
+        inset: 7px;
+    }
+    
+    .loader:before {
+        inset: -13px;
+    }
+    
+    @keyframes diamondLoader {
+        0%, 10% {
+            transform: translate(-56px, -56px) rotate(-45deg);
+        }
+        90%, 100% {
+            transform: translate(0px, 0px) rotate(-45deg);
+        }
+    }
+    
+    .brand-text {
+        font-size: 2.5rem;
+    }
+    
+    .percentage-text {
+        font-size: 1.125rem;
+    }
+}
+
+/* Medium devices (tablets, 768px and up) */
+@media (min-width: 768px) and (max-width: 991px) {
+    .loader {
+        width: 64px;
+        height: 64px;
+    }
+    
+    .brand-text {
+        font-size: 3rem;
+    }
+    
+    .percentage-text {
+        font-size: 1.25rem;
+    }
+}
+
+/* Large devices (desktops, 992px and up) */
+@media (min-width: 992px) {
+    .loader {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .loader:after {
+        inset: 10px;
+    }
+    
+    .loader:before {
+        inset: -18px;
+    }
+    
+    @keyframes diamondLoader {
+        0%, 10% {
+            transform: translate(-80px, -80px) rotate(-45deg);
+        }
+        90%, 100% {
+            transform: translate(0px, 0px) rotate(-45deg);
+        }
+    }
+    
+    .brand-text {
+        font-size: 3.5rem;
+    }
+    
+    .percentage-text {
+        font-size: 1.5rem;
+    }
+    
+    .loader-container {
+        gap: 2rem;
+    }
+}
+
+/* Extra large devices (large desktops, 1200px and up) */
+@media (min-width: 1200px) {
+    .loader {
+        width: 96px;
+        height: 96px;
+    }
+    
+    .loader:after {
+        inset: 12px;
+    }
+    
+    .loader:before {
+        inset: -22px;
+    }
+    
+    @keyframes diamondLoader {
+        0%, 10% {
+            transform: translate(-96px, -96px) rotate(-45deg);
+        }
+        90%, 100% {
+            transform: translate(0px, 0px) rotate(-45deg);
+        }
+    }
+    
+    .brand-text {
+        font-size: 4rem;
+    }
+    
+    .percentage-text {
+        font-size: 1.75rem;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+    .loader {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .loader:after {
+        inset: 6px;
+    }
+    
+    .loader:before {
+        inset: -12px;
+    }
+    
+    @keyframes diamondLoader {
+        0%, 10% {
+            transform: translate(-48px, -48px) rotate(-45deg);
+        }
+        90%, 100% {
+            transform: translate(0px, 0px) rotate(-45deg);
+        }
+    }
+    
+    .brand-text {
+        font-size: 1.75rem;
+    }
+    
+    .percentage-text {
+        font-size: 0.875rem;
+    }
+    
+    .loader-container {
+        gap: 0.75rem;
+    }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    #loading-screen,
+    #loading-screen::before,
+    .loader:before,
+    .brand-text {
+        animation: none;
+    }
+    
+    .loader:before {
+        transform: translate(0px, 0px) rotate(-45deg);
+    }
+      }

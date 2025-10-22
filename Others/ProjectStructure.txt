@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Oct 14 17:01:09 UTC 2025
+Generated: Tue Oct 21 20:20:37 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: c47d819730be5e1590f16dbd9e88ef4621ae6f7c
+Commit: 94e30c9bfc0cfc502aefe9ffcbcdba517e940c49
 Branch: master
 ==================================
 
@@ -84,13 +84,15 @@ Pages/Auth/SignIn.razor.css
 Pages/Auth/SignUp.razor
 Pages/Auth/SignUp.razor.cs
 Pages/Auth/SignUp.razor.css
+Pages/Cart/Cart.razor
+Pages/Cart/Cart.razor.cs
+Pages/Cart/Cart.razor.css
+Pages/Checkout/Checkout.razor
+Pages/Checkout/Checkout.razor.cs
+Pages/Checkout/Checkout.razor.css
 Pages/Main/LandingPasge.razor
 Pages/Main/LandingPasge.razor.cs
 Pages/Main/LandingPasge.razor.css
-Pages/Product/Cart.razor
-Pages/Product/Cart.razor.cs
-Pages/Product/Cart.razor.css
-Pages/Product/Checkout.razor
 Pages/Product/ProductDetails.razor
 Pages/Product/ProductDetails.razor.cs
 Pages/Product/ProductDetails.razor.css
@@ -111,8 +113,10 @@ _Imports.razor
 global.json
 wwwroot/css/app.css
 wwwroot/css/colors.css
+wwwroot/css/loading.css
 wwwroot/css/responsive.css
 wwwroot/index.html
+wwwroot/js/loading.js
 wwwroot/js/theme.js
 wwwroot/manifest.json
 wwwroot/service-worker.js
@@ -153,6 +157,8 @@ Directory Structure:
 ./Pages
 ./  Admin
 ./  Auth
+./  Cart
+./  Checkout
 ./  Main
 ./  Product
 ./  Shop
@@ -169,11 +175,11 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 45 files
+.cs       : 46 files
 .razor    : 28 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 3 files
-.css      : 27 files
-.js       : 3 files
+.css      : 29 files
+.js       : 4 files
 .html     : 1 files
