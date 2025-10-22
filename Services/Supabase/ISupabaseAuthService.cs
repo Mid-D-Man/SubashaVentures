@@ -1,67 +1,65 @@
-namespace SubashaVentures.Services.SupaBase;
-using Microsoft.AspNetCore.Components.Authorization;
+using SubashaVentures.Models.Supabase;
 using Supabase.Gotrue;
 
+namespace SubashaVentures.Services.Supabase;
+
+/// <summary>
+/// Service for Supabase authentication operations
+/// </summary>
 public interface ISupabaseAuthService
 {
     /// <summary>
-    /// Authenticate user with email and password - DEPRECATED: Use Auth0 instead
+    /// Sign in with email and password
     /// </summary>
-    [Obsolete("Use Auth0 for authentication instead")]
-    Task<bool> LoginAsync(string email, string password);
-        
+    Task<SupabaseAuthResult> SignInAsync(string email, string password);
+    
     /// <summary>
-    /// Register new user account - DEPRECATED: Use Auth0 instead
+    /// Sign up with email and password
     /// </summary>
-    [Obsolete("Use Auth0 for authentication instead")]
-    Task<bool> RegisterAsync(string email, string password, Dictionary<string, object>? userData = null);
-        
+    Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData);
+    
     /// <summary>
-    /// Sign out current user - DEPRECATED: Use Auth0 instead
+    /// Sign out current user
     /// </summary>
-    [Obsolete("Use Auth0 for authentication instead")]
-    Task LogoutAsync();
-        
+    Task<bool> SignOutAsync();
+    
     /// <summary>
-    /// Get current authenticated user from Auth0 state
+    /// Get current authenticated user
     /// </summary>
     Task<User?> GetCurrentUserAsync();
-        
+    
     /// <summary>
-    /// Check if user is authenticated via Auth0
+    /// Check if user is authenticated
     /// </summary>
     Task<bool> IsAuthenticatedAsync();
-        
+    
     /// <summary>
-    /// Reset user password - DEPRECATED: Use Auth0 instead
+    /// Refresh current session
     /// </summary>
-    [Obsolete("Use Auth0 for authentication instead")]
-    Task<bool> ResetPasswordAsync(string email);
-        
-    /// <summary>
-    /// Update user profile information - DEPRECATED: Use Auth0 instead
-    /// </summary>
-    [Obsolete("Use Auth0 for authentication instead")]
-    Task<bool> UpdateUserProfileAsync(Dictionary<string, object> updates);
-        
-    /// <summary>
-    /// Refresh current session - DEPRECATED: Use Auth0 instead
-    /// </summary>
-    [Obsolete("Use Auth0 for authentication instead")]
     Task<bool> RefreshSessionAsync();
-
+    
     /// <summary>
-    /// Configure Supabase client with Auth0 access token
+    /// Send password reset email
     /// </summary>
-    Task<bool> ConfigureSupabaseWithAuth0TokenAsync();
-
+    Task<bool> SendPasswordResetEmailAsync(string email);
+    
     /// <summary>
-    /// Get user roles from Auth0 for Supabase RLS policies
+    /// Update user password
     /// </summary>
-    Task<List<string>> GetUserRolesAsync();
-
+    Task<bool> UpdatePasswordAsync(string newPassword);
+    
     /// <summary>
-    /// Get Auth0 user ID for Supabase operations
+    /// Update user profile
     /// </summary>
-    Task<string?> GetUserIdAsync();
+    Task<bool> UpdateUserProfileAsync(Dictionary<string, object> updates);
+    
+    /// <summary>
+    /// Get current session info
+    /// </summary>
+    Task<SupabaseSessionInfo?> GetSessionInfoAsync();
+    
+    /// <summary>
+    /// Verify email with token
+    /// </summary>
+    Task<bool> VerifyEmailAsync(string token);
 }

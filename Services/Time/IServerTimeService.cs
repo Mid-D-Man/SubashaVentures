@@ -1,11 +1,32 @@
+namespace SubashaVentures.Services.Time;
 
-namespace SubashaVentures.Services.Time
+/// <summary>
+/// Service for server time synchronization
+/// </summary>
+public interface IServerTimeService
 {
-    public interface IServerTimeService
-    {
-        Task<DateTime> GetCurrentServerTimeAsync();
-        Task<bool> SyncWithServerAsync();
-        bool IsBusinessHours();
-        DateTime GetCachedServerTime();
-    }
+    /// <summary>
+    /// Get current server time
+    /// </summary>
+    Task<DateTime> GetCurrentServerTimeAsync();
+    
+    /// <summary>
+    /// Sync with server time
+    /// </summary>
+    Task<bool> SyncWithServerAsync();
+    
+    /// <summary>
+    /// Get cached server time (calculated from last sync)
+    /// </summary>
+    DateTime GetCachedServerTime();
+    
+    /// <summary>
+    /// Check if within business hours
+    /// </summary>
+    bool IsBusinessHours();
+    
+    /// <summary>
+    /// Get time since last sync
+    /// </summary>
+    TimeSpan GetTimeSinceLastSync();
 }
