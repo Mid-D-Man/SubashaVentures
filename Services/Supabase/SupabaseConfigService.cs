@@ -1,7 +1,5 @@
 // Services/SupaBase/SupabaseConfigService.cs
-using Microsoft.Extensions.Configuration;
 using Supabase;
-using Supabase.Gotrue;
 
 namespace SubashaVentures.Services.SupaBase
 {
