@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Wed Oct 22 21:10:53 UTC 2025
+Generated: Wed Oct 22 21:11:42 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 2f8bd00f20c3483dbd9efca52737b8df20dedb24
+Commit: b93548973930f0efbc9567e251da4710e65a5a2f
 Branch: master
 ==================================
 
@@ -130,6 +130,7 @@ _Imports.razor
 firebase.json
 firestore.indexes.json
 global.json
+wwwroot/appsettings.Development.json
 wwwroot/appsettings.json
 wwwroot/css/app.css
 wwwroot/css/colors.css
@@ -210,7 +211,7 @@ File Count Summary:
 .razor    : 28 files
 .csproj   : 1 files
 .sln      : 1 files
-.json     : 6 files
+.json     : 7 files
 .css      : 29 files
 .js       : 7 files
 .html     : 1 files
