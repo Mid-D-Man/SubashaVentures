@@ -181,6 +181,14 @@
         if (OnActionClick.HasDelegate)
         {
             await OnActionClick.InvokeAsync(action);
+            if(action == ActionType.SignIn)
+            {
+                // Optionally clear search on logout
+                if (OnSearch.HasDelegate)
+                {
+                    await HandleNavClick("signin");
+                }
+            }
         }
     }
 }
