@@ -4,6 +4,7 @@ using System.Text.Json;
 using SubashaVentures.Domain.ValueObjects;
 using SubashaVentures.Utilities.HelperScripts;
 
+namespace SubashaVentures.Services.Connectivity;
 public class ConnectivityService : IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;

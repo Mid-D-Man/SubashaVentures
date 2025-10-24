@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using SubashaVentures;
@@ -30,7 +31,7 @@ builder.Logging.AddFilter("SubashaVentures", LogLevel.Debug);
 builder.Services.AddBlazoredLocalStorage(config =>
 {
     config.JsonSerializerOptions.WriteIndented = false;
-    config.JsonSerializerOptions.IgnoreNullValues = true;
+    config.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
 builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
 
@@ -60,7 +61,7 @@ if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
         {
             AutoRefreshToken = true,
             AutoConnectRealtime = false, // Disabled for WASM
-            SessionHandler = new Supabase.Gotrue.SupabaseSessionHandler()
+            SessionHandler = new DefaultSupabaseSessionHandler()
         };
         
         return new Supabase.Client(supabaseUrl, supabaseKey, options);
