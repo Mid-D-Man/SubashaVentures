@@ -1,0 +1,127 @@
+@using SubashaVentures.Domain.Enums
+@using Blazored.Toast.Services
+@using Blazored.Toast.Configuration
+@inject IToastService ToastService
+
+@code {
+    [Parameter] public NotificationPosition Position { get; set; } = NotificationPosition.TopRight;
+    [Parameter] public int AutoDismissTime { get; set; } = 5000;
+    [Parameter] public bool ShowProgressBar { get; set; } = true;
+    [Parameter] public bool ShowCloseButton { get; set; } = true;
+    [Parameter] public bool PauseOnHover { get; set; } = true;
+
+    private ToastPosition GetToastPosition()
+    {
+        return Position switch
+        {
+            NotificationPosition.TopRight => ToastPosition.TopRight,
+            NotificationPosition.TopLeft => ToastPosition.TopLeft,
+            NotificationPosition.BottomRight => ToastPosition.BottomRight,
+            NotificationPosition.BottomLeft => ToastPosition.BottomLeft,
+            _ => ToastPosition.TopRight
+        };
+    }
+
+    private Action<ToastSettings> GetToastSettings(string additionalClass, string icon)
+    {
+        return settings =>
+        {
+            settings.Timeout = AutoDismissTime / 1000;
+            settings.ShowProgressBar = ShowProgressBar;
+            settings.ShowCloseButton = ShowCloseButton;
+            settings.PauseProgressOnHover = PauseOnHover;
+            settings.Position = GetToastPosition();
+            settings.AdditionalClasses = $"sv-toast {additionalClass}";
+            settings.IconType = IconType.FontAwesome;
+            settings.Icon = icon;
+        };
+    }
+
+    public void ShowSuccess(string message, int? customDuration = null)
+    {
+        var timeout = (customDuration ?? AutoDismissTime) / 1000;
+        ToastService.ShowSuccess(message, settings =>
+        {
+            settings.Timeout = timeout;
+            settings.ShowProgressBar = ShowProgressBar;
+            settings.ShowCloseButton = ShowCloseButton;
+            settings.PauseProgressOnHover = PauseOnHover;
+            settings.Position = GetToastPosition();
+            settings.AdditionalClasses = "sv-toast success-toast";
+            settings.IconType = IconType.FontAwesome;
+            settings.Icon = "fa-check-circle";
+        });
+    }
+
+    public void ShowError(string message, int? customDuration = null)
+    {
+        var timeout = (customDuration ?? AutoDismissTime) / 1000;
+        ToastService.ShowError(message, settings =>
+        {
+            settings.Timeout = timeout;
+            settings.ShowProgressBar = ShowProgressBar;
+            settings.ShowCloseButton = ShowCloseButton;
+            settings.PauseProgressOnHover = PauseOnHover;
+            settings.Position = GetToastPosition();
+            settings.AdditionalClasses = "sv-toast error-toast";
+            settings.IconType = IconType.FontAwesome;
+            settings.Icon = "fa-exclamation-circle";
+        });
+    }
+
+    public void ShowInfo(string message, int? customDuration = null)
+    {
+        var timeout = (customDuration ?? AutoDismissTime) / 1000;
+        ToastService.ShowInfo(message, settings =>
+        {
+            settings.Timeout = timeout;
+            settings.ShowProgressBar = ShowProgressBar;
+            settings.ShowCloseButton = ShowCloseButton;
+            settings.PauseProgressOnHover = PauseOnHover;
+            settings.Position = GetToastPosition();
+            settings.AdditionalClasses = "sv-toast info-toast";
+            settings.IconType = IconType.FontAwesome;
+            settings.Icon = "fa-info-circle";
+        });
+    }
+
+    public void ShowWarning(string message, int? customDuration = null)
+    {
+        var timeout = (customDuration ?? AutoDismissTime) / 1000;
+        ToastService.ShowWarning(message, settings =>
+        {
+            settings.Timeout = timeout;
+            settings.ShowProgressBar = ShowProgressBar;
+            settings.ShowCloseButton = ShowCloseButton;
+            settings.PauseProgressOnHover = PauseOnHover;
+            settings.Position = GetToastPosition();
+            settings.AdditionalClasses = "sv-toast warning-toast";
+            settings.IconType = IconType.FontAwesome;
+            settings.Icon = "fa-exclamation-triangle";
+        });
+    }
+
+    public void ShowNotification(string message, NotificationType type = NotificationType.Info, int? customDuration = null)
+    {
+        switch (type)
+        {
+            case NotificationType.Success:
+                ShowSuccess(message, customDuration);
+                break;
+            case NotificationType.Error:
+                ShowError(message, customDuration);
+                break;
+            case NotificationType.Info:
+                ShowInfo(message, customDuration);
+                break;
+            case NotificationType.Warning:
+                ShowWarning(message, customDuration);
+                break;
+        }
+    }
+
+    public void ClearAll()
+    {
+        ToastService.ClearAll();
+    }
+}
