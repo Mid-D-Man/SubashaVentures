@@ -1,0 +1,150 @@
+@using SubashaVentures.Components.Shared.Buttons
+
+<div class="info-popup-overlay @(IsVisible ? "visible" : "")" @onclick="HandleOverlayClick">
+    <div class="info-popup @PopupSize.ToString().ToLower() @(IsVisible ? "visible" : "")" @onclick:stopPropagation="true">
+        <div class="info-popup-header">
+            <div class="info-popup-icon @IconType.ToString().ToLower()">
+                @GetIconSvg()
+            </div>
+            @if (ShowCloseButton)
+            {
+                <button class="info-popup-close" @onclick="Close" aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            }
+        </div>
+
+        <div class="info-popup-content">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <h3 class="info-popup-title">@Title</h3>
+            }
+            
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <p class="info-popup-message">@Message</p>
+            }
+
+            @if (ChildContent != null)
+            {
+                <div class="info-popup-custom">
+                    @ChildContent
+                </div>
+            }
+        </div>
+
+        @if (ShowActions)
+        {
+            <div class="info-popup-actions">
+                @if (ShowCancelButton)
+                {
+                    <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline"
+                                  OnClick="HandleCancel"
+                                  CssClass="info-popup-btn-cancel">
+                        @CancelButtonText
+                    </PrimaryButton>
+                }
+                <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                              OnClick="HandleConfirm"
+                              IsLoading="IsProcessing"
+                              CssClass="info-popup-btn-confirm">
+                    @ConfirmButtonText
+                </PrimaryButton>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public InfoIconType IconType { get; set; } = InfoIconType.Info;
+    [Parameter] public PopupSize PopupSize { get; set; } = PopupSize.Medium;
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public bool ShowCloseButton { get; set; } = true;
+    [Parameter] public bool CloseOnOverlayClick { get; set; } = true;
+    [Parameter] public bool ShowActions { get; set; } = true;
+    [Parameter] public bool ShowCancelButton { get; set; } = true;
+    [Parameter] public string ConfirmButtonText { get; set; } = "OK";
+    [Parameter] public string CancelButtonText { get; set; } = "Cancel";
+    [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    public enum InfoIconType
+    {
+        Info,
+        Success,
+        Warning,
+        Error,
+        Question
+    }
+
+    public enum PopupSize
+    {
+        Small,
+        Medium,
+        Large
+    }
+
+    private void HandleOverlayClick()
+    {
+        if (CloseOnOverlayClick)
+        {
+            Close();
+        }
+    }
+
+    private async Task HandleConfirm()
+    {
+        if (OnConfirm.HasDelegate)
+        {
+            await OnConfirm.InvokeAsync();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (OnCancel.HasDelegate)
+        {
+            await OnCancel.InvokeAsync();
+        }
+        else
+        {
+            Close();
+        }
+    }
+
+    public async void Close()
+    {
+        IsVisible = false;
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+        StateHasChanged();
+    }
+
+    public void Show()
+    {
+        IsVisible = true;
+        StateHasChanged();
+    }
+
+    private RenderFragment GetIconSvg() => builder =>
+    {
+        var svg = IconType switch
+        {
+            InfoIconType.Success => @"<svg width=""48"" height=""48"" viewBox=""0 0 48 48"" fill=""none""><circle cx=""24"" cy=""24"" r=""20"" stroke=""currentColor"" stroke-width=""3""/><path d=""M16 24L21 29L32 18"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
+            InfoIconType.Warning => @"<svg width=""48"" height=""48"" viewBox=""0 0 48 48"" fill=""none""><path d=""M24 8L40 38H8L24 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><path d=""M24 20V26"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/><circle cx=""24"" cy=""32"" r=""1.5"" fill=""currentColor""/></svg>",
+            InfoIconType.Error => @"<svg width=""48"" height=""48"" viewBox=""0 0 48 48"" fill=""none""><circle cx=""24"" cy=""24"" r=""20"" stroke=""currentColor"" stroke-width=""3""/><path d=""M18 18L30 30M30 18L18 30"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/></svg>",
+            InfoIconType.Question => @"<svg width=""48"" height=""48"" viewBox=""0 0 48 48"" fill=""none""><circle cx=""24"" cy=""24"" r=""20"" stroke=""currentColor"" stroke-width=""3""/><path d=""M18 20C18 16.6863 20.6863 14 24 14C27.3137 14 30 16.6863 30 20C30 22.2091 28.7659 24.1046 26.9412 25.0588C25.8284 25.6152 24 26.5 24 28"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/><circle cx=""24"" cy=""34"" r=""1.5"" fill=""currentColor""/></svg>",
+            _ => @"<svg width=""48"" height=""48"" viewBox=""0 0 48 48"" fill=""none""><circle cx=""24"" cy=""24"" r=""20"" stroke=""currentColor"" stroke-width=""3""/><path d=""M24 16V26"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/><circle cx=""24"" cy=""32"" r=""1.5"" fill=""currentColor""/></svg>"
+        };
+        builder.AddMarkupContent(0, svg);
+    };
+}
