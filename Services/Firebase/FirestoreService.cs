@@ -3,7 +3,7 @@ using SubashaVentures.Services.Storage;
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
 using System.Text.Json;
-
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel ;
 namespace SubashaVentures.Services.Firebase
 {
     /// <summary>
@@ -44,16 +44,16 @@ namespace SubashaVentures.Services.Firebase
                 
                 if (_isInitialized)
                 {
-                    MID_HelperFunctions.DebugMessage("Firestore initialized successfully", DebugClass.Info);
+                    MID_HelperFunctions.DebugMessage("Firestore initialized successfully", LogLevel.Info);
                 }
                 else
                 {
-                    MID_HelperFunctions.DebugMessage("Failed to initialize Firestore", DebugClass.Error);
+                    MID_HelperFunctions.DebugMessage("Failed to initialize Firestore", LogLevel.Error);
                 }
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error initializing Firestore: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error initializing Firestore: {ex.Message}", LogLevel.Exception);
             }
         }
 
@@ -73,7 +73,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting document: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -88,7 +88,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error adding document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error adding document: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -103,7 +103,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error updating document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error updating document: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -117,7 +117,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error deleting document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error deleting document: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -134,7 +134,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error updating field: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error updating field: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -149,7 +149,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error updating fields: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error updating fields: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -163,7 +163,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error removing field: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error removing field: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -178,7 +178,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error removing fields: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error removing fields: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -197,7 +197,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting field: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting field: {ex.Message}", LogLevel.Exception);
                 return default(T);
             }
         }
@@ -214,7 +214,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error adding to subcollection: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error adding to subcollection: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -233,7 +233,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting subcollection: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting subcollection: {ex.Message}", LogLevel.Exception);
                 return new List<T>();
             }
         }
@@ -252,7 +252,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting subcollection document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting subcollection document: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -267,7 +267,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error updating subcollection document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error updating subcollection document: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -281,7 +281,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error deleting subcollection document: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error deleting subcollection document: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -301,7 +301,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error querying subcollection: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error querying subcollection: {ex.Message}", LogLevel.Exception);
                 return new List<T>();
             }
         }
@@ -318,7 +318,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error adding to array field: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error adding to array field: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -333,7 +333,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error removing from array field: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error removing from array field: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -354,7 +354,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting collection: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting collection: {ex.Message}", LogLevel.Exception);
                 return new List<T>();
             }
         }
@@ -374,7 +374,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error querying collection: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error querying collection: {ex.Message}", LogLevel.Exception);
                 return new List<T>();
             }
         }
@@ -389,7 +389,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error adding batch: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error adding batch: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -417,7 +417,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error setting connection state: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error setting connection state: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -431,7 +431,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting manual connection state: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting manual connection state: {ex.Message}", LogLevel.Exception);
                 return true;
             }
         }
@@ -445,7 +445,7 @@ namespace SubashaVentures.Services.Firebase
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error processing pending operations: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error processing pending operations: {ex.Message}", LogLevel.Exception);
             }
         }
     }

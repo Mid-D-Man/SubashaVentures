@@ -16,8 +16,8 @@
             Label="Email Address"
             Type="email"
             @bind-Value="email"
-            Placeholder="john.doe@example.com"
-            PrefixIcon="📧"
+            Placeholder="Enter your email"
+            PrefixIcon="X"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(emailError))"
             ErrorMessage="@emailError"
@@ -30,8 +30,7 @@
             Type="@(showPassword ? "text" : "password")"
             @bind-Value="password"
             Placeholder="Enter your password"
-            PrefixIcon="🔒"
-            SuffixIcon="@(showPassword ? "👁️" : "👁️‍🗨️")"
+            PrefixIcon="*"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(passwordError))"
             ErrorMessage="@passwordError"
@@ -51,7 +50,7 @@
         @if (!string.IsNullOrEmpty(generalError))
         {
             <div class="error-banner">
-                <span class="error-icon">⚠️</span>
+                <span class="error-icon">!</span>
                 <span class="error-text">@generalError</span>
             </div>
         }
@@ -61,15 +60,9 @@
             Type="submit" 
             Size="PrimaryButton.ButtonSize.Large"
             IsDisabled="@isLoading"
+            IsLoading="@isLoading"
             CssClass="signin-button">
-            @if (isLoading)
-            {
-                <span>Signing In...</span>
-            }
-            else
-            {
-                <span>Sign In</span>
-            }
+            Sign In
         </PrimaryButton>
 
         <!-- Divider -->
@@ -81,12 +74,12 @@
 
         <!-- Social Sign In -->
         <div class="social-buttons">
-            <button type="button" class="social-btn google" @onclick="HandleGoogleSignIn">
+            <button type="button" class="social-btn google" @onclick="HandleGoogleSignIn" disabled>
                 <span class="social-icon">G</span>
                 <span class="social-text">Continue with Google</span>
             </button>
             
-            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignIn">
+            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignIn" disabled>
                 <span class="social-icon">f</span>
                 <span class="social-text">Continue with Facebook</span>
             </button>
@@ -101,5 +94,5 @@
 </div>
 
 @code {
-    // Form fields will be in .cs file
+    // Code is in SignIn.razor.cs
 }

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
-
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel ;
 namespace SubashaVentures.Services.Time;
 
 public class ServerTimeService : IServerTimeService
@@ -91,7 +91,7 @@ public class ServerTimeService : IServerTimeService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.DebugMessageAsync($"Failed to sync server time: {ex.Message}", DebugClass.Exception);
+            await MID_HelperFunctions.DebugMessageAsync($"Failed to sync server time: {ex.Message}", LogLevel.Exception);
         }
 
         return false;
@@ -160,7 +160,7 @@ public class ServerTimeService : IServerTimeService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.DebugMessageAsync($"Failed to load server time from storage: {ex.Message}", DebugClass.Exception);
+            await MID_HelperFunctions.DebugMessageAsync($"Failed to load server time from storage: {ex.Message}", LogLevel.Exception);
             _isServerTimeSynced = false;
         }
     }

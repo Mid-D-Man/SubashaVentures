@@ -31,6 +31,7 @@ public partial class SignUp : ComponentBase
     private string passwordError = "";
     private string confirmPasswordError = "";
     private string termsError = "";
+    private string generalError = "";
     
     // Loading state
     private bool isLoading = false;
@@ -63,7 +64,9 @@ public partial class SignUp : ComponentBase
                 PreferredLanguage = "en",
                 Currency = "NGN",
                 AccountStatus = "Active",
-                MembershipTier = "Bronze"
+                MembershipTier = "Bronze",
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "system"
             };
 
             // Attempt sign up with Supabase
@@ -73,8 +76,7 @@ public partial class SignUp : ComponentBase
             {
                 Logger.LogInformation("User signed up successfully: {Email}", email);
                 
-                // Show success message and redirect to sign in
-                // In production, you might want to show a verification message
+                // Navigate to sign in with success message
                 NavigationManager.NavigateTo("/signin?registered=true");
             }
             else
@@ -82,11 +84,11 @@ public partial class SignUp : ComponentBase
                 // Handle sign up failure
                 if (result.ErrorCode == "USER_EXISTS")
                 {
-                    emailError = "An account with this email already exists.";
+                    emailError = "An account with this email already exists. Please sign in instead.";
                 }
                 else
                 {
-                    emailError = result.Message ?? "Failed to create account. Please try again.";
+                    generalError = result.Message ?? "Failed to create account. Please try again.";
                 }
                 
                 Logger.LogWarning("Sign up failed for {Email}: {Message}", email, result.Message);
@@ -94,7 +96,7 @@ public partial class SignUp : ComponentBase
         }
         catch (Exception ex)
         {
-            emailError = "An error occurred during sign up. Please try again later.";
+            generalError = "An error occurred during registration. Please try again later.";
             Logger.LogError(ex, "Error during sign up for {Email}", email);
         }
         finally
@@ -201,6 +203,7 @@ public partial class SignUp : ComponentBase
         passwordError = "";
         confirmPasswordError = "";
         termsError = "";
+        generalError = "";
     }
 
     private static bool IsValidEmail(string email)
@@ -239,15 +242,11 @@ public partial class SignUp : ComponentBase
             isLoading = true;
             StateHasChanged();
             
-            Logger.LogInformation("Attempting Google sign up");
-            
-            emailError = "Google sign up is not yet implemented. Please use email/password.";
-            
-            await Task.CompletedTask;
+            generalError = "Google sign up is not yet implemented. Please use email and password.";
         }
         catch (Exception ex)
         {
-            emailError = "Failed to sign up with Google. Please try again.";
+            generalError = "Failed to sign up with Google. Please try again.";
             Logger.LogError(ex, "Google sign up error");
         }
         finally
@@ -264,15 +263,11 @@ public partial class SignUp : ComponentBase
             isLoading = true;
             StateHasChanged();
             
-            Logger.LogInformation("Attempting Facebook sign up");
-            
-            emailError = "Facebook sign up is not yet implemented. Please use email/password.";
-            
-            await Task.CompletedTask;
+            generalError = "Facebook sign up is not yet implemented. Please use email and password.";
         }
         catch (Exception ex)
         {
-            emailError = "Failed to sign up with Facebook. Please try again.";
+            generalError = "Failed to sign up with Facebook. Please try again.";
             Logger.LogError(ex, "Facebook sign up error");
         }
         finally

@@ -1,4 +1,4 @@
-@* InputField.razor - Reusable input component *@
+@* InputField.razor - Fixed input component *@
 
 <div class="input-field @(HasError ? "has-error" : "") @(IsDisabled ? "disabled" : "") @CssClass">
     @if (!string.IsNullOrEmpty(Label))
@@ -37,8 +37,8 @@
         
         @if (ShowClearButton && !string.IsNullOrEmpty(Value))
         {
-            <button type="button" class="clear-btn" @onclick="ClearInput" tabindex="-1">
-                ✕
+            <button type="button" class="clear-btn" @onclick="ClearInput" @onclick:stopPropagation="true">
+                X
             </button>
         }
     </div>
@@ -91,11 +91,14 @@
     private async Task HandleInput(ChangeEventArgs e)
     {
         var newValue = e.Value?.ToString() ?? "";
-        Value = newValue;
-        await ValueChanged.InvokeAsync(newValue);
+        if (Value != newValue)
+        {
+            Value = newValue;
+            await ValueChanged.InvokeAsync(newValue);
+        }
     }
 
-    private async Task HandleBlur()
+    private async Task HandleBlur(FocusEventArgs e)
     {
         if (OnBlur.HasDelegate)
         {
@@ -103,7 +106,7 @@
         }
     }
 
-    private async Task HandleFocus()
+    private async Task HandleFocus(FocusEventArgs e)
     {
         if (OnFocus.HasDelegate)
         {

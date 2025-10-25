@@ -11,6 +11,15 @@
     </div>
 
     <form class="signup-form" @onsubmit="HandleSignUp">
+        <!-- General Error Message -->
+        @if (!string.IsNullOrEmpty(generalError))
+        {
+            <div class="error-banner">
+                <span class="error-icon">!</span>
+                <span class="error-text">@generalError</span>
+            </div>
+        }
+
         <!-- Name Fields Row -->
         <div class="form-row">
             <InputField 
@@ -40,7 +49,7 @@
             Type="email"
             @bind-Value="email"
             Placeholder="john.doe@example.com"
-            PrefixIcon="📧"
+            PrefixIcon="X"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(emailError))"
             ErrorMessage="@emailError"
@@ -53,12 +62,11 @@
             Type="@(showPassword ? "text" : "password")"
             @bind-Value="password"
             Placeholder="Enter your password"
-            PrefixIcon="🔒"
-            SuffixIcon="@(showPassword ? "👁️" : "👁️‍🗨️")"
+            PrefixIcon="*"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(passwordError))"
             ErrorMessage="@passwordError"
-            HelperText="Must be at least 8 characters"
+            HelperText="Must be at least 8 characters with uppercase, lowercase, and number"
             Size="InputField.InputSize.Medium" />
 
         <!-- Confirm Password Field -->
@@ -67,8 +75,7 @@
             Type="@(showConfirmPassword ? "text" : "password")"
             @bind-Value="confirmPassword"
             Placeholder="Confirm your password"
-            PrefixIcon="🔒"
-            SuffixIcon="@(showConfirmPassword ? "👁️" : "👁️‍🗨️")"
+            PrefixIcon="*"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(confirmPasswordError))"
             ErrorMessage="@confirmPasswordError"
@@ -80,9 +87,9 @@
                 <input type="checkbox" @bind="acceptTerms" class="checkbox-input" />
                 <span class="checkbox-text">
                     I agree to the 
-                    <a href="terms" class="terms-link" target="_blank">Terms & Conditions</a> 
+                    <a href="/terms" class="terms-link" target="_blank">Terms and Conditions</a> 
                     and 
-                    <a href="privacy" class="terms-link" target="_blank">Privacy Policy</a>
+                    <a href="/privacy" class="terms-link" target="_blank">Privacy Policy</a>
                 </span>
             </label>
             @if (!string.IsNullOrEmpty(termsError))
@@ -96,15 +103,9 @@
             Type="submit" 
             Size="PrimaryButton.ButtonSize.Large"
             IsDisabled="@isLoading"
+            IsLoading="@isLoading"
             CssClass="signup-button">
-            @if (isLoading)
-            {
-                <span>Creating Account...</span>
-            }
-            else
-            {
-                <span>Sign Up</span>
-            }
+            Sign Up
         </PrimaryButton>
 
         <!-- Divider -->
@@ -116,12 +117,12 @@
 
         <!-- Social Sign Up -->
         <div class="social-buttons">
-            <button type="button" class="social-btn google" @onclick="HandleGoogleSignUp">
+            <button type="button" class="social-btn google" @onclick="HandleGoogleSignUp" disabled>
                 <span class="social-icon">G</span>
                 <span class="social-text">Continue with Google</span>
             </button>
             
-            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignUp">
+            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignUp" disabled>
                 <span class="social-icon">f</span>
                 <span class="social-text">Continue with Facebook</span>
             </button>
@@ -130,11 +131,11 @@
         <!-- Sign In Link -->
         <div class="form-footer">
             <p class="footer-question">Already have an account?</p>
-            <a href="signin" class="footer-link">Sign In</a>
+            <a href="/signin" class="footer-link">Sign In</a>
         </div>
     </form>
 </div>
 
 @code {
-    // Form fields will be in .cs file
+    // Code is in SignUp.razor.cs
 }

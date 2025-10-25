@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
 
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel ;
 namespace SubashaVentures.Layout.Admin;
 
 public partial class AdminNavMenu : ComponentBase
@@ -94,13 +95,13 @@ public partial class AdminNavMenu : ComponentBase
                 
                 await jsModule.InvokeVoidAsync("initializeNavMenu", navElement, dotNetRef);
                 
-                MID_HelperFunctions.DebugMessage("AdminNavMenu initialized", DebugClass.Info);
+                MID_HelperFunctions.DebugMessage("AdminNavMenu initialized", LogLevel.Info);
             }
             catch (Exception ex)
             {
                 MID_HelperFunctions.DebugMessage(
                     $"Failed to initialize AdminNavMenu: {ex.Message}", 
-                    DebugClass.Error);
+                    LogLevel.Error);
             }
         }
     }
@@ -208,7 +209,7 @@ public partial class AdminNavMenu : ComponentBase
             {
                 MID_HelperFunctions.DebugMessage(
                     $"Error disposing AdminNavMenu: {ex.Message}", 
-                    DebugClass.Warning);
+                    LogLevel.Warning);
             }
         }
 

@@ -1,5 +1,7 @@
 // Pages/Auth/SignIn.razor.cs
+// Pages/Auth/SignIn.razor.cs
 using Microsoft.AspNetCore.Components;
+using SubashaVentures.Services.Storage;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 
@@ -10,7 +12,7 @@ public partial class SignIn : ComponentBase
     [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<SignIn> Logger { get; set; } = default!;
-
+    [Inject] private IBlazorAppLocalStorageService BlazorAppLocalStorageService { get; set; } = default!;
     // Form fields
     private string email = "";
     private string password = "";
@@ -51,20 +53,28 @@ public partial class SignIn : ComponentBase
             {
                 Logger.LogInformation("User signed in successfully: {Email}", email);
                 
-                // Navigate to home page or previous page
+                // Store remember me preference
+                if (rememberMe)
+                {
+                    await BlazorAppLocalStorageService.SetItemAsync("remember_email", email);
+                }
+                
+                // Navigate to home page
                 NavigationManager.NavigateTo("/", forceLoad: true);
             }
             else
             {
                 // Handle sign in failure
-                generalError = result.Message ?? "Invalid email or password. Please try again.";
+                if (result.ErrorCode == "INVALID_CREDENTIALS")
+                {
+                    generalError = "Invalid email or password. Please try again.";
+                }
+                else
+                {
+                    generalError = result.Message ?? "Sign in failed. Please try again.";
+                }
                 Logger.LogWarning("Sign in failed for {Email}: {Message}", email, result.Message);
             }
-        }
-        catch (UnauthorizedAccessException)
-        {
-            generalError = "Invalid email or password. Please try again.";
-            Logger.LogWarning("Unauthorized access attempt for {Email}", email);
         }
         catch (Exception ex)
         {
@@ -136,14 +146,7 @@ public partial class SignIn : ComponentBase
             isLoading = true;
             StateHasChanged();
             
-            // Google OAuth sign in
-            Logger.LogInformation("Attempting Google sign in");
-            
-            // Note: OAuth redirect flows work differently in Blazor WASM
-            // You'll need to implement this based on Supabase's OAuth flow
-            generalError = "Google sign in is not yet implemented. Please use email/password.";
-            
-            await Task.CompletedTask;
+            generalError = "Google sign in is not yet implemented. Please use email and password.";
         }
         catch (Exception ex)
         {
@@ -164,12 +167,7 @@ public partial class SignIn : ComponentBase
             isLoading = true;
             StateHasChanged();
             
-            // Facebook OAuth sign in
-            Logger.LogInformation("Attempting Facebook sign in");
-            
-            generalError = "Facebook sign in is not yet implemented. Please use email/password.";
-            
-            await Task.CompletedTask;
+            generalError = "Facebook sign in is not yet implemented. Please use email and password.";
         }
         catch (Exception ex)
         {

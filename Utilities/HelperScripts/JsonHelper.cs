@@ -3,7 +3,7 @@ using System.Xml.Linq;
 using System.Xml.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Utilities.HelperScripts
 {
     /// <summary>
@@ -75,7 +75,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON serialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON serialization error: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -98,7 +98,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON serialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON serialization error: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -124,7 +124,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON deserialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON deserialization error: {ex.Message}", LogLevel.Exception);
                 return default;
             }
         }
@@ -147,7 +147,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON deserialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON deserialization error: {ex.Message}", LogLevel.Exception);
                 return default;
             }
         }
@@ -168,7 +168,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON document deserialization error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON document deserialization error: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -194,7 +194,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (JsonException ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON validation error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON validation error: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -226,7 +226,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON to XML conversion error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON to XML conversion error: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -257,7 +257,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"XML to JSON conversion error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"XML to JSON conversion error: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -302,7 +302,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON merge error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON merge error: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -325,7 +325,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"JSON clone error: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"JSON clone error: {ex.Message}", LogLevel.Exception);
                 return default;
             }
         }
@@ -474,7 +474,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error getting property value: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error getting property value: {ex.Message}", LogLevel.Exception);
                 return null;
             }
         }
@@ -504,7 +504,7 @@ namespace SubashaVentures.Utilities.HelperScripts
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error setting property value: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error setting property value: {ex.Message}", LogLevel.Exception);
                 return json;
             }
         }

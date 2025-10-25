@@ -2,7 +2,7 @@
 using Microsoft.JSInterop;
 using Blazored.LocalStorage;
 using SubashaVentures.Utilities.HelperScripts;
-
+using  LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Storage
 {
     
@@ -48,7 +48,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error retrieving item '{key}': {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error retrieving item '{key}': {ex.Message}", LogLevel.Exception);
                 return default;
             }
         }
@@ -70,7 +70,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error storing item '{key}': {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error storing item '{key}': {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -90,7 +90,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error removing item '{key}': {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error removing item '{key}': {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -109,7 +109,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error clearing storage: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error clearing storage: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -128,7 +128,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error checking key existence '{key}': {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error checking key existence '{key}': {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -145,7 +145,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error calculating storage size: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error calculating storage size: {ex.Message}", LogLevel.Exception);
                 return 0;
             }
         }
@@ -175,7 +175,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error in batch key removal: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error in batch key removal: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -204,7 +204,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error in batch storage operation: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error in batch storage operation: {ex.Message}", LogLevel.Exception);
                 return false;
             }
         }
@@ -242,7 +242,7 @@ namespace SubashaVentures.Services.Storage
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error in batch retrieval: {ex.Message}", DebugClass.Exception);
+                MID_HelperFunctions.DebugMessage($"Error in batch retrieval: {ex.Message}", LogLevel.Exception);
                 return results;
             }
         }
