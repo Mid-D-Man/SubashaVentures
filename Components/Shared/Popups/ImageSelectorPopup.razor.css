@@ -1,3 +1,4 @@
+
 /* ===== IMAGE SELECTOR POPUP ===== */
 .image-selector-overlay {
     position: fixed;
@@ -14,10 +15,12 @@
     padding: 1rem;
 }
 
+
 .image-selector-overlay.open {
     opacity: 1;
     visibility: visible;
 }
+
 
 .image-selector-popup {
     width: 100%;
@@ -32,6 +35,7 @@
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 
 .image-selector-popup.open {
     transform: scale(1) translateY(0);
