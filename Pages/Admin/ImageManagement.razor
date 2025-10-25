@@ -1,0 +1,519 @@
+@page "/admin/images"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@layout AdminLayout
+
+<div class="image-management">
+    <!-- Header -->
+    <div class="im-header">
+        <div class="im-header-left">
+            <h1 class="im-title">Image Management</h1>
+            <p class="im-subtitle">Upload and manage product images</p>
+        </div>
+        <div class="im-header-right">
+            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                          Size="PrimaryButton.ButtonSize.Medium"
+                          Icon="⬆"
+                          OnClick="OpenUploadModal">
+                Upload Images
+            </PrimaryButton>
+        </div>
+    </div>
+
+    <!-- Storage Stats -->
+    <div class="im-stats">
+        <div class="stat-card storage">
+            <div class="stat-header">
+                <span class="stat-label">Storage Used</span>
+                <span class="stat-icon">💾</span>
+            </div>
+            <div class="stat-body">
+                <div class="storage-bar">
+                    <div class="storage-fill" style="width: @storagePercentage%"></div>
+                </div>
+                <div class="storage-info">
+                    <span class="used">@usedStorage</span>
+                    <span class="total">of @totalStorage</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🖼️</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Images</span>
+                <span class="stat-value">@totalImages</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📂</div>
+            <div class="stat-info">
+                <span class="stat-label">Categories</span>
+                <span class="stat-value">@totalFolders</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🔗</div>
+            <div class="stat-info">
+                <span class="stat-label">Referenced</span>
+                <span class="stat-value">@referencedImages</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="im-toolbar">
+        <div class="im-filters">
+            <select class="filter-select folder-select" @onchange="HandleFolderChange">
+                <option value="">All Folders</option>
+                <option value="products">Products</option>
+                <option value="products/mens">Men's Fashion</option>
+                <option value="products/womens">Women's Fashion</option>
+                <option value="products/children">Children's</option>
+                <option value="products/baby">Baby & Toddler</option>
+                <option value="products/home">Home & Living</option>
+                <option value="banners">Banners</option>
+                <option value="categories">Categories</option>
+            </select>
+
+            <InputField @bind-Value="searchQuery"
+                       Placeholder="Search images..."
+                       PrefixIcon="🔍"
+                       ShowClearButton="true"
+                       CssClass="search-input" />
+
+            <select class="filter-select" @onchange="HandleSortChange">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name-az">Name (A-Z)</option>
+                <option value="name-za">Name (Z-A)</option>
+                <option value="size-largest">Largest First</option>
+                <option value="size-smallest">Smallest First</option>
+            </select>
+        </div>
+
+        <div class="im-view-controls">
+            @if (selectedImages.Any())
+            {
+                <span class="selection-count">@selectedImages.Count selected</span>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkDownload">
+                    Download
+                </SecondaryButton>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkDelete"
+                                CssClass="btn-danger">
+                    Delete
+                </SecondaryButton>
+            }
+
+            <button class="view-toggle" @onclick="@(() => gridSize = "small")" 
+                    class="@(gridSize == "small" ? "active" : "")">
+                ▦▦
+            </button>
+            <button class="view-toggle" @onclick="@(() => gridSize = "medium")"
+                    class="@(gridSize == "medium" ? "active" : "")">
+                ▦
+            </button>
+            <button class="view-toggle" @onclick="@(() => gridSize = "large")"
+                    class="@(gridSize == "large" ? "active" : "")">
+                ▢
+            </button>
+        </div>
+    </div>
+
+    <!-- Image Grid -->
+    @if (isLoading)
+    {
+        <div class="im-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading images...</p>
+        </div>
+    }
+    else if (!filteredImages.Any())
+    {
+        <div class="im-empty">
+            <div class="empty-icon">🖼️</div>
+            <h3>No images found</h3>
+            <p>Upload your first image to get started</p>
+            <PrimaryButton OnClick="OpenUploadModal">
+                Upload Images
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="im-grid @gridSize">
+            @foreach (var image in paginatedImages)
+            {
+                <div class="image-card @(selectedImages.Contains(image.Id) ? "selected" : "")"
+                     @onclick="@(() => HandleImageClick(image))">
+                    
+                    <input type="checkbox" 
+                           class="image-checkbox"
+                           checked="@selectedImages.Contains(image.Id)"
+                           @onclick:stopPropagation="true"
+                           @onchange="@((e) => HandleImageSelect(image.Id, e))" />
+
+                    <div class="image-wrapper">
+                        <img src="@image.ThumbnailUrl" 
+                             alt="@image.FileName" 
+                             loading="lazy" />
+                        
+                        @if (image.IsReferenced)
+                        {
+                            <span class="ref-badge" title="Used in products">🔗</span>
+                        }
+                    </div>
+
+                    <div class="image-info">
+                        <span class="image-name" title="@image.FileName">
+                            @image.FileName
+                        </span>
+                        <span class="image-meta">
+                            @image.FormattedSize • @image.Dimensions
+                        </span>
+                        <span class="image-date">
+                            @image.UploadedAt.ToString("MMM dd, yyyy")
+                        </span>
+                    </div>
+
+                    <div class="image-actions">
+                        <button class="action-btn" 
+                                @onclick:stopPropagation="true"
+                                @onclick="@(() => HandleCopyUrl(image))"
+                                title="Copy URL">
+                            📋
+                        </button>
+                        <button class="action-btn" 
+                                @onclick:stopPropagation="true"
+                                @onclick="@(() => HandleDownload(image))"
+                                title="Download">
+                            ⬇
+                        </button>
+                        <button class="action-btn danger" 
+                                @onclick:stopPropagation="true"
+                                @onclick="@(() => HandleDelete(image))"
+                                title="Delete">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        <div class="im-pagination">
+            <div class="pagination-info">
+                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredImages.Count) of @filteredImages.Count images
+            </div>
+            <div class="pagination-controls">
+                <button class="page-btn" 
+                        @onclick="PreviousPage" 
+                        disabled="@(currentPage == 1)">
+                    ← Previous
+                </button>
+                
+                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                {
+                    var page = i;
+                    <button class="page-btn @(page == currentPage ? "active" : "")" 
+                            @onclick="@(() => GoToPage(page))">
+                        @page
+                    </button>
+                }
+                
+                <button class="page-btn" 
+                        @onclick="NextPage" 
+                        disabled="@(currentPage == totalPages)">
+                    Next →
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Upload Modal -->
+<DynamicModal @ref="uploadModal"
+              Title="Upload Images"
+              Size="DynamicModal.ModalSize.Large"
+              IsOpen="@isUploadModalOpen"
+              ShowFooter="false"
+              OnClose="CloseUploadModal">
+    <BodyContent>
+        <div class="upload-modal-content">
+            <!-- Folder Selection -->
+            <div class="upload-section">
+                <label class="upload-label">Upload to Folder</label>
+                <select class="upload-select" @bind="uploadFolder">
+                    <option value="products">Products (General)</option>
+                    <option value="products/mens">Men's Fashion</option>
+                    <option value="products/womens">Women's Fashion</option>
+                    <option value="products/children">Children's</option>
+                    <option value="products/baby">Baby & Toddler</option>
+                    <option value="products/home">Home & Living</option>
+                    <option value="banners">Banners</option>
+                    <option value="categories">Categories</option>
+                </select>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div class="upload-dropzone @(isDragging ? "dragging" : "")"
+                 @ondrop="HandleDrop"
+                 @ondragover:preventDefault
+                 @ondragenter="HandleDragEnter"
+                 @ondragleave="HandleDragLeave">
+                <div class="dropzone-content">
+                    <div class="dropzone-icon">📁</div>
+                    <h3>Drag & drop images here</h3>
+                    <p>or</p>
+                    <label class="upload-btn-label">
+                        <input type="file" 
+                               multiple 
+                               accept="image/*"
+                               @onchange="HandleFileSelect"
+                               style="display: none;" />
+                        <PrimaryButton>
+                            Browse Files
+                        </PrimaryButton>
+                    </label>
+                    <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
+                </div>
+            </div>
+
+            <!-- Upload Queue -->
+            @if (uploadQueue.Any())
+            {
+                <div class="upload-queue">
+                    <div class="queue-header">
+                        <h4>Upload Queue (@uploadQueue.Count files)</h4>
+                        <button class="clear-queue" @onclick="ClearQueue">Clear All</button>
+                    </div>
+                    
+                    @foreach (var item in uploadQueue)
+                    {
+                        <div class="queue-item @item.Status">
+                            <div class="queue-preview">
+                                <img src="@item.PreviewUrl" alt="@item.FileName" />
+                            </div>
+                            <div class="queue-info">
+                                <span class="queue-name">@item.FileName</span>
+                                <span class="queue-size">@item.FormattedSize</span>
+                                @if (!string.IsNullOrEmpty(item.ErrorMessage))
+                                {
+                                    <span class="queue-error">@item.ErrorMessage</span>
+                                }
+                            </div>
+                            <div class="queue-progress">
+                                @if (item.Status == "uploading")
+                                {
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: @item.Progress%"></div>
+                                    </div>
+                                    <span class="progress-text">@item.Progress%</span>
+                                }
+                                else if (item.Status == "success")
+                                {
+                                    <span class="status-icon success">✓</span>
+                                }
+                                else if (item.Status == "error")
+                                {
+                                    <span class="status-icon error">✗</span>
+                                }
+                                else
+                                {
+                                    <span class="status-icon pending">⏳</span>
+                                }
+                            </div>
+                            <button class="queue-remove" @onclick="@(() => RemoveFromQueue(item))">✕</button>
+                        </div>
+                    }
+                </div>
+
+                <div class="upload-actions">
+                    <SecondaryButton OnClick="CloseUploadModal">
+                        Cancel
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="StartUpload" 
+                                  IsDisabled="@isUploading"
+                                  IsLoading="@isUploading">
+                        Upload @uploadQueue.Count Image@(uploadQueue.Count != 1 ? "s" : "")
+                    </PrimaryButton>
+                </div>
+            }
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Image Detail Modal -->
+<DynamicModal @ref="detailModal"
+              Title="@selectedImage?.FileName"
+              Size="DynamicModal.ModalSize.Large"
+              IsOpen="@isDetailModalOpen"
+              OnClose="CloseDetailModal">
+    <BodyContent>
+        @if (selectedImage != null)
+        {
+            <div class="detail-modal-content">
+                <div class="detail-preview">
+                    <img src="@selectedImage.PublicUrl" alt="@selectedImage.FileName" />
+                </div>
+                <div class="detail-info">
+                    <div class="info-group">
+                        <label>File Name</label>
+                        <span>@selectedImage.FileName</span>
+                    </div>
+                    <div class="info-group">
+                        <label>Dimensions</label>
+                        <span>@selectedImage.Dimensions</span>
+                    </div>
+                    <div class="info-group">
+                        <label>File Size</label>
+                        <span>@selectedImage.FormattedSize</span>
+                    </div>
+                    <div class="info-group">
+                        <label>Upload Date</label>
+                        <span>@selectedImage.UploadedAt.ToString("MMMM dd, yyyy HH:mm")</span>
+                    </div>
+                    <div class="info-group">
+                        <label>Folder</label>
+                        <span>@selectedImage.Folder</span>
+                    </div>
+                    <div class="info-group">
+                        <label>Public URL</label>
+                        <div class="url-display">
+                            <input type="text" readonly value="@selectedImage.PublicUrl" />
+                            <button @onclick="@(() => HandleCopyUrl(selectedImage))">📋</button>
+                        </div>
+                    </div>
+                    @if (selectedImage.IsReferenced)
+                    {
+                        <div class="info-group">
+                            <label>Used In</label>
+                            <span class="ref-count">@selectedImage.ReferenceCount product(s)</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </BodyContent>
+</DynamicModal>
+
+@code {
+    // State variables
+    private bool isLoading = true;
+    private bool isUploadModalOpen = false;
+    private bool isDetailModalOpen = false;
+    private bool isDragging = false;
+    private bool isUploading = false;
+    
+    private string searchQuery = "";
+    private string selectedFolder = "";
+    private string uploadFolder = "products";
+    private string gridSize = "medium";
+    
+    private int currentPage = 1;
+    private int pageSize = 24;
+    private double storagePercentage = 45.5;
+    private string usedStorage = "455 MB";
+    private string totalStorage = "1 GB";
+    private int totalImages = 234;
+    private int totalFolders = 8;
+    private int referencedImages = 167;
+    
+    private List<string> selectedImages = new();
+    private List<ImageItem> allImages = new();
+    private List<ImageItem> filteredImages = new();
+    private List<ImageItem> paginatedImages = new();
+    private List<UploadQueueItem> uploadQueue = new();
+    private ImageItem? selectedImage = null;
+    
+    private DynamicModal? uploadModal;
+    private DynamicModal? detailModal;
+    
+    private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
+
+    // Placeholder methods - will implement in .razor.cs
+    private void OpenUploadModal() => isUploadModalOpen = true;
+    private void CloseUploadModal() => isUploadModalOpen = false;
+    private void CloseDetailModal() => isDetailModalOpen = false;
+    private void HandleFolderChange(ChangeEventArgs e) { }
+    private void HandleSortChange(ChangeEventArgs e) { }
+    private void HandleImageClick(ImageItem image) { selectedImage = image; isDetailModalOpen = true; }
+    private void HandleImageSelect(string id, ChangeEventArgs e) { }
+    private void HandleCopyUrl(ImageItem image) { }
+    private void HandleDownload(ImageItem image) { }
+    private void HandleDelete(ImageItem image) { }
+    private void HandleBulkDownload() { }
+    private void HandleBulkDelete() { }
+    private void HandleDrop(DragEventArgs e) { }
+    private void HandleDragEnter(DragEventArgs e) => isDragging = true;
+    private void HandleDragLeave(DragEventArgs e) => isDragging = false;
+    private void HandleFileSelect(ChangeEventArgs e) { }
+    private void ClearQueue() => uploadQueue.Clear();
+    private void RemoveFromQueue(UploadQueueItem item) => uploadQueue.Remove(item);
+    private async Task StartUpload() { }
+    private void PreviousPage() { if (currentPage > 1) currentPage--; }
+    private void NextPage() { if (currentPage < totalPages) currentPage++; }
+    private void GoToPage(int page) => currentPage = page;
+
+    // Data models
+    public class ImageItem
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string FileName { get; set; } = "";
+        public string PublicUrl { get; set; } = "";
+        public string ThumbnailUrl { get; set; } = "";
+        public string Folder { get; set; } = "";
+        public long FileSize { get; set; }
+        public string Dimensions { get; set; } = "";
+        public DateTime UploadedAt { get; set; }
+        public bool IsReferenced { get; set; }
+        public int ReferenceCount { get; set; }
+        public string FormattedSize => FormatBytes(FileSize);
+
+        private string FormatBytes(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            return $"{len:0.##} {sizes[order]}";
+        }
+    }
+
+    public class UploadQueueItem
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string FileName { get; set; } = "";
+        public string PreviewUrl { get; set; } = "";
+        public long FileSize { get; set; }
+        public string Status { get; set; } = "pending";
+        public int Progress { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string FormattedSize => FormatBytes(FileSize);
+
+        private string FormatBytes(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            return $"{len:0.##} {sizes[order]}";
+        }
+    }
+}
