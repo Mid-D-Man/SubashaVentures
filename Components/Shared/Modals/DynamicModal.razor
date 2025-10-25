@@ -1,0 +1,175 @@
+@using SubashaVentures.Components.Shared.Buttons
+
+<div class="dynamic-modal-overlay @(IsOpen ? "open" : "")" @onclick="HandleOverlayClick">
+    <div class="dynamic-modal @Size.ToString().ToLower() @(IsOpen ? "open" : "")" 
+         @onclick:stopPropagation="true"
+         style="@GetModalStyles()">
+        
+        @if (ShowHeader)
+        {
+            <div class="dynamic-modal-header">
+                @if (HeaderContent != null)
+                {
+                    @HeaderContent
+                }
+                else
+                {
+                    <h2 class="dynamic-modal-title">@Title</h2>
+                }
+                
+                @if (ShowCloseButton)
+                {
+                    <button class="dynamic-modal-close" @onclick="Close" aria-label="Close modal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                }
+            </div>
+        }
+
+        <div class="dynamic-modal-body @(IsScrollable ? "scrollable" : "")">
+            @if (BodyContent != null)
+            {
+                @BodyContent
+            }
+            else if (!string.IsNullOrEmpty(Message))
+            {
+                <p class="dynamic-modal-message">@Message</p>
+            }
+        </div>
+
+        @if (ShowFooter)
+        {
+            <div class="dynamic-modal-footer">
+                @if (FooterContent != null)
+                {
+                    @FooterContent
+                }
+                else
+                {
+                    <div class="modal-actions">
+                        @if (ShowCancelButton)
+                        {
+                            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost"
+                                          OnClick="HandleCancel"
+                                          CssClass="modal-btn-cancel">
+                                @CancelText
+                            </PrimaryButton>
+                        }
+                        @if (ShowConfirmButton)
+                        {
+                            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                                          OnClick="HandleConfirm"
+                                          IsLoading="IsProcessing"
+                                          IsDisabled="IsConfirmDisabled"
+                                          CssClass="modal-btn-confirm">
+                                @ConfirmText
+                            </PrimaryButton>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? BodyContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public ModalSize Size { get; set; } = ModalSize.Medium;
+    [Parameter] public bool ShowHeader { get; set; } = true;
+    [Parameter] public bool ShowFooter { get; set; } = true;
+    [Parameter] public bool ShowCloseButton { get; set; } = true;
+    [Parameter] public bool ShowCancelButton { get; set; } = true;
+    [Parameter] public bool ShowConfirmButton { get; set; } = true;
+    [Parameter] public bool CloseOnOverlayClick { get; set; } = true;
+    [Parameter] public bool CloseOnEscape { get; set; } = true;
+    [Parameter] public bool IsScrollable { get; set; } = true;
+    [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public bool IsConfirmDisabled { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string? MaxHeight { get; set; }
+    [Parameter] public string? MaxWidth { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    public enum ModalSize
+    {
+        Small,
+        Medium,
+        Large,
+        ExtraLarge,
+        FullScreen
+    }
+
+    private string GetModalStyles()
+    {
+        var styles = new List<string>();
+        
+        if (!string.IsNullOrEmpty(MaxHeight))
+        {
+            styles.Add($"max-height: {MaxHeight}");
+        }
+        
+        if (!string.IsNullOrEmpty(MaxWidth))
+        {
+            styles.Add($"max-width: {MaxWidth}");
+        }
+        
+        return string.Join("; ", styles);
+    }
+
+    private void HandleOverlayClick()
+    {
+        if (CloseOnOverlayClick && !IsProcessing)
+        {
+            Close();
+        }
+    }
+
+    private async Task HandleConfirm()
+    {
+        if (OnConfirm.HasDelegate && !IsProcessing)
+        {
+            await OnConfirm.InvokeAsync();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (OnCancel.HasDelegate)
+        {
+            await OnCancel.InvokeAsync();
+        }
+        else
+        {
+            Close();
+        }
+    }
+
+    public async void Close()
+    {
+        if (!IsProcessing)
+        {
+            IsOpen = false;
+            if (OnClose.HasDelegate)
+            {
+                await OnClose.InvokeAsync();
+            }
+            StateHasChanged();
+        }
+    }
+
+    public void Open()
+    {
+        IsOpen = true;
+        StateHasChanged();
+    }
+}

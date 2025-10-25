@@ -1,0 +1,319 @@
+/* ===== COMING SOON COVER ===== */
+.coming-soon-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 9996;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface, white);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.coming-soon-cover.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+}
+
+/* Pattern Background */
+.coming-soon-pattern {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0.08;
+}
+
+.pattern-line {
+    position: absolute;
+    background: var(--primary-color, #96994A);
+    animation: patternMove 3s ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+}
+
+/* Diagonal Pattern */
+.coming-soon-cover.diagonal .pattern-line {
+    width: 2px;
+    height: 100%;
+    left: calc(var(--delay) * 100);
+    transform: rotate(45deg);
+    transform-origin: center;
+}
+
+@keyframes patternMove {
+    0%, 100% {
+        opacity: 0.3;
+        transform: translateY(0) rotate(45deg);
+    }
+    50% {
+        opacity: 0.6;
+        transform: translateY(-20px) rotate(45deg);
+    }
+}
+
+/* Horizontal Pattern */
+.coming-soon-cover.horizontal .pattern-line {
+    width: 100%;
+    height: 2px;
+    top: calc(var(--delay) * 100);
+    left: 0;
+}
+
+.coming-soon-cover.horizontal .pattern-line {
+    animation-name: patternMoveHorizontal;
+}
+
+@keyframes patternMoveHorizontal {
+    0%, 100% {
+        opacity: 0.3;
+        transform: translateX(0);
+    }
+    50% {
+        opacity: 0.6;
+        transform: translateX(20px);
+    }
+}
+
+/* Vertical Pattern */
+.coming-soon-cover.vertical .pattern-line {
+    width: 2px;
+    height: 100%;
+    left: calc(var(--delay) * 100);
+    top: 0;
+}
+
+.coming-soon-cover.vertical .pattern-line {
+    animation-name: patternMoveVertical;
+}
+
+@keyframes patternMoveVertical {
+    0%, 100% {
+        opacity: 0.3;
+        transform: translateY(0);
+    }
+    50% {
+        opacity: 0.6;
+        transform: translateY(-20px);
+    }
+}
+
+/* Grid Pattern */
+.coming-soon-cover.grid .pattern-line {
+    width: 100%;
+    height: 2px;
+}
+
+.coming-soon-cover.grid .pattern-line:nth-child(odd) {
+    width: 2px;
+    height: 100%;
+    left: calc(var(--delay) * 50);
+}
+
+.coming-soon-cover.grid .pattern-line:nth-child(even) {
+    top: calc(var(--delay) * 50);
+}
+
+/* Content */
+.coming-soon-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 2rem;
+    max-width: 560px;
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s backwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.coming-soon-icon {
+    margin-bottom: 1.5rem;
+    color: var(--primary-color, #96994A);
+    animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.coming-soon-icon svg {
+    display: block;
+    margin: 0 auto;
+    filter: drop-shadow(0 4px 12px rgba(150, 153, 74, 0.3));
+}
+
+.coming-soon-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-primary, #1f2937);
+    margin: 0 0 1rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.coming-soon-message {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: var(--text-secondary, #4b5563);
+    margin: 0 0 2rem;
+}
+
+.coming-soon-notify-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    background: var(--primary-color, #96994A);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(150, 153, 74, 0.3);
+}
+
+.coming-soon-notify-btn:hover {
+    background: var(--hover-primary, #7A7D3A);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(150, 153, 74, 0.4);
+}
+
+.coming-soon-notify-btn:active {
+    transform: translateY(0);
+}
+
+.coming-soon-custom {
+    margin-top: 2rem;
+}
+
+/* Dark Theme */
+[data-theme="dark"] .coming-soon-cover {
+    background: var(--bg-surface, #2d3238);
+}
+
+[data-theme="dark"] .pattern-line {
+    background: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .coming-soon-icon {
+    color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .coming-soon-icon svg {
+    filter: drop-shadow(0 4px 12px rgba(184, 187, 106, 0.4));
+}
+
+[data-theme="dark"] .coming-soon-title {
+    color: var(--text-primary, #f9fafb);
+}
+
+[data-theme="dark"] .coming-soon-message {
+    color: var(--text-secondary, #d1d5db);
+}
+
+[data-theme="dark"] .coming-soon-notify-btn {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
+    box-shadow: 0 4px 12px rgba(184, 187, 106, 0.4);
+}
+
+[data-theme="dark"] .coming-soon-notify-btn:hover {
+    background: var(--hover-primary, #C8CB7A);
+    box-shadow: 0 6px 20px rgba(184, 187, 106, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .coming-soon-content {
+        padding: 1.5rem;
+        max-width: 90%;
+    }
+
+    .coming-soon-icon svg {
+        width: 56px;
+        height: 56px;
+    }
+
+    .coming-soon-title {
+        font-size: 2rem;
+    }
+
+    .coming-soon-message {
+        font-size: 1rem;
+    }
+
+    .coming-soon-notify-btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.94rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .coming-soon-content {
+        padding: 1.25rem;
+    }
+
+    .coming-soon-icon {
+        margin-bottom: 1rem;
+    }
+
+    .coming-soon-icon svg {
+        width: 48px;
+        height: 48px;
+    }
+
+    .coming-soon-title {
+        font-size: 1.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .coming-soon-message {
+        font-size: 0.94rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .coming-soon-notify-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .coming-soon-content,
+    .coming-soon-icon,
+    .pattern-line {
+        animation: none;
+    }
+
+    .coming-soon-notify-btn:hover {
+        transform: none;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .coming-soon-cover {
+        display: none;
+    }
+}

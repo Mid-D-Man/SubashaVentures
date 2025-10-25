@@ -1,0 +1,58 @@
+<div class="global-backdrop @(IsVisible ? "visible" : "") @Variant.ToString().ToLower()"
+     @onclick="HandleBackdropClick">
+    @if (ShowSpinner)
+    {
+        <div class="backdrop-spinner-container">
+            <div class="backdrop-spinner"></div>
+            @if (!string.IsNullOrEmpty(SpinnerText))
+            {
+                <p class="backdrop-spinner-text">@SpinnerText</p>
+            }
+        </div>
+    }
+
+    @if (ChildContent != null)
+    {
+        <div class="backdrop-content" @onclick:stopPropagation="true">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public bool ShowSpinner { get; set; }
+    [Parameter] public string SpinnerText { get; set; } = "";
+    [Parameter] public BackdropVariant Variant { get; set; } = BackdropVariant.Dark;
+    [Parameter] public bool AllowClickThrough { get; set; } = false;
+    [Parameter] public EventCallback OnBackdropClick { get; set; }
+
+    public enum BackdropVariant
+    {
+        Dark,
+        Light,
+        Blur,
+        Transparent
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        if (!AllowClickThrough && OnBackdropClick.HasDelegate)
+        {
+            await OnBackdropClick.InvokeAsync();
+        }
+    }
+
+    public void Show()
+    {
+        IsVisible = true;
+        StateHasChanged();
+    }
+
+    public void Hide()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+}

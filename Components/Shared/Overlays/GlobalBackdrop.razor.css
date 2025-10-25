@@ -1,0 +1,130 @@
+/* ===== GLOBAL BACKDROP ===== */
+.global-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9997;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.global-backdrop.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Variants */
+.global-backdrop.dark {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.global-backdrop.light {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.global-backdrop.blur {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.global-backdrop.transparent {
+    background: transparent;
+    pointer-events: none;
+}
+
+.global-backdrop.transparent .backdrop-content {
+    pointer-events: auto;
+}
+
+/* Spinner Container */
+.backdrop-spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.backdrop-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top-color: var(--primary-color, #96994A);
+    border-radius: 50%;
+    animation: backdropSpin 1s linear infinite;
+}
+
+@keyframes backdropSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.backdrop-spinner-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: white;
+    margin: 0;
+    text-align: center;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Content */
+.backdrop-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: auto;
+}
+
+/* Dark Theme */
+[data-theme="dark"] .global-backdrop.dark {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .global-backdrop.light {
+    background: rgba(30, 30, 30, 0.9);
+}
+
+[data-theme="dark"] .backdrop-spinner {
+    border-color: rgba(184, 187, 106, 0.2);
+    border-top-color: var(--primary-color, #B8BB6A);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .backdrop-spinner {
+        width: 50px;
+        height: 50px;
+        border-width: 3px;
+    }
+
+    .backdrop-spinner-text {
+        font-size: 0.94rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .backdrop-spinner {
+        width: 44px;
+        height: 44px;
+    }
+
+    .backdrop-spinner-text {
+        font-size: 0.88rem;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .global-backdrop {
+        transition: none;
+    }
+
+    .backdrop-spinner {
+        animation: none;
+        border-top-color: transparent;
+        border-color: var(--primary-color, #96994A);
+    }
+}

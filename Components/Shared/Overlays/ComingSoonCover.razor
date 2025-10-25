@@ -1,0 +1,87 @@
+<div class="coming-soon-cover @(IsActive ? "active" : "") @CoverStyle.ToString().ToLower()">
+    <div class="coming-soon-pattern">
+        @for (int i = 0; i < 50; i++)
+        {
+            <div class="pattern-line" style="--delay: @(i * 0.05)s"></div>
+        }
+    </div>
+
+    <div class="coming-soon-content">
+        <div class="coming-soon-icon">
+            @GetIconSvg()
+        </div>
+        
+        <h2 class="coming-soon-title">@Title</h2>
+        
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <p class="coming-soon-message">@Message</p>
+        }
+
+        @if (ShowNotifyButton)
+        {
+            <button class="coming-soon-notify-btn" @onclick="HandleNotifyClick">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 5V10L13 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span>@NotifyButtonText</span>
+            </button>
+        }
+
+        @if (ChildContent != null)
+        {
+            <div class="coming-soon-custom">
+                @ChildContent
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool IsActive { get; set; } = true;
+    [Parameter] public string Title { get; set; } = "Coming Soon";
+    [Parameter] public string Message { get; set; } = "We're working hard to bring you this feature.";
+    [Parameter] public CoverStyleType CoverStyle { get; set; } = CoverStyleType.Diagonal;
+    [Parameter] public IconType IconType { get; set; } = IconType.Rocket;
+    [Parameter] public bool ShowNotifyButton { get; set; } = false;
+    [Parameter] public string NotifyButtonText { get; set; } = "Notify Me";
+    [Parameter] public EventCallback OnNotifyClick { get; set; }
+
+    public enum CoverStyleType
+    {
+        Diagonal,
+        Horizontal,
+        Vertical,
+        Grid
+    }
+
+    public enum IconType
+    {
+        Rocket,
+        Clock,
+        Tools,
+        Star
+    }
+
+    private async Task HandleNotifyClick()
+    {
+        if (OnNotifyClick.HasDelegate)
+        {
+            await OnNotifyClick.InvokeAsync();
+        }
+    }
+
+    private RenderFragment GetIconSvg() => builder =>
+    {
+        var svg = IconType switch
+        {
+            IconType.Rocket => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M32 8L40 24L56 32L40 40L32 56L24 40L8 32L24 24L32 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><circle cx=""32"" cy=""32"" r=""6"" stroke=""currentColor"" stroke-width=""3""/></svg>",
+            IconType.Clock => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><circle cx=""32"" cy=""32"" r=""24"" stroke=""currentColor"" stroke-width=""3""/><path d=""M32 16V32L42 42"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
+            IconType.Tools => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M14 28L28 14L36 22L22 36L14 28Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><path d=""M28 42L42 28L50 36L36 50L28 42Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
+            _ => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M32 8L38 26L56 32L38 38L32 56L26 38L8 32L26 26L32 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>"
+        };
+        builder.AddMarkupContent(0, svg);
+    };
+}

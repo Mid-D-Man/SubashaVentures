@@ -1,51 +1,16 @@
 @inherits LayoutComponentBase
+@using SubashaVentures.Layout.Admin
 
 <div class="admin-layout">
-    <!-- Sidebar Navigation -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-header">
-            <span class="admin-logo">SV Admin</span>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <a href="admin" class="nav-item @(IsActive("admin"))">
-                <span class="nav-icon">📊</span>
-                <span class="nav-label">Dashboard</span>
-            </a>
-            
-            <a href="admin/products" class="nav-item @(IsActive("admin/products"))">
-                <span class="nav-icon">📦</span>
-                <span class="nav-label">Products</span>
-            </a>
-            
-            <a href="admin/orders" class="nav-item @(IsActive("admin/orders"))">
-                <span class="nav-icon">🛒</span>
-                <span class="nav-label">Orders</span>
-            </a>
-            
-            <a href="admin/users" class="nav-item @(IsActive("admin/users"))">
-                <span class="nav-icon">👥</span>
-                <span class="nav-label">Users</span>
-            </a>
-            
-            <a href="admin/sales" class="nav-item @(IsActive("admin/sales"))">
-                <span class="nav-icon">💰</span>
-                <span class="nav-label">Sales</span>
-            </a>
-            
-            <a href="admin/settings" class="nav-item @(IsActive("admin/settings"))">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-label">Settings</span>
-            </a>
-        </nav>
-        
-        <div class="sidebar-footer">
-            <a href="" class="nav-item">
-                <span class="nav-icon">🏠</span>
-                <span class="nav-label">Back to Store</span>
-            </a>
-        </div>
-    </aside>
+    <!-- Navigation Menu -->
+    <AdminNavMenu @ref="navMenu" />
+    
+    <!-- Mobile Menu Toggle Button -->
+    <button class="mobile-menu-toggle" @onclick="OpenMobileMenu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 6H21M3 12H21M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+    </button>
 
     <!-- Main Content Area -->
     <div class="admin-main">
@@ -56,9 +21,19 @@
             </div>
             
             <div class="header-right">
-                <button class="header-btn notifications">
-                    <span class="btn-icon">🔔</span>
-                    <span class="badge">3</span>
+                <button class="header-btn search-btn" title="Search">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M14 14L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+                
+                <button class="header-btn notifications-btn" title="Notifications">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M15 7C15 5.67392 14.4732 4.40215 13.5355 3.46447C12.5979 2.52678 11.3261 2 10 2C8.67392 2 7.40215 2.52678 6.46447 3.46447C5.52678 4.40215 5 5.67392 5 7C5 13 2 15 2 15H18C18 15 15 13 15 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M11.5 18C11.3019 18.3031 11.0239 18.5547 10.6921 18.7295C10.3604 18.9044 9.98574 18.9965 9.60499 18.9965C9.22424 18.9965 8.84963 18.9044 8.51785 18.7295C8.18607 18.5547 7.90814 18.3031 7.71 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="notification-dot"></span>
                 </button>
                 
                 <div class="admin-user">
@@ -77,10 +52,10 @@
 
 @code {
     private string PageTitle = "Dashboard";
-    
-    private string IsActive(string path)
+    private AdminNavMenu? navMenu;
+
+    private void OpenMobileMenu()
     {
-        // Simple active state - in real app use NavigationManager
-        return ""; // Return "active" if current page matches
+        navMenu?.OpenMobileNav();
     }
 }
