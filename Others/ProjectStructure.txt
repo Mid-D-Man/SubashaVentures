@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Fri Oct 24 14:24:26 UTC 2025
+Generated: Sat Oct 25 01:57:14 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: bd72cfac1fe64137766133018b7c12818bdee2aa
+Commit: f9e3474f83c7f7b2e14f3f58a4cabd83e0004dcd
 Branch: master
 ==================================
 
@@ -21,9 +21,17 @@ Components/Shared/Cards/ProductCard.razor
 Components/Shared/Cards/ProductCard.razor.css
 Components/Shared/Forms/InputField.razor
 Components/Shared/Forms/InputField.razor.css
+Components/Shared/Modals/DynamicModal.razor
+Components/Shared/Modals/DynamicModal.razor.cs
+Components/Shared/Modals/DynamicModal.razor.css
 Components/Shared/Modals/InfoPopup.razor
+Components/Shared/Modals/InfoPopup.razor.css
 Components/Shared/Notifications/NotificationComponent.razor
 Components/Shared/Notifications/NotificationComponent.razor.css
+Components/Shared/Overlays/ComingSoonCover.razor
+Components/Shared/Overlays/ComingSoonCover.razor.css
+Components/Shared/Overlays/GlobalBackdrop.razor
+Components/Shared/Overlays/GlobalBackdrop.razor.css
 Domain/Activity/NotificationViewModel.cs
 Domain/Cart/CartItemViewModel.cs
 Domain/Cart/CartSummaryViewModel.cs
@@ -46,6 +54,7 @@ Domain/ValueObjects/SystemData.cs
 Layout/Admin/AdminLayout.razor
 Layout/Admin/AdminNavMenu.razor
 Layout/Admin/AdminNavMenu.razor.cs
+Layout/Admin/AdminNavMenu.razor.css
 Layout/Admin/Adminlayout.razor.css
 Layout/Auth/AuthLayout.razor
 Layout/Auth/AuthLayout.razor.css
@@ -142,6 +151,7 @@ wwwroot/css/colors.css
 wwwroot/css/loading.css
 wwwroot/css/responsive.css
 wwwroot/index.html
+wwwroot/js/adminNavMenu.js
 wwwroot/js/connectivityServices.js
 wwwroot/js/firebaseSetup.js
 wwwroot/js/firestoreModule.js
@@ -167,6 +177,7 @@ Directory Structure:
 ./    Forms
 ./    Modals
 ./    Notifications
+./    Overlays
 ./Domain
 ./  Activity
 ./  Cart
@@ -214,11 +225,11 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 64 files
-.razor    : 31 files
+.cs       : 65 files
+.razor    : 34 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
-.css      : 30 files
-.js       : 7 files
+.css      : 35 files
+.js       : 8 files
 .html     : 1 files
