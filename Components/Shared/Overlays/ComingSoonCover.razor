@@ -1,4 +1,4 @@
-<div class="coming-soon-cover @(IsActive ? "active" : "") @CoverStyle.ToString().ToLower()">
+<div class="coming-soon-cover @(IsActive ? "active" : "") @CoverPattern.ToString().ToLower()">
     <div class="coming-soon-pattern">
         @for (int i = 0; i < 50; i++)
         {
@@ -43,13 +43,14 @@
     [Parameter] public bool IsActive { get; set; } = true;
     [Parameter] public string Title { get; set; } = "Coming Soon";
     [Parameter] public string Message { get; set; } = "We're working hard to bring you this feature.";
-    [Parameter] public CoverStyleType CoverStyle { get; set; } = CoverStyleType.Diagonal;
-    [Parameter] public IconType IconType { get; set; } = IconType.Rocket;
+    [Parameter] public CoverPatternType CoverPattern { get; set; } = CoverPatternType.Diagonal;
+    [Parameter] public CoverIconType Icon { get; set; } = CoverIconType.Rocket;
     [Parameter] public bool ShowNotifyButton { get; set; } = false;
     [Parameter] public string NotifyButtonText { get; set; } = "Notify Me";
     [Parameter] public EventCallback OnNotifyClick { get; set; }
 
-    public enum CoverStyleType
+    // Renamed enums to avoid conflicts with other components
+    public enum CoverPatternType
     {
         Diagonal,
         Horizontal,
@@ -57,7 +58,7 @@
         Grid
     }
 
-    public enum IconType
+    public enum CoverIconType
     {
         Rocket,
         Clock,
@@ -75,11 +76,11 @@
 
     private RenderFragment GetIconSvg() => builder =>
     {
-        var svg = IconType switch
+        var svg = Icon switch
         {
-            IconType.Rocket => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M32 8L40 24L56 32L40 40L32 56L24 40L8 32L24 24L32 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><circle cx=""32"" cy=""32"" r=""6"" stroke=""currentColor"" stroke-width=""3""/></svg>",
-            IconType.Clock => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><circle cx=""32"" cy=""32"" r=""24"" stroke=""currentColor"" stroke-width=""3""/><path d=""M32 16V32L42 42"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
-            IconType.Tools => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M14 28L28 14L36 22L22 36L14 28Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><path d=""M28 42L42 28L50 36L36 50L28 42Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
+            CoverIconType.Rocket => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M32 8L40 24L56 32L40 40L32 56L24 40L8 32L24 24L32 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><circle cx=""32"" cy=""32"" r=""6"" stroke=""currentColor"" stroke-width=""3""/></svg>",
+            CoverIconType.Clock => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><circle cx=""32"" cy=""32"" r=""24"" stroke=""currentColor"" stroke-width=""3""/><path d=""M32 16V32L42 42"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
+            CoverIconType.Tools => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M14 28L28 14L36 22L22 36L14 28Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/><path d=""M28 42L42 28L50 36L36 50L28 42Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
             _ => @"<svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none""><path d=""M32 8L38 26L56 32L38 38L32 56L26 38L8 32L26 26L32 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>"
         };
         builder.AddMarkupContent(0, svg);
