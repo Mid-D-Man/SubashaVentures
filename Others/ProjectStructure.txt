@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Oct 25 18:18:46 UTC 2025
+Generated: Sat Oct 25 18:19:21 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 3071f55d09fca790e0b905653bac8bb3b78e0683
+Commit: b177b65152ef5896e55710499c0ea5449a500a49
 Branch: master
 ==================================
 
@@ -32,9 +32,9 @@ Components/Shared/Overlays/ComingSoonCover.razor
 Components/Shared/Overlays/ComingSoonCover.razor.css
 Components/Shared/Overlays/GlobalBackdrop.razor
 Components/Shared/Overlays/GlobalBackdrop.razor.css
-Components/Shared/Popups/ImageSelectionPopup.razor.css
 Components/Shared/Popups/ImageSelectorPopup.razor
 Components/Shared/Popups/ImageSelectorPopup.razor.cs
+Components/Shared/Popups/ImageSelectorPopup.razor.css
 Domain/Activity/NotificationViewModel.cs
 Domain/Cart/CartItemViewModel.cs
 Domain/Cart/CartSummaryViewModel.cs
