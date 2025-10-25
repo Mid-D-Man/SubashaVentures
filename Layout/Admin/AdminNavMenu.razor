@@ -38,14 +38,14 @@
 
     <!-- Navigation Items -->
     <div class="nav-items">
-        @foreach (var section in NavigationSections)
+        @foreach (var navSection in NavigationSections)
         {
-            @if (!string.IsNullOrEmpty(section.Title) && isExpanded)
+            @if (!string.IsNullOrEmpty(navSection.Title) && isExpanded)
             {
-                <div class="nav-section-title">@section.Title</div>
+                <div class="nav-section-title">@navSection.Title</div>
             }
 
-            @foreach (var item in section.Items)
+            @foreach (var item in navSection.Items)
             {
                 @if (item.Children?.Any() == true)
                 {
