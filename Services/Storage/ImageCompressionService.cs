@@ -1,27 +1,22 @@
-// Services/Storage/IImageCompressionService.cs & Implementation
 using System.Text;
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
-using System.Linq;
-namespace SubashaVentures.Services.Storage;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
-// ===== IMPLEMENTATION =====
+namespace SubashaVentures.Services.Storage;
 
 /// <summary>
 /// Image compression service implementation using native streams
-/// NOTE: For WASM/.NET 7 without external image libraries, consider:
-/// 1. Using Hosted API for image processing
-/// 2. Using Sharp.js via JS interop
-/// 3. Using Client-side compression before upload
+/// For WASM/.NET 7, uses JS interop with Sharp.js for compression
+/// Falls back to uncompressed if JS not available
 /// </summary>
 public class ImageCompressionService : IImageCompressionService
 {
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<ImageCompressionService> _logger;
     
-    // Maximum file sizes (Supabase Storage limits)
-    private const long MaxFileSizeBytes = 50 * 1024 * 1024; // 50 MB per file
-    private const long BucketStorageLimit = 100 * 1024 * 1024 * 1024; // 100 GB per bucket (varies by plan)
+    // Maximum file sizes
+    private const long MaxFileSizeBytes = 50L * 1024L * 1024L; // 50 MB
     
     // Supported formats
     private static readonly HashSet<string> SupportedFormats = new()
@@ -46,10 +41,17 @@ public class ImageCompressionService : IImageCompressionService
         {
             var originalSize = imageStream.Length;
             
-            // For WASM, we'll use JS interop for compression
-            // This requires sharp.js library
-            var base64 = StreamToBase64(imageStream);
-            var mimeType = DetectImageFormat(imageStream) ?? "image/jpeg";
+            // Convert stream to byte array then to base64
+            byte[] imageBytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                imageStream.Position = 0;
+                await imageStream.CopyToAsync(memoryStream);
+                imageBytes = memoryStream.ToArray();
+            }
+            
+            var base64 = Convert.ToBase64String(imageBytes);
+            var mimeType = DetectImageFormat(imageBytes) ?? "image/jpeg";
             
             try
             {
@@ -66,16 +68,25 @@ public class ImageCompressionService : IImageCompressionService
                     ? (float)(originalSize - result.CompressedSize) / originalSize 
                     : 0;
                 
+                // Convert base64 back to stream
+                if (!string.IsNullOrEmpty(result.Base64Data))
+                {
+                    var compressedBytes = Convert.FromBase64String(result.Base64Data);
+                    result.CompressedStream = new MemoryStream(compressedBytes);
+                }
+                
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("JS image compression not available, returning original");
+                MID_HelperFunctions.DebugMessage(
+                    "JS image compression not available, returning original",
+                    LogLevel.Warning);
                 
                 return new ImageCompressionResult
                 {
                     Success = true,
-                    CompressedStream = new MemoryStream(imageStream.ToArray()),
+                    CompressedStream = new MemoryStream(imageBytes),
                     OriginalSize = originalSize,
                     CompressedSize = originalSize,
                     CompressionRatio = 0,
@@ -85,7 +96,7 @@ public class ImageCompressionService : IImageCompressionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error compressing image");
+            MID_HelperFunctions.LogException(ex, "Error compressing image");
             return new ImageCompressionResult
             {
                 Success = false,
@@ -113,7 +124,7 @@ public class ImageCompressionService : IImageCompressionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error converting compressed image to base64");
+            MID_HelperFunctions.LogException(ex, "Error converting compressed image to base64");
             throw;
         }
     }
@@ -140,13 +151,15 @@ public class ImageCompressionService : IImageCompressionService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("JS image dimension detection not available");
+                MID_HelperFunctions.DebugMessage(
+                    "JS image dimension detection not available",
+                    LogLevel.Warning);
                 return null;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting image dimensions");
+            MID_HelperFunctions.LogException(ex, "Error getting image dimensions");
             return null;
         }
     }
@@ -160,14 +173,14 @@ public class ImageCompressionService : IImageCompressionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error converting base64 to stream");
+            MID_HelperFunctions.LogException(ex, "Error converting base64 to stream");
             throw;
         }
     }
 
     public ImageValidationResult ValidateImage(
         Stream imageStream,
-        long maxSizeBytes = 50 * 1024 * 1024)
+        long maxSizeBytes = 50L * 1024L * 1024L)
     {
         try
         {
@@ -184,8 +197,19 @@ public class ImageCompressionService : IImageCompressionService
                 };
             }
 
+            // Convert stream to byte array for format detection
+            byte[] headerBytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                imageStream.Position = 0;
+                imageStream.CopyTo(memoryStream);
+                var allBytes = memoryStream.ToArray();
+                headerBytes = allBytes.Take(8).ToArray();
+                imageStream.Position = 0;
+            }
+
             // Check format by reading header
-            var format = DetectImageFormat(imageStream);
+            var format = DetectImageFormat(headerBytes);
             
             if (format == null || !SupportedFormats.Contains(format))
             {
@@ -206,7 +230,7 @@ public class ImageCompressionService : IImageCompressionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating image");
+            MID_HelperFunctions.LogException(ex, "Error validating image");
             return new ImageValidationResult
             {
                 IsValid = false,
@@ -225,14 +249,12 @@ public class ImageCompressionService : IImageCompressionService
         }
     }
 
-    private string? DetectImageFormat(Stream stream)
+    private string? DetectImageFormat(byte[] buffer)
     {
         try
         {
-            stream.Position = 0;
-            var buffer = new byte[8];
-            stream.Read(buffer, 0, 8);
-            stream.Position = 0;
+            if (buffer.Length < 8)
+                return null;
 
             // JPEG
             if (buffer[0] == 0xFF && buffer[1] == 0xD8)

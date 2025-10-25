@@ -24,6 +24,7 @@ public enum LogLevel
 /// </summary>
 public interface IMid_Logger
 {
+    void Initialize(ILogger? logger = null, IJSRuntime? jsRuntime = null);
     void Log(string message, LogLevel level = LogLevel.Debug);
     Task LogAsync(string message, LogLevel level = LogLevel.Debug);
 
