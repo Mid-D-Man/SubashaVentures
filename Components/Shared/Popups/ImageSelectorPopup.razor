@@ -1,0 +1,337 @@
+@* Components/Shared/Popups/ImageSelectorPopup.razor *@
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+
+<div class="image-selector-overlay @(IsOpen ? "open" : "")" @onclick="HandleOverlayClick">
+    <div class="image-selector-popup @(IsOpen ? "open" : "")" @onclick:stopPropagation="true">
+        
+        <!-- Header -->
+        <div class="isp-header">
+            <div class="isp-header-left">
+                <h2 class="isp-title">
+                    @(AllowMultiple ? "Select Images" : "Select Image")
+                </h2>
+                <p class="isp-subtitle">
+                    @if (SelectedImages.Count > 0)
+                    {
+                        <span>@SelectedImages.Count selected</span>
+                    }
+                    else
+                    {
+                        <span>Choose from your media library</span>
+                    }
+                </p>
+            </div>
+            <button class="isp-close" @onclick="Close" title="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="isp-toolbar">
+            <div class="isp-filters">
+                <select class="isp-select" @onchange="HandleFolderFilter">
+                    <option value="">All Folders</option>
+                    <option value="products">Products</option>
+                    <option value="products/mens">Men's Fashion</option>
+                    <option value="products/womens">Women's Fashion</option>
+                    <option value="products/children">Children's</option>
+                    <option value="products/baby">Baby & Toddler</option>
+                    <option value="products/home">Home & Living</option>
+                    <option value="banners">Banners</option>
+                    <option value="categories">Categories</option>
+                </select>
+
+                <InputField @bind-Value="searchQuery"
+                           Placeholder="Search images..."
+                           PrefixIcon="🔍"
+                           ShowClearButton="true"
+                           Size="InputField.InputSize.Small"
+                           CssClass="isp-search" />
+            </div>
+
+            <div class="isp-view-controls">
+                @if (!AllowMultiple && SelectedImages.Count > 0)
+                {
+                    <button class="clear-selection" @onclick="ClearSelection">
+                        Clear Selection
+                    </button>
+                }
+                <button class="view-toggle-btn @(viewSize == "small" ? "active" : "")" 
+                        @onclick="@(() => viewSize = "small")">
+                    ▦▦
+                </button>
+                <button class="view-toggle-btn @(viewSize == "medium" ? "active" : "")" 
+                        @onclick="@(() => viewSize = "medium")">
+                    ▦
+                </button>
+                <button class="view-toggle-btn @(viewSize == "large" ? "active" : "")" 
+                        @onclick="@(() => viewSize = "large")">
+                    ▢
+                </button>
+            </div>
+        </div>
+
+        <!-- Image Grid -->
+        <div class="isp-content">
+            @if (isLoading)
+            {
+                <div class="isp-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading images...</p>
+                </div>
+            }
+            else if (!filteredImages.Any())
+            {
+                <div class="isp-empty">
+                    <div class="empty-icon">🖼️</div>
+                    <h3>No images found</h3>
+                    <p>@(string.IsNullOrEmpty(searchQuery) ? "No images available in this folder" : "Try adjusting your search")</p>
+                </div>
+            }
+            else
+            {
+                <div class="isp-grid @viewSize">
+                    @foreach (var image in filteredImages)
+                    {
+                        var isSelected = SelectedImages.Contains(image.Url);
+                        
+                        <div class="isp-image-card @(isSelected ? "selected" : "")"
+                             @onclick="@(() => HandleImageSelect(image))">
+                            
+                            @if (AllowMultiple || isSelected)
+                            {
+                                <div class="selection-indicator">
+                                    @if (isSelected)
+                                    {
+                                        <span class="check-icon">✓</span>
+                                    }
+                                </div>
+                            }
+
+                            <div class="isp-image-wrapper">
+                                <img src="@image.ThumbnailUrl" 
+                                     alt="@image.FileName"
+                                     loading="lazy" />
+                            </div>
+
+                            <div class="isp-image-info">
+                                <span class="isp-image-name" title="@image.FileName">
+                                    @image.FileName
+                                </span>
+                                <span class="isp-image-meta">
+                                    @image.Dimensions • @image.FormattedSize
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="isp-footer">
+            <div class="isp-footer-info">
+                @if (SelectedImages.Count > 0)
+                {
+                    <span class="selected-count">
+                        @SelectedImages.Count image@(SelectedImages.Count != 1 ? "s" : "") selected
+                    </span>
+                }
+            </div>
+            <div class="isp-footer-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                Size="SecondaryButton.ButtonSize.Medium"
+                                OnClick="Close">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton Size="PrimaryButton.ButtonSize.Medium"
+                              OnClick="HandleConfirm"
+                              IsDisabled="@(SelectedImages.Count == 0)">
+                    @(AllowMultiple ? $"Select {SelectedImages.Count}" : "Select Image")
+                </PrimaryButton>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public bool AllowMultiple { get; set; } = true;
+    [Parameter] public int MaxSelection { get; set; } = 10;
+    [Parameter] public List<string> PreSelectedUrls { get; set; } = new();
+    [Parameter] public EventCallback<List<string>> OnImagesSelected { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool isLoading = false;
+    private string searchQuery = "";
+    private string selectedFolder = "";
+    private string viewSize = "medium";
+    
+    private List<string> SelectedImages = new();
+    private List<ImageInfo> allImages = new();
+    private List<ImageInfo> filteredImages = new();
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && PreSelectedUrls.Any())
+        {
+            SelectedImages = new List<string>(PreSelectedUrls);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadImages();
+    }
+
+    private async Task LoadImages()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        // TODO: Load from service
+        // For now, mock data
+        await Task.Delay(500);
+        
+        allImages = GenerateMockImages();
+        ApplyFilters();
+        
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredImages = allImages
+            .Where(img => 
+                (string.IsNullOrEmpty(selectedFolder) || img.Folder == selectedFolder) &&
+                (string.IsNullOrEmpty(searchQuery) || 
+                 img.FileName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    private void HandleFolderFilter(ChangeEventArgs e)
+    {
+        selectedFolder = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
+    private void HandleImageSelect(ImageInfo image)
+    {
+        if (!AllowMultiple)
+        {
+            // Single selection mode
+            SelectedImages.Clear();
+            SelectedImages.Add(image.Url);
+        }
+        else
+        {
+            // Multiple selection mode
+            if (SelectedImages.Contains(image.Url))
+            {
+                SelectedImages.Remove(image.Url);
+            }
+            else
+            {
+                if (SelectedImages.Count >= MaxSelection)
+                {
+                    // TODO: Show toast notification
+                    return;
+                }
+                SelectedImages.Add(image.Url);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void ClearSelection()
+    {
+        SelectedImages.Clear();
+        StateHasChanged();
+    }
+
+    private async Task HandleConfirm()
+    {
+        if (SelectedImages.Any() && OnImagesSelected.HasDelegate)
+        {
+            await OnImagesSelected.InvokeAsync(SelectedImages);
+        }
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+        StateHasChanged();
+    }
+
+    private void HandleOverlayClick()
+    {
+        // Close on overlay click
+        _ = Close();
+    }
+
+    // Mock data generator - replace with actual service call
+    private List<ImageInfo> GenerateMockImages()
+    {
+        var images = new List<ImageInfo>();
+        var folders = new[] { "products", "products/mens", "products/womens", "banners" };
+        
+        for (int i = 1; i <= 50; i++)
+        {
+            images.Add(new ImageInfo
+            {
+                Id = $"img_{i}",
+                FileName = $"product_image_{i}.jpg",
+                Url = $"https://picsum.photos/seed/{i}/800/800",
+                ThumbnailUrl = $"https://picsum.photos/seed/{i}/300/300",
+                Folder = folders[i % folders.Length],
+                FileSize = Random.Shared.Next(100000, 5000000),
+                Width = 800,
+                Height = 800,
+                UploadedAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 365))
+            });
+        }
+        
+        return images;
+    }
+
+    public class ImageInfo
+    {
+        public string Id { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string Url { get; set; } = "";
+        public string ThumbnailUrl { get; set; } = "";
+        public string Folder { get; set; } = "";
+        public long FileSize { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public DateTime UploadedAt { get; set; }
+
+        public string Dimensions => $"{Width}x{Height}";
+        
+        public string FormattedSize
+        {
+            get
+            {
+                string[] sizes = { "B", "KB", "MB", "GB" };
+                double len = FileSize;
+                int order = 0;
+                while (len >= 1024 && order < sizes.Length - 1)
+                {
+                    order++;
+                    len = len / 1024;
+                }
+                return $"{len:0.##} {sizes[order]}";
+            }
+        }
+    }
+}
