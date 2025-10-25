@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Oct 25 02:30:22 UTC 2025
+Generated: Sat Oct 25 12:55:40 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 7b4d2eaec4def5383d765b7ee7317be22abfd0ff
+Commit: 0f1fa1d47bfa650ff645d446430daf3462aa20dc
 Branch: master
 ==================================
 
@@ -124,12 +124,18 @@ Services/Firebase/FirestoreService.cs
 Services/Firebase/IFirestoreService.cs
 Services/Navigation/INavigationService.cs
 Services/Navigation/NavigationService.cs
+Services/Products/IProductService.cs
+Services/Products/ProductService.cs
 Services/Storage/BlazorAppLocalStorageService.cs
 Services/Storage/IBlazorAppLocalStorageService.cs
+Services/Storage/IImageCompressionService.cs
+Services/Storage/ImageCompressionService.cs
 Services/Supabase/ISupabaseAuthService.cs
 Services/Supabase/ISupabaseConfigService.cs
+Services/Supabase/ISupabaseStorageService.cs
 Services/Supabase/SupabaseAuthService.cs
 Services/Supabase/SupabaseConfigService.cs
+Services/Supabase/SupabaseStorageService.cs
 Services/Time/IServerTimeService.cs
 Services/Time/ServerTimeService.cs
 Services/VisualElements/IThemeServce.cs
@@ -139,6 +145,7 @@ Utilities/Configuration/ConfigurationHelper.cs
 Utilities/Constants/AppConstants.cs
 Utilities/HelperScripts/JsonHelper.cs
 Utilities/HelperScripts/MID_HelperFunctions.cs
+Utilities/Logging/Mid_Logger.cs
 Utilities/ObjectPooling/MID_ComponentObjectPool.cs
 _Imports.razor
 firebase.json
@@ -155,6 +162,7 @@ wwwroot/js/adminNavMenu.js
 wwwroot/js/connectivityServices.js
 wwwroot/js/firebaseSetup.js
 wwwroot/js/firestoreModule.js
+wwwroot/js/imageCompressor.js
 wwwroot/js/loading.js
 wwwroot/js/theme.js
 wwwroot/manifest.json
@@ -210,6 +218,7 @@ Directory Structure:
 ./  Connectivity
 ./  Firebase
 ./  Navigation
+./  Products
 ./  Storage
 ./  Supabase
 ./  Time
@@ -218,6 +227,7 @@ Directory Structure:
 ./  Configuration
 ./  Constants
 ./  HelperScripts
+./  Logging
 ./  ObjectPooling
 ./wwwroot
 ./  css
@@ -225,11 +235,11 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 65 files
+.cs       : 72 files
 .razor    : 34 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
 .css      : 35 files
-.js       : 8 files
+.js       : 9 files
 .html     : 1 files
