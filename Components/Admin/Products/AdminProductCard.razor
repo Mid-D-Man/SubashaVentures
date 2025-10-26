@@ -1,0 +1,319 @@
+@* Components/Admin/Products/AdminProductCard.razor *@
+@using SubashaVentures.Domain.Product
+@using SubashaVentures.Domain.Enums
+@using SubashaVentures.Components.Shared.Buttons
+
+<div class="admin-product-card @CssClass @(IsSelected ? "selected" : "")" 
+     @onclick="HandleCardClick"
+     @onmouseenter="() => isHovered = true"
+     @onmouseleave="() => isHovered = false">
+    
+    <!-- Selection Checkbox -->
+    @if (AllowSelection)
+    {
+        <input type="checkbox" 
+               class="product-checkbox"
+               checked="@IsSelected"
+               @onclick:stopPropagation="true"
+               @onchange="HandleSelectionChange" />
+    }
+
+    <!-- Product Image -->
+    <div class="product-image-section">
+        @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
+        {
+            <img src="@Product.Images.First()" 
+                 alt="@Product.Name" 
+                 class="product-image"
+                 loading="lazy" />
+        }
+        else
+        {
+            <div class="product-image-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8.5 10C9.32843 10 10 9.32843 10 8.5C10 7.67157 9.32843 7 8.5 7C7.67157 7 7 7.67157 7 8.5C7 9.32843 7.67157 10 8.5 10Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        }
+        
+        <!-- Status Badges -->
+        <div class="product-badges">
+            @if (Product.IsFeatured)
+            {
+                <span class="badge featured" title="Featured Product">⭐</span>
+            }
+            @if (Product.IsOnSale)
+            {
+                <span class="badge sale" title="On Sale">🔥 @Product.Discount%</span>
+            }
+            @if (!Product.IsActive)
+            {
+                <span class="badge inactive" title="Inactive">⏸️</span>
+            }
+            @if (Product.Stock <= 0)
+            {
+                <span class="badge out-of-stock" title="Out of Stock">📦</span>
+            }
+            else if (Product.Stock <= LowStockThreshold)
+            {
+                <span class="badge low-stock" title="Low Stock">⚠️</span>
+            }
+        </div>
+
+        <!-- Quick Actions Overlay -->
+        <div class="quick-actions @(isHovered ? "visible" : "")">
+            <button class="action-btn preview" 
+                    @onclick="HandlePreview"
+                    @onclick:stopPropagation="true"
+                    title="Quick Preview">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            
+            <button class="action-btn edit" 
+                    @onclick="HandleEdit"
+                    @onclick:stopPropagation="true"
+                    title="Edit Product">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18.5 2.49998C18.8978 2.10216 19.4374 1.87866 20 1.87866C20.5626 1.87866 21.1022 2.10216 21.5 2.49998C21.8978 2.89781 22.1213 3.43737 22.1213 3.99998C22.1213 4.56259 21.8978 5.10216 21.5 5.49998L12 15L8 16L9 12L18.5 2.49998Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            
+            <button class="action-btn duplicate" 
+                    @onclick="HandleDuplicate"
+                    @onclick:stopPropagation="true"
+                    title="Duplicate Product">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 15H4C3.46957 15 2.96086 14.7893 2.58579 14.4142C2.21071 14.0391 2 13.5304 2 13V4C2 3.46957 2.21071 2.96086 2.58579 2.58579C2.96086 2.21071 3.46957 2 4 2H13C13.5304 2 14.0391 2.21071 14.4142 2.58579C14.7893 2.96086 15 3.46957 15 4V5" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            
+            <button class="action-btn delete" 
+                    @onclick="HandleDelete"
+                    @onclick:stopPropagation="true"
+                    title="Delete Product">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Product Info -->
+    <div class="product-info-section">
+        <div class="product-header">
+            <h3 class="product-name" title="@Product.Name">@Product.Name</h3>
+            <span class="product-sku">SKU: @Product.Sku</span>
+        </div>
+
+        <div class="product-category">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" 
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>@Product.Category</span>
+        </div>
+
+        <div class="product-pricing">
+            @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+            {
+                <span class="price-original">₦@Product.OriginalPrice.Value.ToString("N0")</span>
+                <span class="price-current sale">₦@Product.Price.ToString("N0")</span>
+            }
+            else
+            {
+                <span class="price-current">₦@Product.Price.ToString("N0")</span>
+            }
+        </div>
+
+        <div class="product-meta">
+            <div class="meta-item stock @GetStockClass()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 16V8C20.9996 7.64927 20.9071 7.30481 20.7315 7.00116C20.556 6.69751 20.3037 6.44536 20 6.27L13 2.27C12.696 2.09446 12.3511 2.00205 12 2.00205C11.6489 2.00205 11.304 2.09446 11 2.27L4 6.27C3.69626 6.44536 3.44398 6.69751 3.26846 7.00116C3.09294 7.30481 3.00036 7.64927 3 8V16C3.00036 16.3507 3.09294 16.6952 3.26846 16.9988C3.44398 17.3025 3.69626 17.5546 4 17.73L11 21.73C11.304 21.9055 11.6489 21.9979 12 21.9979C12.3511 21.9979 12.696 21.9055 13 21.73L20 17.73C20.3037 17.5546 20.556 17.3025 20.7315 16.9988C20.9071 16.6952 20.9996 16.3507 21 16Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3.27002 6.95996L12 12.01L20.73 6.95996" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 22.08V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Stock: @Product.Stock</span>
+            </div>
+
+            <div class="meta-item views">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span>@Product.ViewCount</span>
+            </div>
+
+            <div class="meta-item sales">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 2L3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H19C19.5304 22 20.0391 21.7893 20.4142 21.4142C20.7893 21.0391 21 20.5304 21 20V6L18 2H6Z" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M16 10C16 11.0609 15.5786 12.0783 14.8284 12.8284C14.0783 13.5786 13.0609 14 12 14C10.9391 14 9.92172 13.5786 9.17157 12.8284C8.42143 12.0783 8 11.0609 8 10" 
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>@Product.SalesCount</span>
+            </div>
+
+            @if (Product.Rating > 0)
+            {
+                <div class="meta-item rating">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                    </svg>
+                    <span>@Product.Rating.ToString("F1") (@Product.ReviewCount)</span>
+                </div>
+            }
+        </div>
+
+        <div class="product-dates">
+            <span class="date-created" title="@Product.CreatedAt.ToString("MMMM dd, yyyy HH:mm")">
+                Created: @GetTimeAgo(Product.CreatedAt)
+            </span>
+            @if (Product.UpdatedAt.HasValue)
+            {
+                <span class="date-updated" title="@Product.UpdatedAt.Value.ToString("MMMM dd, yyyy HH:mm")">
+                    Updated: @GetTimeAgo(Product.UpdatedAt.Value)
+                </span>
+            }
+        </div>
+    </div>
+
+    <!-- Product Actions Footer -->
+    <div class="product-actions-footer">
+        <div class="toggle-group">
+            <label class="toggle-switch" title="Active Status">
+                <input type="checkbox" 
+                       checked="@Product.IsActive"
+                       @onchange="HandleToggleActive"
+                       @onclick:stopPropagation="true" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Active</span>
+            </label>
+
+            <label class="toggle-switch" title="Featured">
+                <input type="checkbox" 
+                       checked="@Product.IsFeatured"
+                       @onchange="HandleToggleFeatured"
+                       @onclick:stopPropagation="true" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Featured</span>
+            </label>
+        </div>
+
+        <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                        Variant="SecondaryButton.ButtonVariant.Outline"
+                        OnClick="HandleManageStock"
+                        CssClass="manage-stock-btn">
+            Manage Stock
+        </SecondaryButton>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ProductViewModel Product { get; set; } = new();
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public bool AllowSelection { get; set; } = true;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public int LowStockThreshold { get; set; } = 10;
+    
+    [Parameter] public EventCallback<ProductViewModel> OnEdit { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnDelete { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnDuplicate { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnPreview { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnManageStock { get; set; }
+    [Parameter] public EventCallback<(ProductViewModel product, bool isActive)> OnToggleActive { get; set; }
+    [Parameter] public EventCallback<(ProductViewModel product, bool isFeatured)> OnToggleFeatured { get; set; }
+    [Parameter] public EventCallback<(string productId, bool isSelected)> OnSelectionChanged { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnCardClick { get; set; }
+
+    private bool isHovered = false;
+
+    private async Task HandleEdit(MouseEventArgs e)
+    {
+        if (OnEdit.HasDelegate)
+            await OnEdit.InvokeAsync(Product);
+    }
+
+    private async Task HandleDelete(MouseEventArgs e)
+    {
+        if (OnDelete.HasDelegate)
+            await OnDelete.InvokeAsync(Product);
+    }
+
+    private async Task HandleDuplicate(MouseEventArgs e)
+    {
+        if (OnDuplicate.HasDelegate)
+            await OnDuplicate.InvokeAsync(Product);
+    }
+
+    private async Task HandlePreview(MouseEventArgs e)
+    {
+        if (OnPreview.HasDelegate)
+            await OnPreview.InvokeAsync(Product);
+    }
+
+    private async Task HandleManageStock(MouseEventArgs e)
+    {
+        if (OnManageStock.HasDelegate)
+            await OnManageStock.InvokeAsync(Product);
+    }
+
+    private async Task HandleToggleActive(ChangeEventArgs e)
+    {
+        if (e.Value is bool isActive && OnToggleActive.HasDelegate)
+            await OnToggleActive.InvokeAsync((Product, isActive));
+    }
+
+    private async Task HandleToggleFeatured(ChangeEventArgs e)
+    {
+        if (e.Value is bool isFeatured && OnToggleFeatured.HasDelegate)
+            await OnToggleFeatured.InvokeAsync((Product, isFeatured));
+    }
+
+    private async Task HandleSelectionChange(ChangeEventArgs e)
+    {
+        if (e.Value is bool isSelected && OnSelectionChanged.HasDelegate)
+            await OnSelectionChanged.InvokeAsync((Product.Id, isSelected));
+    }
+
+    private async Task HandleCardClick(MouseEventArgs e)
+    {
+        if (OnCardClick.HasDelegate)
+            await OnCardClick.InvokeAsync(Product);
+    }
+
+    private string GetStockClass()
+    {
+        if (Product.Stock <= 0) return "out-of-stock";
+        if (Product.Stock <= LowStockThreshold) return "low";
+        return "in-stock";
+    }
+
+    private string GetTimeAgo(DateTime date)
+    {
+        var span = DateTime.UtcNow - date;
+        if (span.TotalDays > 365) return $"{(int)(span.TotalDays / 365)}y ago";
+        if (span.TotalDays > 30) return $"{(int)(span.TotalDays / 30)}mo ago";
+        if (span.TotalDays > 1) return $"{(int)span.TotalDays}d ago";
+        if (span.TotalHours > 1) return $"{(int)span.TotalHours}h ago";
+        if (span.TotalMinutes > 1) return $"{(int)span.TotalMinutes}m ago";
+        return "Just now";
+    }
+}
