@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Oct 26 16:56:15 UTC 2025
+Generated: Sun Oct 26 16:57:09 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 8dd5ccfb31697e76657561e0e6f8d25e301b0dd4
+Commit: 4293794f9ca232568bc2dd623dd29a4bd2ecc0ac
 Branch: master
 ==================================
 
@@ -10,6 +10,7 @@ Source Files:
 .github/workflows/deploy.yml
 App.razor
 Components/Admin/Products/AdminProductCard.razor
+Components/Admin/Products/AdminProductCard.razor.css
 Components/Shared/Burgers/BurgerMenu.razor
 Components/Shared/Burgers/BurgerMenu.razor.css
 Components/Shared/Buttons/BrandLogo.razor
@@ -251,6 +252,6 @@ File Count Summary:
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
-.css      : 38 files
+.css      : 39 files
 .js       : 9 files
 .html     : 1 files
