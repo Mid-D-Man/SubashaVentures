@@ -1,0 +1,549 @@
+@page "/admin/products"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Popups
+@using SubashaVentures.Components.Admin.Products
+@using SubashaVentures.Domain.Product
+@layout AdminLayout
+
+<div class="product-management">
+    <!-- Header -->
+    <div class="pm-header">
+        <div class="pm-header-left">
+            <h1 class="pm-title">Product Management</h1>
+            <p class="pm-subtitle">Manage your product catalog</p>
+        </div>
+        <div class="pm-header-right">
+            <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                           Size="SecondaryButton.ButtonSize.Medium"
+                           Icon="⬇"
+                           OnClick="HandleExport">
+                Export
+            </SecondaryButton>
+            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                          Size="PrimaryButton.ButtonSize.Medium"
+                          Icon="➕"
+                          OnClick="OpenCreateProductModal">
+                Add Product
+            </PrimaryButton>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="pm-stats">
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Products</span>
+                <span class="stat-value">@totalProducts</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <span class="stat-label">Active Products</span>
+                <span class="stat-value">@activeProducts</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📉</div>
+            <div class="stat-info">
+                <span class="stat-label">Out of Stock</span>
+                <span class="stat-value">@outOfStockProducts</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-info">
+                <span class="stat-label">Featured</span>
+                <span class="stat-value">@featuredProducts</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="pm-toolbar">
+        <div class="pm-filters">
+            <InputField @bind-Value="searchQuery"
+                       Placeholder="Search products..."
+                       PrefixIcon="🔍"
+                       ShowClearButton="true"
+                       OnBlur="HandleSearch"
+                       CssClass="search-input" />
+
+            <select class="filter-select" @onchange="HandleCategoryFilter">
+                <option value="">All Categories</option>
+                @foreach (var category in categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+
+            <select class="filter-select" @onchange="HandleStockFilter">
+                <option value="">All Stock Status</option>
+                <option value="in-stock">In Stock</option>
+                <option value="low-stock">Low Stock</option>
+                <option value="out-of-stock">Out of Stock</option>
+            </select>
+
+            <select class="filter-select" @onchange="HandleStatusFilter">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="featured">Featured</option>
+                <option value="on-sale">On Sale</option>
+            </select>
+
+            <select class="filter-select" @onchange="HandleSortChange">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name-az">Name (A-Z)</option>
+                <option value="name-za">Name (Z-A)</option>
+                <option value="price-high">Price (High)</option>
+                <option value="price-low">Price (Low)</option>
+                <option value="stock-high">Stock (High)</option>
+                <option value="stock-low">Stock (Low)</option>
+            </select>
+        </div>
+
+        <div class="pm-view-controls">
+            @if (selectedProducts.Any())
+            {
+                <span class="selection-count">@selectedProducts.Count selected</span>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkActivate">
+                    Activate
+                </SecondaryButton>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkDeactivate">
+                    Deactivate
+                </SecondaryButton>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkDelete"
+                                CssClass="btn-danger">
+                    Delete
+                </SecondaryButton>
+            }
+
+            <button class="view-toggle @(viewMode == "grid" ? "active" : "")" 
+                    @onclick="@(() => viewMode = "grid")"
+                    title="Grid View">
+                ▦
+            </button>
+            <button class="view-toggle @(viewMode == "list" ? "active" : "")" 
+                    @onclick="@(() => viewMode = "list")"
+                    title="List View">
+                ☰
+            </button>
+        </div>
+    </div>
+
+    <!-- Content Area -->
+    @if (isLoading)
+    {
+        <div class="pm-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading products...</p>
+        </div>
+    }
+    else if (!filteredProducts.Any())
+    {
+        <div class="pm-empty">
+            <div class="empty-icon">📦</div>
+            <h3>No products found</h3>
+            <p>@(string.IsNullOrEmpty(searchQuery) ? "Start by adding your first product" : "Try adjusting your search or filters")</p>
+            <PrimaryButton OnClick="OpenCreateProductModal">
+                Add Product
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        @if (viewMode == "grid")
+        {
+            <!-- Grid View -->
+            <div class="pm-grid">
+                @foreach (var product in paginatedProducts)
+                {
+                    <AdminProductCard Product="@product"
+                                    AllowSelection="true"
+                                    IsSelected="@selectedProducts.Contains(product.Id)"
+                                    LowStockThreshold="@lowStockThreshold"
+                                    OnEdit="@((p) => OpenEditProductModal(p))"
+                                    OnDelete="@((p) => HandleDeleteProduct(p))"
+                                    OnDuplicate="@((p) => HandleDuplicateProduct(p))"
+                                    OnPreview="@((p) => HandlePreviewProduct(p))"
+                                    OnManageStock="@((p) => OpenStockModal(p))"
+                                    OnToggleActive="@((args) => HandleToggleActive(args.product, args.isActive))"
+                                    OnToggleFeatured="@((args) => HandleToggleFeatured(args.product, args.isFeatured))"
+                                    OnSelectionChanged="@((args) => HandleSelectionChanged(args.productId, args.isSelected))"
+                                    OnCardClick="@((p) => OpenEditProductModal(p))" />
+                }
+            </div>
+        }
+        else
+        {
+            <!-- List View -->
+            <div class="pm-table-container">
+                <table class="pm-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" 
+                                       @onchange="HandleSelectAll"
+                                       checked="@(selectedProducts.Count == paginatedProducts.Count && paginatedProducts.Any())" />
+                            </th>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var product in paginatedProducts)
+                        {
+                            <tr class="@(selectedProducts.Contains(product.Id) ? "selected" : "")">
+                                <td>
+                                    <input type="checkbox"
+                                           checked="@selectedProducts.Contains(product.Id)"
+                                           @onchange="@((e) => HandleSelectionChanged(product.Id, (bool)e.Value))" />
+                                </td>
+                                <td>
+                                    <div class="table-product-info">
+                                        <img src="@product.Images.FirstOrDefault()" alt="@product.Name" />
+                                        <div>
+                                            <span class="product-name">@product.Name</span>
+                                            <span class="product-sku">@product.Sku</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@product.Category</td>
+                                <td>
+                                    @if (product.IsOnSale && product.OriginalPrice.HasValue)
+                                    {
+                                        <div class="price-group">
+                                            <span class="price-original">₦@product.OriginalPrice.Value.ToString("N0")</span>
+                                            <span class="price-sale">₦@product.Price.ToString("N0")</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span>₦@product.Price.ToString("N0")</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="stock-badge @GetStockClass(product.Stock)">
+                                        @product.Stock
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-badge @(product.IsActive ? "active" : "inactive")">
+                                        @(product.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                                <td>@product.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                <td>
+                                    <div class="table-actions">
+                                        <button class="action-btn" @onclick="@(() => OpenEditProductModal(product))" title="Edit">
+                                            ✏️
+                                        </button>
+                                        <button class="action-btn" @onclick="@(() => HandleDuplicateProduct(product))" title="Duplicate">
+                                            📋
+                                        </button>
+                                        <button class="action-btn danger" @onclick="@(() => HandleDeleteProduct(product))" title="Delete">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <!-- Pagination -->
+        <div class="pm-pagination">
+            <div class="pagination-info">
+                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredProducts.Count) of @filteredProducts.Count products
+            </div>
+            <div class="pagination-controls">
+                <button class="page-btn" 
+                        @onclick="PreviousPage" 
+                        disabled="@(currentPage == 1)">
+                    ← Previous
+                </button>
+                
+                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                {
+                    var page = i;
+                    <button class="page-btn @(page == currentPage ? "active" : "")" 
+                            @onclick="@(() => GoToPage(page))">
+                        @page
+                    </button>
+                }
+                
+                <button class="page-btn" 
+                        @onclick="NextPage" 
+                        disabled="@(currentPage == totalPages)">
+                    Next →
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Create/Edit Product Modal -->
+<DynamicModal @ref="productModal"
+              Title="@(isEditMode ? "Edit Product" : "Create Product")"
+              Size="DynamicModal.ModalSize.ExtraLarge"
+              IsOpen="@isProductModalOpen"
+              ShowFooter="false"
+              IsScrollable="true"
+              OnClose="CloseProductModal">
+    <BodyContent>
+        <div class="product-form">
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h3 class="section-title">Basic Information</h3>
+                
+                <InputField @bind-Value="productForm.Name"
+                           Label="Product Name"
+                           Placeholder="Enter product name"
+                           IsRequired="true"
+                           HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
+                           ErrorMessage="@validationErrors.GetValueOrDefault("Name")" />
+
+                <InputField @bind-Value="productForm.Description"
+                           Label="Short Description"
+                           Placeholder="Brief product description"
+                           IsRequired="true" />
+
+                <div class="form-group">
+                    <label class="form-label">Long Description</label>
+                    <textarea class="form-textarea"
+                             @bind="productForm.LongDescription"
+                             placeholder="Detailed product description"
+                             rows="6"></textarea>
+                </div>
+            </div>
+
+            <!-- Pricing -->
+            <div class="form-section">
+                <h3 class="section-title">Pricing</h3>
+                
+                <div class="form-row">
+                    <InputField @bind-Value="priceInput"
+                               Label="Price (₦)"
+                               Placeholder="0.00"
+                               Type="number"
+                               IsRequired="true"
+                               HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")))"
+                               ErrorMessage="@validationErrors.GetValueOrDefault("Price")" />
+
+                    <InputField @bind-Value="originalPriceInput"
+                               Label="Original Price (₦)"
+                               Placeholder="0.00"
+                               Type="number"
+                               HelperText="Leave empty if not on sale" />
+                </div>
+
+                @if (productForm.OriginalPrice.HasValue && productForm.OriginalPrice > productForm.Price)
+                {
+                    <div class="discount-preview">
+                        💰 @CalculateDiscount()% discount - Save ₦@((productForm.OriginalPrice.Value - productForm.Price).ToString("N0"))
+                    </div>
+                }
+            </div>
+
+            <!-- Inventory -->
+            <div class="form-section">
+                <h3 class="section-title">Inventory</h3>
+                
+                <div class="form-row">
+                    <InputField @bind-Value="stockInput"
+                               Label="Stock Quantity"
+                               Placeholder="0"
+                               Type="number"
+                               IsRequired="true" />
+
+                    <InputField @bind-Value="productForm.Sku"
+                               Label="SKU"
+                               Placeholder="PROD-001"
+                               IsRequired="true"
+                               HelperText="Unique product identifier" />
+                </div>
+            </div>
+
+            <!-- Categories & Classification -->
+            <div class="form-section">
+                <h3 class="section-title">Categories & Classification</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Category *</label>
+                        <select class="form-select" @bind="productForm.CategoryId">
+                            <option value="">Select Category</option>
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <InputField @bind-Value="productForm.Brand"
+                               Label="Brand"
+                               Placeholder="Brand name" />
+                </div>
+
+                <InputField @bind-Value="tagsInput"
+                           Label="Tags"
+                           Placeholder="Enter tags separated by commas"
+                           HelperText="e.g., summer, cotton, casual" />
+            </div>
+
+            <!-- Variants -->
+            <div class="form-section">
+                <h3 class="section-title">Product Variants</h3>
+                
+                <InputField @bind-Value="sizesInput"
+                           Label="Available Sizes"
+                           Placeholder="S, M, L, XL, XXL"
+                           HelperText="Enter sizes separated by commas" />
+
+                <InputField @bind-Value="colorsInput"
+                           Label="Available Colors"
+                           Placeholder="Red, Blue, Green"
+                           HelperText="Enter colors separated by commas" />
+            </div>
+
+            <!-- Images -->
+            <div class="form-section">
+                <h3 class="section-title">Product Images</h3>
+                
+                <div class="image-upload-area">
+                    @if (productForm.ImageUrls?.Any() == true)
+                    {
+                        <div class="selected-images">
+                            @foreach (var imageUrl in productForm.ImageUrls)
+                            {
+                                <div class="image-preview">
+                                    <img src="@imageUrl" alt="Product image" />
+                                    <button class="remove-image" 
+                                            @onclick="@(() => RemoveImage(imageUrl))"
+                                            type="button">
+                                        ✕
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                    
+                    <SecondaryButton OnClick="OpenImageSelector"
+                                    Variant="SecondaryButton.ButtonVariant.Outline">
+                        @(productForm.ImageUrls?.Any() == true ? "Add More Images" : "Select Images")
+                    </SecondaryButton>
+                    
+                    <p class="helper-text">
+                        Select product images from your library. First image will be the main display image.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="form-section">
+                <h3 class="section-title">Product Settings</h3>
+                
+                <div class="toggle-group">
+                    <label class="toggle-switch">
+                        <input type="checkbox" @bind="productForm.IsFeatured" />
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Featured Product</span>
+                    </label>
+
+                    <label class="toggle-switch">
+                        <input type="checkbox" @bind="productForm.IsActive" />
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Active (Visible to customers)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <SecondaryButton OnClick="CloseProductModal"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                Size="SecondaryButton.ButtonSize.Large">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="HandleSaveProduct"
+                              Size="PrimaryButton.ButtonSize.Large"
+                              IsLoading="@isSaving"
+                              IsDisabled="@isSaving">
+                    @(isEditMode ? "Update Product" : "Create Product")
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Image Selector Popup -->
+<ImageSelectorPopup @ref="imageSelectorPopup"
+                   IsOpen="@isImageSelectorOpen"
+                   AllowMultiple="true"
+                   MaxSelection="10"
+                   PreSelectedUrls="@(productForm.ImageUrls ?? new List<string>())"
+                   OnImagesSelected="HandleImagesSelected"
+                   OnClose="CloseImageSelector" />
+
+<!-- Stock Management Modal -->
+<DynamicModal @ref="stockModal"
+              Title="Manage Stock"
+              Size="DynamicModal.ModalSize.Small"
+              IsOpen="@isStockModalOpen"
+              OnClose="CloseStockModal">
+    <BodyContent>
+        @if (selectedProductForStock != null)
+        {
+            <div class="stock-modal-content">
+                <div class="current-stock">
+                    <span class="label">Current Stock:</span>
+                    <span class="value">@selectedProductForStock.Stock units</span>
+                </div>
+
+                <InputField @bind-Value="newStockQuantity"
+                           Label="New Stock Quantity"
+                           Type="number"
+                           Placeholder="0"
+                           IsRequired="true" />
+            </div>
+        }
+    </BodyContent>
+    <FooterContent>
+        <div class="modal-actions">
+            <SecondaryButton OnClick="CloseStockModal"
+                            Variant="SecondaryButton.ButtonVariant.Outline">
+                Cancel
+            </SecondaryButton>
+            <PrimaryButton OnClick="HandleUpdateStock"
+                          IsLoading="@isSaving">
+                Update Stock
+            </PrimaryButton>
+        </div>
+    </FooterContent>
+</DynamicModal>
+
+@code {
+    // Component state will be in .razor.cs file
+}
