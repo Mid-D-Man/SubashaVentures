@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Oct 27 00:10:38 UTC 2025
+Generated: Mon Oct 27 00:21:07 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: a41c7d6ffa04b557f6988bd8d583694dcee12c8d
+Commit: d9153d316b1373f53fe6e1073e664a41b1af2d29
 Branch: master
 ==================================
 
@@ -11,6 +11,7 @@ Source Files:
 App.razor
 Components/Admin/Products/AdminProductCard.razor
 Components/Admin/Products/AdminProductCard.razor.css
+Components/Admin/Users/AdminUserCard.razor.cs
 Components/Shared/Burgers/BurgerMenu.razor
 Components/Shared/Burgers/BurgerMenu.razor.css
 Components/Shared/Buttons/BrandLogo.razor
@@ -191,6 +192,7 @@ Directory Structure:
 ./Components
 ./  Admin
 ./    Products
+./    Users
 ./  Shared
 ./    Burgers
 ./    Buttons
@@ -249,7 +251,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 75 files
+.cs       : 76 files
 .razor    : 38 files
 .csproj   : 1 files
 .sln      : 1 files
