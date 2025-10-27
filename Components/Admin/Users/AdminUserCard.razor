@@ -1,0 +1,139 @@
+<!-- Components/Admin/Users/AdminUserCard.razor -->
+<div class="admin-user-card @(IsSelected ? "selected" : "")" @onclick="HandleCardClick">
+    @if (AllowSelection)
+    {
+        <input type="checkbox"
+               class="user-card-checkbox"
+               checked="@IsSelected"
+               @onclick:stopPropagation="true"
+               @onchange="HandleSelectionChange" />
+    }
+
+    <div class="user-card-header">
+        <div class="user-avatar-section">
+            @if (!string.IsNullOrEmpty(User.AvatarUrl))
+            {
+                <img src="@User.AvatarUrl" alt="@User.DisplayName" class="user-avatar" />
+            }
+            else
+            {
+                <div class="user-avatar-placeholder">
+                    @User.Initials
+                </div>
+            }
+            <div class="verification-badges">
+                @if (User.IsEmailVerified)
+                {
+                    <span class="badge-verified email" title="Email Verified">✓</span>
+                }
+                @if (User.IsPhoneVerified)
+                {
+                    <span class="badge-verified phone" title="Phone Verified">📱</span>
+                }
+            </div>
+        </div>
+
+        <div class="user-info-section">
+            <div class="user-name-row">
+                <h3 class="user-name">@User.DisplayName</h3>
+                <span class="membership-badge" style="--tier-color: @GetMembershipColor()">
+                    @User.MembershipTier
+                </span>
+            </div>
+            <p class="user-email">@User.Email</p>
+            @if (!string.IsNullOrEmpty(User.PhoneNumber))
+            {
+                <p class="user-phone">@User.PhoneNumber</p>
+            }
+        </div>
+    </div>
+
+    <div class="user-card-stats">
+        <div class="stat-item">
+            <span class="stat-icon">🛍️</span>
+            <div class="stat-content">
+                <span class="stat-value">@User.TotalOrders</span>
+                <span class="stat-label">Orders</span>
+            </div>
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-icon">💰</span>
+            <div class="stat-content">
+                <span class="stat-value">₦@User.TotalSpent.ToString("N0")</span>
+                <span class="stat-label">Spent</span>
+            </div>
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-icon">⭐</span>
+            <div class="stat-content">
+                <span class="stat-value">@User.LoyaltyPoints</span>
+                <span class="stat-label">Points</span>
+            </div>
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-icon">📝</span>
+            <div class="stat-content">
+                <span class="stat-value">@User.ReviewsCount</span>
+                <span class="stat-label">Reviews</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="user-card-meta">
+        <div class="meta-row">
+            <span class="meta-label">Status:</span>
+            <span class="user-status @GetStatusClass()">@User.AccountStatus</span>
+        </div>
+        <div class="meta-row">
+            <span class="meta-label">Member Since:</span>
+            <span class="meta-value">@User.MemberSince</span>
+        </div>
+        @if (User.LastLoginAt.HasValue)
+        {
+            <div class="meta-row">
+                <span class="meta-label">Last Login:</span>
+                <span class="meta-value">@User.LastLoginAt.Value.ToString("MMM dd, yyyy")</span>
+            </div>
+        }
+    </div>
+
+    <div class="user-card-actions">
+        <button class="action-btn primary" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleViewDetails" 
+                title="View Details">
+            👤
+        </button>
+        <button class="action-btn" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleSendMessage" 
+                title="Send Message">
+            ✉️
+        </button>
+        <button class="action-btn" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleViewOrders" 
+                title="View Orders">
+            📦
+        </button>
+        <button class="action-btn @(User.AccountStatus == "Active" ? "warning" : "success")" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleToggleSuspend" 
+                title="@(User.AccountStatus == "Active" ? "Suspend Account" : "Activate Account")">
+            @(User.AccountStatus == "Active" ? "🚫" : "✅")
+        </button>
+        <button class="action-btn danger" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleDelete" 
+                title="Delete Account">
+            🗑️
+        </button>
+    </div>
+</div>
+
+@code {
+    // Code is in .razor.cs file
+}
