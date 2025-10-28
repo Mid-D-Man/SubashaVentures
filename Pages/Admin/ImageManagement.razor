@@ -406,63 +406,20 @@
 </DynamicModal>
 
 @code {
-    // State variables
-    private bool isLoading = true;
-    private bool isUploadModalOpen = false;
-    private bool isDetailModalOpen = false;
-    private bool isDragging = false;
-    private bool isUploading = false;
-    
-    private string searchQuery = "";
-    private string selectedFolder = "";
-    private string uploadFolder = "products";
-    private string gridSize = "medium";
-    
-    private int currentPage = 1;
-    private int pageSize = 24;
-    private double storagePercentage = 45.5;
-    private string usedStorage = "455 MB";
-    private string totalStorage = "1 GB";
-    private int totalImages = 234;
-    private int totalFolders = 8;
-    private int referencedImages = 167;
-    
-    private List<string> selectedImages = new();
-    private List<ImageItem> allImages = new();
-    private List<ImageItem> filteredImages = new();
-    private List<ImageItem> paginatedImages = new();
-    private List<UploadQueueItem> uploadQueue = new();
-    private ImageItem? selectedImage = null;
-    
-    private DynamicModal? uploadModal;
-    private DynamicModal? detailModal;
-    
-    private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
-
+   
     // Placeholder methods - will implement in .razor.cs
     private void OpenUploadModal() => isUploadModalOpen = true;
     private void CloseUploadModal() => isUploadModalOpen = false;
     private void CloseDetailModal() => isDetailModalOpen = false;
-    private void HandleFolderChange(ChangeEventArgs e) { }
-    private void HandleSortChange(ChangeEventArgs e) { }
+   
     private void HandleImageClick(ImageItem image) { selectedImage = image; isDetailModalOpen = true; }
-    private void HandleImageSelect(string id, ChangeEventArgs e) { }
-    private void HandleCopyUrl(ImageItem image) { }
-    private void HandleDownload(ImageItem image) { }
-    private void HandleDelete(ImageItem image) { }
-    private void HandleBulkDownload() { }
-    private void HandleBulkDelete() { }
-    private void HandleDrop(DragEventArgs e) { }
+   
     private void HandleDragEnter(DragEventArgs e) => isDragging = true;
     private void HandleDragLeave(DragEventArgs e) => isDragging = false;
-    private void HandleFileSelect(ChangeEventArgs e) { }
+   
     private void ClearQueue() => uploadQueue.Clear();
     private void RemoveFromQueue(UploadQueueItem item) => uploadQueue.Remove(item);
-    private async Task StartUpload() { }
-    private void PreviousPage() { if (currentPage > 1) currentPage--; }
-    private void NextPage() { if (currentPage < totalPages) currentPage++; }
-    private void GoToPage(int page) => currentPage = page;
-
+  
     // Data models
     public class ImageItem
     {

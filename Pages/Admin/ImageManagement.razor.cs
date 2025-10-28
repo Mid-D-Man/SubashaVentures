@@ -1,6 +1,7 @@
 // Pages/Admin/ImageManagement.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Storage;

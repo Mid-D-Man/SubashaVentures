@@ -39,7 +39,11 @@ public class ProductViewModel
     // Rating & Reviews
     public float Rating { get; set; }
     public int ReviewCount { get; set; }
+
+    public int ViewCount { get; set; }
     
+    public int SalesCount { get; set; }
+
     // Metadata
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
