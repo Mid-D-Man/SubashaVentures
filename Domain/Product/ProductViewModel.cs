@@ -11,7 +11,7 @@ public class ProductViewModel
     public string Description { get; set; } = string.Empty;
     public string LongDescription { get; set; } = string.Empty;
     
-    // Pricing
+    // Pricing 
     public decimal Price { get; set; }
     public decimal? OriginalPrice { get; set; }
     public bool IsOnSale { get; set; }
