@@ -113,16 +113,16 @@
                 </SecondaryButton>
             }
 
-            <button class="view-toggle" @onclick="@(() => gridSize = "small")" 
-                    class="@(gridSize == "small" ? "active" : "")">
+            <button class="view-toggle-small @(gridSize == "small" ? "active" : "")" 
+                    @onclick="@(() => gridSize = "small")">
                 ▦▦
             </button>
-            <button class="view-toggle" @onclick="@(() => gridSize = "medium")"
-                    class="@(gridSize == "medium" ? "active" : "")">
+            <button class="view-toggle-medium @(gridSize == "medium" ? "active" : "")" 
+                    @onclick="@(() => gridSize = "medium")">
                 ▦
             </button>
-            <button class="view-toggle" @onclick="@(() => gridSize = "large")"
-                    class="@(gridSize == "large" ? "active" : "")">
+            <button class="view-toggle-large @(gridSize == "large" ? "active" : "")" 
+                    @onclick="@(() => gridSize = "large")">
                 ▢
             </button>
         </div>
@@ -404,73 +404,3 @@
         }
     </BodyContent>
 </DynamicModal>
-
-@code {
-   
-    // Placeholder methods - will implement in .razor.cs
-    private void OpenUploadModal() => isUploadModalOpen = true;
-    private void CloseUploadModal() => isUploadModalOpen = false;
-    private void CloseDetailModal() => isDetailModalOpen = false;
-   
-    private void HandleImageClick(ImageItem image) { selectedImage = image; isDetailModalOpen = true; }
-   
-    private void HandleDragEnter(DragEventArgs e) => isDragging = true;
-    private void HandleDragLeave(DragEventArgs e) => isDragging = false;
-   
-    private void ClearQueue() => uploadQueue.Clear();
-    private void RemoveFromQueue(UploadQueueItem item) => uploadQueue.Remove(item);
-  
-    // Data models
-    public class ImageItem
-    {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string FileName { get; set; } = "";
-        public string PublicUrl { get; set; } = "";
-        public string ThumbnailUrl { get; set; } = "";
-        public string Folder { get; set; } = "";
-        public long FileSize { get; set; }
-        public string Dimensions { get; set; } = "";
-        public DateTime UploadedAt { get; set; }
-        public bool IsReferenced { get; set; }
-        public int ReferenceCount { get; set; }
-        public string FormattedSize => FormatBytes(FileSize);
-
-        private string FormatBytes(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            double len = bytes;
-            int order = 0;
-            while (len >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                len = len / 1024;
-            }
-            return $"{len:0.##} {sizes[order]}";
-        }
-    }
-
-    public class UploadQueueItem
-    {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string FileName { get; set; } = "";
-        public string PreviewUrl { get; set; } = "";
-        public long FileSize { get; set; }
-        public string Status { get; set; } = "pending";
-        public int Progress { get; set; }
-        public string? ErrorMessage { get; set; }
-        public string FormattedSize => FormatBytes(FileSize);
-
-        private string FormatBytes(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            double len = bytes;
-            int order = 0;
-            while (len >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                len = len / 1024;
-            }
-            return $"{len:0.##} {sizes[order]}";
-        }
-    }
-}
