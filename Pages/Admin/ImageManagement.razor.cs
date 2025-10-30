@@ -537,4 +537,65 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             Logger.LogError(ex, "Error disposing ImageManagement");
         }
     }
+    // Add these classes to Pages/Admin/ImageManagement.razor.cs
+
+    // ===== DATA MODELS =====
+    
+    public class ImageItem
+    {
+        public string Id { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string PublicUrl { get; set; } = "";
+        public string ThumbnailUrl { get; set; } = "";
+        public string Folder { get; set; } = "";
+        public long FileSize { get; set; }
+        public string Dimensions { get; set; } = "";
+        public DateTime UploadedAt { get; set; }
+        public bool IsReferenced { get; set; }
+        public int ReferenceCount { get; set; }
+
+        public string FormattedSize
+        {
+            get
+            {
+                string[] sizes = { "B", "KB", "MB", "GB" };
+                double len = FileSize;
+                int order = 0;
+                while (len >= 1024 && order < sizes.Length - 1)
+                {
+                    order++;
+                    len = len / 1024;
+                }
+                return $"{len:0.##} {sizes[order]}";
+            }
+        }
+    }
+
+    public class UploadQueueItem
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string FileName { get; set; } = "";
+        public string PreviewUrl { get; set; } = "";
+        public long FileSize { get; set; }
+        public string Status { get; set; } = "pending"; // pending, uploading, success, error
+        public int Progress { get; set; }
+        public string? ErrorMessage { get; set; }
+        public Stream? FileStream { get; set; }
+
+        public string FormattedSize
+        {
+            get
+            {
+                string[] sizes = { "B", "KB", "MB", "GB" };
+                double len = FileSize;
+                int order = 0;
+                while (len >= 1024 && order < sizes.Length - 1)
+                {
+                    order++;
+                    len = len / 1024;
+                }
+                return $"{len:0.##} {sizes[order]}";
+            }
+        }
+    }
 }
