@@ -1,6 +1,4 @@
-
-// ===== IMPLEMENTATION =====
-
+// Services/Products/ProductService.cs
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
@@ -395,46 +393,4 @@ public class ProductService : IProductService
             UpdatedAt = model.UpdatedAt
         };
     }
-    // Services/Products/ProductServiceModels.cs
-
-/// <summary>
-/// Request model for creating a new product
-/// </summary>
-public class CreateProductRequest
-{
-    public string Name { get; set; } = "";
-    public string Description { get; set; } = "";
-    public string LongDescription { get; set; } = "";
-    public decimal Price { get; set; }
-    public decimal? OriginalPrice { get; set; }
-    public int Stock { get; set; }
-    public string Sku { get; set; } = "";
-    public string CategoryId { get; set; } = "";
-    public string Brand { get; set; } = "";
-    public List<string>? Tags { get; set; }
-    public List<string>? Sizes { get; set; }
-    public List<string>? Colors { get; set; }
-    public List<string>? ImageUrls { get; set; }
-    public bool IsFeatured { get; set; }
-}
-
-/// <summary>
-/// Request model for updating an existing product
-/// </summary>
-public class UpdateProductRequest
-{
-    public string? Name { get; set; }
-    public string? Description { get; set; }
-    public string? LongDescription { get; set; }
-    public decimal? Price { get; set; }
-    public decimal? OriginalPrice { get; set; }
-    public int? Stock { get; set; }
-    public string? CategoryId { get; set; }
-    public string? Brand { get; set; }
-    public List<string>? Tags { get; set; }
-    public List<string>? Sizes { get; set; }
-    public List<string>? Colors { get; set; }
-    public bool? IsFeatured { get; set; }
-    public bool? IsActive { get; set; }
-}
 }
