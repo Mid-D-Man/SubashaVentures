@@ -222,10 +222,10 @@
                 
                 @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
                 {
-                    var page = i;
-                    <button class="page-btn @(page == currentPage ? "active" : "")" 
-                            @onclick="@(() => GoToPage(page))">
-                        @page
+                    var pageNumber = i;
+                    <button class="page-btn @(pageNumber == currentPage ? "active" : "")" 
+                            @onclick="@(() => GoToPage(pageNumber))">
+                        @pageNumber
                     </button>
                 }
                 
