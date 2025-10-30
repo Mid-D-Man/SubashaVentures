@@ -406,7 +406,63 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             await MID_HelperFunctions.LogExceptionAsync(ex, "Handling file drop");
         }
     }
+// Add to Pages/Admin/ImageManagement.razor.cs
 
+    private void HandleDragEnter(DragEventArgs e)
+    {
+        isDragging = true;
+        StateHasChanged();
+    }
+
+    private void HandleDragLeave(DragEventArgs e)
+    {
+        isDragging = false;
+        StateHasChanged();
+    }
+
+    private void RemoveFromQueue(UploadQueueItem item)
+    {
+        uploadQueue.Remove(item);
+        StateHasChanged();
+    }
+
+    private void ClearQueue()
+    {
+        uploadQueue.Clear();
+        StateHasChanged();
+    }
+
+    private void OpenUploadModal()
+    {
+        isUploadModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseUploadModal()
+    {
+        isUploadModalOpen = false;
+        uploadQueue.Clear();
+        StateHasChanged();
+    }
+
+    private void OpenDetailModal()
+    {
+        isDetailModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseDetailModal()
+    {
+        isDetailModalOpen = false;
+        selectedImage = null;
+        StateHasChanged();
+    }
+
+    private void HandleImageClick(ImageItem image)
+    {
+        selectedImage = image;
+        OpenDetailModal();
+    }
     private async Task StartUpload()
     {
         if (!uploadQueue.Any() || isUploading)
