@@ -17,12 +17,11 @@ using Supabase;
 using Microsoft.JSInterop;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
-
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// ==================== HTTP CLIENT ========== ==========
+// ==================== HTTP CLIENT ====================
 builder.Services.AddScoped(sp => new HttpClient 
 {  
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress),
@@ -67,7 +66,8 @@ var supabaseKey = builder.Configuration["Supabase:AnonKey"];
 
 if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
 {
-    builder.Services.AddScoped<Supabase.Client>(_ =>
+    // Register the main Supabase Client
+    builder.Services.AddScoped<Supabase.Client>(sp =>
     {
         var options = new Supabase.SupabaseOptions
         {
@@ -76,8 +76,20 @@ if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
             SessionHandler = new DefaultSupabaseSessionHandler()
         };
         
-        return new Supabase.Client(supabaseUrl, supabaseKey, options);
+        var client = new Supabase.Client(supabaseUrl, supabaseKey, options);
+        
+        // Initialize the client (this is important!)
+        // Note: In Blazor WASM, we can't use await here, so we'll handle it in the service
+        return client;
     });
+    
+    // Register Storage Client explicitly
+    // The Storage.Client is accessed via the main Supabase.Client.Storage property
+    // So we don't need to register it separately - we need to fix the service instead
+}
+else
+{
+    throw new InvalidOperationException("Supabase URL and AnonKey must be configured in appsettings.json");
 }
 
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
@@ -94,17 +106,13 @@ builder.Services.AddScoped<IProductService, ProductService>();
 var host = builder.Build();
 
 // ==================== INITIALIZE MID_LOGGER ====================
-// CRITICAL: Initialize Mid_Logger FIRST before any service uses MID_HelperFunctions
 try
 {
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
     var logger = host.Services.GetRequiredService<ILogger<Program>>();
     var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
     
-    // Initialize Mid_Logger with ILogger and JSRuntime
     midLogger.Initialize(logger, jsRuntime);
-    
-    // Initialize MID_HelperFunctions with the logger
     MID_HelperFunctions.Initialize(midLogger);
     
     logger.LogInformation("Mid_Logger and MID_HelperFunctions initialized successfully");
@@ -124,6 +132,21 @@ catch (Exception ex)
 {
     var logger = host.Services.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "Failed to initialize Firebase");
+}
+
+// ==================== INITIALIZE SUPABASE CLIENT ====================
+try
+{
+    var supabaseClient = host.Services.GetRequiredService<Supabase.Client>();
+    await supabaseClient.InitializeAsync();
+    
+    var logger = host.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation("Supabase client initialized successfully");
+}
+catch (Exception ex)
+{
+    var logger = host.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Failed to initialize Supabase client");
 }
 
 // ==================== RUN APPLICATION ====================
