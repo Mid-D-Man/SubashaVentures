@@ -1,6 +1,5 @@
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
-using Supabase.Storage;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using FileOptions = Supabase.Storage.FileOptions;
 
@@ -8,7 +7,7 @@ namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseStorageService : ISupabaseStorageService
 {
-    private readonly Client _supabaseClient;
+    private readonly Supabase.Client _supabaseClient;
     private readonly IImageCompressionService _compressionService;
     private readonly ILogger<SupabaseStorageService> _logger;
     
@@ -24,14 +23,19 @@ public class SupabaseStorageService : ISupabaseStorageService
         { "reviews", "review-images" }
     };
 
+    // FIX: Changed constructor to accept Supabase.Client instead of Storage.Client
     public SupabaseStorageService(
-        Client supabaseClient,
+        Supabase.Client supabaseClient,
         IImageCompressionService compressionService,
         ILogger<SupabaseStorageService> logger)
     {
-        _supabaseClient = supabaseClient;
-        _compressionService = compressionService;
-        _logger = logger;
+        _supabaseClient = supabaseClient ?? throw new ArgumentNullException(nameof(supabaseClient));
+        _compressionService = compressionService ?? throw new ArgumentNullException(nameof(compressionService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        
+        // Log initialization
+        _logger.LogInformation("SupabaseStorageService initialized with buckets: {Buckets}", 
+            string.Join(", ", _buckets.Values));
     }
 
     public async Task<StorageUploadResult> UploadImageAsync(
@@ -78,7 +82,8 @@ public class SupabaseStorageService : ISupabaseStorageService
                 fileBytes = memoryStream.ToArray();
             }
 
-            var uploadedFile = await _supabaseClient
+            // FIX: Access Storage through _supabaseClient.Storage
+            var uploadedFile = await _supabaseClient.Storage
                 .From(bucketId)
                 .Upload(
                     fileBytes,
@@ -143,7 +148,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var bucketId = GetBucketId(bucketName);
-            await _supabaseClient.From(bucketId).Remove(new List<string> { filePath });
+            await _supabaseClient.Storage.From(bucketId).Remove(new List<string> { filePath });
             MID_HelperFunctions.DebugMessage($"Image deleted: {filePath}", LogLevel.Info);
             return true;
         }
@@ -159,7 +164,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var bucketId = GetBucketId(bucketName);
-            await _supabaseClient.From(bucketId).Remove(filePaths);
+            await _supabaseClient.Storage.From(bucketId).Remove(filePaths);
             MID_HelperFunctions.DebugMessage($"Deleted {filePaths.Count} images", LogLevel.Info);
             return true;
         }
@@ -175,7 +180,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var bucketId = GetBucketId(bucketName);
-            return _supabaseClient.From(bucketId).GetPublicUrl(filePath);
+            return _supabaseClient.Storage.From(bucketId).GetPublicUrl(filePath);
         }
         catch (Exception ex)
         {
@@ -189,7 +194,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var bucketId = GetBucketId(bucketName);
-            var signedUrl = await _supabaseClient.From(bucketId).CreateSignedUrl(filePath, expiresIn);
+            var signedUrl = await _supabaseClient.Storage.From(bucketId).CreateSignedUrl(filePath, expiresIn);
             return signedUrl ?? string.Empty;
         }
         catch (Exception ex)
@@ -204,17 +209,15 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var bucketId = GetBucketId(bucketName);
-            var files = await _supabaseClient.From(bucketId).List(folder);
+            var files = await _supabaseClient.Storage.From(bucketId).List(folder);
 
             return files.Select(f => new StorageFile
             {
                 Name = f.Name ?? string.Empty,
                 Id = f.Id ?? string.Empty,
                 UpdatedAt = f.UpdatedAt ?? DateTime.UtcNow,
-                // Note: Size is not available directly from FileObject
-                // You would need to query the storage.objects table directly or download the file
-                Size = 0, // FileObject doesn't expose size
-                ContentType = string.Empty // FileObject doesn't expose content type
+                Size = 0,
+                ContentType = string.Empty
             }).ToList();
         }
         catch (Exception ex)
@@ -230,7 +233,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         {
             var bucketId = GetBucketId(bucketName);
             var directoryPath = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
-            var files = await _supabaseClient.From(bucketId).List(directoryPath);
+            var files = await _supabaseClient.Storage.From(bucketId).List(directoryPath);
 
             var fileName = Path.GetFileName(filePath);
             var file = files.FirstOrDefault(f => f.Name == fileName);
@@ -241,10 +244,10 @@ public class SupabaseStorageService : ISupabaseStorageService
             return new StorageFileMetadata
             {
                 Name = file.Name ?? string.Empty,
-                Size = 0, // FileObject doesn't expose size - would need database query
+                Size = 0,
                 CreatedAt = file.CreatedAt ?? DateTime.UtcNow,
                 UpdatedAt = file.UpdatedAt ?? DateTime.UtcNow,
-                ContentType = string.Empty // FileObject doesn't expose content type
+                ContentType = string.Empty
             };
         }
         catch (Exception ex)
@@ -258,8 +261,6 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            // Note: The C# client doesn't provide direct bucket size calculation
-            // You would need to query the storage.objects table directly via Postgrest
             var usedBytes = await GetBucketSizeAsync(bucketName);
             
             return new StorageCapacityInfo
@@ -338,15 +339,6 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            // WARNING: The C# FileObject class doesn't expose file size
-            // To get accurate bucket size, you would need to:
-            // 1. Query the storage.objects table directly via Postgrest
-            // 2. Sum the metadata->'size' field from the JSONB column
-            
-            // For now, returning 0 as a placeholder
-            // You'll need to implement a Postgrest query like:
-            // SELECT SUM((metadata->>'size')::bigint) FROM storage.objects WHERE bucket_id = 'bucket-name'
-            
             _logger.LogWarning("GetBucketSizeAsync not fully implemented - FileObject doesn't expose size");
             return 0;
         }
