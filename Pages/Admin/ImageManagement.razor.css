@@ -216,7 +216,36 @@
     border-color: var(--primary-color);
     color: white;
 }
+/* File Input Styling */
+.file-input-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
 
+.upload-btn-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.upload-btn-label {
+    cursor: pointer;
+    display: inline-block;
+    margin: 0;
+}
+
+/* Make sure the button inside the label is clickable */
+.upload-btn-label button {
+    pointer-events: none;
+}
 /* ===== IMAGE GRID ===== */
 .im-grid {
     display: grid;

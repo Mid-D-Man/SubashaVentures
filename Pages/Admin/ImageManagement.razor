@@ -266,23 +266,30 @@
             <!-- Drag & Drop Zone -->
             <div class="upload-dropzone @(isDragging ? "dragging" : "")"
                  @ondrop="HandleDrop"
+                 @ondrop:preventDefault
                  @ondragover:preventDefault
                  @ondragenter="HandleDragEnter"
+                 @ondragenter:preventDefault
                  @ondragleave="HandleDragLeave">
                 <div class="dropzone-content">
                     <div class="dropzone-icon">📁</div>
                     <h3>Drag & drop images here</h3>
                     <p>or</p>
-                    <label class="upload-btn-label">
-                        <input type="file" 
-                               multiple 
-                               accept="image/*"
-                               @onchange="HandleFileSelect"
-                               style="display: none;" />
-                        <PrimaryButton>
-                            Browse Files
-                        </PrimaryButton>
-                    </label>
+
+                    <!-- FIXED: Use InputFile component instead of regular input -->
+                    <div class="upload-btn-wrapper">
+                        <InputFile OnChange="HandleFileSelect"
+                                   multiple
+                                   accept="image/*"
+                                   id="fileUploadInput"
+                                   class="file-input-hidden" />
+                        <label for="fileUploadInput" class="upload-btn-label">
+                            <PrimaryButton>
+                                Browse Files
+                            </PrimaryButton>
+                        </label>
+                    </div>
+
                     <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
                 </div>
             </div>
@@ -295,7 +302,7 @@
                         <h4>Upload Queue (@uploadQueue.Count files)</h4>
                         <button class="clear-queue" @onclick="ClearQueue">Clear All</button>
                     </div>
-                    
+
                     @foreach (var item in uploadQueue)
                     {
                         <div class="queue-item @item.Status">
@@ -340,9 +347,9 @@
                     <SecondaryButton OnClick="CloseUploadModal">
                         Cancel
                     </SecondaryButton>
-                    <PrimaryButton OnClick="StartUpload" 
-                                  IsDisabled="@isUploading"
-                                  IsLoading="@isUploading">
+                    <PrimaryButton OnClick="StartUpload"
+                                   IsDisabled="@isUploading"
+                                   IsLoading="@isUploading">
                         Upload @uploadQueue.Count Image@(uploadQueue.Count != 1 ? "s" : "")
                     </PrimaryButton>
                 </div>
