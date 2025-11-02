@@ -1,5 +1,7 @@
+// Services/Supabase/SupabaseStorageService.cs - ACTUALLY CORRECTED VERSION
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
+using Supabase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using FileOptions = Supabase.Storage.FileOptions;
 
@@ -7,7 +9,8 @@ namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseStorageService : ISupabaseStorageService
 {
-    private readonly Supabase.Client _supabaseClient;
+    // CORRECT: Use Supabase.Client (capital S)
+    private readonly Client _supabaseClient;
     private readonly IImageCompressionService _compressionService;
     private readonly ILogger<SupabaseStorageService> _logger;
     
@@ -23,9 +26,9 @@ public class SupabaseStorageService : ISupabaseStorageService
         { "reviews", "review-images" }
     };
 
-    // FIX: Changed constructor to accept Supabase.Client instead of Storage.Client
+    // CORRECT: Constructor accepts Supabase.Client (same as SupabaseAuthService)
     public SupabaseStorageService(
-        Supabase.Client supabaseClient,
+       Client supabaseClient,
         IImageCompressionService compressionService,
         ILogger<SupabaseStorageService> logger)
     {
@@ -33,7 +36,6 @@ public class SupabaseStorageService : ISupabaseStorageService
         _compressionService = compressionService ?? throw new ArgumentNullException(nameof(compressionService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         
-        // Log initialization
         _logger.LogInformation("SupabaseStorageService initialized with buckets: {Buckets}", 
             string.Join(", ", _buckets.Values));
     }
@@ -82,7 +84,7 @@ public class SupabaseStorageService : ISupabaseStorageService
                 fileBytes = memoryStream.ToArray();
             }
 
-            // FIX: Access Storage through _supabaseClient.Storage
+            // CORRECT: Access Storage through _supabaseClient.Storage
             var uploadedFile = await _supabaseClient.Storage
                 .From(bucketId)
                 .Upload(
