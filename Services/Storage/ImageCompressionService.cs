@@ -1,3 +1,4 @@
+// Services/Storage/ImageCompressionService.cs
 using System.Text;
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
@@ -6,19 +7,16 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Storage;
 
 /// <summary>
-/// Image compression service implementation using native streams
-/// For WASM/.NET 7, uses JS interop with Sharp.js for compression
-/// Falls back to uncompressed if JS not available
+/// Image compression service implementation for Blazor WASM
+/// Fixed: BrowserFileStream Position not supported issue
 /// </summary>
 public class ImageCompressionService : IImageCompressionService
 {
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<ImageCompressionService> _logger;
     
-    // Maximum file sizes
-    private const long MaxFileSizeBytes = 50L * 1024L * 1024L; // 50 MB
+    private const long MaxFileSizeBytes = 50L * 1024L * 1024L;
     
-    // Supported formats
     private static readonly HashSet<string> SupportedFormats = new()
     {
         "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"
@@ -41,11 +39,11 @@ public class ImageCompressionService : IImageCompressionService
         {
             var originalSize = imageStream.Length;
             
-            // Convert stream to byte array then to base64
+            // FIXED: Read stream into byte array without setting Position
             byte[] imageBytes;
             using (var memoryStream = new MemoryStream())
             {
-                imageStream.Position = 0;
+                // Don't set Position - BrowserFileStream doesn't support it
                 await imageStream.CopyToAsync(memoryStream);
                 imageBytes = memoryStream.ToArray();
             }
@@ -68,7 +66,6 @@ public class ImageCompressionService : IImageCompressionService
                     ? (float)(originalSize - result.CompressedSize) / originalSize 
                     : 0;
                 
-                // Convert base64 back to stream
                 if (!string.IsNullOrEmpty(result.Base64Data))
                 {
                     var compressedBytes = Convert.FromBase64String(result.Base64Data);
@@ -186,7 +183,6 @@ public class ImageCompressionService : IImageCompressionService
         {
             var fileSize = imageStream.Length;
             
-            // Check file size
             if (fileSize > maxSizeBytes)
             {
                 return new ImageValidationResult
@@ -197,18 +193,18 @@ public class ImageCompressionService : IImageCompressionService
                 };
             }
 
-            // Convert stream to byte array for format detection
+            // FIXED: Read stream without setting Position
             byte[] headerBytes;
             using (var memoryStream = new MemoryStream())
             {
-                imageStream.Position = 0;
+                // Copy entire stream to memory
                 imageStream.CopyTo(memoryStream);
                 var allBytes = memoryStream.ToArray();
+                
+                // Take first 8 bytes for format detection
                 headerBytes = allBytes.Take(8).ToArray();
-                imageStream.Position = 0;
             }
 
-            // Check format by reading header
             var format = DetectImageFormat(headerBytes);
             
             if (format == null || !SupportedFormats.Contains(format))
@@ -241,7 +237,7 @@ public class ImageCompressionService : IImageCompressionService
 
     private string StreamToBase64(Stream stream)
     {
-        stream.Position = 0;
+        // FIXED: Don't set Position - read from current position
         using (var memoryStream = new MemoryStream())
         {
             stream.CopyTo(memoryStream);
