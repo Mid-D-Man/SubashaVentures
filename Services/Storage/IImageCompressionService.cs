@@ -53,6 +53,10 @@ public interface IImageCompressionService
     ImageValidationResult ValidateImage(
         Stream imageStream,
         long maxSizeBytes = 50 * 1024 * 1024);
+    
+    async Task<ImageValidationResult> ValidateImageAsync(
+        Stream imageStream,
+        long maxSizeBytes = 50L * 1024L * 1024L);
 }
 
 /// <summary>
