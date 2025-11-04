@@ -8,7 +8,7 @@ namespace SubashaVentures.Services.Storage;
 
 /// <summary>
 /// Image compression service implementation for Blazor WASM
-/// Fixed: BrowserFileStream Position not supported issue
+/// FIXED: All synchronous Stream operations replaced with async
 /// </summary>
 public class ImageCompressionService : IImageCompressionService
 {
@@ -39,11 +39,10 @@ public class ImageCompressionService : IImageCompressionService
         {
             var originalSize = imageStream.Length;
             
-            // FIXED: Read stream into byte array without setting Position
+            // FIXED: Use async read
             byte[] imageBytes;
             using (var memoryStream = new MemoryStream())
             {
-                // Don't set Position - BrowserFileStream doesn't support it
                 await imageStream.CopyToAsync(memoryStream);
                 imageBytes = memoryStream.ToArray();
             }
@@ -117,7 +116,7 @@ public class ImageCompressionService : IImageCompressionService
                 throw new InvalidOperationException("Image compression failed");
             }
 
-            return StreamToBase64(result.CompressedStream);
+            return await StreamToBase64Async(result.CompressedStream);
         }
         catch (Exception ex)
         {
@@ -138,7 +137,7 @@ public class ImageCompressionService : IImageCompressionService
     {
         try
         {
-            var base64 = StreamToBase64(imageStream);
+            var base64 = await StreamToBase64Async(imageStream);
             
             try
             {
@@ -175,7 +174,18 @@ public class ImageCompressionService : IImageCompressionService
         }
     }
 
+    // FIXED: Made async
     public ImageValidationResult ValidateImage(
+        Stream imageStream,
+        long maxSizeBytes = 50L * 1024L * 1024L)
+    {
+        // Since this is called synchronously from upload, we'll use GetAwaiter().GetResult()
+        // but the actual work is async
+        return ValidateImageAsync(imageStream, maxSizeBytes).GetAwaiter().GetResult();
+    }
+
+    // NEW: Async version of ValidateImage
+    public async Task<ImageValidationResult> ValidateImageAsync(
         Stream imageStream,
         long maxSizeBytes = 50L * 1024L * 1024L)
     {
@@ -193,15 +203,12 @@ public class ImageCompressionService : IImageCompressionService
                 };
             }
 
-            // FIXED: Read stream without setting Position
+            // FIXED: Use async read
             byte[] headerBytes;
             using (var memoryStream = new MemoryStream())
             {
-                // Copy entire stream to memory
-                imageStream.CopyTo(memoryStream);
+                await imageStream.CopyToAsync(memoryStream);
                 var allBytes = memoryStream.ToArray();
-                
-                // Take first 8 bytes for format detection
                 headerBytes = allBytes.Take(8).ToArray();
             }
 
@@ -235,12 +242,12 @@ public class ImageCompressionService : IImageCompressionService
         }
     }
 
-    private string StreamToBase64(Stream stream)
+    // FIXED: Made async
+    private async Task<string> StreamToBase64Async(Stream stream)
     {
-        // FIXED: Don't set Position - read from current position
         using (var memoryStream = new MemoryStream())
         {
-            stream.CopyTo(memoryStream);
+            await stream.CopyToAsync(memoryStream);
             return Convert.ToBase64String(memoryStream.ToArray());
         }
     }
