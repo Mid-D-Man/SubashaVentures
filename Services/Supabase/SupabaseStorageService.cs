@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseStorageService.cs - ACTUALLY CORRECTED VERSION
+// Services/Supabase/SupabaseStorageService.cs - CORRECTED WITH ASYNC STREAMS
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase;
@@ -9,7 +9,6 @@ namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseStorageService : ISupabaseStorageService
 {
-    // CORRECT: Use Supabase.Client (capital S)
     private readonly Client _supabaseClient;
     private readonly IImageCompressionService _compressionService;
     private readonly ILogger<SupabaseStorageService> _logger;
@@ -19,6 +18,7 @@ public class SupabaseStorageService : ISupabaseStorageService
     private const long WarningThresholdBytes = 40L * 1024L * 1024L; // 40 MB
     private const long BucketStorageLimit = 100L * 1024L * 1024L * 1024L; // 100 GB per bucket
     
+    // IMPORTANT: These bucket names must match your Supabase Storage bucket names exactly!
     private readonly Dictionary<string, string> _buckets = new()
     {
         { "products", "product-images" },
@@ -26,9 +26,8 @@ public class SupabaseStorageService : ISupabaseStorageService
         { "reviews", "review-images" }
     };
 
-    // CORRECT: Constructor accepts Supabase.Client (same as SupabaseAuthService)
     public SupabaseStorageService(
-       Client supabaseClient,
+        Client supabaseClient,
         IImageCompressionService compressionService,
         ILogger<SupabaseStorageService> logger)
     {
@@ -48,9 +47,11 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            var validation = _compressionService.ValidateImage(fileStream);
+            // FIXED: Use async validation
+            var validation = await _compressionService.ValidateImageAsync(fileStream);
             if (!validation.IsValid)
             {
+                _logger.LogWarning("Image validation failed: {Error}", validation.ErrorMessage);
                 return new StorageUploadResult
                 {
                     Success = false,
@@ -58,24 +59,40 @@ public class SupabaseStorageService : ISupabaseStorageService
                 };
             }
 
+            // Reset stream position after validation
+            if (fileStream.CanSeek)
+            {
+                fileStream.Position = 0;
+            }
+
+            // Compress image
             var compression = await _compressionService.CompressImageAsync(fileStream);
             if (!compression.Success || compression.CompressedStream == null)
             {
+                _logger.LogWarning("Image compression failed: {Error}", compression.ErrorMessage);
                 return new StorageUploadResult
                 {
                     Success = false,
-                    ErrorMessage = "Image compression failed"
+                    ErrorMessage = "Image compression failed: " + compression.ErrorMessage
                 };
             }
 
+            // Get bucket ID
             var bucketId = GetBucketId(bucketName);
+            _logger.LogDebug("Using bucket: {BucketId}", bucketId);
+
+            // Generate unique filename
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-            var uniqueFileName = $"{timestamp}-{Path.GetFileNameWithoutExtension(fileName)}{Path.GetExtension(fileName)}";
+            var sanitizedFileName = SanitizeFileName(fileName);
+            var uniqueFileName = $"{timestamp}-{Path.GetFileNameWithoutExtension(sanitizedFileName)}{Path.GetExtension(sanitizedFileName)}";
             
             var filePath = string.IsNullOrEmpty(folder)
                 ? uniqueFileName
                 : $"{folder}/{uniqueFileName}";
 
+            _logger.LogDebug("Uploading to path: {FilePath}", filePath);
+
+            // Convert stream to byte array
             byte[] fileBytes;
             using (var memoryStream = new MemoryStream())
             {
@@ -84,45 +101,85 @@ public class SupabaseStorageService : ISupabaseStorageService
                 fileBytes = memoryStream.ToArray();
             }
 
-            // CORRECT: Access Storage through _supabaseClient.Storage
-            var uploadedFile = await _supabaseClient.Storage
-                .From(bucketId)
-                .Upload(
-                    fileBytes,
-                    filePath,
-                    new FileOptions 
-                    { 
-                        ContentType = validation.Format,
-                        Upsert = false
-                    });
+            _logger.LogDebug("File size: {Size} bytes", fileBytes.Length);
 
-            if (string.IsNullOrEmpty(uploadedFile))
+            try
             {
+                // Upload to Supabase Storage
+                var uploadedFile = await _supabaseClient.Storage
+                    .From(bucketId)
+                    .Upload(
+                        fileBytes,
+                        filePath,
+                        new FileOptions 
+                        { 
+                            ContentType = validation.Format ?? "image/jpeg",
+                            Upsert = false
+                        });
+
+                if (string.IsNullOrEmpty(uploadedFile))
+                {
+                    _logger.LogError("Supabase returned empty upload path");
+                    return new StorageUploadResult
+                    {
+                        Success = false,
+                        ErrorMessage = "Upload to Supabase failed - no path returned"
+                    };
+                }
+
+                var publicUrl = GetPublicUrl(filePath, bucketName);
+
+                _logger.LogInformation(
+                    "Image uploaded successfully: {FilePath} (Original: {Original}KB, Compressed: {Compressed}KB, Ratio: {Ratio}%)",
+                    filePath,
+                    validation.FileSize / 1024,
+                    compression.CompressedSize / 1024,
+                    (compression.CompressionRatio * 100).ToString("F1")
+                );
+
+                return new StorageUploadResult
+                {
+                    Success = true,
+                    FilePath = filePath,
+                    PublicUrl = publicUrl,
+                    FileSize = compression.CompressedSize,
+                    ContentType = validation.Format
+                };
+            }
+            catch (Exception uploadEx)
+            {
+                _logger.LogError(uploadEx, "Supabase upload failed for file: {FileName}", fileName);
+                
+                // Check if it's a bucket permission issue
+                if (uploadEx.Message.Contains("403") || uploadEx.Message.Contains("Forbidden"))
+                {
+                    return new StorageUploadResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"Permission denied. Please check bucket '{bucketId}' permissions in Supabase Dashboard."
+                    };
+                }
+                
+                // Check if bucket doesn't exist
+                if (uploadEx.Message.Contains("404") || uploadEx.Message.Contains("Not Found"))
+                {
+                    return new StorageUploadResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"Bucket '{bucketId}' does not exist. Please create it in Supabase Dashboard."
+                    };
+                }
+                
                 return new StorageUploadResult
                 {
                     Success = false,
-                    ErrorMessage = "Upload to Supabase failed"
+                    ErrorMessage = $"Upload error: {uploadEx.Message}"
                 };
             }
-
-            var publicUrl = GetPublicUrl(filePath, bucketName);
-
-            MID_HelperFunctions.DebugMessage(
-                $"Image uploaded successfully: {filePath} (Compressed: {(compression.CompressionRatio * 100):F1}%)",
-                LogLevel.Info);
-
-            return new StorageUploadResult
-            {
-                Success = true,
-                FilePath = filePath,
-                PublicUrl = publicUrl,
-                FileSize = compression.CompressedSize,
-                ContentType = validation.Format
-            };
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error uploading image: {fileName}");
+            _logger.LogError(ex, "Error in UploadImageAsync for file: {FileName}", fileName);
             return new StorageUploadResult
             {
                 Success = false,
@@ -137,11 +194,16 @@ public class SupabaseStorageService : ISupabaseStorageService
         string? folder = null)
     {
         var results = new List<StorageUploadResult>();
+        
         foreach (var (stream, fileName) in files)
         {
             var result = await UploadImageAsync(stream, fileName, bucketName, folder);
             results.Add(result);
+            
+            // Small delay between uploads to avoid rate limiting
+            await Task.Delay(100);
         }
+        
         return results;
     }
 
@@ -151,12 +213,13 @@ public class SupabaseStorageService : ISupabaseStorageService
         {
             var bucketId = GetBucketId(bucketName);
             await _supabaseClient.Storage.From(bucketId).Remove(new List<string> { filePath });
-            MID_HelperFunctions.DebugMessage($"Image deleted: {filePath}", LogLevel.Info);
+            
+            _logger.LogInformation("Image deleted: {FilePath}", filePath);
             return true;
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error deleting image: {filePath}");
+            _logger.LogError(ex, "Error deleting image: {FilePath}", filePath);
             return false;
         }
     }
@@ -167,12 +230,13 @@ public class SupabaseStorageService : ISupabaseStorageService
         {
             var bucketId = GetBucketId(bucketName);
             await _supabaseClient.Storage.From(bucketId).Remove(filePaths);
-            MID_HelperFunctions.DebugMessage($"Deleted {filePaths.Count} images", LogLevel.Info);
+            
+            _logger.LogInformation("Deleted {Count} images", filePaths.Count);
             return true;
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, "Error deleting multiple images");
+            _logger.LogError(ex, "Error deleting multiple images");
             return false;
         }
     }
@@ -186,7 +250,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error getting public URL for: {filePath}");
+            _logger.LogError(ex, "Error getting public URL for: {FilePath}", filePath);
             return string.Empty;
         }
     }
@@ -201,7 +265,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error creating signed URL for: {filePath}");
+            _logger.LogError(ex, "Error creating signed URL for: {FilePath}", filePath);
             return string.Empty;
         }
     }
@@ -211,6 +275,8 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var bucketId = GetBucketId(bucketName);
+            _logger.LogDebug("Listing files in bucket: {BucketId}, folder: {Folder}", bucketId, folder);
+            
             var files = await _supabaseClient.Storage.From(bucketId).List(folder);
 
             return files.Select(f => new StorageFile
@@ -218,13 +284,20 @@ public class SupabaseStorageService : ISupabaseStorageService
                 Name = f.Name ?? string.Empty,
                 Id = f.Id ?? string.Empty,
                 UpdatedAt = f.UpdatedAt ?? DateTime.UtcNow,
-                Size = 0,
+                Size = 0, // Supabase doesn't expose size in list
                 ContentType = string.Empty
             }).ToList();
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error listing files in folder: {folder}");
+            _logger.LogError(ex, "Error listing files in folder: {Folder}, bucket: {Bucket}", folder, bucketName);
+            
+            // Provide helpful error message
+            if (ex.Message.Contains("500") || ex.Message.Contains("Internal Server Error"))
+            {
+                _logger.LogError("Bucket '{BucketId}' may not exist or has permission issues. Please check Supabase Dashboard.", GetBucketId(bucketName));
+            }
+            
             return new List<StorageFile>();
         }
     }
@@ -254,7 +327,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error getting metadata for: {filePath}");
+            _logger.LogError(ex, "Error getting metadata for: {FilePath}", filePath);
             return null;
         }
     }
@@ -275,7 +348,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error getting storage capacity for bucket: {bucketName}");
+            _logger.LogError(ex, "Error getting storage capacity for bucket: {BucketName}", bucketName);
             return new StorageCapacityInfo
             {
                 TotalCapacityBytes = BucketStorageLimit,
@@ -328,7 +401,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, "Error checking upload capacity");
+            _logger.LogError(ex, "Error checking upload capacity");
             return new StorageCapacityCheckResult
             {
                 CanUpload = false,
@@ -341,20 +414,37 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            _logger.LogWarning("GetBucketSizeAsync not fully implemented - FileObject doesn't expose size");
+            _logger.LogWarning("GetBucketSizeAsync not fully implemented - Supabase doesn't expose file sizes in list");
             return 0;
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, $"Error calculating bucket size for: {bucketName}");
+            _logger.LogError(ex, "Error calculating bucket size for: {BucketName}", bucketName);
             return 0;
         }
     }
 
     private string GetBucketId(string bucketName)
     {
-        return _buckets.TryGetValue(bucketName.ToLower(), out var bucketId)
-            ? bucketId
-            : throw new ArgumentException($"Unknown bucket: {bucketName}");
+        if (!_buckets.TryGetValue(bucketName.ToLower(), out var bucketId))
+        {
+            _logger.LogError("Unknown bucket requested: {BucketName}. Available buckets: {Available}", 
+                bucketName, string.Join(", ", _buckets.Keys));
+            throw new ArgumentException($"Unknown bucket: {bucketName}. Available: {string.Join(", ", _buckets.Keys)}");
+        }
+        
+        return bucketId;
+    }
+
+    private string SanitizeFileName(string fileName)
+    {
+        // Remove invalid characters
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = string.Join("_", fileName.Split(invalidChars));
+        
+        // Replace spaces with hyphens
+        sanitized = sanitized.Replace(" ", "-");
+        
+        return sanitized;
     }
 }
