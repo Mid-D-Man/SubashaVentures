@@ -113,15 +113,15 @@
                 </SecondaryButton>
             }
 
-            <button class="view-toggle-small @(gridSize == "small" ? "active" : "")" 
+            <button class="view-toggle @(gridSize == "small" ? "active" : "")" 
                     @onclick="@(() => gridSize = "small")">
                 ▦▦
             </button>
-            <button class="view-toggle-medium @(gridSize == "medium" ? "active" : "")" 
+            <button class="view-toggle @(gridSize == "medium" ? "active" : "")" 
                     @onclick="@(() => gridSize = "medium")">
                 ▦
             </button>
-            <button class="view-toggle-large @(gridSize == "large" ? "active" : "")" 
+            <button class="view-toggle @(gridSize == "large" ? "active" : "")" 
                     @onclick="@(() => gridSize = "large")">
                 ▢
             </button>
@@ -263,35 +263,25 @@
                 </select>
             </div>
 
-            <!-- Drag & Drop Zone -->
-            <div class="upload-dropzone @(isDragging ? "dragging" : "")"
-                 @ondrop="HandleDrop"
-                 @ondrop:preventDefault
-                 @ondragover:preventDefault
-                 @ondragenter="HandleDragEnter"
-                 @ondragenter:preventDefault
-                 @ondragleave="HandleDragLeave">
-                <div class="dropzone-content">
-                    <div class="dropzone-icon">📁</div>
-                    <h3>Drag & drop images here</h3>
-                    <p>or</p>
-
-                    <!-- FIXED: Use InputFile component instead of regular input -->
-                    <div class="upload-btn-wrapper">
-                        <InputFile OnChange="HandleFileSelect"
-                                   multiple
-                                   accept="image/*"
-                                   id="fileUploadInput"
-                                   class="file-input-hidden" />
-                        <label for="fileUploadInput" class="upload-btn-label">
-                            <PrimaryButton>
-                                Browse Files
-                            </PrimaryButton>
-                        </label>
+            <!-- FIXED: Proper InputFile with drag-drop support -->
+            <div class="upload-dropzone-wrapper">
+                <InputFile OnChange="HandleFileSelect"
+                          multiple
+                          accept="image/*"
+                          id="imageUploadInput"
+                          class="file-input-native" />
+                
+                <label for="imageUploadInput" class="upload-dropzone">
+                    <div class="dropzone-content">
+                        <div class="dropzone-icon">📁</div>
+                        <h3>Drag & drop images here</h3>
+                        <p>or</p>
+                        <div class="browse-btn-wrapper">
+                            <span class="browse-btn">Browse Files</span>
+                        </div>
+                        <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
                     </div>
-
-                    <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
-                </div>
+                </label>
             </div>
 
             <!-- Upload Queue -->
