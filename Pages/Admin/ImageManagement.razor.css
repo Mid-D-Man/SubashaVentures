@@ -216,36 +216,7 @@
     border-color: var(--primary-color);
     color: white;
 }
-/* File Input Styling */
-.file-input-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
-    opacity: 0;
-    pointer-events: none;
-}
 
-.upload-btn-wrapper {
-    position: relative;
-    display: inline-block;
-}
-
-.upload-btn-label {
-    cursor: pointer;
-    display: inline-block;
-    margin: 0;
-}
-
-/* Make sure the button inside the label is clickable */
-.upload-btn-label button {
-    pointer-events: none;
-}
 /* ===== IMAGE GRID ===== */
 .im-grid {
     display: grid;
@@ -521,18 +492,40 @@
     font-size: 0.94rem;
 }
 
+/* FIXED: Proper drag-drop zone with native input */
+.upload-dropzone-wrapper {
+    position: relative;
+}
+
+.file-input-native {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+}
+
 .upload-dropzone {
+    display: block;
     border: 2px dashed var(--border-medium);
     border-radius: 12px;
     padding: 3rem 2rem;
     background: var(--gray-50);
     transition: all 0.3s ease;
+    cursor: pointer;
 }
 
-.upload-dropzone.dragging {
+.upload-dropzone:hover,
+.file-input-native:focus + .upload-dropzone {
     border-color: var(--primary-color);
     background: rgba(150, 153, 74, 0.05);
     transform: scale(1.02);
+}
+
+.file-input-native:focus + .upload-dropzone {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
 }
 
 .dropzone-content {
@@ -540,6 +533,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
+    pointer-events: none;
 }
 
 .dropzone-icon {
@@ -559,8 +553,24 @@
     color: var(--text-secondary);
 }
 
-.upload-btn-label {
-    cursor: pointer;
+.browse-btn-wrapper {
+    margin: 0.5rem 0;
+}
+
+.browse-btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.94rem;
+    transition: all 0.2s ease;
+}
+
+.upload-dropzone:hover .browse-btn {
+    background: var(--hover-primary);
+    transform: scale(1.05);
 }
 
 .upload-hint {
