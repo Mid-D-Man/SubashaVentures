@@ -248,7 +248,8 @@
               OnClose="CloseUploadModal">
     <BodyContent>
         <div class="upload-modal-content">
-            <!-- Folder Selection -->
+            
+            <!-- 1. FOLDER SELECTION -->
             <div class="upload-section">
                 <label class="upload-label">Upload to Folder</label>
                 <select class="upload-select" @bind="uploadFolder">
@@ -263,35 +264,37 @@
                 </select>
             </div>
 
-           <!-- FIXED: Proper drag-drop with event handlers -->
-<div class="upload-dropzone-wrapper"
-     @ondragover:preventDefault="true"
-     @ondragenter:preventDefault="true"
-     @ondrop="HandleDrop"
-     @ondragenter="HandleDragEnter"
-     @ondragleave="HandleDragLeave">
-    
-    <InputFile OnChange="HandleFileSelect"
-              multiple
-              accept="image/*"
-              id="imageUploadInput"
-              class="file-input-native" />
-    
-    <label for="imageUploadInput" 
-           class="upload-dropzone @(isDragging ? "dragging" : "")">
-        <div class="dropzone-content">
-            <div class="dropzone-icon">📁</div>
-            <h3>Drag & drop images here</h3>
-            <p>or</p>
-            <div class="browse-btn-wrapper">
-                <span class="browse-btn">Browse Files</span>
+            <!-- 2. FILE SELECTOR (Hidden input + Styled dropzone) -->
+            <div class="upload-dropzone-wrapper"
+                 @ondragover:preventDefault="true"
+                 @ondragenter:preventDefault="true"
+                 @ondrop="HandleDrop"
+                 @ondragenter="HandleDragEnter"
+                 @ondragleave="HandleDragLeave">
+                
+                <!-- Hidden native file input (required) -->
+                <InputFile OnChange="HandleFileSelect"
+                          multiple
+                          accept="image/*"
+                          id="imageUploadInput"
+                          class="file-input-native" />
+                
+                <!-- Styled label that triggers the hidden input -->
+                <label for="imageUploadInput" 
+                       class="upload-dropzone @(isDragging ? "dragging" : "")">
+                    <div class="dropzone-content">
+                        <div class="dropzone-icon">📁</div>
+                        <h3>Drag & drop images here</h3>
+                        <p>or</p>
+                        <div class="browse-btn-wrapper">
+                            <span class="browse-btn">Browse Files</span>
+                        </div>
+                        <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
+                    </div>
+                </label>
             </div>
-            <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
-        </div>
-    </label>
-</div>
 
-            <!-- Upload Queue -->
+            <!-- 3. UPLOAD QUEUE (Only shows if files selected) -->
             @if (uploadQueue.Any())
             {
                 <div class="upload-queue">
@@ -340,8 +343,11 @@
                     }
                 </div>
 
+                <!-- 4. ACTION BUTTONS (Only shows when files are in queue) -->
                 <div class="upload-actions">
-                    <SecondaryButton OnClick="CloseUploadModal">
+                    <SecondaryButton OnClick="CloseUploadModal"
+                                    Variant="SecondaryButton.ButtonVariant.Outline"
+                                    IsDisabled="@isUploading">
                         Cancel
                     </SecondaryButton>
                     <PrimaryButton OnClick="StartUpload"
@@ -352,59 +358,5 @@
                 </div>
             }
         </div>
-    </BodyContent>
-</DynamicModal>
-
-<!-- Image Detail Modal -->
-<DynamicModal @ref="detailModal"
-              Title="@selectedImage?.FileName"
-              Size="DynamicModal.ModalSize.Large"
-              IsOpen="@isDetailModalOpen"
-              OnClose="CloseDetailModal">
-    <BodyContent>
-        @if (selectedImage != null)
-        {
-            <div class="detail-modal-content">
-                <div class="detail-preview">
-                    <img src="@selectedImage.PublicUrl" alt="@selectedImage.FileName" />
-                </div>
-                <div class="detail-info">
-                    <div class="info-group">
-                        <label>File Name</label>
-                        <span>@selectedImage.FileName</span>
-                    </div>
-                    <div class="info-group">
-                        <label>Dimensions</label>
-                        <span>@selectedImage.Dimensions</span>
-                    </div>
-                    <div class="info-group">
-                        <label>File Size</label>
-                        <span>@selectedImage.FormattedSize</span>
-                    </div>
-                    <div class="info-group">
-                        <label>Upload Date</label>
-                        <span>@selectedImage.UploadedAt.ToString("MMMM dd, yyyy HH:mm")</span>
-                    </div>
-                    <div class="info-group">
-                        <label>Folder</label>
-                        <span>@selectedImage.Folder</span>
-                    </div>
-                    <div class="info-group">
-                        <label>Public URL</label>
-                        <div class="url-display">
-                            <input type="text" readonly value="@selectedImage.PublicUrl" />
-                            <button @onclick="@(() => HandleCopyUrl(selectedImage))">📋</button>
-                        </div>
-                    </div>
-                    @if (selectedImage.IsReferenced)
-                    {
-                        <div class="info-group">
-                            <label>Used In</label>
-                            <span class="ref-count">@selectedImage.ReferenceCount product(s)</span>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
     </BodyContent>
 </DynamicModal>
