@@ -5,7 +5,21 @@
     gap: 2rem;
     padding: 0;
 }
+.upload-dropzone.dragging {
+    border-color: var(--primary-color);
+    background: rgba(150, 153, 74, 0.15);
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(150, 153, 74, 0.3);
+}
 
+.upload-dropzone.dragging .dropzone-icon {
+    transform: scale(1.2);
+    opacity: 1;
+}
+
+.upload-dropzone.dragging h3 {
+    color: var(--primary-color);
+}
 /* ===== HEADER ===== */
 .im-header {
     display: flex;
