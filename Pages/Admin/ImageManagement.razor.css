@@ -531,15 +531,50 @@
 }
 
 .upload-dropzone:hover,
-.file-input-native:focus + .upload-dropzone {
-    border-color: var(--primary-color);
-    background: rgba(150, 153, 74, 0.05);
-    transform: scale(1.02);
+/* Make sure the hidden input is truly hidden */
+.file-input-native {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+    pointer-events: none; /* Extra safety */
 }
 
-.file-input-native:focus + .upload-dropzone {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
+/* The label is the clickable area */
+.upload-dropzone {
+    display: block;
+    border: 2px dashed var(--border-medium);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    background: var(--gray-50);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Browse button is just styled text, not a real button */
+.browse-btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.94rem;
+    transition: all 0.2s ease;
+    pointer-events: none; /* Clicks pass through to label */
+}
+
+/* Upload actions are real buttons at the bottom */
+.upload-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 1rem;
 }
 
 .dropzone-content {
