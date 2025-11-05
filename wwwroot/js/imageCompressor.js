@@ -1,12 +1,12 @@
 // wwwroot/js/imageCompressor.js
-// Image compression utility using Sharp.js
-// Requires: <script src="https://cdn.jsdelivr.net/npm/sharp@0.32.0/dist/sharp.js"></script>
+// Browser-native image compression using Canvas API
+// No external dependencies required!
 
 window.imageCompressor = {
     /**
-     * Compress an image from base64 string
+     * Compress an image from base64 string using Canvas API
      * @param {string} base64 - Base64 encoded image
-     * @param {number} quality - Quality 1-100 (default: 80)
+     * @param {number} quality - Quality 0-100 (default: 80)
      * @param {number} maxWidth - Max width in pixels (default: 2000)
      * @param {number} maxHeight - Max height in pixels (default: 2000)
      * @param {string} outputFormat - Output MIME type (default: image/jpeg)
@@ -14,104 +14,67 @@ window.imageCompressor = {
      */
     async compressImage(base64, quality = 80, maxWidth = 2000, maxHeight = 2000, outputFormat = 'image/jpeg') {
         try {
-            if (!window.sharp) {
-                console.warn('Sharp.js not loaded, returning original');
-                return {
-                    success: true,
-                    base64Data: base64,
-                    compressedSize: 0
-                };
-            }
-
-            // Convert base64 to buffer
-            const buffer = Buffer.from(base64, 'base64');
-
-            // Create sharp instance
-            let image = sharp(buffer);
-
-            // Get metadata
-            const metadata = await image.metadata();
-
-            // Calculate new dimensions maintaining aspect ratio
-            const newDimensions = this._calculateDimensions(
-                metadata.width,
-                metadata.height,
+            console.log('Starting image compression...');
+            
+            // Convert base64 to blob
+            const blob = this._base64ToBlob(base64);
+            const originalSize = blob.size;
+            
+            // Load image
+            const img = await this._loadImage(blob);
+            
+            // Calculate new dimensions
+            const dimensions = this._calculateDimensions(
+                img.width,
+                img.height,
                 maxWidth,
                 maxHeight
             );
-
-            // Resize if needed
-            if (newDimensions.width !== metadata.width || newDimensions.height !== metadata.height) {
-                image = image.resize(newDimensions.width, newDimensions.height, {
-                    fit: 'inside',
-                    withoutEnlargement: true,
-                    position: 'center'
-                });
-            }
-
-            let compressed;
-
-            // Process based on output format
-            if (outputFormat === 'image/webp') {
-                compressed = await image
-                    .webp({
-                        quality: Math.max(1, Math.min(100, quality)),
-                        alphaQuality: quality,
-                        effort: 6
-                    })
-                    .toBuffer();
-            }
-            else if (outputFormat === 'image/png') {
-                // PNG with adaptive filtering
-                compressed = await image
-                    .png({
-                        quality: Math.max(1, Math.min(100, quality)),
-                        effort: 10,
-                        adaptiveFiltering: true,
-                        compressionLevel: 9
-                    })
-                    .toBuffer();
-            }
-            else if (outputFormat === 'image/gif') {
-                // GIF - limited compression options
-                compressed = await image
-                    .gif()
-                    .toBuffer();
-            }
-            else {
-                // Default to JPEG
-                compressed = await image
-                    .jpeg({
-                        quality: Math.max(1, Math.min(100, quality)),
-                        mozjpeg: true,
-                        progressive: true
-                    })
-                    .toBuffer();
-            }
-
-            // Convert back to base64
-            const compressedBase64 = compressed.toString('base64');
-            const originalSize = buffer.length;
-            const compressedSize = compressed.length;
-            const ratio = (originalSize - compressedSize) / originalSize;
-
-            return {
+            
+            // Create canvas and draw resized image
+            const canvas = document.createElement('canvas');
+            canvas.width = dimensions.width;
+            canvas.height = dimensions.height;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Use better image smoothing
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // Draw image
+            ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
+            
+            // Convert canvas to blob with quality
+            const compressedBlob = await this._canvasToBlob(
+                canvas, 
+                outputFormat, 
+                quality / 100
+            );
+            
+            // Convert blob back to base64
+            const compressedBase64 = await this._blobToBase64(compressedBlob);
+            
+            const result = {
                 success: true,
                 base64Data: compressedBase64,
-                compressedSize: compressedSize,
+                compressedSize: compressedBlob.size,
                 originalSize: originalSize,
-                compressionRatio: Math.max(0, ratio),
+                compressionRatio: Math.max(0, (originalSize - compressedBlob.size) / originalSize),
                 dimensions: {
-                    width: newDimensions.width,
-                    height: newDimensions.height,
+                    width: dimensions.width,
+                    height: dimensions.height,
                     original: {
-                        width: metadata.width,
-                        height: metadata.height
+                        width: img.width,
+                        height: img.height
                     }
                 },
                 format: outputFormat,
                 errorMessage: null
             };
+            
+            console.log('Compression successful:', result);
+            return result;
         }
         catch (error) {
             console.error('Image compression error:', error);
@@ -119,7 +82,9 @@ window.imageCompressor = {
                 success: false,
                 errorMessage: error.message || 'Unknown compression error',
                 base64Data: null,
-                compressedSize: 0
+                compressedSize: 0,
+                originalSize: 0,
+                compressionRatio: 0
             };
         }
     },
@@ -131,31 +96,14 @@ window.imageCompressor = {
      */
     async getImageDimensions(base64) {
         try {
-            if (!window.sharp) {
-                return null;
-            }
-
-            const buffer = Buffer.from(base64, 'base64');
-            const metadata = await sharp(buffer).metadata();
-
+            const blob = this._base64ToBlob(base64);
+            const img = await this._loadImage(blob);
+            
             return {
-                width: metadata.width,
-                height: metadata.height,
-                format: metadata.format,
-                space: metadata.space,
-                channels: metadata.channels,
-                depth: metadata.depth,
-                density: metadata.density,
-                hasAlpha: metadata.hasAlpha,
-                orientation: metadata.orientation,
-                pages: metadata.pages,
-                pageHeight: metadata.pageHeight,
-                loop: metadata.loop,
-                delay: metadata.delay,
-                pagDelay: metadata.pagDelay,
-                hasProfile: metadata.hasProfile,
-                exif: metadata.exif,
-                icc: metadata.icc
+                width: img.width,
+                height: img.height,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight
             };
         }
         catch (error) {
@@ -168,7 +116,7 @@ window.imageCompressor = {
      * Create thumbnail from base64 image
      * @param {string} base64 - Base64 encoded image
      * @param {number} size - Thumbnail size (default: 300)
-     * @param {number} quality - Quality 1-100 (default: 85)
+     * @param {number} quality - Quality 0-100 (default: 85)
      * @returns {Promise<Object>} Thumbnail compression result
      */
     async createThumbnail(base64, size = 300, quality = 85) {
@@ -183,9 +131,9 @@ window.imageCompressor = {
      */
     async validateImage(base64, maxSizeBytes = 50 * 1024 * 1024) {
         try {
-            const buffer = Buffer.from(base64, 'base64');
-            const size = buffer.length;
-
+            const blob = this._base64ToBlob(base64);
+            const size = blob.size;
+            
             if (size > maxSizeBytes) {
                 return {
                     isValid: false,
@@ -193,36 +141,27 @@ window.imageCompressor = {
                     fileSize: size
                 };
             }
-
-            if (!window.sharp) {
+            
+            // Try to load image to verify format
+            try {
+                const img = await this._loadImage(blob);
+                
                 return {
                     isValid: true,
                     fileSize: size,
+                    format: blob.type,
+                    width: img.width,
+                    height: img.height,
                     errorMessage: null
                 };
             }
-
-            const metadata = await sharp(buffer).metadata();
-            const supportedFormats = ['jpeg', 'jpg', 'png', 'webp', 'gif', 'avif', 'tiff', 'svg'];
-
-            if (!supportedFormats.includes(metadata.format?.toLowerCase())) {
+            catch (imgError) {
                 return {
                     isValid: false,
-                    errorMessage: `Unsupported format: ${metadata.format}`,
-                    fileSize: size,
-                    format: metadata.format
+                    errorMessage: 'Invalid or corrupted image file',
+                    fileSize: size
                 };
             }
-
-            return {
-                isValid: true,
-                fileSize: size,
-                format: metadata.format,
-                width: metadata.width,
-                height: metadata.height,
-                hasAlpha: metadata.hasAlpha,
-                errorMessage: null
-            };
         }
         catch (error) {
             console.error('Error validating image:', error);
@@ -232,6 +171,99 @@ window.imageCompressor = {
                 fileSize: 0
             };
         }
+    },
+
+    /**
+     * Convert file input to base64
+     * @param {File} file - File object from input
+     * @returns {Promise<string>} Base64 string (without data URL prefix)
+     */
+    async fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Extract base64 part (after data:image/...;base64,)
+                const result = reader.result.split(',')[1];
+                resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    },
+
+    // ========== PRIVATE HELPER METHODS ==========
+
+    /**
+     * Convert base64 string to Blob
+     * @private
+     */
+    _base64ToBlob(base64) {
+        // Handle both with and without data URL prefix
+        const parts = base64.includes(',') ? base64.split(',') : ['data:image/jpeg;base64', base64];
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        
+        return new Blob([u8arr], { type: mime });
+    },
+
+    /**
+     * Convert Blob to base64 string (without prefix)
+     * @private
+     */
+    async _blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Remove data URL prefix
+                const result = reader.result.split(',')[1];
+                resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    },
+
+    /**
+     * Load image from blob
+     * @private
+     */
+    _loadImage(blob) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(blob);
+        });
+    },
+
+    /**
+     * Convert canvas to blob with quality
+     * @private
+     */
+    _canvasToBlob(canvas, mimeType, quality) {
+        return new Promise((resolve, reject) => {
+            // Ensure quality is between 0 and 1
+            const normalizedQuality = Math.max(0, Math.min(1, quality));
+            
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to create blob from canvas'));
+                    }
+                },
+                mimeType,
+                normalizedQuality
+            );
+        });
     },
 
     /**
@@ -267,25 +299,7 @@ window.imageCompressor = {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-    },
-
-    /**
-     * Convert file input to base64
-     * @param {File} file - File object from input
-     * @returns {Promise<string>} Base64 string
-     */
-    async fileToBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-                // Extract base64 part (after data:image/...;base64,)
-                const result = reader.result.split(',')[1];
-                resolve(result);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
     }
 };
 
-console.log('Image Compressor module loaded');
+console.log('✓ Image Compressor (Canvas API) loaded successfully');
