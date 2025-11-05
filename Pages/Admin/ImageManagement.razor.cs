@@ -56,6 +56,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
 
+private bool isDragging = false;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -618,6 +620,38 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         selectedImage = image;
         OpenDetailModal();
     }
+private void HandleDragEnter()
+{
+    isDragging = true;
+    StateHasChanged();
+}
+
+private void HandleDragLeave()
+{
+    isDragging = false;
+    StateHasChanged();
+}
+
+private async Task HandleDrop(DragEventArgs e)
+{
+    try
+    {
+        isDragging = false;
+        StateHasChanged();
+        
+        // The files will be handled by the InputFile component automatically
+        // This method just prevents default behavior and updates UI state
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            "Files dropped",
+            LogLevel.Info
+        );
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Handling drop");
+    }
+}
 
     public async ValueTask DisposeAsync()
     {
