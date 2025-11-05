@@ -263,26 +263,33 @@
                 </select>
             </div>
 
-            <!-- FIXED: Proper InputFile with drag-drop support -->
-            <div class="upload-dropzone-wrapper">
-                <InputFile OnChange="HandleFileSelect"
-                          multiple
-                          accept="image/*"
-                          id="imageUploadInput"
-                          class="file-input-native" />
-                
-                <label for="imageUploadInput" class="upload-dropzone">
-                    <div class="dropzone-content">
-                        <div class="dropzone-icon">📁</div>
-                        <h3>Drag & drop images here</h3>
-                        <p>or</p>
-                        <div class="browse-btn-wrapper">
-                            <span class="browse-btn">Browse Files</span>
-                        </div>
-                        <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
-                    </div>
-                </label>
+           <!-- FIXED: Proper drag-drop with event handlers -->
+<div class="upload-dropzone-wrapper"
+     @ondragover:preventDefault="true"
+     @ondragenter:preventDefault="true"
+     @ondrop="HandleDrop"
+     @ondragenter="HandleDragEnter"
+     @ondragleave="HandleDragLeave">
+    
+    <InputFile OnChange="HandleFileSelect"
+              multiple
+              accept="image/*"
+              id="imageUploadInput"
+              class="file-input-native" />
+    
+    <label for="imageUploadInput" 
+           class="upload-dropzone @(isDragging ? "dragging" : "")">
+        <div class="dropzone-content">
+            <div class="dropzone-icon">📁</div>
+            <h3>Drag & drop images here</h3>
+            <p>or</p>
+            <div class="browse-btn-wrapper">
+                <span class="browse-btn">Browse Files</span>
             </div>
+            <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
+        </div>
+    </label>
+</div>
 
             <!-- Upload Queue -->
             @if (uploadQueue.Any())
