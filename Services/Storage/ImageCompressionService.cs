@@ -7,8 +7,8 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Storage;
 
 /// <summary>
-/// Image compression service using Blazor's built-in RequestImageFileAsync
-/// This is the BEST solution for Blazor WASM - uses browser's native resize API
+/// Image compression service for Blazor WASM
+/// FIXED: No stream.Position calls on BrowserFileStream
 /// </summary>
 public class ImageCompressionService : IImageCompressionService
 {
@@ -39,13 +39,20 @@ public class ImageCompressionService : IImageCompressionService
         {
             var originalSize = imageStream.Length;
             
-            // Convert stream to base64 for JS processing
-            var base64 = await StreamToBase64Async(imageStream);
+            // FIXED: Read stream into memory first (don't use Position)
+            byte[] imageBytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                await imageStream.CopyToAsync(memoryStream);
+                imageBytes = memoryStream.ToArray();
+            }
+            
+            var base64 = Convert.ToBase64String(imageBytes);
             
             try
             {
-                // Try JS compression first
-                var jsResult = await _jsRuntime.InvokeAsync<ImageCompressionResult>(
+                // Use JS compression
+                var result = await _jsRuntime.InvokeAsync<ImageCompressionResult>(
                     "imageCompressor.compressImage",
                     base64,
                     quality,
@@ -53,48 +60,40 @@ public class ImageCompressionService : IImageCompressionService
                     maxHeight,
                     convertToWebP ? "image/webp" : "image/jpeg");
                 
-                if (jsResult != null && jsResult.Success)
+                if (result != null && result.Success)
                 {
-                    jsResult.OriginalSize = originalSize;
-                    jsResult.CompressionRatio = originalSize > 0 
-                        ? (float)(originalSize - jsResult.CompressedSize) / originalSize 
+                    result.OriginalSize = originalSize;
+                    result.CompressionRatio = originalSize > 0 
+                        ? (float)(originalSize - result.CompressedSize) / originalSize 
                         : 0;
                     
-                    if (!string.IsNullOrEmpty(jsResult.Base64Data))
+                    if (!string.IsNullOrEmpty(result.Base64Data))
                     {
-                        var compressedBytes = Convert.FromBase64String(jsResult.Base64Data);
-                        jsResult.CompressedStream = new MemoryStream(compressedBytes);
+                        var compressedBytes = Convert.FromBase64String(result.Base64Data);
+                        result.CompressedStream = new MemoryStream(compressedBytes);
                     }
                     
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"Image compressed: {originalSize / 1024}KB → {jsResult.CompressedSize / 1024}KB ({jsResult.CompressionRatio * 100:F1}%)",
+                        $"Image compressed: {originalSize / 1024}KB → {result.CompressedSize / 1024}KB ({result.CompressionRatio * 100:F1}%)",
                         LogLevel.Info
                     );
                     
-                    return jsResult;
+                    return result;
                 }
             }
             catch (Exception jsEx)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"JS compression failed, returning original: {jsEx.Message}",
+                    $"JS compression not available: {jsEx.Message}",
                     LogLevel.Warning
                 );
             }
             
             // Fallback: return original
-            imageStream.Position = 0;
-            byte[] originalBytes;
-            using (var ms = new MemoryStream())
-            {
-                await imageStream.CopyToAsync(ms);
-                originalBytes = ms.ToArray();
-            }
-            
             return new ImageCompressionResult
             {
                 Success = true,
-                CompressedStream = new MemoryStream(originalBytes),
+                CompressedStream = new MemoryStream(imageBytes),
                 OriginalSize = originalSize,
                 CompressedSize = originalSize,
                 CompressionRatio = 0,
@@ -184,11 +183,10 @@ public class ImageCompressionService : IImageCompressionService
                 };
             }
 
-            // Read first few bytes to detect format
+            // FIXED: Read bytes without using Position
             byte[] headerBytes = new byte[8];
-            imageStream.Position = 0;
             await imageStream.ReadAsync(headerBytes, 0, 8);
-            imageStream.Position = 0;
+            // Don't reset Position - BrowserFileStream doesn't support it!
 
             var format = DetectImageFormat(headerBytes);
             
@@ -220,9 +218,9 @@ public class ImageCompressionService : IImageCompressionService
         }
     }
 
+    // FIXED: StreamToBase64 without Position
     private async Task<string> StreamToBase64Async(Stream stream)
     {
-        stream.Position = 0;
         using (var memoryStream = new MemoryStream())
         {
             await stream.CopyToAsync(memoryStream);
