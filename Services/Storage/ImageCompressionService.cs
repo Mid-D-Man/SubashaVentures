@@ -1,4 +1,4 @@
-// Services/Storage/ImageCompressionService.cs
+// Services/Storage/ImageCompressionService.cs  
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
