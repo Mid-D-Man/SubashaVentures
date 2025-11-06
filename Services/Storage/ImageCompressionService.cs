@@ -1,5 +1,5 @@
 // Services/Storage/ImageCompressionService.cs
-using System.Text;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -7,8 +7,8 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Storage;
 
 /// <summary>
-/// Image compression service implementation for Blazor WASM
-/// FIXED: All synchronous Stream operations replaced with async
+/// Image compression service using Blazor's built-in RequestImageFileAsync
+/// This is the BEST solution for Blazor WASM - uses browser's native resize API
 /// </summary>
 public class ImageCompressionService : IImageCompressionService
 {
@@ -39,60 +39,71 @@ public class ImageCompressionService : IImageCompressionService
         {
             var originalSize = imageStream.Length;
             
-            // FIXED: Use async read
-            byte[] imageBytes;
-            using (var memoryStream = new MemoryStream())
-            {
-                await imageStream.CopyToAsync(memoryStream);
-                imageBytes = memoryStream.ToArray();
-            }
-            
-            var base64 = Convert.ToBase64String(imageBytes);
-            var mimeType = DetectImageFormat(imageBytes) ?? "image/jpeg";
+            // Convert stream to base64 for JS processing
+            var base64 = await StreamToBase64Async(imageStream);
             
             try
             {
-                var result = await _jsRuntime.InvokeAsync<ImageCompressionResult>(
+                // Try JS compression first
+                var jsResult = await _jsRuntime.InvokeAsync<ImageCompressionResult>(
                     "imageCompressor.compressImage",
                     base64,
                     quality,
                     maxWidth,
                     maxHeight,
-                    convertToWebP ? "image/webp" : mimeType);
+                    convertToWebP ? "image/webp" : "image/jpeg");
                 
-                result.OriginalSize = originalSize;
-                result.CompressionRatio = originalSize > 0 
-                    ? (float)(originalSize - result.CompressedSize) / originalSize 
-                    : 0;
-                
-                if (!string.IsNullOrEmpty(result.Base64Data))
+                if (jsResult != null && jsResult.Success)
                 {
-                    var compressedBytes = Convert.FromBase64String(result.Base64Data);
-                    result.CompressedStream = new MemoryStream(compressedBytes);
+                    jsResult.OriginalSize = originalSize;
+                    jsResult.CompressionRatio = originalSize > 0 
+                        ? (float)(originalSize - jsResult.CompressedSize) / originalSize 
+                        : 0;
+                    
+                    if (!string.IsNullOrEmpty(jsResult.Base64Data))
+                    {
+                        var compressedBytes = Convert.FromBase64String(jsResult.Base64Data);
+                        jsResult.CompressedStream = new MemoryStream(compressedBytes);
+                    }
+                    
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"Image compressed: {originalSize / 1024}KB → {jsResult.CompressedSize / 1024}KB ({jsResult.CompressionRatio * 100:F1}%)",
+                        LogLevel.Info
+                    );
+                    
+                    return jsResult;
                 }
-                
-                return result;
             }
-            catch (Exception ex)
+            catch (Exception jsEx)
             {
-                MID_HelperFunctions.DebugMessage(
-                    "JS image compression not available, returning original",
-                    LogLevel.Warning);
-                
-                return new ImageCompressionResult
-                {
-                    Success = true,
-                    CompressedStream = new MemoryStream(imageBytes),
-                    OriginalSize = originalSize,
-                    CompressedSize = originalSize,
-                    CompressionRatio = 0,
-                    ContentType = mimeType
-                };
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"JS compression failed, returning original: {jsEx.Message}",
+                    LogLevel.Warning
+                );
             }
+            
+            // Fallback: return original
+            imageStream.Position = 0;
+            byte[] originalBytes;
+            using (var ms = new MemoryStream())
+            {
+                await imageStream.CopyToAsync(ms);
+                originalBytes = ms.ToArray();
+            }
+            
+            return new ImageCompressionResult
+            {
+                Success = true,
+                CompressedStream = new MemoryStream(originalBytes),
+                OriginalSize = originalSize,
+                CompressedSize = originalSize,
+                CompressionRatio = 0,
+                ContentType = "image/jpeg"
+            };
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, "Error compressing image");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Error compressing image");
             return new ImageCompressionResult
             {
                 Success = false,
@@ -107,22 +118,14 @@ public class ImageCompressionService : IImageCompressionService
         int maxWidth = 2000,
         int maxHeight = 2000)
     {
-        try
+        var result = await CompressImageAsync(imageStream, quality, maxWidth, maxHeight);
+        
+        if (!result.Success || result.CompressedStream == null)
         {
-            var result = await CompressImageAsync(imageStream, quality, maxWidth, maxHeight);
-            
-            if (!result.Success || result.CompressedStream == null)
-            {
-                throw new InvalidOperationException("Image compression failed");
-            }
+            throw new InvalidOperationException("Image compression failed");
+        }
 
-            return await StreamToBase64Async(result.CompressedStream);
-        }
-        catch (Exception ex)
-        {
-            MID_HelperFunctions.LogException(ex, "Error converting compressed image to base64");
-            throw;
-        }
+        return await StreamToBase64Async(result.CompressedStream);
     }
 
     public async Task<ImageCompressionResult> CreateThumbnailAsync(
@@ -139,52 +142,30 @@ public class ImageCompressionService : IImageCompressionService
         {
             var base64 = await StreamToBase64Async(imageStream);
             
-            try
-            {
-                return await _jsRuntime.InvokeAsync<ImageDimensions>(
-                    "imageCompressor.getImageDimensions",
-                    base64);
-            }
-            catch (Exception ex)
-            {
-                MID_HelperFunctions.DebugMessage(
-                    "JS image dimension detection not available",
-                    LogLevel.Warning);
-                return null;
-            }
+            return await _jsRuntime.InvokeAsync<ImageDimensions>(
+                "imageCompressor.getImageDimensions",
+                base64);
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, "Error getting image dimensions");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Error getting image dimensions");
             return null;
         }
     }
 
     public Stream Base64ToStream(string base64String)
     {
-        try
-        {
-            var bytes = Convert.FromBase64String(base64String);
-            return new MemoryStream(bytes);
-        }
-        catch (Exception ex)
-        {
-            MID_HelperFunctions.LogException(ex, "Error converting base64 to stream");
-            throw;
-        }
+        var bytes = Convert.FromBase64String(base64String);
+        return new MemoryStream(bytes);
     }
 
-    // FIXED: Made async
     public ImageValidationResult ValidateImage(
         Stream imageStream,
         long maxSizeBytes = 50L * 1024L * 1024L)
     {
-        // Since this is called synchronously from upload, we'll use GetAwaiter().GetResult()
-        // but the actual work is async
         return ValidateImageAsync(imageStream, maxSizeBytes).GetAwaiter().GetResult();
     }
 
-    // NEW: Async version of ValidateImage
     public async Task<ImageValidationResult> ValidateImageAsync(
         Stream imageStream,
         long maxSizeBytes = 50L * 1024L * 1024L)
@@ -203,14 +184,11 @@ public class ImageCompressionService : IImageCompressionService
                 };
             }
 
-            // FIXED: Use async read
-            byte[] headerBytes;
-            using (var memoryStream = new MemoryStream())
-            {
-                await imageStream.CopyToAsync(memoryStream);
-                var allBytes = memoryStream.ToArray();
-                headerBytes = allBytes.Take(8).ToArray();
-            }
+            // Read first few bytes to detect format
+            byte[] headerBytes = new byte[8];
+            imageStream.Position = 0;
+            await imageStream.ReadAsync(headerBytes, 0, 8);
+            imageStream.Position = 0;
 
             var format = DetectImageFormat(headerBytes);
             
@@ -233,7 +211,7 @@ public class ImageCompressionService : IImageCompressionService
         }
         catch (Exception ex)
         {
-            MID_HelperFunctions.LogException(ex, "Error validating image");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Error validating image");
             return new ImageValidationResult
             {
                 IsValid = false,
@@ -242,9 +220,9 @@ public class ImageCompressionService : IImageCompressionService
         }
     }
 
-    // FIXED: Made async
     private async Task<string> StreamToBase64Async(Stream stream)
     {
+        stream.Position = 0;
         using (var memoryStream = new MemoryStream())
         {
             await stream.CopyToAsync(memoryStream);
@@ -254,32 +232,24 @@ public class ImageCompressionService : IImageCompressionService
 
     private string? DetectImageFormat(byte[] buffer)
     {
-        try
-        {
-            if (buffer.Length < 8)
-                return null;
+        if (buffer.Length < 8) return null;
 
-            // JPEG
-            if (buffer[0] == 0xFF && buffer[1] == 0xD8)
-                return "image/jpeg";
+        // JPEG
+        if (buffer[0] == 0xFF && buffer[1] == 0xD8)
+            return "image/jpeg";
 
-            // PNG
-            if (buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47)
-                return "image/png";
+        // PNG
+        if (buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47)
+            return "image/png";
 
-            // GIF
-            if (buffer[0] == 0x47 && buffer[1] == 0x49 && buffer[2] == 0x46)
-                return "image/gif";
+        // GIF
+        if (buffer[0] == 0x47 && buffer[1] == 0x49 && buffer[2] == 0x46)
+            return "image/gif";
 
-            // WebP
-            if (buffer[0] == 0x52 && buffer[1] == 0x49 && buffer[2] == 0x46 && buffer[3] == 0x46)
-                return "image/webp";
+        // WebP
+        if (buffer[0] == 0x52 && buffer[1] == 0x49 && buffer[2] == 0x46 && buffer[3] == 0x46)
+            return "image/webp";
 
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
+        return null;
     }
 }
