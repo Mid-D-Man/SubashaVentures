@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs
+// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIXED VERSION
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -9,6 +9,7 @@ using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Components.Shared.Modals;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Microsoft.AspNetCore.Components.Web;
+
 namespace SubashaVentures.Pages.Admin;
 
 public partial class ImageManagement : ComponentBase, IAsyncDisposable
@@ -19,15 +20,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<ImageManagement> Logger { get; set; } = default!;
 
-    // Object pools
     private MID_ComponentObjectPool<List<ImageItem>>? _imageListPool;
     private MID_ComponentObjectPool<List<UploadQueueItem>>? _uploadQueuePool;
 
-    // State
     private bool isLoading = true;
     private bool isUploadModalOpen = false;
-    private bool isDetailModalOpen = false;
     private bool isUploading = false;
+    private bool isDragging = false;
 
     private string searchQuery = "";
     private string selectedFolder = "";
@@ -39,7 +38,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private int pageSize = 24;
     private double storagePercentage = 0;
     private string usedStorage = "0 MB";
-    private string totalStorage = "1 GB"; // FIXED: Supabase free tier is 1GB
+    private string totalStorage = "1 GB";
     private int totalImages = 0;
     private int totalFolders = 8;
     private int referencedImages = 0;
@@ -52,11 +51,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private ImageItem? selectedImage = null;
 
     private DynamicModal? uploadModal;
-    private DynamicModal? detailModal;
-
     private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
-
-private bool isDragging = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,7 +117,7 @@ private bool isDragging = false;
                         ThumbnailUrl = StorageService.GetPublicUrl(file.Name),
                         Folder = ExtractFolderFromPath(file.Name),
                         FileSize = file.Size,
-                        Dimensions = "800x800",
+                        Dimensions = "Unknown",
                         UploadedAt = file.UpdatedAt,
                         IsReferenced = false,
                         ReferenceCount = 0
@@ -163,7 +158,7 @@ private bool isDragging = false;
 
             storagePercentage = capacityInfo.UsagePercentage;
             usedStorage = capacityInfo.FormattedUsedCapacity;
-            totalStorage = "1 GB"; // FIXED: Supabase free tier
+            totalStorage = "1 GB";
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Storage usage: {usedStorage} / {totalStorage} ({storagePercentage:F1}%)",
@@ -317,6 +312,7 @@ private bool isDragging = false;
             if (image != null)
             {
                 await HandleDownload(image);
+                await Task.Delay(500);
             }
         }
         selectedImages.Clear();
@@ -360,7 +356,7 @@ private bool isDragging = false;
         }
     }
 
-    // FIXED: Proper InputFile handling
+    // FIXED: Proper file handling with full file reading
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
         try
@@ -396,12 +392,16 @@ private bool isDragging = false;
                     continue;
                 }
 
-                // FIXED: Don't set Position, read directly into buffer
-                var buffer = new byte[Math.Min(file.Size, 512 * 1024)];
+                // FIXED: Read ENTIRE file for preview (not just 512KB)
+                var buffer = new byte[Math.Min(file.Size, 2 * 1024 * 1024)]; // Max 2MB for preview
                 using var stream = file.OpenReadStream(maxFileSize);
-                await stream.ReadAsync(buffer, 0, buffer.Length);
+                var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
                 
-                var base64 = Convert.ToBase64String(buffer);
+                // Only use actual bytes read
+                var actualBuffer = new byte[bytesRead];
+                Array.Copy(buffer, actualBuffer, bytesRead);
+                
+                var base64 = Convert.ToBase64String(actualBuffer);
                 var previewUrl = $"data:{file.ContentType};base64,{base64}";
 
                 var queueItem = new UploadQueueItem
@@ -472,20 +472,16 @@ private bool isDragging = false;
                 try
                 {
                     item.Status = "uploading";
-                    item.Progress = 0;
+                    item.Progress = 10;
                     StateHasChanged();
-
-                    for (int i = 0; i <= 90; i += 10)
-                    {
-                        item.Progress = i;
-                        StateHasChanged();
-                        await Task.Delay(100);
-                    }
 
                     if (item.BrowserFile != null)
                     {
-                        // FIXED: Open stream without setting Position
+                        // Open fresh stream for upload
                         using var fileStream = item.BrowserFile.OpenReadStream(50L * 1024L * 1024L);
+                        
+                        item.Progress = 30;
+                        StateHasChanged();
                         
                         var result = await StorageService.UploadImageAsync(
                             fileStream, 
@@ -493,6 +489,9 @@ private bool isDragging = false;
                             "products", 
                             uploadFolder
                         );
+
+                        item.Progress = 90;
+                        StateHasChanged();
 
                         if (result.Success)
                         {
@@ -602,56 +601,40 @@ private bool isDragging = false;
         StateHasChanged();
     }
 
-    private void OpenDetailModal()
-    {
-        isDetailModalOpen = true;
-        StateHasChanged();
-    }
-
-    private void CloseDetailModal()
-    {
-        isDetailModalOpen = false;
-        selectedImage = null;
-        StateHasChanged();
-    }
-
     private void HandleImageClick(ImageItem image)
     {
         selectedImage = image;
-        OpenDetailModal();
     }
-private void HandleDragEnter()
-{
-    isDragging = true;
-    StateHasChanged();
-}
 
-private void HandleDragLeave()
-{
-    isDragging = false;
-    StateHasChanged();
-}
+    private void HandleDragEnter()
+    {
+        isDragging = true;
+        StateHasChanged();
+    }
 
-private async Task HandleDrop(DragEventArgs e)
-{
-    try
+    private void HandleDragLeave()
     {
         isDragging = false;
         StateHasChanged();
-        
-        // The files will be handled by the InputFile component automatically
-        // This method just prevents default behavior and updates UI state
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            "Files dropped",
-            LogLevel.Info
-        );
     }
-    catch (Exception ex)
+
+    private async Task HandleDrop(DragEventArgs e)
     {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Handling drop");
+        try
+        {
+            isDragging = false;
+            StateHasChanged();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Files dropped",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Handling drop");
+        }
     }
-}
 
     public async ValueTask DisposeAsync()
     {
@@ -671,7 +654,6 @@ private async Task HandleDrop(DragEventArgs e)
         }
     }
 
-    // Data models
     public class ImageItem
     {
         public string Id { get; set; } = "";
@@ -711,7 +693,7 @@ private async Task HandleDrop(DragEventArgs e)
         public string Status { get; set; } = "pending";
         public int Progress { get; set; }
         public string? ErrorMessage { get; set; }
-        public IBrowserFile? BrowserFile { get; set; } // FIXED: Store IBrowserFile instead of Stream
+        public IBrowserFile? BrowserFile { get; set; }
 
         public string FormattedSize
         {
