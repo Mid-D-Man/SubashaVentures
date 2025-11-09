@@ -1,6 +1,5 @@
-// wwwroot/js/imageCompressor.js
+// wwwroot/js/imageCompressor.js - FIXED BLOB URL LOADING
 // Browser-native image compression using Canvas API
-// No external dependencies required!
 
 window.imageCompressor = {
     /**
@@ -16,12 +15,16 @@ window.imageCompressor = {
         try {
             console.log('Starting image compression...');
             
-            // Convert base64 to blob
+            // FIXED: Better base64 to blob conversion
             const blob = this._base64ToBlob(base64);
             const originalSize = blob.size;
             
-            // Load image
-            const img = await this._loadImage(blob);
+            console.log('Original blob size:', originalSize, 'bytes');
+            
+            // FIXED: Load image with proper error handling
+            const img = await this._loadImageSafe(blob);
+            
+            console.log('Image loaded successfully:', img.width, 'x', img.height);
             
             // Calculate new dimensions
             const dimensions = this._calculateDimensions(
@@ -30,6 +33,8 @@ window.imageCompressor = {
                 maxWidth,
                 maxHeight
             );
+            
+            console.log('Target dimensions:', dimensions.width, 'x', dimensions.height);
             
             // Create canvas and draw resized image
             const canvas = document.createElement('canvas');
@@ -51,6 +56,8 @@ window.imageCompressor = {
                 outputFormat, 
                 quality / 100
             );
+            
+            console.log('Compressed blob size:', compressedBlob.size, 'bytes');
             
             // Convert blob back to base64
             const compressedBase64 = await this._blobToBase64(compressedBlob);
@@ -97,7 +104,7 @@ window.imageCompressor = {
     async getImageDimensions(base64) {
         try {
             const blob = this._base64ToBlob(base64);
-            const img = await this._loadImage(blob);
+            const img = await this._loadImageSafe(blob);
             
             return {
                 width: img.width,
@@ -144,7 +151,7 @@ window.imageCompressor = {
             
             // Try to load image to verify format
             try {
-                const img = await this._loadImage(blob);
+                const img = await this._loadImageSafe(blob);
                 
                 return {
                     isValid: true,
@@ -194,23 +201,39 @@ window.imageCompressor = {
     // ========== PRIVATE HELPER METHODS ==========
 
     /**
-     * Convert base64 string to Blob
+     * FIXED: Convert base64 string to Blob with better error handling
      * @private
      */
     _base64ToBlob(base64) {
-        // Handle both with and without data URL prefix
-        const parts = base64.includes(',') ? base64.split(',') : ['data:image/jpeg;base64', base64];
-        const mimeMatch = parts[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-        const bstr = atob(parts[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        
-        while (n--) {
-            u8arr[n] = bstr.charCodeAt(n);
+        try {
+            // Handle both with and without data URL prefix
+            let mimeType = 'image/jpeg';
+            let base64Data = base64;
+            
+            if (base64.includes(',')) {
+                const parts = base64.split(',');
+                const mimeMatch = parts[0].match(/:(.*?);/);
+                if (mimeMatch) {
+                    mimeType = mimeMatch[1];
+                }
+                base64Data = parts[1];
+            }
+            
+            // Decode base64
+            const binaryString = atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            return new Blob([bytes], { type: mimeType });
         }
-        
-        return new Blob([u8arr], { type: mime });
+        catch (error) {
+            console.error('Error converting base64 to blob:', error);
+            throw new Error('Failed to convert base64 to blob: ' + error.message);
+        }
     },
 
     /**
@@ -231,15 +254,43 @@ window.imageCompressor = {
     },
 
     /**
-     * Load image from blob
+     * FIXED: Load image from blob with better error handling and timeout
      * @private
      */
-    _loadImage(blob) {
+    _loadImageSafe(blob) {
         return new Promise((resolve, reject) => {
             const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error('Failed to load image'));
-            img.src = URL.createObjectURL(blob);
+            const objectUrl = URL.createObjectURL(blob);
+            
+            // Set timeout for loading
+            const timeout = setTimeout(() => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error('Image load timeout'));
+            }, 30000); // 30 second timeout
+            
+            img.onload = () => {
+                clearTimeout(timeout);
+                URL.revokeObjectURL(objectUrl);
+                
+                // Validate image loaded properly
+                if (img.width === 0 || img.height === 0) {
+                    reject(new Error('Invalid image dimensions'));
+                    return;
+                }
+                
+                resolve(img);
+            };
+            
+            img.onerror = (error) => {
+                clearTimeout(timeout);
+                URL.revokeObjectURL(objectUrl);
+                console.error('Image load error:', error);
+                reject(new Error('Failed to load image - may be corrupted or unsupported format'));
+            };
+            
+            // CRITICAL: Set crossOrigin before src
+            img.crossOrigin = 'anonymous';
+            img.src = objectUrl;
         });
     },
 
@@ -302,4 +353,4 @@ window.imageCompressor = {
     }
 };
 
-console.log('✓ Image Compressor (Canvas API) loaded successfully');
+console.log('✓ Image Compressor (Canvas API - Fixed) loaded successfully');
