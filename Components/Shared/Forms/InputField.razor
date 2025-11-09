@@ -1,4 +1,4 @@
-@* InputField.razor - Fixed input component *@
+@* Components/Shared/Forms/InputField.razor - FIXED INPUT BINDING *@
 
 <div class="input-field @(HasError ? "has-error" : "") @(IsDisabled ? "disabled" : "") @CssClass">
     @if (!string.IsNullOrEmpty(Label))
@@ -25,7 +25,7 @@
                disabled="@IsDisabled"
                readonly="@IsReadOnly"
                required="@IsRequired"
-               maxlength="@MaxLength"
+               maxlength="@(MaxLength > 0 ? MaxLength : (int?)null)"
                @oninput="HandleInput"
                @onblur="HandleBlur"
                @onfocus="HandleFocus" />
@@ -37,8 +37,12 @@
         
         @if (ShowClearButton && !string.IsNullOrEmpty(Value))
         {
-            <button type="button" class="clear-btn" @onclick="ClearInput" @onclick:stopPropagation="true">
-                X
+            <button type="button" 
+                    class="clear-btn" 
+                    @onclick="ClearInput" 
+                    @onclick:stopPropagation="true"
+                    tabindex="-1">
+                ✕
             </button>
         }
     </div>
@@ -88,14 +92,20 @@
         Large
     }
 
-    private async Task HandleInput(ChangeEventArgs e)
+    // FIXED: Proper event handling for oninput
+    private void HandleInput(ChangeEventArgs e)
     {
         var newValue = e.Value?.ToString() ?? "";
-        if (Value != newValue)
+        
+        // Update local value immediately
+        Value = newValue;
+        
+        // Notify parent component - use InvokeAsync for proper rendering
+        InvokeAsync(async () =>
         {
-            Value = newValue;
             await ValueChanged.InvokeAsync(newValue);
-        }
+            StateHasChanged();
+        });
     }
 
     private async Task HandleBlur(FocusEventArgs e)
@@ -114,9 +124,13 @@
         }
     }
 
-    private async Task ClearInput()
+    private void ClearInput()
     {
         Value = "";
-        await ValueChanged.InvokeAsync("");
+        InvokeAsync(async () =>
+        {
+            await ValueChanged.InvokeAsync("");
+            StateHasChanged();
+        });
     }
 }
