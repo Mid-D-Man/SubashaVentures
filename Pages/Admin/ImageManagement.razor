@@ -239,7 +239,7 @@
     }
 </div>
 
-<!-- Upload Modal -->
+<!-- FIXED: Upload Modal with NO DUPLICATE BUTTONS -->
 <DynamicModal @ref="uploadModal"
               Title="Upload Images"
               Size="DynamicModal.ModalSize.Large"
@@ -249,7 +249,7 @@
     <BodyContent>
         <div class="upload-modal-content">
             
-            <!-- 1. FOLDER SELECTION -->
+            <!-- Folder Selection -->
             <div class="upload-section">
                 <label class="upload-label">Upload to Folder</label>
                 <select class="upload-select" @bind="uploadFolder">
@@ -264,7 +264,7 @@
                 </select>
             </div>
 
-            <!-- 2. FILE SELECTOR (Hidden input + Styled dropzone) -->
+            <!-- File Dropzone -->
             <div class="upload-dropzone-wrapper"
                  @ondragover:preventDefault="true"
                  @ondragenter:preventDefault="true"
@@ -272,14 +272,12 @@
                  @ondragenter="HandleDragEnter"
                  @ondragleave="HandleDragLeave">
                 
-                <!-- Hidden native file input (required) -->
                 <InputFile OnChange="HandleFileSelect"
                           multiple
                           accept="image/*"
                           id="imageUploadInput"
                           class="file-input-native" />
                 
-                <!-- Styled label that triggers the hidden input -->
                 <label for="imageUploadInput" 
                        class="upload-dropzone @(isDragging ? "dragging" : "")">
                     <div class="dropzone-content">
@@ -294,13 +292,13 @@
                 </label>
             </div>
 
-            <!-- 3. UPLOAD QUEUE (Only shows if files selected) -->
+            <!-- Upload Queue -->
             @if (uploadQueue.Any())
             {
                 <div class="upload-queue">
                     <div class="queue-header">
                         <h4>Upload Queue (@uploadQueue.Count files)</h4>
-                        <button class="clear-queue" @onclick="ClearQueue">Clear All</button>
+                        <button class="clear-queue" @onclick="ClearQueue" type="button">Clear All</button>
                     </div>
 
                     @foreach (var item in uploadQueue)
@@ -338,21 +336,23 @@
                                     <span class="status-icon pending">⏳</span>
                                 }
                             </div>
-                            <button class="queue-remove" @onclick="@(() => RemoveFromQueue(item))">✕</button>
+                            <button class="queue-remove" type="button" @onclick="@(() => RemoveFromQueue(item))">✕</button>
                         </div>
                     }
                 </div>
 
-                <!-- 4. ACTION BUTTONS (Only shows when files are in queue) -->
+                <!-- FIXED: Action Buttons - ONLY ONE SET -->
                 <div class="upload-actions">
                     <SecondaryButton OnClick="CloseUploadModal"
                                     Variant="SecondaryButton.ButtonVariant.Outline"
-                                    IsDisabled="@isUploading">
+                                    IsDisabled="@isUploading"
+                                    Size="SecondaryButton.ButtonSize.Medium">
                         Cancel
                     </SecondaryButton>
                     <PrimaryButton OnClick="StartUpload"
                                    IsDisabled="@isUploading"
-                                   IsLoading="@isUploading">
+                                   IsLoading="@isUploading"
+                                   Size="PrimaryButton.ButtonSize.Medium">
                         Upload @uploadQueue.Count Image@(uploadQueue.Count != 1 ? "s" : "")
                     </PrimaryButton>
                 </div>
