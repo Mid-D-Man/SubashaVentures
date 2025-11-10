@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseStorageService.cs
+// Services/Supabase/SupabaseStorageService.cs - FINAL FIX
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
@@ -88,11 +88,11 @@ public class SupabaseStorageService : ISupabaseStorageService
 
             _logger.LogInformation("Uploading to: {BucketId}/{FilePath}", bucketId, filePath);
 
-            // Convert stream to bytes
+            // CRITICAL FIX: Don't set Position on BrowserFileStream - just read it
             byte[] fileBytes;
             using (var memoryStream = new MemoryStream())
             {
-                compression.CompressedStream.Position = 0;
+                // BrowserFileStream doesn't support Position - just copy from current position
                 await compression.CompressedStream.CopyToAsync(memoryStream);
                 fileBytes = memoryStream.ToArray();
             }
@@ -195,11 +195,11 @@ public class SupabaseStorageService : ISupabaseStorageService
                 ? uniqueFileName
                 : $"{folder}/{uniqueFileName}";
 
-            // Read entire stream
+            // Read entire stream - DON'T use Position
             byte[] fileBytes;
             using (var memoryStream = new MemoryStream())
             {
-                fileStream.Position = 0;
+                // Just copy from current position
                 await fileStream.CopyToAsync(memoryStream);
                 fileBytes = memoryStream.ToArray();
             }
@@ -382,7 +382,7 @@ public class SupabaseStorageService : ISupabaseStorageService
             
             return new StorageCapacityInfo
             {
-                TotalCapacityBytes = 100L * 1024L * 1024L * 1024L, // 100GB
+                TotalCapacityBytes = 100L * 1024L * 1024L * 1024L,
                 UsedCapacityBytes = usedBytes,
                 MaxFileSizeBytes = MaxFileSizeBytes,
                 BucketName = bucketName
@@ -436,7 +436,6 @@ public class SupabaseStorageService : ISupabaseStorageService
 
     public async Task<long> GetBucketSizeAsync(string bucketName = "products")
     {
-        // Not implemented - Supabase doesn't expose this
         return 0;
     }
 
