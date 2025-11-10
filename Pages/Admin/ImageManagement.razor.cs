@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs
+// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIX
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -7,8 +7,8 @@ using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Components.Shared.Modals;
+using SubashaVentures.Components.Admin.Images;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-using Microsoft.AspNetCore.Components.Web;
 
 namespace SubashaVentures.Pages.Admin;
 
@@ -20,14 +20,14 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<ImageManagement> Logger { get; set; } = default!;
 
-    private MID_ComponentObjectPool<List<ImageItem>>? _imageListPool;
+    private MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>? _imageListPool;
     private MID_ComponentObjectPool<List<UploadQueueItem>>? _uploadQueuePool;
 
     private bool isLoading = true;
     private bool isUploadModalOpen = false;
     private bool isUploading = false;
     private bool isDragging = false;
-    private bool enableCompression = true; // NEW: Toggle for compression
+    private bool enableCompression = true;
 
     private string searchQuery = "";
     private string selectedFolder = "";
@@ -45,11 +45,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private int referencedImages = 0;
 
     private List<string> selectedImages = new();
-    private List<ImageItem> allImages = new();
-    private List<ImageItem> filteredImages = new();
-    private List<ImageItem> paginatedImages = new();
+    private List<AdminImageCard.ImageItem> allImages = new();
+    private List<AdminImageCard.ImageItem> filteredImages = new();
+    private List<AdminImageCard.ImageItem> paginatedImages = new();
     private List<UploadQueueItem> uploadQueue = new();
-    private ImageItem? selectedImage = null;
 
     private DynamicModal? uploadModal;
     private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
@@ -58,8 +57,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            _imageListPool = new MID_ComponentObjectPool<List<ImageItem>>(
-                () => new List<ImageItem>(),
+            _imageListPool = new MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>(
+                () => new List<AdminImageCard.ImageItem>(),
                 list => list.Clear(),
                 maxPoolSize: 10
             );
@@ -89,46 +88,56 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isLoading = true;
             StateHasChanged();
 
-            var loadTasks = new List<Task<List<StorageFile>>>
+            var folders = new[]
             {
-                StorageService.ListFilesAsync("products"),
-                StorageService.ListFilesAsync("products/mens"),
-                StorageService.ListFilesAsync("products/womens"),
-                StorageService.ListFilesAsync("products/children"),
-                StorageService.ListFilesAsync("products/baby"),
-                StorageService.ListFilesAsync("products/home"),
-                StorageService.ListFilesAsync("banners"),
-                StorageService.ListFilesAsync("categories")
+                "products",
+                "products/mens",
+                "products/womens",
+                "products/children",
+                "products/baby",
+                "products/home",
+                "banners",
+                "categories"
             };
 
-            var results = await Task.WhenAll(loadTasks);
-
             using var pooledImages = _imageListPool?.GetPooled();
-            var imageList = pooledImages?.Object ?? new List<ImageItem>();
+            var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
 
-            foreach (var fileList in results)
+            foreach (var folder in folders)
             {
-                foreach (var file in fileList)
+                try
                 {
-                    var imageItem = new ImageItem
-                    {
-                        Id = file.Id,
-                        FileName = file.Name,
-                        PublicUrl = StorageService.GetPublicUrl(file.Name),
-                        ThumbnailUrl = StorageService.GetPublicUrl(file.Name),
-                        Folder = ExtractFolderFromPath(file.Name),
-                        FileSize = file.Size,
-                        Dimensions = "Unknown",
-                        UploadedAt = file.UpdatedAt,
-                        IsReferenced = false,
-                        ReferenceCount = 0
-                    };
+                    var files = await StorageService.ListFilesAsync(folder);
 
-                    imageList.Add(imageItem);
+                    foreach (var file in files)
+                    {
+                        // Build proper public URL
+                        var publicUrl = StorageService.GetPublicUrl($"{folder}/{file.Name}");
+                        
+                        var imageItem = new AdminImageCard.ImageItem
+                        {
+                            Id = file.Id,
+                            FileName = file.Name,
+                            PublicUrl = publicUrl,
+                            ThumbnailUrl = publicUrl,
+                            Folder = folder,
+                            FileSize = await GetFileSizeAsync(publicUrl), // Get actual size
+                            Dimensions = await GetImageDimensionsAsync(publicUrl), // Get dimensions
+                            UploadedAt = file.UpdatedAt,
+                            IsReferenced = false,
+                            ReferenceCount = 0
+                        };
+
+                        imageList.Add(imageItem);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading from folder: {folder}");
                 }
             }
 
-            allImages = new List<ImageItem>(imageList);
+            allImages = new List<AdminImageCard.ImageItem>(imageList);
             totalImages = allImages.Count;
             referencedImages = allImages.Count(img => img.IsReferenced);
 
@@ -142,7 +151,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading images");
-            Logger.LogError(ex, "Failed to load images");
         }
         finally
         {
@@ -151,14 +159,60 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    private async Task<long> GetFileSizeAsync(string imageUrl)
+    {
+        try
+        {
+            // Use fetch API to get Content-Length header
+            var size = await JSRuntime.InvokeAsync<long>("eval", $@"
+                fetch('{imageUrl}', {{method: 'HEAD'}})
+                    .then(response => {{
+                        const length = response.headers.get('Content-Length');
+                        return length ? parseInt(length) : 0;
+                    }})
+                    .catch(() => 0);
+            ");
+            return size;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private async Task<string> GetImageDimensionsAsync(string imageUrl)
+    {
+        try
+        {
+            var dimensions = await JSRuntime.InvokeAsync<string>("eval", $@"
+                new Promise((resolve) => {{
+                    const img = new Image();
+                    img.onload = () => resolve(`${{img.width}}x${{img.height}}`);
+                    img.onerror = () => resolve('Unknown');
+                    img.src = '{imageUrl}';
+                }});
+            ");
+            return dimensions ?? "Unknown";
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+
     private async Task LoadStorageInfoAsync()
     {
         try
         {
-            var capacityInfo = await StorageService.GetStorageCapacityAsync("products");
+            // Calculate total size from all images
+            var totalSize = allImages.Sum(img => img.FileSize);
+            var totalCapacity = 1L * 1024L * 1024L * 1024L; // 1GB
 
-            storagePercentage = capacityInfo.UsagePercentage;
-            usedStorage = capacityInfo.FormattedUsedCapacity;
+            storagePercentage = totalCapacity > 0 
+                ? Math.Min(100, (totalSize / (double)totalCapacity) * 100)
+                : 0;
+
+            usedStorage = FormatBytes(totalSize);
             totalStorage = "1 GB";
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -174,24 +228,50 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    private string FormatBytes(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        
+        return $"{len:0.##} {sizes[order]}";
+    }
+
     private void ApplyFiltersAndSort()
     {
-        filteredImages = allImages
-            .Where(img =>
-                (string.IsNullOrEmpty(selectedFolder) || img.Folder == selectedFolder) &&
-                (string.IsNullOrEmpty(searchQuery) ||
-                 img.FileName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
+        // Apply folder filter
+        var query = allImages.AsEnumerable();
+        
+        if (!string.IsNullOrEmpty(selectedFolder))
+        {
+            query = query.Where(img => img.Folder == selectedFolder);
+        }
 
+        // Apply search filter
+        if (!string.IsNullOrEmpty(searchQuery))
+        {
+            var search = searchQuery.ToLower();
+            query = query.Where(img => 
+                img.FileName.ToLower().Contains(search) ||
+                img.Folder.ToLower().Contains(search));
+        }
+
+        // Apply sorting
         filteredImages = sortBy switch
         {
-            "newest" => filteredImages.OrderByDescending(x => x.UploadedAt).ToList(),
-            "oldest" => filteredImages.OrderBy(x => x.UploadedAt).ToList(),
-            "name-az" => filteredImages.OrderBy(x => x.FileName).ToList(),
-            "name-za" => filteredImages.OrderByDescending(x => x.FileName).ToList(),
-            "size-largest" => filteredImages.OrderByDescending(x => x.FileSize).ToList(),
-            "size-smallest" => filteredImages.OrderBy(x => x.FileSize).ToList(),
-            _ => filteredImages
+            "newest" => query.OrderByDescending(x => x.UploadedAt).ToList(),
+            "oldest" => query.OrderBy(x => x.UploadedAt).ToList(),
+            "name-az" => query.OrderBy(x => x.FileName).ToList(),
+            "name-za" => query.OrderByDescending(x => x.FileName).ToList(),
+            "size-largest" => query.OrderByDescending(x => x.FileSize).ToList(),
+            "size-smallest" => query.OrderBy(x => x.FileSize).ToList(),
+            _ => query.ToList()
         };
 
         UpdatePaginatedImages();
@@ -237,7 +317,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task HandleCopyUrl(ImageItem image)
+    private async Task HandleCopyUrl(AdminImageCard.ImageItem image)
     {
         try
         {
@@ -250,7 +330,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task HandleDownload(ImageItem image)
+    private async Task HandleDownload(AdminImageCard.ImageItem image)
     {
         try
         {
@@ -268,8 +348,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                         document.body.removeChild(a);
                     }});
             ");
-
-            await MID_HelperFunctions.DebugMessageAsync($"Downloading {image.FileName}", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -277,7 +355,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task HandleDelete(ImageItem image)
+    private async Task HandleDelete(AdminImageCard.ImageItem image)
     {
         try
         {
@@ -290,13 +368,14 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            var success = await StorageService.DeleteImageAsync(image.PublicUrl);
+            var filePath = $"{image.Folder}/{image.FileName}";
+            var success = await StorageService.DeleteImageAsync(filePath);
 
             if (success)
             {
                 allImages.Remove(image);
+                await LoadStorageInfoAsync();
                 ApplyFiltersAndSort();
-                await MID_HelperFunctions.DebugMessageAsync($"Deleted {image.FileName}", LogLevel.Info);
             }
         }
         catch (Exception ex)
@@ -330,25 +409,24 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             if (!imagesToDelete.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No images to delete (some may be referenced)",
+                    "No images to delete",
                     LogLevel.Warning
                 );
                 return;
             }
 
-            var filePaths = imagesToDelete.Select(x => x.PublicUrl).ToList();
+            var filePaths = imagesToDelete
+                .Select(x => $"{x.Folder}/{x.FileName}")
+                .ToList();
+            
             var success = await StorageService.DeleteImagesAsync(filePaths);
 
             if (success)
             {
                 allImages.RemoveAll(x => imagesToDelete.Contains(x));
                 selectedImages.Clear();
+                await LoadStorageInfoAsync();
                 ApplyFiltersAndSort();
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Deleted {imagesToDelete.Count} images",
-                    LogLevel.Info
-                );
             }
         }
         catch (Exception ex)
@@ -364,27 +442,16 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             const int maxAllowedFiles = 10;
             var files = e.GetMultipleFiles(maxAllowedFiles);
             
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Selected {files.Count} file(s)", 
-                LogLevel.Info
-            );
-
             foreach (var file in files)
             {
-                // Validate using compression service
                 var validation = await CompressionService.ValidateImageAsync(file);
                 
                 if (!validation.IsValid)
                 {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"File {file.Name} validation failed: {validation.ErrorMessage}",
-                        LogLevel.Warning
-                    );
                     continue;
                 }
 
-                // Create preview
-                var previewStream = file.OpenReadStream(2 * 1024 * 1024); // 2MB for preview
+                var previewStream = file.OpenReadStream(2 * 1024 * 1024);
                 var buffer = new byte[Math.Min(file.Size, 2 * 1024 * 1024)];
                 var bytesRead = await previewStream.ReadAsync(buffer, 0, buffer.Length);
                 
@@ -394,56 +461,21 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 var base64 = Convert.ToBase64String(actualBuffer);
                 var previewUrl = $"data:{file.ContentType};base64,{base64}";
 
-                var queueItem = new UploadQueueItem
+                uploadQueue.Add(new UploadQueueItem
                 {
                     FileName = file.Name,
                     PreviewUrl = previewUrl,
                     FileSize = file.Size,
                     Status = "pending",
-                    Progress = 0,
                     BrowserFile = file
-                };
-
-                uploadQueue.Add(queueItem);
+                });
             }
 
             StateHasChanged();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Added {uploadQueue.Count} file(s) to upload queue",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Handling file selection");
-            Logger.LogError(ex, "Error selecting files");
-        }
-    }
-
-    private void RemoveFromQueue(UploadQueueItem item)
-    {
-        try
-        {
-            uploadQueue.Remove(item);
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            MID_HelperFunctions.LogException(ex, "Removing item from queue");
-        }
-    }
-
-    private void ClearQueue()
-    {
-        try
-        {
-            uploadQueue.Clear();
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            MID_HelperFunctions.LogException(ex, "Clearing upload queue");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "File selection");
         }
     }
 
@@ -457,25 +489,16 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isUploading = true;
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Starting upload with compression: {(enableCompression ? "ENABLED" : "DISABLED")}",
-                LogLevel.Info
-            );
-
             foreach (var item in uploadQueue.Where(x => x.Status == "pending"))
             {
                 try
                 {
                     item.Status = "uploading";
-                    item.Progress = 10;
+                    item.Progress = 30;
                     StateHasChanged();
 
                     if (item.BrowserFile != null)
                     {
-                        item.Progress = 30;
-                        StateHasChanged();
-                        
-                        // Upload with optional compression
                         var result = await StorageService.UploadImageAsync(
                             item.BrowserFile,
                             "products",
@@ -483,41 +506,22 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                             enableCompression
                         );
 
-                        item.Progress = 90;
-                        StateHasChanged();
-
                         if (result.Success)
                         {
                             item.Status = "success";
                             item.Progress = 100;
-                            
-                            await MID_HelperFunctions.DebugMessageAsync(
-                                $"✓ Uploaded {item.FileName} successfully", 
-                                LogLevel.Info
-                            );
                         }
                         else
                         {
                             item.Status = "error";
                             item.ErrorMessage = result.ErrorMessage ?? "Upload failed";
-                            
-                            await MID_HelperFunctions.DebugMessageAsync(
-                                $"✗ Failed to upload {item.FileName}: {item.ErrorMessage}",
-                                LogLevel.Error
-                            );
                         }
-                    }
-                    else
-                    {
-                        item.Status = "error";
-                        item.ErrorMessage = "No file available";
                     }
                 }
                 catch (Exception ex)
                 {
                     item.Status = "error";
                     item.ErrorMessage = ex.Message;
-                    await MID_HelperFunctions.LogExceptionAsync(ex, $"Uploading {item.FileName}");
                 }
                 finally
                 {
@@ -534,12 +538,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             {
                 CloseUploadModal();
             }
-
-            await MID_HelperFunctions.DebugMessageAsync("Upload batch completed", LogLevel.Info);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Starting upload");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Upload");
         }
         finally
         {
@@ -548,10 +550,16 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private string ExtractFolderFromPath(string path)
+    private void RemoveFromQueue(UploadQueueItem item)
     {
-        var lastSlash = path.LastIndexOf('/');
-        return lastSlash > 0 ? path.Substring(0, lastSlash) : "products";
+        uploadQueue.Remove(item);
+        StateHasChanged();
+    }
+
+    private void ClearQueue()
+    {
+        uploadQueue.Clear();
+        StateHasChanged();
     }
 
     private void PreviousPage()
@@ -594,11 +602,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    private void HandleImageClick(ImageItem image)
-    {
-        selectedImage = image;
-    }
-
     private void HandleDragEnter()
     {
         isDragging = true;
@@ -611,19 +614,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    private async Task HandleDrop(DragEventArgs e)
+    private async Task HandleDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
     {
-        try
-        {
-            isDragging = false;
-            StateHasChanged();
-            
-            await MID_HelperFunctions.DebugMessageAsync("Files dropped", LogLevel.Info);
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Handling drop");
-        }
+        isDragging = false;
+        StateHasChanged();
     }
 
     public async ValueTask DisposeAsync()
@@ -632,45 +626,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         {
             _imageListPool?.Dispose();
             _uploadQueuePool?.Dispose();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "ImageManagement disposed successfully",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error disposing ImageManagement");
-        }
-    }
-
-    public class ImageItem
-    {
-        public string Id { get; set; } = "";
-        public string FileName { get; set; } = "";
-        public string PublicUrl { get; set; } = "";
-        public string ThumbnailUrl { get; set; } = "";
-        public string Folder { get; set; } = "";
-        public long FileSize { get; set; }
-        public string Dimensions { get; set; } = "";
-        public DateTime UploadedAt { get; set; }
-        public bool IsReferenced { get; set; }
-        public int ReferenceCount { get; set; }
-
-        public string FormattedSize
-        {
-            get
-            {
-                string[] sizes = { "B", "KB", "MB", "GB" };
-                double len = FileSize;
-                int order = 0;
-                while (len >= 1024 && order < sizes.Length - 1)
-                {
-                    order++;
-                    len = len / 1024;
-                }
-                return $"{len:0.##} {sizes[order]}";
-            }
+            Logger.LogError(ex, "Error disposing");
         }
     }
 
