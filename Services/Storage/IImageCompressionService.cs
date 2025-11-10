@@ -1,62 +1,45 @@
-// Services/Storage/IImageCompressionService.cs & Implementation
-using System.Text;
-using SubashaVentures.Utilities.HelperScripts;
+// Services/Storage/IImageCompressionService.cs
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace SubashaVentures.Services.Storage;
 
 /// <summary>
-/// Service for image compression and optimization
-/// Uses base64 encoding for WASM-safe operations
+/// Service for image compression and optimization using native Blazor APIs
 /// </summary>
 public interface IImageCompressionService
 {
     /// <summary>
-    /// Compress image from stream with specified quality
+    /// Compress image using Blazor's built-in RequestImageFileAsync
+    /// This uses native browser APIs and is the recommended approach
     /// </summary>
     Task<ImageCompressionResult> CompressImageAsync(
-        Stream imageStream,
-        int quality = 80,
+        IBrowserFile browserFile,
         int maxWidth = 2000,
         int maxHeight = 2000,
-        bool convertToWebP = false);
-    
-    /// <summary>
-    /// Compress image and return base64 string
-    /// </summary>
-    Task<string> CompressToBase64Async(
-        Stream imageStream,
         int quality = 80,
-        int maxWidth = 2000,
-        int maxHeight = 2000);
+        bool enableCompression = true);
     
     /// <summary>
-    /// Create thumbnail from image
+    /// Compress image from stream (fallback - less reliable)
     /// </summary>
-    Task<ImageCompressionResult> CreateThumbnailAsync(
+    Task<ImageCompressionResult> CompressImageFromStreamAsync(
         Stream imageStream,
-        int size = 300,
-        int quality = 85);
-    
-    /// <summary>
-    /// Get image dimensions without full decode
-    /// </summary>
-    Task<ImageDimensions?> GetImageDimensionsAsync(Stream imageStream);
-    
-    /// <summary>
-    /// Convert base64 back to stream
-    /// </summary>
-    Stream Base64ToStream(string base64String);
+        string fileName,
+        int maxWidth = 2000,
+        int maxHeight = 2000,
+        bool enableCompression = true);
     
     /// <summary>
     /// Validate image format and size
     /// </summary>
-    ImageValidationResult ValidateImage(
-        Stream imageStream,
-        long maxSizeBytes = 50 * 1024 * 1024);
-    
-     Task<ImageValidationResult> ValidateImageAsync(
-        Stream imageStream,
+    Task<ImageValidationResult> ValidateImageAsync(
+        IBrowserFile browserFile,
         long maxSizeBytes = 50L * 1024L * 1024L);
+    
+    /// <summary>
+    /// Get image dimensions
+    /// </summary>
+    Task<ImageDimensions?> GetImageDimensionsAsync(IBrowserFile browserFile);
 }
 
 /// <summary>
@@ -66,12 +49,13 @@ public class ImageCompressionResult
 {
     public bool Success { get; set; }
     public Stream? CompressedStream { get; set; }
-    public string? Base64Data { get; set; }
     public long OriginalSize { get; set; }
     public long CompressedSize { get; set; }
     public float CompressionRatio { get; set; }
     public string? ErrorMessage { get; set; }
     public string ContentType { get; set; } = "image/jpeg";
+    public int Width { get; set; }
+    public int Height { get; set; }
 }
 
 /// <summary>

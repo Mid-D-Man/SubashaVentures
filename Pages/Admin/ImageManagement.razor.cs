@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIXED VERSION
+// Pages/Admin/ImageManagement.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -27,6 +27,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private bool isUploadModalOpen = false;
     private bool isUploading = false;
     private bool isDragging = false;
+    private bool enableCompression = true; // NEW: Toggle for compression
 
     private string searchQuery = "";
     private string selectedFolder = "";
@@ -356,14 +357,11 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // FIXED: Proper file handling with full file reading
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
         try
         {
-            const long maxFileSize = 50L * 1024L * 1024L;
             const int maxAllowedFiles = 10;
-
             var files = e.GetMultipleFiles(maxAllowedFiles);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -373,31 +371,23 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
             foreach (var file in files)
             {
-                if (file.Size > maxFileSize)
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"File {file.Name} exceeds size limit",
-                        LogLevel.Warning
-                    );
-                    continue;
-                }
-
-                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif" };
-                if (!allowedTypes.Contains(file.ContentType.ToLower()))
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"File {file.Name} has unsupported type: {file.ContentType}",
-                        LogLevel.Warning
-                    );
-                    continue;
-                }
-
-                // FIXED: Read ENTIRE file for preview (not just 512KB)
-                var buffer = new byte[Math.Min(file.Size, 2 * 1024 * 1024)]; // Max 2MB for preview
-                using var stream = file.OpenReadStream(maxFileSize);
-                var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                // Validate using compression service
+                var validation = await CompressionService.ValidateImageAsync(file);
                 
-                // Only use actual bytes read
+                if (!validation.IsValid)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"File {file.Name} validation failed: {validation.ErrorMessage}",
+                        LogLevel.Warning
+                    );
+                    continue;
+                }
+
+                // Create preview
+                var previewStream = file.OpenReadStream(2 * 1024 * 1024); // 2MB for preview
+                var buffer = new byte[Math.Min(file.Size, 2 * 1024 * 1024)];
+                var bytesRead = await previewStream.ReadAsync(buffer, 0, buffer.Length);
+                
                 var actualBuffer = new byte[bytesRead];
                 Array.Copy(buffer, actualBuffer, bytesRead);
                 
@@ -467,6 +457,11 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isUploading = true;
             StateHasChanged();
 
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Starting upload with compression: {(enableCompression ? "ENABLED" : "DISABLED")}",
+                LogLevel.Info
+            );
+
             foreach (var item in uploadQueue.Where(x => x.Status == "pending"))
             {
                 try
@@ -477,17 +472,15 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
                     if (item.BrowserFile != null)
                     {
-                        // Open fresh stream for upload
-                        using var fileStream = item.BrowserFile.OpenReadStream(50L * 1024L * 1024L);
-                        
                         item.Progress = 30;
                         StateHasChanged();
                         
+                        // Upload with optional compression
                         var result = await StorageService.UploadImageAsync(
-                            fileStream, 
-                            item.FileName, 
-                            "products", 
-                            uploadFolder
+                            item.BrowserFile,
+                            "products",
+                            uploadFolder,
+                            enableCompression
                         );
 
                         item.Progress = 90;
@@ -499,7 +492,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                             item.Progress = 100;
                             
                             await MID_HelperFunctions.DebugMessageAsync(
-                                $"Uploaded {item.FileName} successfully", 
+                                $"✓ Uploaded {item.FileName} successfully", 
                                 LogLevel.Info
                             );
                         }
@@ -509,7 +502,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                             item.ErrorMessage = result.ErrorMessage ?? "Upload failed";
                             
                             await MID_HelperFunctions.DebugMessageAsync(
-                                $"Failed to upload {item.FileName}: {item.ErrorMessage}",
+                                $"✗ Failed to upload {item.FileName}: {item.ErrorMessage}",
                                 LogLevel.Error
                             );
                         }
@@ -542,7 +535,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 CloseUploadModal();
             }
 
-            await MID_HelperFunctions.DebugMessageAsync("Upload completed", LogLevel.Info);
+            await MID_HelperFunctions.DebugMessageAsync("Upload batch completed", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -625,10 +618,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isDragging = false;
             StateHasChanged();
             
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Files dropped",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync("Files dropped", LogLevel.Info);
         }
         catch (Exception ex)
         {

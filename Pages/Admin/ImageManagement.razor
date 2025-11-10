@@ -264,7 +264,20 @@
                     <option value="categories">Categories</option>
                 </select>
             </div>
-
+            <!-- After folder selection, add this -->
+            <div class="upload-section">
+                <label class="compression-toggle">
+                    <input type="checkbox"
+                           @bind="enableCompression"
+                           class="compression-checkbox" />
+                    <span class="compression-label">
+            Enable Image Compression (Recommended)
+        </span>
+                    <span class="compression-hint">
+            Reduces file size while maintaining quality. Disable for testing only.
+        </span>
+                </label>
+            </div>
             <!-- File Dropzone -->
             <div class="upload-dropzone-wrapper"
                  @ondragover:preventDefault="true"
