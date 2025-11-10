@@ -293,19 +293,37 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
     }
 
-    public string GetPublicUrl(string filePath, string bucketName = "products")
+public string GetPublicUrl(string filePath, string bucketName = "products")
+{
+    try
     {
-        try
+        var bucketId = GetBucketId(bucketName);
+        
+        // CRITICAL FIX: Ensure filePath doesn't start with bucket name
+        // Supabase expects: bucket/path/to/file.jpg
+        // NOT: path/to/file.jpg when calling GetPublicUrl
+        
+        var publicUrl = _supabaseClient.Storage
+            .From(bucketId)
+            .GetPublicUrl(filePath);
+        
+        // Verify URL is valid
+        if (string.IsNullOrEmpty(publicUrl))
         {
-            var bucketId = GetBucketId(bucketName);
-            return _supabaseClient.Storage.From(bucketId).GetPublicUrl(filePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting URL: {FilePath}", filePath);
+            _logger.LogWarning("GetPublicUrl returned empty for: {FilePath}", filePath);
             return string.Empty;
         }
+
+        _logger.LogDebug("Generated public URL: {Url}", publicUrl);
+        
+        return publicUrl;
     }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error getting public URL for: {FilePath}", filePath);
+        return string.Empty;
+    }
+}
 
     public async Task<string> GetSignedUrlAsync(string filePath, int expiresIn = 3600, string bucketName = "products")
     {
@@ -322,28 +340,29 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
     }
 
-    public async Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products")
+    // Also update ListFilesAsync to return proper file metadata
+public async Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products")
+{
+    try
     {
-        try
-        {
-            var bucketId = GetBucketId(bucketName);
-            var files = await _supabaseClient.Storage.From(bucketId).List(folder);
+        var bucketId = GetBucketId(bucketName);
+        var files = await _supabaseClient.Storage.From(bucketId).List(folder);
 
-            return files.Select(f => new StorageFile
-            {
-                Name = f.Name ?? string.Empty,
-                Id = f.Id ?? string.Empty,
-                UpdatedAt = f.UpdatedAt ?? DateTime.UtcNow,
-                Size = 0,
-                ContentType = string.Empty
-            }).ToList();
-        }
-        catch (Exception ex)
+        return files.Select(f => new StorageFile
         {
-            _logger.LogError(ex, "List failed: {Folder}", folder);
-            return new List<StorageFile>();
-        }
+            Name = f.Name ?? string.Empty,
+            Id = f.Id ?? Guid.NewGuid().ToString(),
+            UpdatedAt = f.UpdatedAt ?? DateTime.UtcNow,
+            Size = 0, // Supabase C# SDK doesn't return size in list
+            ContentType = string.Empty
+        }).ToList();
     }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "List failed for folder: {Folder}", folder);
+        return new List<StorageFile>();
+    }
+}
 
     public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, string bucketName = "products")
     {
