@@ -1,0 +1,174 @@
+<!-- Components/Admin/Images/AdminImageCard.razor -->
+@using SubashaVentures.Components.Shared.Buttons
+
+<div class="admin-image-card @(IsSelected ? "selected" : "")" @onclick="HandleCardClick">
+    
+    <input type="checkbox" 
+           class="image-checkbox"
+           checked="@IsSelected"
+           @onclick:stopPropagation="true"
+           @onchange="HandleSelectionChange" />
+
+    <div class="image-wrapper">
+        <img src="@Image.ThumbnailUrl" 
+             alt="@Image.FileName" 
+             loading="lazy"
+             @onerror="HandleImageError" />
+        
+        @if (Image.IsReferenced)
+        {
+            <span class="ref-badge" title="Used in @Image.ReferenceCount product(s)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M10 13C10.4295 13.5741 10.9774 14.0491 11.6066 14.3929C12.2357 14.7367 12.9315 14.9411 13.6467 14.9923C14.3618 15.0435 15.0796 14.9403 15.7513 14.6897C16.4231 14.4392 17.0331 14.047 17.54 13.54L20.54 10.54C21.4508 9.59695 21.9548 8.33394 21.9434 7.02296C21.932 5.71198 21.4061 4.45791 20.4791 3.53087C19.5521 2.60383 18.298 2.07799 16.987 2.0666C15.676 2.0552 14.413 2.55918 13.47 3.46997L11.75 5.17997" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M14 11C13.5705 10.4259 13.0226 9.95083 12.3934 9.60707C11.7642 9.26331 11.0685 9.05889 10.3533 9.00768C9.63816 8.95646 8.92037 9.05966 8.24861 9.31023C7.57685 9.5608 6.96684 9.95303 6.45996 10.46L3.45996 13.46C2.54917 14.403 2.04519 15.666 2.05659 16.977C2.06798 18.288 2.59382 19.5421 3.52086 20.4691C4.4479 21.3961 5.70197 21.922 7.01295 21.9334C8.32393 21.9448 9.58694 21.4408 10.53 20.53L12.24 18.82" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                @Image.ReferenceCount
+            </span>
+        }
+    </div>
+
+    <div class="image-info">
+        <span class="image-name" title="@Image.FileName">@Image.FileName</span>
+        <span class="image-meta">
+            @Image.FormattedSize
+            @if (!string.IsNullOrEmpty(Image.Dimensions))
+            {
+                <span> • @Image.Dimensions</span>
+            }
+        </span>
+        <span class="image-folder">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M22 19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H9L11 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            @GetFolderDisplayName(Image.Folder)
+        </span>
+        <span class="image-date">@Image.UploadedAt.ToString("MMM dd, yyyy")</span>
+    </div>
+
+    <div class="image-actions">
+        <button class="action-btn" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleCopyUrl"
+                title="Copy URL">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M8 8V5C8 4.46957 8.21071 3.96086 8.58579 3.58579C8.96086 3.21071 9.46957 3 10 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V14C21 14.5304 20.7893 15.0391 20.4142 15.4142C20.0391 15.7893 19.5304 16 19 16H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="3" y="8" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <button class="action-btn" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleDownload"
+                title="Download">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <button class="action-btn danger" 
+                @onclick:stopPropagation="true"
+                @onclick="HandleDelete"
+                title="Delete"
+                disabled="@Image.IsReferenced">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ImageItem Image { get; set; } = default!;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public EventCallback<ImageItem> OnClick { get; set; }
+    [Parameter] public EventCallback<ImageItem> OnCopyUrl { get; set; }
+    [Parameter] public EventCallback<ImageItem> OnDownload { get; set; }
+    [Parameter] public EventCallback<ImageItem> OnDelete { get; set; }
+    [Parameter] public EventCallback<(string imageId, bool isSelected)> OnSelectionChanged { get; set; }
+
+    private async Task HandleCardClick()
+    {
+        if (OnClick.HasDelegate)
+            await OnClick.InvokeAsync(Image);
+    }
+
+    private async Task HandleCopyUrl()
+    {
+        if (OnCopyUrl.HasDelegate)
+            await OnCopyUrl.InvokeAsync(Image);
+    }
+
+    private async Task HandleDownload()
+    {
+        if (OnDownload.HasDelegate)
+            await OnDownload.InvokeAsync(Image);
+    }
+
+    private async Task HandleDelete()
+    {
+        if (!Image.IsReferenced && OnDelete.HasDelegate)
+            await OnDelete.InvokeAsync(Image);
+    }
+
+    private async Task HandleSelectionChange(ChangeEventArgs e)
+    {
+        if (e.Value is bool isSelected && OnSelectionChanged.HasDelegate)
+            await OnSelectionChanged.InvokeAsync((Image.Id, isSelected));
+    }
+
+    private void HandleImageError()
+    {
+        // Placeholder for broken image handling
+    }
+
+    private string GetFolderDisplayName(string folder)
+    {
+        return folder switch
+        {
+            "products" => "General",
+            "products/mens" => "Men's",
+            "products/womens" => "Women's",
+            "products/children" => "Children's",
+            "products/baby" => "Baby",
+            "products/home" => "Home",
+            "banners" => "Banners",
+            "categories" => "Categories",
+            _ => folder
+        };
+    }
+
+    public class ImageItem
+    {
+        public string Id { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string PublicUrl { get; set; } = "";
+        public string ThumbnailUrl { get; set; } = "";
+        public string Folder { get; set; } = "";
+        public long FileSize { get; set; }
+        public string Dimensions { get; set; } = "";
+        public DateTime UploadedAt { get; set; }
+        public bool IsReferenced { get; set; }
+        public int ReferenceCount { get; set; }
+
+        public string FormattedSize
+        {
+            get
+            {
+                if (FileSize == 0) return "0 B";
+                
+                string[] sizes = { "B", "KB", "MB", "GB" };
+                double len = FileSize;
+                int order = 0;
+                
+                while (len >= 1024 && order < sizes.Length - 1)
+                {
+                    order++;
+                    len = len / 1024;
+                }
+                
+                return $"{len:0.##} {sizes[order]}";
+            }
+        }
+    }
+}
