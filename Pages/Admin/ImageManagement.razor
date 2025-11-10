@@ -3,8 +3,8 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Admin.Images
 @layout AdminLayout
-
 
 <div class="image-management">
     <!-- Header -->
@@ -71,7 +71,7 @@
         <div class="im-filters">
             <select class="filter-select folder-select" @onchange="HandleFolderChange">
                 <option value="">All Folders</option>
-                <option value="products">Products</option>
+                <option value="products">Products (General)</option>
                 <option value="products/mens">Men's Fashion</option>
                 <option value="products/womens">Women's Fashion</option>
                 <option value="products/children">Children's</option>
@@ -85,7 +85,8 @@
                        Placeholder="Search images..."
                        PrefixIcon="🔍"
                        ShowClearButton="true"
-                       CssClass="search-input" />
+                       CssClass="search-input"
+                       @bind-Value:after="ApplyFiltersAndSort" />
 
             <select class="filter-select" @onchange="HandleSortChange">
                 <option value="newest">Newest First</option>
@@ -115,21 +116,21 @@
             }
 
             <button class="view-toggle @(gridSize == "small" ? "active" : "")" 
-                    @onclick="@(() => gridSize = "small")">
+                    @onclick="@(() => { gridSize = "small"; StateHasChanged(); })">
                 ▦▦
             </button>
             <button class="view-toggle @(gridSize == "medium" ? "active" : "")" 
-                    @onclick="@(() => gridSize = "medium")">
+                    @onclick="@(() => { gridSize = "medium"; StateHasChanged(); })">
                 ▦
             </button>
             <button class="view-toggle @(gridSize == "large" ? "active" : "")" 
-                    @onclick="@(() => gridSize = "large")">
+                    @onclick="@(() => { gridSize = "large"; StateHasChanged(); })">
                 ▢
             </button>
         </div>
     </div>
 
-    <!-- Image Grid -->
+    <!-- Image Grid using AdminImageCard -->
     @if (isLoading)
     {
         <div class="im-loading">
@@ -142,7 +143,7 @@
         <div class="im-empty">
             <div class="empty-icon">🖼️</div>
             <h3>No images found</h3>
-            <p>Upload your first image to get started</p>
+            <p>@(string.IsNullOrEmpty(searchQuery) ? "Upload your first image to get started" : "No images match your search")</p>
             <PrimaryButton OnClick="OpenUploadModal">
                 Upload Images
             </PrimaryButton>
@@ -153,59 +154,12 @@
         <div class="im-grid @gridSize">
             @foreach (var image in paginatedImages)
             {
-                <div class="image-card @(selectedImages.Contains(image.Id) ? "selected" : "")"
-                     @onclick="@(() => HandleImageClick(image))">
-                    
-                    <input type="checkbox" 
-                           class="image-checkbox"
-                           checked="@selectedImages.Contains(image.Id)"
-                           @onclick:stopPropagation="true"
-                           @onchange="@((e) => HandleImageSelect(image.Id, e))" />
-
-                    <div class="image-wrapper">
-                        <img src="@image.ThumbnailUrl" 
-                             alt="@image.FileName" 
-                             loading="lazy" />
-                        
-                        @if (image.IsReferenced)
-                        {
-                            <span class="ref-badge" title="Used in products">🔗</span>
-                        }
-                    </div>
-
-                    <div class="image-info">
-                        <span class="image-name" title="@image.FileName">
-                            @image.FileName
-                        </span>
-                        <span class="image-meta">
-                            @image.FormattedSize • @image.Dimensions
-                        </span>
-                        <span class="image-date">
-                            @image.UploadedAt.ToString("MMM dd, yyyy")
-                        </span>
-                    </div>
-
-                    <div class="image-actions">
-                        <button class="action-btn" 
-                                @onclick:stopPropagation="true"
-                                @onclick="@(() => HandleCopyUrl(image))"
-                                title="Copy URL">
-                            📋
-                        </button>
-                        <button class="action-btn" 
-                                @onclick:stopPropagation="true"
-                                @onclick="@(() => HandleDownload(image))"
-                                title="Download">
-                            ⬇
-                        </button>
-                        <button class="action-btn danger" 
-                                @onclick:stopPropagation="true"
-                                @onclick="@(() => HandleDelete(image))"
-                                title="Delete">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
+                <AdminImageCard Image="@image"
+                               IsSelected="@selectedImages.Contains(image.Id)"
+                               OnCopyUrl="@(() => HandleCopyUrl(image))"
+                               OnDownload="@(() => HandleDownload(image))"
+                               OnDelete="@(() => HandleDelete(image))"
+                               OnSelectionChanged="@((args) => HandleImageSelect(args.imageId, new ChangeEventArgs { Value = args.isSelected }))" />
             }
         </div>
 
@@ -240,7 +194,7 @@
     }
 </div>
 
-<!-- FIXED: Upload Modal with NO DUPLICATE BUTTONS -->
+<!-- Upload Modal -->
 <DynamicModal @ref="uploadModal"
               Title="Upload Images"
               Size="DynamicModal.ModalSize.Large"
@@ -264,20 +218,22 @@
                     <option value="categories">Categories</option>
                 </select>
             </div>
-            <!-- After folder selection, add this -->
+
+            <!-- Compression Toggle -->
             <div class="upload-section">
                 <label class="compression-toggle">
                     <input type="checkbox"
                            @bind="enableCompression"
                            class="compression-checkbox" />
                     <span class="compression-label">
-            Enable Image Compression (Recommended)
-        </span>
+                        Enable Image Compression (Recommended)
+                    </span>
                     <span class="compression-hint">
-            Reduces file size while maintaining quality. Disable for testing only.
-        </span>
+                        Reduces file size while maintaining quality
+                    </span>
                 </label>
             </div>
+
             <!-- File Dropzone -->
             <div class="upload-dropzone-wrapper"
                  @ondragover:preventDefault="true"
@@ -301,7 +257,7 @@
                         <div class="browse-btn-wrapper">
                             <span class="browse-btn">Browse Files</span>
                         </div>
-                        <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB per file)</p>
+                        <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50MB)</p>
                     </div>
                 </label>
             </div>
@@ -355,7 +311,7 @@
                     }
                 </div>
 
-                <!-- FIXED: Action Buttons - ONLY ONE SET -->
+                <!-- Action Buttons -->
                 <div class="upload-actions">
                     <SecondaryButton OnClick="CloseUploadModal"
                                     Variant="SecondaryButton.ButtonVariant.Outline"
