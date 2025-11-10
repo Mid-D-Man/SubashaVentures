@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Nov 10 23:33:35 UTC 2025
+Generated: Mon Nov 10 23:34:47 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: bdc4653227f6b6982bba9a11518612b50bf7159e
+Commit: 4eb30290f82baf1d2c379f34eba3bf9d977bcdb5
 Branch: master
 ==================================
 
@@ -10,6 +10,7 @@ Source Files:
 .github/workflows/deploy.yml
 App.razor
 Components/Admin/Images/AdminImageCard.razor
+Components/Admin/Images/AdminImageCard.razor.css
 Components/Admin/Products/AdminProductCard.razor
 Components/Admin/Products/AdminProductCard.razor.css
 Components/Admin/Users/AdminUserCard.razor
@@ -260,6 +261,6 @@ File Count Summary:
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
-.css      : 40 files
+.css      : 41 files
 .js       : 9 files
 .html     : 1 files
