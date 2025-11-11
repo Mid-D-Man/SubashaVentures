@@ -28,6 +28,12 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private bool isUploading = false;
     private bool isDragging = false;
     private bool enableCompression = true;
+    
+    // Confirmation popup state
+    private bool isConfirmationOpen = false;
+    private bool isDeleting = false;
+    private AdminImageCard.ImageItem? imageToDelete = null;
+    private List<string> imagesToDelete = new();
 
     private string searchQuery = "";
     private string selectedFolder = "";
@@ -51,7 +57,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private List<UploadQueueItem> uploadQueue = new();
 
     private DynamicModal? uploadModal;
+    private ConfirmationPopup? confirmationPopup;
+    
     private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
+
 
     protected override async Task OnInitializedAsync()
     {
