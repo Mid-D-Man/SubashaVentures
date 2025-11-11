@@ -1,0 +1,225 @@
+@page "/admin/categories"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@layout AdminLayout
+
+<div class="category-management">
+    <!-- Header -->
+    <div class="cm-header">
+        <div class="cm-header-left">
+            <h1 class="cm-title">Category Management</h1>
+            <p class="cm-subtitle">Manage product categories for your store</p>
+        </div>
+        <div class="cm-header-right">
+            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                          Size="PrimaryButton.ButtonSize.Medium"
+                          Icon="+"
+                          OnClick="OpenAddCategoryModal">
+                Add Category
+            </PrimaryButton>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="cm-stats">
+        <div class="stat-card">
+            <div class="stat-icon">📂</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Categories</span>
+                <span class="stat-value">@categories.Count</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <span class="stat-label">Active</span>
+                <span class="stat-value">@categories.Count(c => c.IsActive)</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Products</span>
+                <span class="stat-value">@categories.Sum(c => c.ProductCount)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories Table -->
+    @if (isLoading)
+    {
+        <div class="cm-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading categories...</p>
+        </div>
+    }
+    else if (!categories.Any())
+    {
+        <div class="cm-empty">
+            <div class="empty-icon">📂</div>
+            <h3>No categories yet</h3>
+            <p>Create your first category to organize your products</p>
+            <PrimaryButton OnClick="OpenAddCategoryModal">
+                Add Category
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="cm-table-container">
+            <table class="cm-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Slug</th>
+                        <th>Products</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var category in categories.OrderBy(c => c.DisplayOrder))
+                    {
+                        <tr class="@(category.IsActive ? "" : "inactive")">
+                            <td>
+                                <div class="category-name-cell">
+                                    @if (!string.IsNullOrEmpty(category.IconEmoji))
+                                    {
+                                        <span class="category-icon">@category.IconEmoji</span>
+                                    }
+                                    <div class="category-name-info">
+                                        <span class="category-name">@category.Name</span>
+                                        @if (!string.IsNullOrEmpty(category.Description))
+                                        {
+                                            <span class="category-desc">@category.Description</span>
+                                        }
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <code class="category-slug">@category.Slug</code>
+                            </td>
+                            <td>
+                                <span class="product-count">@category.ProductCount</span>
+                            </td>
+                            <td>
+                                <span class="status-badge @(category.IsActive ? "active" : "inactive")">
+                                    @(category.IsActive ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>
+                                <span class="date-text">@category.CreatedAt.ToString("MMM dd, yyyy")</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-btn edit" 
+                                            @onclick="@(() => OpenEditCategoryModal(category))"
+                                            title="Edit">
+                                        ✏️
+                                    </button>
+                                    <button class="action-btn delete" 
+                                            @onclick="@(() => HandleDeleteCategory(category))"
+                                            disabled="@(category.ProductCount > 0)"
+                                            title="@(category.ProductCount > 0 ? "Cannot delete - has products" : "Delete")">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Category Modal -->
+<DynamicModal @ref="categoryModal"
+              Title="@(isEditMode ? "Edit Category" : "Add Category")"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isCategoryModalOpen"
+              ShowFooter="false"
+              OnClose="CloseCategoryModal">
+    <BodyContent>
+        <div class="category-form">
+            <InputField @bind-Value="editingCategory.Name"
+                       Label="Category Name"
+                       Placeholder="e.g., Men's Clothing"
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
+                       ErrorMessage="@validationErrors.GetValueOrDefault("Name")"
+                       CssClass="form-field" />
+
+            <InputField @bind-Value="editingCategory.Slug"
+                       Label="Slug (URL)"
+                       Placeholder="e.g., mens-clothing"
+                       HelperText="Auto-generated from name if left empty"
+                       CssClass="form-field" />
+
+            <div class="form-field">
+                <label class="input-label">Description</label>
+                <textarea class="input-control textarea"
+                         @bind="editingCategory.Description"
+                         placeholder="Brief description of this category"
+                         rows="3"></textarea>
+            </div>
+
+            <InputField @bind-Value="editingCategory.IconEmoji"
+                       Label="Icon Emoji"
+                       Placeholder="e.g., 👔"
+                       HelperText="Single emoji to represent this category"
+                       CssClass="form-field" />
+
+            <div class="form-field">
+                <label class="input-label">Display Order</label>
+                <input type="number"
+                       class="input-control"
+                       @bind="editingCategory.DisplayOrder"
+                       placeholder="0"
+                       min="0" />
+            </div>
+
+            <div class="form-field">
+                <label class="toggle-switch">
+                    <input type="checkbox"
+                           @bind="editingCategory.IsActive" />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Active</span>
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <SecondaryButton OnClick="CloseCategoryModal"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                IsDisabled="@isSaving"
+                                Size="SecondaryButton.ButtonSize.Medium">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="SaveCategory"
+                              IsLoading="@isSaving"
+                              IsDisabled="@isSaving"
+                              Size="PrimaryButton.ButtonSize.Medium">
+                    @(isEditMode ? "Update" : "Create") Category
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Delete Confirmation -->
+<ConfirmationPopup @ref="confirmationPopup"
+                   IsOpen="@isConfirmationOpen"
+                   Title="Delete Category?"
+                   Message="@($"Are you sure you want to delete \"{categoryToDelete?.Name}\"?")"
+                   WarningText="This action cannot be undone."
+                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                   ConfirmButtonText="Delete"
+                   CancelButtonText="Cancel"
+                   IsProcessing="@isDeleting"
+                   OnConfirm="ConfirmDeleteCategory"
+                   OnCancel="CancelDeleteCategory" />
