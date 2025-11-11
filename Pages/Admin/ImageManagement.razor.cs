@@ -364,7 +364,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task HandleDelete(AdminImageCard.ImageItem image)
+   private async Task HandleDelete(AdminImageCard.ImageItem image)
     {
         try
         {
@@ -374,24 +374,22 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     "Cannot delete: Image is used in products",
                     LogLevel.Warning
                 );
+                // TODO: Show toast notification
                 return;
             }
 
-            var filePath = $"{image.Folder}/{image.FileName}";
-            var success = await StorageService.DeleteImageAsync(filePath);
-
-            if (success)
-            {
-                allImages.Remove(image);
-                await LoadStorageInfoAsync();
-                ApplyFiltersAndSort();
-            }
+            // Store image for deletion and show confirmation
+            imageToDelete = image;
+            imagesToDelete.Clear();
+            isConfirmationOpen = true;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting image");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Preparing delete");
         }
     }
+
 
     private async Task HandleBulkDownload()
     {
