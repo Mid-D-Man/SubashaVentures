@@ -261,126 +261,120 @@ public class SupabaseStorageService : ISupabaseStorageService
         return results;
     }
 
+    /// <summary>
+/// Delete a single image from storage
+/// FIXED: Proper error handling and path formatting
+/// </summary>
+public async Task<bool> DeleteImageAsync(string filePath, string bucketName = "products")
+{
+    try
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            _logger.LogWarning("Cannot delete: filePath is null or empty");
+            return false;
+        }
+
+        var bucketId = GetBucketId(bucketName);
+
+        _logger.LogInformation("Attempting to delete: {BucketId}/{FilePath}", bucketId, filePath);
+
+        // Remove method expects a List<string> of file paths
+        var pathsToDelete = new List<string> { filePath };
+
+        var response = await _supabaseClient.Storage
+            .From(bucketId)
+            .Remove(pathsToDelete);
+
+        if (response == null)
+        {
+            _logger.LogError("Delete failed: No response from Supabase");
+            return false;
+        }
+
+        _logger.LogInformation("✓ Successfully deleted: {FilePath}", filePath);
+        return true;
+    }
+    catch (HttpRequestException ex)
+    {
+        _logger.LogError(ex, "HTTP error deleting {FilePath}: {Message}", filePath, ex.Message);
+
+        if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
+        {
+            _logger.LogError("Permission denied. Check RLS policies for DELETE operation on storage.objects");
+        }
+        else if (ex.Message.Contains("404") || ex.Message.Contains("not found"))
+        {
+            _logger.LogWarning("File not found: {FilePath}", filePath);
+            return true; // Treat as success since file doesn't exist
+        }
+
+        return false;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Unexpected error deleting: {FilePath}", filePath);
+        return false;
+    }
+}
+
+/// <summary>
+/// Delete multiple images from storage
+/// FIXED: Batch deletion with proper error handling
+/// </summary>
+public async Task<bool> DeleteImagesAsync(List<string> filePaths, string bucketName = "products")
+{
+    try
+    {
+        if (filePaths == null || !filePaths.Any())
+        {
+            _logger.LogWarning("Cannot delete: filePaths is null or empty");
+            return false;
+        }
+
+        var validPaths = filePaths.Where(p => !string.IsNullOrEmpty(p)).ToList();
+
+        if (!validPaths.Any())
+        {
+            _logger.LogWarning("No valid paths to delete");
+            return false;
+        }
+
+        var bucketId = GetBucketId(bucketName);
+
+        _logger.LogInformation("Attempting to delete {Count} files from {BucketId}", validPaths.Count, bucketId);
+
+        var response = await _supabaseClient.Storage
+            .From(bucketId)
+            .Remove(validPaths);
+
+        if (response == null)
+        {
+            _logger.LogError("Batch delete failed: No response from Supabase");
+            return false;
+        }
+
+        _logger.LogInformation("✓ Successfully deleted {Count} files", validPaths.Count);
+        return true;
+    }
+    catch (HttpRequestException ex)
+    {
+        _logger.LogError(ex, "HTTP error during batch delete: {Message}", ex.Message);
+
+        if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
+        {
+            _logger.LogError("Permission denied. Ensure DELETE policy exists for storage.objects");
+        }
+
+        return false;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Unexpected error during batch delete");
+        return false;
+    }
+}
     
-    /// <summary>
-    /// Delete a single image from storage
-    /// FIXED: Proper error handling and path formatting
-    /// </summary>
-    public async Task<bool> DeleteImageAsync(string filePath, string bucketName = "products")
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(filePath))
-            {
-                _logger.LogWarning("Cannot delete: filePath is null or empty");
-                return false;
-            }
-
-            var bucketId = GetBucketId(bucketName);
-            
-            _logger.LogInformation("Attempting to delete: {BucketId}/{FilePath}", bucketId, filePath);
-
-            // CRITICAL: Remove method expects a List<string> of file paths
-            var pathsToDelete = new List<string> { filePath };
-            
-            // Call the Remove method
-            var response = await _supabaseClient.Storage
-                .From(bucketId)
-                .Remove(pathsToDelete);
-
-            // Check if response is null or indicates failure
-            if (response == null)
-            {
-                _logger.LogError("Delete failed: No response from Supabase");
-                return false;
-            }
-
-            _logger.LogInformation("✓ Successfully deleted: {FilePath}", filePath);
-            return true;
-        }
-        catch (Supabase.Exceptions.SupabaseException ex)
-        {
-            _logger.LogError(ex, "Supabase error deleting {FilePath}: {Message}", filePath, ex.Message);
-            
-            if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
-            {
-                _logger.LogError("Permission denied. Check RLS policies for DELETE operation on storage.objects");
-            }
-            else if (ex.Message.Contains("404") || ex.Message.Contains("not found"))
-            {
-                _logger.LogWarning("File not found: {FilePath}", filePath);
-                // Return true since file doesn't exist anyway
-                return true;
-            }
-            
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error deleting: {FilePath}", filePath);
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Delete multiple images from storage
-    /// FIXED: Batch deletion with proper error handling
-    /// </summary>
-    public async Task<bool> DeleteImagesAsync(List<string> filePaths, string bucketName = "products")
-    {
-        try
-        {
-            if (filePaths == null || !filePaths.Any())
-            {
-                _logger.LogWarning("Cannot delete: filePaths is null or empty");
-                return false;
-            }
-
-            // Remove any null or empty paths
-            var validPaths = filePaths.Where(p => !string.IsNullOrEmpty(p)).ToList();
-            
-            if (!validPaths.Any())
-            {
-                _logger.LogWarning("No valid paths to delete");
-                return false;
-            }
-
-            var bucketId = GetBucketId(bucketName);
-            
-            _logger.LogInformation("Attempting to delete {Count} files from {BucketId}", validPaths.Count, bucketId);
-
-            // CRITICAL: Remove method expects a List<string>
-            var response = await _supabaseClient.Storage
-                .From(bucketId)
-                .Remove(validPaths);
-
-            if (response == null)
-            {
-                _logger.LogError("Batch delete failed: No response from Supabase");
-                return false;
-            }
-
-            _logger.LogInformation("✓ Successfully deleted {Count} files", validPaths.Count);
-            return true;
-        }
-        catch (Supabase.Exceptions.SupabaseException ex)
-        {
-            _logger.LogError(ex, "Supabase error during batch delete: {Message}", ex.Message);
-            
-            if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
-            {
-                _logger.LogError("Permission denied. Ensure DELETE policy exists for storage.objects");
-            }
-            
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error during batch delete");
-            return false;
-        }
-    }
-
 public string GetPublicUrl(string filePath, string bucketName = "products")
     {
         try
