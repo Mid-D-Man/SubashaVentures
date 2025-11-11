@@ -434,6 +434,98 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            isDeleting = true;
+            StateHasChanged();
+
+            bool success = false;
+
+            if (imageToDelete != null)
+            {
+                // Single image deletion
+                var filePath = $"{imageToDelete.Folder}/{imageToDelete.FileName}";
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Deleting single image: {filePath}",
+                    LogLevel.Info
+                );
+
+                success = await StorageService.DeleteImageAsync(filePath, "products");
+
+                if (success)
+                {
+                    allImages.Remove(imageToDelete);
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✓ Image deleted successfully: {imageToDelete.FileName}",
+                        LogLevel.Info
+                    );
+                }
+            }
+            else if (imagesToDelete.Any())
+            {
+                // Bulk deletion
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Deleting {imagesToDelete.Count} images",
+                    LogLevel.Info
+                );
+
+                success = await StorageService.DeleteImagesAsync(imagesToDelete, "products");
+
+                if (success)
+                {
+                    // Remove deleted images from collection
+                    var fileNames = imagesToDelete.Select(p => Path.GetFileName(p)).ToHashSet();
+                    allImages.RemoveAll(x => fileNames.Contains(x.FileName));
+                    
+                    selectedImages.Clear();
+                    
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✓ {imagesToDelete.Count} images deleted successfully",
+                        LogLevel.Info
+                    );
+                }
+            }
+
+            if (success)
+            {
+                await LoadStorageInfoAsync();
+                ApplyFiltersAndSort();
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Delete operation failed",
+                    LogLevel.Error
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Confirming delete");
+        }
+        finally
+        {
+            isDeleting = false;
+            isConfirmationOpen = false;
+            imageToDelete = null;
+            imagesToDelete.Clear();
+            StateHasChanged();
+        }
+    }
+
+    private void CancelDelete()
+    {
+        isConfirmationOpen = false;
+        imageToDelete = null;
+        imagesToDelete.Clear();
+        StateHasChanged();
+    }
+
+
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
         try
