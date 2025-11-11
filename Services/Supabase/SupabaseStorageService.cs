@@ -382,36 +382,26 @@ public class SupabaseStorageService : ISupabaseStorageService
     }
 
 public string GetPublicUrl(string filePath, string bucketName = "products")
-{
-    try
     {
-        var bucketId = GetBucketId(bucketName);
-        
-        // CRITICAL FIX: Ensure filePath doesn't start with bucket name
-        // Supabase expects: bucket/path/to/file.jpg
-        // NOT: path/to/file.jpg when calling GetPublicUrl
-        
-        var publicUrl = _supabaseClient.Storage
-            .From(bucketId)
-            .GetPublicUrl(filePath);
-        
-        // Verify URL is valid
-        if (string.IsNullOrEmpty(publicUrl))
+        try
         {
-            _logger.LogWarning("GetPublicUrl returned empty for: {FilePath}", filePath);
+            var bucketId = GetBucketId(bucketName);
+            var publicUrl = _supabaseClient.Storage.From(bucketId).GetPublicUrl(filePath);
+            
+            if (string.IsNullOrEmpty(publicUrl))
+            {
+                _logger.LogWarning("GetPublicUrl returned empty for: {FilePath}", filePath);
+                return string.Empty;
+            }
+
+            return publicUrl;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting public URL for: {FilePath}", filePath);
             return string.Empty;
         }
-
-        _logger.LogDebug("Generated public URL: {Url}", publicUrl);
-        
-        return publicUrl;
     }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error getting public URL for: {FilePath}", filePath);
-        return string.Empty;
-    }
-}
 
     public async Task<string> GetSignedUrlAsync(string filePath, int expiresIn = 3600, string bucketName = "products")
     {
