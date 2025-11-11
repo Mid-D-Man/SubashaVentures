@@ -330,3 +330,15 @@
         </div>
     </BodyContent>
 </DynamicModal>
+<!-- Confirmation Popup -->
+<ConfirmationPopup @ref="confirmationPopup"
+                   IsOpen="@isConfirmationOpen"
+                   Title="@(imageToDelete != null ? "Delete Image?" : $"Delete {imagesToDelete.Count} Images?")"
+                   Message="@(imageToDelete != null ? $"Are you sure you want to delete \"{imageToDelete.FileName}\"?" : $"Are you sure you want to delete {imagesToDelete.Count} selected images?")"
+                   WarningText="This action cannot be undone."
+                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                   ConfirmButtonText="@(isDeleting ? "Deleting..." : "Delete")"
+                   CancelButtonText="Cancel"
+                   IsProcessing="@isDeleting"
+                   OnConfirm="ConfirmDelete"
+                   OnCancel="CancelDelete" />
