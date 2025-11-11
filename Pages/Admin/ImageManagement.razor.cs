@@ -411,36 +411,28 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            var imagesToDelete = allImages
+            var imagesToDeleteList = allImages
                 .Where(x => selectedImages.Contains(x.Id) && !x.IsReferenced)
                 .ToList();
 
-            if (!imagesToDelete.Any())
+            if (!imagesToDeleteList.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No images to delete",
+                    "No images to delete (all selected images are referenced)",
                     LogLevel.Warning
                 );
                 return;
             }
 
-            var filePaths = imagesToDelete
-                .Select(x => $"{x.Folder}/{x.FileName}")
-                .ToList();
-            
-            var success = await StorageService.DeleteImagesAsync(filePaths);
-
-            if (success)
-            {
-                allImages.RemoveAll(x => imagesToDelete.Contains(x));
-                selectedImages.Clear();
-                await LoadStorageInfoAsync();
-                ApplyFiltersAndSort();
-            }
+            // Store images for deletion and show confirmation
+            imageToDelete = null;
+            imagesToDelete = imagesToDeleteList.Select(x => $"{x.Folder}/{x.FileName}").ToList();
+            isConfirmationOpen = true;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk delete");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Preparing bulk delete");
         }
     }
 
