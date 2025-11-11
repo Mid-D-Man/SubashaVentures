@@ -1,0 +1,169 @@
+<!-- Components/Shared/Modals/ConfirmationPopup.razor -->
+@using SubashaVentures.Components.Shared.Buttons
+
+<div class="confirmation-popup-overlay @(IsOpen ? "open" : "")" @onclick="HandleOverlayClick">
+    <div class="confirmation-popup @Variant.ToString().ToLower() @(IsOpen ? "open" : "")" @onclick:stopPropagation="true">
+        
+        <div class="confirmation-icon @Variant.ToString().ToLower()">
+            @GetIconSvg()
+        </div>
+
+        <div class="confirmation-content">
+            <h3 class="confirmation-title">@Title</h3>
+            
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <p class="confirmation-message">@Message</p>
+            }
+
+            @if (ChildContent != null)
+            {
+                <div class="confirmation-custom">
+                    @ChildContent
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(WarningText))
+            {
+                <div class="confirmation-warning">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 9V11M12 15H12.01M5.07183 19H18.9282C20.4678 19 21.4301 17.3333 20.6603 16L13.7321 4C12.9623 2.66667 11.0378 2.66667 10.268 4L3.33978 16C2.56998 17.3333 3.53223 19 5.07183 19Z" 
+                              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>@WarningText</span>
+                </div>
+            }
+        </div>
+
+        <div class="confirmation-actions">
+            <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                            Size="SecondaryButton.ButtonSize.Medium"
+                            OnClick="HandleCancel"
+                            IsDisabled="@IsProcessing"
+                            CssClass="confirm-btn-cancel">
+                @CancelButtonText
+            </SecondaryButton>
+            
+            <PrimaryButton Variant="@GetConfirmButtonVariant()"
+                          Size="PrimaryButton.ButtonSize.Medium"
+                          OnClick="HandleConfirm"
+                          IsLoading="@IsProcessing"
+                          IsDisabled="@IsProcessing"
+                          CssClass="confirm-btn-action">
+                @ConfirmButtonText
+            </PrimaryButton>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string Message { get; set; } = "Are you sure you want to proceed?";
+    [Parameter] public string? WarningText { get; set; }
+    [Parameter] public ConfirmationVariant Variant { get; set; } = ConfirmationVariant.Warning;
+    [Parameter] public string ConfirmButtonText { get; set; } = "Confirm";
+    [Parameter] public string CancelButtonText { get; set; } = "Cancel";
+    [Parameter] public bool CloseOnOverlayClick { get; set; } = false;
+    [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    public enum ConfirmationVariant
+    {
+        Warning,
+        Danger,
+        Info,
+        Success
+    }
+
+    private PrimaryButton.ButtonVariant GetConfirmButtonVariant()
+    {
+        return Variant == ConfirmationVariant.Danger 
+            ? PrimaryButton.ButtonVariant.Primary  // Will be styled with danger colors via CSS
+            : PrimaryButton.ButtonVariant.Primary;
+    }
+
+    private void HandleOverlayClick()
+    {
+        if (CloseOnOverlayClick && !IsProcessing)
+        {
+            Close();
+        }
+    }
+
+    private async Task HandleConfirm()
+    {
+        if (!IsProcessing && OnConfirm.HasDelegate)
+        {
+            await OnConfirm.InvokeAsync();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (OnCancel.HasDelegate)
+        {
+            await OnCancel.InvokeAsync();
+        }
+        else
+        {
+            Close();
+        }
+    }
+
+    public async void Close()
+    {
+        if (!IsProcessing)
+        {
+            IsOpen = false;
+            if (OnClose.HasDelegate)
+            {
+                await OnClose.InvokeAsync();
+            }
+            StateHasChanged();
+        }
+    }
+
+    public void Open()
+    {
+        IsOpen = true;
+        StateHasChanged();
+    }
+
+    private RenderFragment GetIconSvg() => builder =>
+    {
+        var svg = Variant switch
+        {
+            ConfirmationVariant.Danger => @"
+                <svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none"">
+                    <circle cx=""32"" cy=""32"" r=""28"" stroke=""currentColor"" stroke-width=""3""/>
+                    <path d=""M32 20V36"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/>
+                    <circle cx=""32"" cy=""44"" r=""2"" fill=""currentColor""/>
+                </svg>",
+            
+            ConfirmationVariant.Warning => @"
+                <svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none"">
+                    <path d=""M32 8L56 52H8L32 8Z"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/>
+                    <path d=""M32 24V36"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/>
+                    <circle cx=""32"" cy=""44"" r=""2"" fill=""currentColor""/>
+                </svg>",
+            
+            ConfirmationVariant.Info => @"
+                <svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none"">
+                    <circle cx=""32"" cy=""32"" r=""28"" stroke=""currentColor"" stroke-width=""3""/>
+                    <path d=""M32 28V44"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round""/>
+                    <circle cx=""32"" cy=""20"" r=""2"" fill=""currentColor""/>
+                </svg>",
+            
+            _ => @"
+                <svg width=""64"" height=""64"" viewBox=""0 0 64 64"" fill=""none"">
+                    <circle cx=""32"" cy=""32"" r=""28"" stroke=""currentColor"" stroke-width=""3""/>
+                    <path d=""M20 32L28 40L44 24"" stroke=""currentColor"" stroke-width=""3"" stroke-linecap=""round"" stroke-linejoin=""round""/>
+                </svg>"
+        };
+        builder.AddMarkupContent(0, svg);
+    };
+}
