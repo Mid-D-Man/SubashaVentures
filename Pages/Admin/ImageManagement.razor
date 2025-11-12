@@ -201,20 +201,16 @@
     <BodyContent>
         <div class="upload-modal-content">
             
-            <!-- Folder Selection -->
-            <div class="upload-section">
-                <label class="upload-label">Upload to Folder</label>
-                <select class="upload-select" @bind="uploadFolder">
-                    <option value="products">Products (General)</option>
-                    <option value="products/mens">Men's Fashion</option>
-                    <option value="products/womens">Women's Fashion</option>
-                    <option value="products/children">Children's</option>
-                    <option value="products/baby">Baby & Toddler</option>
-                    <option value="products/home">Home & Living</option>
-                    <option value="banners">Banners</option>
-                    <option value="categories">Categories</option>
-                </select>
-            </div>
+           <!-- Folder Selection -->
+<div class="upload-section">
+    <label class="upload-label">Upload to Folder</label>
+    <select class="upload-select" @bind="uploadFolder">
+        @foreach (var category in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
+        {
+            <option value="@category.Slug">@category.Name</option>
+        }
+    </select>
+</div>
 
             <!-- Compression Toggle -->
             <div class="upload-section">
