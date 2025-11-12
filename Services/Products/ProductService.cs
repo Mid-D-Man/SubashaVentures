@@ -1,6 +1,8 @@
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Firebase;
 using System.Text;
 
 namespace SubashaVentures.Services.Products;
@@ -8,18 +10,21 @@ namespace SubashaVentures.Services.Products;
 public class ProductService : IProductService
 {
     private readonly ISupabaseService _supabaseService;
+    private readonly IFirestoreService _firestoreService;
     private readonly ISupabaseStorageService _storageService;
     private readonly ILogger<ProductService> _logger;
     
     private const string ProductsTable = "products";
-    private const string CategoriesTable = "categories";
+    private const string CategoriesCollection = "categories"; // Firebase
 
     public ProductService(
         ISupabaseService supabaseService,
+        IFirestoreService firestoreService,
         ISupabaseStorageService storageService,
         ILogger<ProductService> logger)
     {
         _supabaseService = supabaseService;
+        _firestoreService = firestoreService;
         _storageService = storageService;
         _logger = logger;
     }
@@ -42,10 +47,17 @@ public class ProductService : IProductService
     {
         try
         {
-            var filter = $"is_active = true AND is_deleted = false ORDER BY created_at DESC LIMIT {take} OFFSET {skip}";
-            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
+            // Get all products and filter in memory (simplified for now)
+            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
             
-            return products.Select(MapToViewModel).ToList();
+            var filtered = allProducts
+                .Where(p => p.IsActive && !p.IsDeleted)
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip(skip)
+                .Take(take)
+                .ToList();
+
+            return filtered.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -58,14 +70,19 @@ public class ProductService : IProductService
     {
         try
         {
-            // Escape single quotes in query
-            var escapedQuery = query.Replace("'", "''");
+            // Get all products and search in memory
+            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
             
-            var filter = $"search_vector @@ plainto_tsquery('english', '{escapedQuery}') " +
-                        $"ORDER BY ts_rank(search_vector, plainto_tsquery('english', '{escapedQuery}')) DESC";
-            
-            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
-            return products.Select(MapToViewModel).ToList();
+            var searchLower = query.ToLower();
+            var results = allProducts
+                .Where(p => p.IsActive && !p.IsDeleted &&
+                           (p.Name.ToLower().Contains(searchLower) ||
+                            p.Description.ToLower().Contains(searchLower) ||
+                            p.Sku.ToLower().Contains(searchLower)))
+                .OrderByDescending(p => p.CreatedAt)
+                .ToList();
+
+            return results.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -78,10 +95,14 @@ public class ProductService : IProductService
     {
         try
         {
-            var filter = $"category_id = '{categoryId}' AND is_active = true AND is_deleted = false";
-            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
+            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
             
-            return products.Select(MapToViewModel).ToList();
+            var filtered = allProducts
+                .Where(p => p.IsActive && !p.IsDeleted && p.CategoryId == categoryId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToList();
+
+            return filtered.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -94,10 +115,8 @@ public class ProductService : IProductService
     {
         try
         {
-            var count = await _supabaseService.ExecuteScalarAsync<int>(
-                $"SELECT COUNT(*) FROM {ProductsTable} WHERE is_active = true AND is_deleted = false"
-            );
-            return count;
+            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            return allProducts.Count(p => p.IsActive && !p.IsDeleted);
         }
         catch (Exception ex)
         {
@@ -110,11 +129,16 @@ public class ProductService : IProductService
     {
         try
         {
-            var filter = $"is_active = true AND is_deleted = false " +
-                        $"ORDER BY view_count DESC, purchase_count DESC LIMIT {count}";
+            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
             
-            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
-            return products.Select(MapToViewModel).ToList();
+            var trending = allProducts
+                .Where(p => p.IsActive && !p.IsDeleted)
+                .OrderByDescending(p => p.ViewCount)
+                .ThenByDescending(p => p.PurchaseCount)
+                .Take(count)
+                .ToList();
+
+            return trending.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -127,11 +151,15 @@ public class ProductService : IProductService
     {
         try
         {
-            var filter = $"is_active = true AND is_deleted = false AND is_featured = true " +
-                        $"ORDER BY created_at DESC LIMIT {count}";
+            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
             
-            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
-            return products.Select(MapToViewModel).ToList();
+            var featured = allProducts
+                .Where(p => p.IsActive && !p.IsDeleted && p.IsFeatured)
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(count)
+                .ToList();
+
+            return featured.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -188,7 +216,7 @@ public class ProductService : IProductService
                 IsFeatured = request.IsFeatured,
                 IsActive = true,
                 CreatedAt = now,
-                CreatedBy = "system", // TODO: Get from auth context
+                CreatedBy = "system",
                 ViewCount = 0,
                 ClickCount = 0,
                 AddToCartCount = 0,
@@ -219,7 +247,7 @@ public class ProductService : IProductService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating product: {Name}", request.Name);
-            throw; // Re-throw to let caller handle
+            throw;
         }
     }
 
@@ -254,7 +282,7 @@ public class ProductService : IProductService
                 IsFeatured = request.IsFeatured ?? product.IsFeatured,
                 IsActive = request.IsActive ?? product.IsActive,
                 UpdatedAt = DateTime.UtcNow,
-                UpdatedBy = "system", // TODO: Get from auth context
+                UpdatedBy = "system",
                 IsOnSale = (request.OriginalPrice ?? product.OriginalPrice).HasValue && 
                           (request.OriginalPrice ?? product.OriginalPrice) > (request.Price ?? product.Price),
                 Discount = (request.OriginalPrice ?? product.OriginalPrice).HasValue
@@ -329,7 +357,6 @@ public class ProductService : IProductService
     {
         try
         {
-            // Soft delete
             var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
             if (product == null) return false;
 
@@ -337,7 +364,7 @@ public class ProductService : IProductService
             {
                 IsDeleted = true,
                 DeletedAt = DateTime.UtcNow,
-                DeletedBy = "system" // TODO: Get from auth context
+                DeletedBy = "system"
             };
 
             var result = await _supabaseService.UpdateAsync(ProductsTable, id, deleted);
@@ -426,7 +453,6 @@ public class ProductService : IProductService
 
     public string GenerateUniqueSku()
     {
-        // Generate format: PROD-YYYYMMDD-XXXX (e.g., PROD-20250514-A3B9)
         var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
         var randomPart = GenerateRandomString(4);
         
@@ -459,6 +485,7 @@ public class ProductService : IProductService
             .Trim('-');
     }
 
+    // Get category name from Firebase (like image management does)
     private async Task<string> GetCategoryNameAsync(string categoryId)
     {
         try
@@ -466,8 +493,8 @@ public class ProductService : IProductService
             if (string.IsNullOrEmpty(categoryId))
                 return string.Empty;
 
-            var category = await _supabaseService.GetByIdAsync<CategoryModel>(
-                CategoriesTable,
+            var category = await _firestoreService.GetDocumentAsync<CategoryModel>(
+                CategoriesCollection,
                 categoryId);
             
             return category?.Name ?? string.Empty;
