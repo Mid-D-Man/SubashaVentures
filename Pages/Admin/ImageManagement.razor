@@ -66,69 +66,66 @@
         </div>
     </div>
 
-    <!-- Toolbar -->
-    <div class="im-toolbar">
-        <div class="im-filters">
-            <select class="filter-select folder-select" @onchange="HandleFolderChange">
-                <option value="">All Folders</option>
-                <option value="products">Products (General)</option>
-                <option value="products/mens">Men's Fashion</option>
-                <option value="products/womens">Women's Fashion</option>
-                <option value="products/children">Children's</option>
-                <option value="products/baby">Baby & Toddler</option>
-                <option value="products/home">Home & Living</option>
-                <option value="banners">Banners</option>
-                <option value="categories">Categories</option>
-            </select>
-
-            <InputField @bind-Value="searchQuery"
-                       Placeholder="Search images..."
-                       PrefixIcon="🔍"
-                       ShowClearButton="true"
-                       CssClass="search-input"
-                       @bind-Value:after="ApplyFiltersAndSort" />
-
-            <select class="filter-select" @onchange="HandleSortChange">
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="name-az">Name (A-Z)</option>
-                <option value="name-za">Name (Z-A)</option>
-                <option value="size-largest">Largest First</option>
-                <option value="size-smallest">Smallest First</option>
-            </select>
-        </div>
-
-        <div class="im-view-controls">
-            @if (selectedImages.Any())
+  <!-- Toolbar -->
+<div class="im-toolbar">
+    <div class="im-filters">
+        <select class="filter-select folder-select" @onchange="HandleFolderFilter">
+            <option value="">All Folders</option>
+            @foreach (var category in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
             {
-                <span class="selection-count">@selectedImages.Count selected</span>
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="HandleBulkDownload">
-                    Download
-                </SecondaryButton>
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="HandleBulkDelete"
-                                CssClass="btn-danger">
-                    Delete
-                </SecondaryButton>
+                <option value="@category.Slug">@category.Name</option>
             }
+        </select>
 
-            <button class="view-toggle @(gridSize == "small" ? "active" : "")" 
-                    @onclick="@(() => { gridSize = "small"; StateHasChanged(); })">
-                ▦▦
-            </button>
-            <button class="view-toggle @(gridSize == "medium" ? "active" : "")" 
-                    @onclick="@(() => { gridSize = "medium"; StateHasChanged(); })">
-                ▦
-            </button>
-            <button class="view-toggle @(gridSize == "large" ? "active" : "")" 
-                    @onclick="@(() => { gridSize = "large"; StateHasChanged(); })">
-                ▢
-            </button>
-        </div>
+        <InputField @bind-Value="searchQuery"
+                   Placeholder="Search images..."
+                   PrefixIcon="🔍"
+                   ShowClearButton="true"
+                   Size="InputField.InputSize.Small"
+                   CssClass="search-input"
+                   @bind-Value:after="ApplyFiltersAndSort" />
+
+        <select class="filter-select" @onchange="HandleSortChange">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="name-az">Name (A-Z)</option>
+            <option value="name-za">Name (Z-A)</option>
+            <option value="size-largest">Largest First</option>
+            <option value="size-smallest">Smallest First</option>
+        </select>
     </div>
+
+    <div class="im-view-controls">
+        @if (selectedImages.Any())
+        {
+            <span class="selection-count">@selectedImages.Count selected</span>
+            <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                            Variant="SecondaryButton.ButtonVariant.Outline"
+                            OnClick="HandleBulkDownload">
+                Download
+            </SecondaryButton>
+            <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                            Variant="SecondaryButton.ButtonVariant.Outline"
+                            OnClick="HandleBulkDelete"
+                            CssClass="btn-danger">
+                Delete
+            </SecondaryButton>
+        }
+
+        <button class="view-toggle @(gridSize == "small" ? "active" : "")" 
+                @onclick="@(() => { gridSize = "small"; StateHasChanged(); })">
+            ▦▦
+        </button>
+        <button class="view-toggle @(gridSize == "medium" ? "active" : "")" 
+                @onclick="@(() => { gridSize = "medium"; StateHasChanged(); })">
+            ▦
+        </button>
+        <button class="view-toggle @(gridSize == "large" ? "active" : "")" 
+                @onclick="@(() => { gridSize = "large"; StateHasChanged(); })">
+            ▢
+        </button>
+    </div>
+</div>
 
     <!-- Image Grid using AdminImageCard -->
     @if (isLoading)
