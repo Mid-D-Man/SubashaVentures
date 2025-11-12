@@ -19,6 +19,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<ImageManagement> Logger { get; set; } = default!;
+[Inject] private IFirestoreService FirestoreService { get; set; } = default!;
+
+private List<CategoryModel> categories = new();
 
     private MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>? _imageListPool;
     private MID_ComponentObjectPool<List<UploadQueueItem>>? _uploadQueuePool;
@@ -63,110 +66,141 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
 
     protected override async Task OnInitializedAsync()
+{
+    try
     {
-        try
-        {
-            _imageListPool = new MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>(
-                () => new List<AdminImageCard.ImageItem>(),
-                list => list.Clear(),
-                maxPoolSize: 10
-            );
+        _imageListPool = new MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>(
+            () => new List<AdminImageCard.ImageItem>(),
+            list => list.Clear(),
+            maxPoolSize: 10
+        );
 
-            _uploadQueuePool = new MID_ComponentObjectPool<List<UploadQueueItem>>(
-                () => new List<UploadQueueItem>(),
-                list => list.Clear(),
-                maxPoolSize: 5
-            );
+        _uploadQueuePool = new MID_ComponentObjectPool<List<UploadQueueItem>>(
+            () => new List<UploadQueueItem>(),
+            list => list.Clear(),
+            maxPoolSize: 5
+        );
 
-            await MID_HelperFunctions.DebugMessageAsync("ImageManagement initialized", LogLevel.Info);
+        await MID_HelperFunctions.DebugMessageAsync("ImageManagement initialized", LogLevel.Info);
 
-            await LoadImagesAsync();
-            await LoadStorageInfoAsync();
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "ImageManagement initialization");
-            isLoading = false;
-        }
+        // Load categories from Firestore
+        await LoadCategoriesAsync();
+        
+        // Load images
+        await LoadImagesAsync();
+        await LoadStorageInfoAsync();
     }
-
-    private async Task LoadImagesAsync()
+    catch (Exception ex)
     {
-        try
+        await MID_HelperFunctions.LogExceptionAsync(ex, "ImageManagement initialization");
+        isLoading = false;
+    }
+}
+private async Task LoadCategoriesAsync()
+{
+    try
+    {
+        var loadedCategories = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
+        
+        if (loadedCategories != null && loadedCategories.Any())
         {
-            isLoading = true;
-            StateHasChanged();
-
-            var folders = new[]
+            categories = loadedCategories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder).ToList();
+            
+            // Set default upload folder to first category
+            if (categories.Any())
             {
-                "products",
-                "products/mens",
-                "products/womens",
-                "products/children",
-                "products/baby",
-                "products/home",
-                "banners",
-                "categories"
-            };
-
-            using var pooledImages = _imageListPool?.GetPooled();
-            var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
-
-            foreach (var folder in folders)
-            {
-                try
-                {
-                    var files = await StorageService.ListFilesAsync(folder);
-
-                    foreach (var file in files)
-                    {
-                        // Build proper public URL
-                        var publicUrl = StorageService.GetPublicUrl($"{folder}/{file.Name}");
-                        
-                        var imageItem = new AdminImageCard.ImageItem
-                        {
-                            Id = file.Id,
-                            FileName = file.Name,
-                            PublicUrl = publicUrl,
-                            ThumbnailUrl = publicUrl,
-                            Folder = folder,
-                            FileSize = await GetFileSizeAsync(publicUrl), // Get actual size
-                            Dimensions = await GetImageDimensionsAsync(publicUrl), // Get dimensions
-                            UploadedAt = file.UpdatedAt,
-                            IsReferenced = false,
-                            ReferenceCount = 0
-                        };
-
-                        imageList.Add(imageItem);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading from folder: {folder}");
-                }
+                uploadFolder = categories.First().Slug;
             }
-
-            allImages = new List<AdminImageCard.ImageItem>(imageList);
-            totalImages = allImages.Count;
-            referencedImages = allImages.Count(img => img.IsReferenced);
-
-            ApplyFiltersAndSort();
-
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {totalImages} images successfully", 
+                $"Loaded {categories.Count} categories from Firestore",
                 LogLevel.Info
             );
         }
-        catch (Exception ex)
+        else
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading images");
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
+            await MID_HelperFunctions.DebugMessageAsync(
+                "No categories found in Firestore",
+                LogLevel.Warning
+            );
         }
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
+    }
+}
+    private async Task LoadImagesAsync()
+{
+    try
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        // Use category slugs from database
+        var folders = categories.Any() 
+            ? categories.Select(c => c.Slug).ToArray()
+            : new[] { "products" }; // Fallback
+
+        using var pooledImages = _imageListPool?.GetPooled();
+        var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
+
+        foreach (var folder in folders)
+        {
+            try
+            {
+                var files = await StorageService.ListFilesAsync(folder);
+
+                foreach (var file in files)
+                {
+                    // Build proper public URL
+                    var publicUrl = StorageService.GetPublicUrl($"{folder}/{file.Name}");
+                    
+                    var imageItem = new AdminImageCard.ImageItem
+                    {
+                        Id = file.Id,
+                        FileName = file.Name,
+                        PublicUrl = publicUrl,
+                        ThumbnailUrl = publicUrl,
+                        Folder = folder,
+                        FileSize = await GetFileSizeAsync(publicUrl),
+                        Dimensions = await GetImageDimensionsAsync(publicUrl),
+                        UploadedAt = file.UpdatedAt,
+                        IsReferenced = false,
+                        ReferenceCount = 0
+                    };
+
+                    imageList.Add(imageItem);
+                }
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading from folder: {folder}");
+            }
+        }
+
+        allImages = new List<AdminImageCard.ImageItem>(imageList);
+        totalImages = allImages.Count;
+        totalFolders = folders.Length;
+        referencedImages = allImages.Count(img => img.IsReferenced);
+
+        ApplyFiltersAndSort();
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Loaded {totalImages} images from {totalFolders} categories", 
+            LogLevel.Info
+        );
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Loading images");
+    }
+    finally
+    {
+        isLoading = false;
+        StateHasChanged();
+    }
+}
 
     private async Task<long> GetFileSizeAsync(string imageUrl)
     {
