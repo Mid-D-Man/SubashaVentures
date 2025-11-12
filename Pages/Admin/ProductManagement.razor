@@ -4,11 +4,17 @@
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Popups
+@using SubashaVentures.Components.Shared.Notifications
 @using SubashaVentures.Components.Admin.Products
 @using SubashaVentures.Domain.Product
 @layout AdminLayout
 
 <div class="product-management">
+    <!-- Notification Component -->
+    <NotificationComponent @ref="notificationComponent" 
+                          Position="NotificationPosition.TopRight"
+                          AutoDismissTime="5000" />
+
     <!-- Header -->
     <div class="pm-header">
         <div class="pm-header-left">
@@ -342,22 +348,39 @@
                 <h3 class="section-title">Pricing</h3>
                 
                 <div class="form-row">
-                    <InputField @bind-Value="priceInput"
-                               Label="Price (₦)"
-                               Placeholder="0.00"
-                               Type="number"
-                               IsRequired="true"
-                               HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")))"
-                               ErrorMessage="@validationErrors.GetValueOrDefault("Price")" />
+                    <div class="form-group">
+                        <label class="form-label">
+                            Price (₦) *
+                        </label>
+                        <input type="number" 
+                               class="form-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")) ? "has-error" : "")"
+                               @bind="productForm.Price"
+                               @bind:event="oninput"
+                               placeholder="0.00"
+                               step="0.01"
+                               min="0" />
+                        @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")))
+                        {
+                            <span class="error-message">@validationErrors.GetValueOrDefault("Price")</span>
+                        }
+                    </div>
 
-                    <InputField @bind-Value="originalPriceInput"
-                               Label="Original Price (₦)"
-                               Placeholder="0.00"
-                               Type="number"
-                               HelperText="Leave empty if not on sale" />
+                    <div class="form-group">
+                        <label class="form-label">
+                            Original Price (₦)
+                            <span class="helper-text-inline">(Leave empty if not on sale)</span>
+                        </label>
+                        <input type="number" 
+                               class="form-input"
+                               @bind="productForm.OriginalPrice"
+                               @bind:event="oninput"
+                               placeholder="0.00"
+                               step="0.01"
+                               min="0" />
+                    </div>
                 </div>
 
-                @if (productForm.OriginalPrice.HasValue && productForm.OriginalPrice > productForm.Price)
+                @if (productForm.OriginalPrice.HasValue && productForm.OriginalPrice > productForm.Price && productForm.Price > 0)
                 {
                     <div class="discount-preview">
                         💰 @CalculateDiscount()% discount - Save ₦@((productForm.OriginalPrice.Value - productForm.Price).ToString("N0"))
@@ -370,17 +393,47 @@
                 <h3 class="section-title">Inventory</h3>
                 
                 <div class="form-row">
-                    <InputField @bind-Value="stockInput"
-                               Label="Stock Quantity"
-                               Placeholder="0"
-                               Type="number"
-                               IsRequired="true" />
+                    <div class="form-group">
+                        <label class="form-label">Stock Quantity *</label>
+                        <input type="number" 
+                               class="form-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Stock")) ? "has-error" : "")"
+                               @bind="productForm.Stock"
+                               @bind:event="oninput"
+                               placeholder="0"
+                               min="0" />
+                        @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Stock")))
+                        {
+                            <span class="error-message">@validationErrors.GetValueOrDefault("Stock")</span>
+                        }
+                    </div>
 
-                    <InputField @bind-Value="productForm.Sku"
-                               Label="SKU"
-                               Placeholder="PROD-001"
-                               IsRequired="true"
-                               HelperText="Unique product identifier" />
+                    <div class="form-group">
+                        <label class="form-label">
+                            SKU (Product Identifier) *
+                        </label>
+                        <div class="sku-input-group">
+                            <input type="text" 
+                                   class="form-input sku-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Sku")) ? "has-error" : "")"
+                                   @bind="productForm.Sku"
+                                   @bind:event="oninput"
+                                   placeholder="PROD-20250514-XXXX"
+                                   readonly="@(!isEditMode)" />
+                            @if (!isEditMode)
+                            {
+                                <SecondaryButton OnClick="GenerateSku"
+                                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                                Size="SecondaryButton.ButtonSize.Small"
+                                                CssClass="generate-sku-btn">
+                                    🎲 Generate
+                                </SecondaryButton>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Sku")))
+                        {
+                            <span class="error-message">@validationErrors.GetValueOrDefault("Sku")</span>
+                        }
+                        <span class="helper-text">@(isEditMode ? "SKU cannot be changed after creation" : "Click 'Generate' to create a unique SKU")</span>
+                    </div>
                 </div>
             </div>
 
@@ -391,13 +444,18 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Category *</label>
-                        <select class="form-select" @bind="productForm.CategoryId">
+                        <select class="form-select @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")) ? "has-error" : "")" 
+                                @bind="productForm.CategoryId">
                             <option value="">Select Category</option>
                             @foreach (var category in categories)
                             {
                                 <option value="@category.Id">@category.Name</option>
                             }
                         </select>
+                        @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")))
+                        {
+                            <span class="error-message">@validationErrors.GetValueOrDefault("CategoryId")</span>
+                        }
                     </div>
 
                     <InputField @bind-Value="productForm.Brand"
@@ -405,7 +463,7 @@
                                Placeholder="Brand name" />
                 </div>
 
-                <InputField @bind-Value="tagsInput"
+                <InputField @bind-Value="productForm.TagsInput"
                            Label="Tags"
                            Placeholder="Enter tags separated by commas"
                            HelperText="e.g., summer, cotton, casual" />
@@ -415,12 +473,12 @@
             <div class="form-section">
                 <h3 class="section-title">Product Variants</h3>
                 
-                <InputField @bind-Value="sizesInput"
+                <InputField @bind-Value="productForm.SizesInput"
                            Label="Available Sizes"
                            Placeholder="S, M, L, XL, XXL"
                            HelperText="Enter sizes separated by commas" />
 
-                <InputField @bind-Value="colorsInput"
+                <InputField @bind-Value="productForm.ColorsInput"
                            Label="Available Colors"
                            Placeholder="Red, Blue, Green"
                            HelperText="Enter colors separated by commas" />
@@ -440,7 +498,8 @@
                                     <img src="@imageUrl" alt="Product image" />
                                     <button class="remove-image" 
                                             @onclick="@(() => RemoveImage(imageUrl))"
-                                            type="button">
+                                            type="button"
+                                            title="Remove image">
                                         ✕
                                     </button>
                                 </div>
@@ -449,7 +508,8 @@
                     }
                     
                     <SecondaryButton OnClick="OpenImageSelector"
-                                    Variant="SecondaryButton.ButtonVariant.Outline">
+                                    Variant="SecondaryButton.ButtonVariant.Outline"
+                                    Icon="🖼️">
                         @(productForm.ImageUrls?.Any() == true ? "Add More Images" : "Select Images")
                     </SecondaryButton>
                     
@@ -520,11 +580,15 @@
                     <span class="value">@selectedProductForStock.Stock units</span>
                 </div>
 
-                <InputField @bind-Value="newStockQuantity"
-                           Label="New Stock Quantity"
-                           Type="number"
-                           Placeholder="0"
-                           IsRequired="true" />
+                <div class="form-group">
+                    <label class="form-label">New Stock Quantity *</label>
+                    <input type="number" 
+                           class="form-input"
+                           @bind="newStockQuantity"
+                           @bind:event="oninput"
+                           placeholder="0"
+                           min="0" />
+                </div>
             </div>
         }
     </BodyContent>
@@ -535,9 +599,41 @@
                 Cancel
             </SecondaryButton>
             <PrimaryButton OnClick="HandleUpdateStock"
-                          IsLoading="@isSaving">
+                          IsLoading="@isSaving"
+                          IsDisabled="@isSaving">
                 Update Stock
             </PrimaryButton>
         </div>
     </FooterContent>
 </DynamicModal>
+
+<!-- Delete Confirmation Popup -->
+<ConfirmationPopup @ref="deleteConfirmationPopup"
+                  IsOpen="@showDeleteConfirmation"
+                  Title="@(productsToDelete != null ? "Delete Multiple Products?" : "Delete Product?")"
+                  Message="@GetDeleteMessage()"
+                  WarningText="This action cannot be undone. The product(s) will be moved to trash."
+                  Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                  ConfirmButtonText="Delete"
+                  CancelButtonText="Cancel"
+                  IsProcessing="@isSaving"
+                  OnConfirm="@(productsToDelete != null ? ConfirmBulkDelete : ConfirmDeleteProduct)"
+                  OnCancel="@(() => { showDeleteConfirmation = false; productToDelete = null; productsToDelete = null; })"
+                  OnClose="@(() => { showDeleteConfirmation = false; productToDelete = null; productsToDelete = null; })" />
+
+@code {
+    private string GetDeleteMessage()
+    {
+        if (productsToDelete != null && productsToDelete.Any())
+        {
+            return $"Are you sure you want to delete {productsToDelete.Count} product(s)?";
+        }
+        
+        if (productToDelete != null)
+        {
+            return $"Are you sure you want to delete '{productToDelete.Name}'?";
+        }
+        
+        return "Are you sure you want to proceed?";
+    }
+}
