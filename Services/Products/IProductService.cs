@@ -1,11 +1,10 @@
-// Services/Products/IProductService.cs
-using SubashaVentures.Models.Firebase;
+using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Product;
 
 namespace SubashaVentures.Services.Products;
 
 /// <summary>
-/// Product management service for admin operations
+/// Product management service for admin operations (Supabase)
 /// </summary>
 public interface IProductService
 {
@@ -15,6 +14,8 @@ public interface IProductService
     Task<List<ProductViewModel>> SearchProductsAsync(string query);
     Task<List<ProductViewModel>> GetProductsByCategoryAsync(string categoryId);
     Task<int> GetProductCountAsync();
+    Task<List<ProductViewModel>> GetTrendingProductsAsync(int count = 10);
+    Task<List<ProductViewModel>> GetFeaturedProductsAsync(int count = 10);
     
     // CREATE
     Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request);
@@ -32,6 +33,9 @@ public interface IProductService
     Task<ProductImageUploadResult> UploadProductImageAsync(Stream imageStream, string fileName);
     Task<List<ProductImageUploadResult>> UploadProductImagesAsync(List<(Stream stream, string fileName)> files);
     Task<bool> DeleteProductImageAsync(string imagePath);
+    
+    // UTILITY
+    string GenerateUniqueSku();
 }
 
 /// <summary>
