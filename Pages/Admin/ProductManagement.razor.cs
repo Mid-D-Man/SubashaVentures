@@ -1,13 +1,14 @@
-// Pages/Admin/ProductManagement.razor.cs
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Products;
-using SubashaVentures.Services.Firebase;
+using SubashaVentures.Services.Supabase;
 using SubashaVentures.Domain.Product;
-using SubashaVentures.Models.Firebase;
+using SubashaVentures.Models.Supabase;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Popups;
+using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
+using SubashaVentures.Domain.Enums;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Admin;
@@ -15,7 +16,7 @@ namespace SubashaVentures.Pages.Admin;
 public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
-    [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
+    [Inject] private ISupabaseService SupabaseService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
@@ -30,6 +31,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private bool isImageSelectorOpen = false;
     private bool isEditMode = false;
     private bool isSaving = false;
+    private bool showDeleteConfirmation = false;
 
     private string viewMode = "grid";
     private string searchQuery = "";
@@ -55,24 +57,24 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private List<CategoryViewModel> categories = new();
     private List<string> selectedProducts = new();
 
-    // Form state
+    // Form state - FIXED: Use proper two-way binding properties
     private ProductFormData productForm = new();
     private Dictionary<string, string> validationErrors = new();
-    private string priceInput = "";
-    private string originalPriceInput = "";
-    private string stockInput = "";
-    private string tagsInput = "";
-    private string sizesInput = "";
-    private string colorsInput = "";
 
     // Stock management
     private ProductViewModel? selectedProductForStock = null;
     private string newStockQuantity = "";
 
+    // Delete confirmation
+    private ProductViewModel? productToDelete = null;
+    private List<string>? productsToDelete = null;
+
     // Component references
     private DynamicModal? productModal;
     private DynamicModal? stockModal;
     private ImageSelectorPopup? imageSelectorPopup;
+    private ConfirmationPopup? deleteConfirmationPopup;
+    private NotificationComponent? notificationComponent;
 
     private int totalPages => (int)Math.Ceiling(filteredProducts.Count / (double)pageSize);
 
@@ -106,6 +108,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "ProductManagement initialization");
+            ShowErrorNotification("Failed to initialize product management");
             isLoading = false;
         }
     }
@@ -132,6 +135,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading products");
             Logger.LogError(ex, "Failed to load products");
+            ShowErrorNotification("Failed to load products");
         }
         finally
         {
@@ -144,7 +148,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            var categoryModels = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
+            var categoryModels = await SupabaseService.GetAllAsync<CategoryModel>("categories");
             categories = categoryModels?.Select(c => new CategoryViewModel
             {
                 Id = c.Id,
@@ -167,6 +171,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
+            ShowErrorNotification("Failed to load categories");
         }
     }
 
@@ -278,7 +283,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         isEditMode = false;
         productForm = new ProductFormData();
         validationErrors.Clear();
-        ClearFormInputs();
         isProductModalOpen = true;
         StateHasChanged();
     }
@@ -288,7 +292,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         isEditMode = true;
         productForm = MapToFormData(product);
         validationErrors.Clear();
-        PopulateFormInputs();
         isProductModalOpen = true;
         StateHasChanged();
     }
@@ -298,7 +301,13 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         isProductModalOpen = false;
         productForm = new ProductFormData();
         validationErrors.Clear();
-        ClearFormInputs();
+        StateHasChanged();
+    }
+
+    // FIXED: Generate unique SKU
+    private void GenerateSku()
+    {
+        productForm.Sku = ProductService.GenerateUniqueSku();
         StateHasChanged();
     }
 
@@ -315,9 +324,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             isSaving = true;
             StateHasChanged();
 
-            // Parse form inputs
-            ParseFormInputs();
-
             if (isEditMode)
             {
                 var updateRequest = MapToUpdateRequest(productForm);
@@ -329,7 +335,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                         $"Product updated: {productForm.Name}",
                         LogLevel.Info
                     );
-                    // TODO: Show success toast
+                    ShowSuccessNotification($"Product '{productForm.Name}' updated successfully!");
                 }
                 else
                 {
@@ -337,7 +343,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                         "Failed to update product",
                         LogLevel.Error
                     );
-                    // TODO: Show error toast
+                    ShowErrorNotification("Failed to update product");
                     return;
                 }
             }
@@ -352,7 +358,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                         $"Product created: {productForm.Name}",
                         LogLevel.Info
                     );
-                    // TODO: Show success toast
+                    ShowSuccessNotification($"Product '{productForm.Name}' created successfully!");
                 }
                 else
                 {
@@ -360,7 +366,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                         "Failed to create product",
                         LogLevel.Error
                     );
-                    // TODO: Show error toast
+                    ShowErrorNotification("Failed to create product");
                     return;
                 }
             }
@@ -372,7 +378,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Saving product");
-            // TODO: Show error toast
+            ShowErrorNotification($"Error: {ex.Message}");
         }
         finally
         {
@@ -405,48 +411,12 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             validationErrors["CategoryId"] = "Category is required";
         }
 
+        if (productForm.Stock < 0)
+        {
+            validationErrors["Stock"] = "Stock cannot be negative";
+        }
+
         return !validationErrors.Any();
-    }
-
-    private void ParseFormInputs()
-    {
-        if (decimal.TryParse(priceInput, out var price))
-            productForm.Price = price;
-
-        if (!string.IsNullOrEmpty(originalPriceInput) && decimal.TryParse(originalPriceInput, out var originalPrice))
-            productForm.OriginalPrice = originalPrice;
-
-        if (int.TryParse(stockInput, out var stock))
-            productForm.Stock = stock;
-
-        if (!string.IsNullOrEmpty(tagsInput))
-            productForm.Tags = tagsInput.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
-
-        if (!string.IsNullOrEmpty(sizesInput))
-            productForm.Sizes = sizesInput.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
-
-        if (!string.IsNullOrEmpty(colorsInput))
-            productForm.Colors = colorsInput.Split(',').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
-    }
-
-    private void PopulateFormInputs()
-    {
-        priceInput = productForm.Price.ToString("0.00");
-        originalPriceInput = productForm.OriginalPrice?.ToString("0.00") ?? "";
-        stockInput = productForm.Stock.ToString();
-        tagsInput = productForm.Tags != null ? string.Join(", ", productForm.Tags) : "";
-        sizesInput = productForm.Sizes != null ? string.Join(", ", productForm.Sizes) : "";
-        colorsInput = productForm.Colors != null ? string.Join(", ", productForm.Colors) : "";
-    }
-
-    private void ClearFormInputs()
-    {
-        priceInput = "";
-        originalPriceInput = "";
-        stockInput = "";
-        tagsInput = "";
-        sizesInput = "";
-        colorsInput = "";
     }
 
     private int CalculateDiscount()
@@ -486,28 +456,48 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task HandleDeleteProduct(ProductViewModel product)
+    private void HandleDeleteProduct(ProductViewModel product)
     {
-        // TODO: Show confirmation modal
-        try
+        productToDelete = product;
+        productsToDelete = null;
+        showDeleteConfirmation = true;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDeleteProduct()
+    {
+        if (productToDelete != null)
         {
-            var success = await ProductService.DeleteProductAsync(product.Id);
-            
-            if (success)
+            try
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Product deleted: {product.Name}",
-                    LogLevel.Info
-                );
-                await LoadProductsAsync();
-                CalculateStats();
-                // TODO: Show success toast
+                var success = await ProductService.DeleteProductAsync(productToDelete.Id);
+                
+                if (success)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"Product deleted: {productToDelete.Name}",
+                        LogLevel.Info
+                    );
+                    ShowSuccessNotification($"Product '{productToDelete.Name}' deleted successfully!");
+                    await LoadProductsAsync();
+                    CalculateStats();
+                }
+                else
+                {
+                    ShowErrorNotification("Failed to delete product");
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting product");
-            // TODO: Show error toast
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting product");
+                ShowErrorNotification($"Error deleting product: {ex.Message}");
+            }
+            finally
+            {
+                showDeleteConfirmation = false;
+                productToDelete = null;
+                StateHasChanged();
+            }
         }
     }
 
@@ -518,7 +508,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             var duplicateForm = MapToFormData(product);
             duplicateForm.Id = "";
             duplicateForm.Name = $"{product.Name} (Copy)";
-            duplicateForm.Sku = $"{product.Sku}-COPY";
+            duplicateForm.Sku = ProductService.GenerateUniqueSku();
 
             var createRequest = MapToCreateRequest(duplicateForm);
             var result = await ProductService.CreateProductAsync(createRequest);
@@ -529,21 +519,24 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                     $"Product duplicated: {duplicateForm.Name}",
                     LogLevel.Info
                 );
+                ShowSuccessNotification($"Product duplicated as '{duplicateForm.Name}'");
                 await LoadProductsAsync();
                 CalculateStats();
-                // TODO: Show success toast
+            }
+            else
+            {
+                ShowErrorNotification("Failed to duplicate product");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Duplicating product");
-            // TODO: Show error toast
+            ShowErrorNotification($"Error duplicating product: {ex.Message}");
         }
     }
 
     private void HandlePreviewProduct(ProductViewModel product)
     {
-        // TODO: Open preview modal or navigate to product details
         NavigationManager.NavigateTo($"/product/{product.Slug}");
     }
 
@@ -566,7 +559,16 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private async Task HandleUpdateStock()
     {
         if (selectedProductForStock == null || !int.TryParse(newStockQuantity, out var quantity))
+        {
+            ShowErrorNotification("Invalid stock quantity");
             return;
+        }
+
+        if (quantity < 0)
+        {
+            ShowErrorNotification("Stock quantity cannot be negative");
+            return;
+        }
 
         try
         {
@@ -581,16 +583,20 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                     $"Stock updated for: {selectedProductForStock.Name}",
                     LogLevel.Info
                 );
+                ShowSuccessNotification($"Stock updated to {quantity} units");
                 await LoadProductsAsync();
                 CalculateStats();
                 CloseStockModal();
-                // TODO: Show success toast
+            }
+            else
+            {
+                ShowErrorNotification("Failed to update stock");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Updating stock");
-            // TODO: Show error toast
+            ShowErrorNotification($"Error updating stock: {ex.Message}");
         }
         finally
         {
@@ -608,14 +614,19 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
             if (success)
             {
+                ShowSuccessNotification($"Product {(isActive ? "activated" : "deactivated")}");
                 await LoadProductsAsync();
                 CalculateStats();
-                // TODO: Show success toast
+            }
+            else
+            {
+                ShowErrorNotification("Failed to update product status");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling active status");
+            ShowErrorNotification("Error updating product status");
         }
     }
 
@@ -628,14 +639,19 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
             if (success)
             {
+                ShowSuccessNotification($"Product {(isFeatured ? "featured" : "unfeatured")}");
                 await LoadProductsAsync();
                 CalculateStats();
-                // TODO: Show success toast
+            }
+            else
+            {
+                ShowErrorNotification("Failed to update featured status");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling featured status");
+            ShowErrorNotification("Error updating featured status");
         }
     }
 
@@ -671,53 +687,111 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     private async Task HandleBulkActivate()
     {
-        foreach (var productId in selectedProducts)
+        if (!selectedProducts.Any())
         {
-            var updateRequest = new UpdateProductRequest { IsActive = true };
-            await ProductService.UpdateProductAsync(productId, updateRequest);
+            ShowWarningNotification("No products selected");
+            return;
         }
-        selectedProducts.Clear();
-        await LoadProductsAsync();
-        CalculateStats();
-        // TODO: Show success toast
+
+        try
+        {
+            foreach (var productId in selectedProducts)
+            {
+                var updateRequest = new UpdateProductRequest { IsActive = true };
+                await ProductService.UpdateProductAsync(productId, updateRequest);
+            }
+            
+            ShowSuccessNotification($"{selectedProducts.Count} products activated");
+            selectedProducts.Clear();
+            await LoadProductsAsync();
+            CalculateStats();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk activate");
+            ShowErrorNotification("Error activating products");
+        }
     }
 
     private async Task HandleBulkDeactivate()
     {
-        foreach (var productId in selectedProducts)
+        if (!selectedProducts.Any())
         {
-            var updateRequest = new UpdateProductRequest { IsActive = false };
-            await ProductService.UpdateProductAsync(productId, updateRequest);
+            ShowWarningNotification("No products selected");
+            return;
         }
-        selectedProducts.Clear();
-        await LoadProductsAsync();
-        CalculateStats();
-        // TODO: Show success toast
-    }
 
-    private async Task HandleBulkDelete()
-    {
-        // TODO: Show confirmation modal
         try
         {
-            var success = await ProductService.DeleteProductsAsync(selectedProducts);
-            if (success)
+            foreach (var productId in selectedProducts)
             {
-                selectedProducts.Clear();
-                await LoadProductsAsync();
-                CalculateStats();
-                // TODO: Show success toast
+                var updateRequest = new UpdateProductRequest { IsActive = false };
+                await ProductService.UpdateProductAsync(productId, updateRequest);
             }
+            
+            ShowSuccessNotification($"{selectedProducts.Count} products deactivated");
+            selectedProducts.Clear();
+            await LoadProductsAsync();
+            CalculateStats();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk delete");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk deactivate");
+            ShowErrorNotification("Error deactivating products");
+        }
+    }
+
+    private void HandleBulkDelete()
+    {
+        if (!selectedProducts.Any())
+        {
+            ShowWarningNotification("No products selected");
+            return;
+        }
+
+        productsToDelete = new List<string>(selectedProducts);
+        productToDelete = null;
+        showDeleteConfirmation = true;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmBulkDelete()
+    {
+        if (productsToDelete != null && productsToDelete.Any())
+        {
+            try
+            {
+                var success = await ProductService.DeleteProductsAsync(productsToDelete);
+                
+                if (success)
+                {
+                    ShowSuccessNotification($"{productsToDelete.Count} products deleted");
+                    selectedProducts.Clear();
+                    await LoadProductsAsync();
+                    CalculateStats();
+                }
+                else
+                {
+                    ShowErrorNotification("Failed to delete products");
+                }
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk delete");
+                ShowErrorNotification("Error deleting products");
+            }
+            finally
+            {
+                showDeleteConfirmation = false;
+                productsToDelete = null;
+                StateHasChanged();
+            }
         }
     }
 
     private void HandleExport()
     {
-        // TODO: Implement CSV export
+        ShowInfoNotification("Export functionality coming soon");
         MID_HelperFunctions.DebugMessage("Export not yet implemented", LogLevel.Info);
     }
 
@@ -753,6 +827,27 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             currentPage = page;
             UpdatePaginatedProducts();
         }
+    }
+
+    // Notification helpers
+    private void ShowSuccessNotification(string message)
+    {
+        notificationComponent?.ShowSuccess(message);
+    }
+
+    private void ShowErrorNotification(string message)
+    {
+        notificationComponent?.ShowError(message);
+    }
+
+    private void ShowWarningNotification(string message)
+    {
+        notificationComponent?.ShowWarning(message);
+    }
+
+    private void ShowInfoNotification(string message)
+    {
+        notificationComponent?.ShowInfo(message);
     }
 
     // Mapping methods
@@ -858,7 +953,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // Form data class
+    // Form data class - FIXED: Direct properties for two-way binding
     public class ProductFormData
     {
         public string Id { get; set; } = "";
@@ -877,5 +972,24 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         public List<string>? ImageUrls { get; set; }
         public bool IsFeatured { get; set; }
         public bool IsActive { get; set; } = true;
+        
+        // Helper properties for input parsing
+        public string TagsInput
+        {
+            get => Tags != null ? string.Join(", ", Tags) : "";
+            set => Tags = value?.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+        }
+        
+        public string SizesInput
+        {
+            get => Sizes != null ? string.Join(", ", Sizes) : "";
+            set => Sizes = value?.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+        }
+        
+        public string ColorsInput
+        {
+            get => Colors != null ? string.Join(", ", Colors) : "";
+            set => Colors = value?.Split(',').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
+        }
     }
 }
