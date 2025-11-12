@@ -1,26 +1,24 @@
-// Services/Products/ProductService.cs
 using SubashaVentures.Domain.Product;
-using SubashaVentures.Models.Firebase;
-using SubashaVentures.Services.Firebase;
+using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Supabase;
 
 namespace SubashaVentures.Services.Products;
 
 public class ProductService : IProductService
 {
-    private readonly IFirestoreService _firestoreService;
+    private readonly ISupabaseService _supabaseService;
     private readonly ISupabaseStorageService _storageService;
     private readonly ILogger<ProductService> _logger;
     
-    private const string ProductsCollection = "products";
-    private const string CategoriesCollection = "categories";
+    private const string ProductsTable = "products";
+    private const string CategoriesTable = "categories";
 
     public ProductService(
-        IFirestoreService firestoreService,
+        ISupabaseService supabaseService,
         ISupabaseStorageService storageService,
         ILogger<ProductService> logger)
     {
-        _firestoreService = firestoreService;
+        _supabaseService = supabaseService;
         _storageService = storageService;
         _logger = logger;
     }
@@ -29,7 +27,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _firestoreService.GetDocumentAsync<ProductModel>(ProductsCollection, id);
+            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
             return product != null ? MapToViewModel(product) : null;
         }
         catch (Exception ex)
@@ -43,13 +41,10 @@ public class ProductService : IProductService
     {
         try
         {
-            var products = await _firestoreService.GetCollectionAsync<ProductModel>(ProductsCollection);
+            var filter = $"is_active = true AND is_deleted = false ORDER BY created_at DESC LIMIT {take} OFFSET {skip}";
+            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
             
-            return products
-                .Skip(skip)
-                .Take(take)
-                .Select(MapToViewModel)
-                .ToList();
+            return products.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -62,14 +57,11 @@ public class ProductService : IProductService
     {
         try
         {
-            var products = await _firestoreService.GetCollectionAsync<ProductModel>(ProductsCollection);
+            var filter = $"search_vector @@ plainto_tsquery('english', '{query}') " +
+                        $"ORDER BY ts_rank(search_vector, plainto_tsquery('english', '{query}')) DESC";
             
-            var searchLower = query.ToLower();
-            return products
-                .Where(p => p.Name.ToLower().Contains(searchLower) ||
-                           p.Description.ToLower().Contains(searchLower))
-                .Select(MapToViewModel)
-                .ToList();
+            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
+            return products.Select(MapToViewModel).ToList();
         }
         catch (Exception ex)
         {
@@ -82,10 +74,8 @@ public class ProductService : IProductService
     {
         try
         {
-            var products = await _firestoreService.QueryCollectionAsync<ProductModel>(
-                ProductsCollection,
-                "categoryId",
-                categoryId);
+            var filter = $"category_id = '{categoryId}' AND is_active = true AND is_deleted = false";
+            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
             
             return products.Select(MapToViewModel).ToList();
         }
@@ -100,8 +90,10 @@ public class ProductService : IProductService
     {
         try
         {
-            var products = await _firestoreService.GetCollectionAsync<ProductModel>(ProductsCollection);
-            return products.Count;
+            var count = await _supabaseService.ExecuteScalarAsync<int>(
+                $"SELECT COUNT(*) FROM {ProductsTable} WHERE is_active = true AND is_deleted = false"
+            );
+            return count;
         }
         catch (Exception ex)
         {
@@ -121,6 +113,7 @@ public class ProductService : IProductService
 
             var productModel = new ProductModel
             {
+                Id = Guid.NewGuid().ToString(),
                 Name = request.Name,
                 Slug = GenerateSlug(request.Name),
                 Description = request.Description,
@@ -139,6 +132,7 @@ public class ProductService : IProductService
                 IsFeatured = request.IsFeatured,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
+                CreatedBy = "system", // TODO: Get from auth context
                 ViewCount = 0,
                 SalesCount = 0,
                 Rating = 0,
@@ -149,11 +143,11 @@ public class ProductService : IProductService
                     : 0
             };
 
-            var productId = await _firestoreService.AddDocumentAsync(ProductsCollection, productModel);
+            var productId = await _supabaseService.InsertAsync(ProductsTable, productModel);
             
             _logger.LogInformation("Product created: {Name} (ID: {Id})", request.Name, productId);
             
-            return await GetProductAsync(productId ?? string.Empty);
+            return productId != null ? await GetProductAsync(productId) : null;
         }
         catch (Exception ex)
         {
@@ -166,7 +160,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _firestoreService.GetDocumentAsync<ProductModel>(ProductsCollection, id);
+            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
             if (product == null)
             {
                 return false;
@@ -189,6 +183,7 @@ public class ProductService : IProductService
                 IsFeatured = request.IsFeatured ?? product.IsFeatured,
                 IsActive = request.IsActive ?? product.IsActive,
                 UpdatedAt = DateTime.UtcNow,
+                UpdatedBy = "system", // TODO: Get from auth context
                 IsOnSale = (request.OriginalPrice ?? product.OriginalPrice).HasValue && 
                           (request.OriginalPrice ?? product.OriginalPrice) > (request.Price ?? product.Price),
                 Discount = (request.OriginalPrice ?? product.OriginalPrice).HasValue
@@ -197,7 +192,7 @@ public class ProductService : IProductService
                     : product.Discount
             };
 
-            var result = await _firestoreService.UpdateDocumentAsync(ProductsCollection, id, updatedProduct);
+            var result = await _supabaseService.UpdateAsync(ProductsTable, id, updatedProduct);
             
             _logger.LogInformation("Product updated: {Id}", id);
             return result;
@@ -213,10 +208,16 @@ public class ProductService : IProductService
     {
         try
         {
-            return await _firestoreService.UpdateFieldsAsync(
-                ProductsCollection,
-                id,
-                new { Images = imageUrls, UpdatedAt = DateTime.UtcNow });
+            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            if (product == null) return false;
+
+            var updated = product with 
+            { 
+                Images = imageUrls, 
+                UpdatedAt = DateTime.UtcNow 
+            };
+
+            return await _supabaseService.UpdateAsync(ProductsTable, id, updated);
         }
         catch (Exception ex)
         {
@@ -229,10 +230,16 @@ public class ProductService : IProductService
     {
         try
         {
-            return await _firestoreService.UpdateFieldsAsync(
-                ProductsCollection,
-                id,
-                new { Stock = quantity, UpdatedAt = DateTime.UtcNow });
+            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            if (product == null) return false;
+
+            var updated = product with 
+            { 
+                Stock = quantity, 
+                UpdatedAt = DateTime.UtcNow 
+            };
+
+            return await _supabaseService.UpdateAsync(ProductsTable, id, updated);
         }
         catch (Exception ex)
         {
@@ -245,18 +252,18 @@ public class ProductService : IProductService
     {
         try
         {
-            // Get product to retrieve image paths
-            var product = await _firestoreService.GetDocumentAsync<ProductModel>(ProductsCollection, id);
-            
-            if (product?.Images.Any() == true)
-            {
-                await _storageService.DeleteImagesAsync(product.Images);
-            }
+            // Soft delete
+            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            if (product == null) return false;
 
-            var result = await _firestoreService.DeleteDocumentAsync(ProductsCollection, id);
-            
-            _logger.LogInformation("Product deleted: {Id}", id);
-            return result;
+            var deleted = product with
+            {
+                IsDeleted = true,
+                DeletedAt = DateTime.UtcNow,
+                DeletedBy = "system" // TODO: Get from auth context
+            };
+
+            return await _supabaseService.UpdateAsync(ProductsTable, id, deleted);
         }
         catch (Exception ex)
         {
@@ -351,8 +358,8 @@ public class ProductService : IProductService
             if (string.IsNullOrEmpty(categoryId))
                 return string.Empty;
 
-            var category = await _firestoreService.GetDocumentAsync<CategoryModel>(
-                CategoriesCollection,
+            var category = await _supabaseService.GetByIdAsync<CategoryModel>(
+                CategoriesTable,
                 categoryId);
             
             return category?.Name ?? string.Empty;
@@ -379,12 +386,14 @@ public class ProductService : IProductService
             CategoryId = model.CategoryId,
             Category = model.Category,
             Brand = model.Brand,
-            Tags = model.Tags,
-            Sizes = model.Sizes,
-            Colors = model.Colors,
-            Images = model.Images,
+            Tags = model.Tags.ToList(),
+            Sizes = model.Sizes.ToList(),
+            Colors = model.Colors.ToList(),
+            Images = model.Images.ToList(),
             Rating = model.Rating,
             ReviewCount = model.ReviewCount,
+            ViewCount = model.ViewCount,
+            SalesCount = model.SalesCount,
             IsActive = model.IsActive,
             IsFeatured = model.IsFeatured,
             IsOnSale = model.IsOnSale,
