@@ -3,6 +3,7 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Notifications
 @layout AdminLayout
 
 <div class="category-management">
@@ -223,3 +224,6 @@
                    IsProcessing="@isDeleting"
                    OnConfirm="ConfirmDeleteCategory"
                    OnCancel="CancelDeleteCategory" />
+<NotificationComponent @ref="notificationComponent" 
+                      Position="NotificationPosition.TopRight"
+                      AutoDismissTime="5000" />
