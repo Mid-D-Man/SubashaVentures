@@ -1,6 +1,7 @@
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Supabase;
+using System.Text;
 
 namespace SubashaVentures.Services.Products;
 
@@ -57,8 +58,11 @@ public class ProductService : IProductService
     {
         try
         {
-            var filter = $"search_vector @@ plainto_tsquery('english', '{query}') " +
-                        $"ORDER BY ts_rank(search_vector, plainto_tsquery('english', '{query}')) DESC";
+            // Escape single quotes in query
+            var escapedQuery = query.Replace("'", "''");
+            
+            var filter = $"search_vector @@ plainto_tsquery('english', '{escapedQuery}') " +
+                        $"ORDER BY ts_rank(search_vector, plainto_tsquery('english', '{escapedQuery}')) DESC";
             
             var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
             return products.Select(MapToViewModel).ToList();
@@ -102,6 +106,40 @@ public class ProductService : IProductService
         }
     }
 
+    public async Task<List<ProductViewModel>> GetTrendingProductsAsync(int count = 10)
+    {
+        try
+        {
+            var filter = $"is_active = true AND is_deleted = false " +
+                        $"ORDER BY view_count DESC, purchase_count DESC LIMIT {count}";
+            
+            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
+            return products.Select(MapToViewModel).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting trending products");
+            return new List<ProductViewModel>();
+        }
+    }
+
+    public async Task<List<ProductViewModel>> GetFeaturedProductsAsync(int count = 10)
+    {
+        try
+        {
+            var filter = $"is_active = true AND is_deleted = false AND is_featured = true " +
+                        $"ORDER BY created_at DESC LIMIT {count}";
+            
+            var products = await _supabaseService.QueryAsync<ProductModel>(ProductsTable, filter);
+            return products.Select(MapToViewModel).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting featured products");
+            return new List<ProductViewModel>();
+        }
+    }
+
     public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
     {
         try
@@ -111,9 +149,27 @@ public class ProductService : IProductService
                 throw new ArgumentException("Product name is required");
             }
 
+            if (request.Price <= 0)
+            {
+                throw new ArgumentException("Price must be greater than 0");
+            }
+
+            if (string.IsNullOrEmpty(request.Sku))
+            {
+                throw new ArgumentException("SKU is required");
+            }
+
+            if (string.IsNullOrEmpty(request.CategoryId))
+            {
+                throw new ArgumentException("Category is required");
+            }
+
+            var productId = Guid.NewGuid().ToString();
+            var now = DateTime.UtcNow;
+
             var productModel = new ProductModel
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = productId,
                 Name = request.Name,
                 Slug = GenerateSlug(request.Name),
                 Description = request.Description,
@@ -124,35 +180,46 @@ public class ProductService : IProductService
                 Sku = request.Sku,
                 CategoryId = request.CategoryId,
                 Category = await GetCategoryNameAsync(request.CategoryId),
-                Brand = request.Brand,
+                Brand = request.Brand ?? string.Empty,
                 Tags = request.Tags ?? new List<string>(),
                 Sizes = request.Sizes ?? new List<string>(),
                 Colors = request.Colors ?? new List<string>(),
                 Images = request.ImageUrls ?? new List<string>(),
                 IsFeatured = request.IsFeatured,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = now,
                 CreatedBy = "system", // TODO: Get from auth context
                 ViewCount = 0,
+                ClickCount = 0,
+                AddToCartCount = 0,
+                PurchaseCount = 0,
                 SalesCount = 0,
+                TotalRevenue = 0,
                 Rating = 0,
                 ReviewCount = 0,
                 IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
                 Discount = request.OriginalPrice.HasValue 
                     ? (int)Math.Round(((request.OriginalPrice.Value - request.Price) / request.OriginalPrice.Value) * 100)
-                    : 0
+                    : 0,
+                IsDeleted = false
             };
 
-            var productId = await _supabaseService.InsertAsync(ProductsTable, productModel);
+            var insertedId = await _supabaseService.InsertAsync(ProductsTable, productModel);
             
-            _logger.LogInformation("Product created: {Name} (ID: {Id})", request.Name, productId);
+            if (string.IsNullOrEmpty(insertedId))
+            {
+                _logger.LogError("Failed to create product: No ID returned");
+                return null;
+            }
+
+            _logger.LogInformation("Product created: {Name} (ID: {Id})", request.Name, insertedId);
             
-            return productId != null ? await GetProductAsync(productId) : null;
+            return await GetProductAsync(insertedId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating product");
-            return null;
+            _logger.LogError(ex, "Error creating product: {Name}", request.Name);
+            throw; // Re-throw to let caller handle
         }
     }
 
@@ -163,6 +230,7 @@ public class ProductService : IProductService
             var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
             if (product == null)
             {
+                _logger.LogWarning("Product not found for update: {Id}", id);
                 return false;
             }
 
@@ -176,6 +244,9 @@ public class ProductService : IProductService
                 OriginalPrice = request.OriginalPrice ?? product.OriginalPrice,
                 Stock = request.Stock ?? product.Stock,
                 CategoryId = request.CategoryId ?? product.CategoryId,
+                Category = !string.IsNullOrEmpty(request.CategoryId) 
+                    ? await GetCategoryNameAsync(request.CategoryId) 
+                    : product.Category,
                 Brand = request.Brand ?? product.Brand,
                 Tags = request.Tags ?? product.Tags,
                 Sizes = request.Sizes ?? product.Sizes,
@@ -194,7 +265,11 @@ public class ProductService : IProductService
 
             var result = await _supabaseService.UpdateAsync(ProductsTable, id, updatedProduct);
             
-            _logger.LogInformation("Product updated: {Id}", id);
+            if (result)
+            {
+                _logger.LogInformation("Product updated: {Id}", id);
+            }
+            
             return result;
         }
         catch (Exception ex)
@@ -214,7 +289,8 @@ public class ProductService : IProductService
             var updated = product with 
             { 
                 Images = imageUrls, 
-                UpdatedAt = DateTime.UtcNow 
+                UpdatedAt = DateTime.UtcNow,
+                UpdatedBy = "system"
             };
 
             return await _supabaseService.UpdateAsync(ProductsTable, id, updated);
@@ -236,7 +312,8 @@ public class ProductService : IProductService
             var updated = product with 
             { 
                 Stock = quantity, 
-                UpdatedAt = DateTime.UtcNow 
+                UpdatedAt = DateTime.UtcNow,
+                UpdatedBy = "system"
             };
 
             return await _supabaseService.UpdateAsync(ProductsTable, id, updated);
@@ -263,7 +340,14 @@ public class ProductService : IProductService
                 DeletedBy = "system" // TODO: Get from auth context
             };
 
-            return await _supabaseService.UpdateAsync(ProductsTable, id, deleted);
+            var result = await _supabaseService.UpdateAsync(ProductsTable, id, deleted);
+            
+            if (result)
+            {
+                _logger.LogInformation("Product soft-deleted: {Id}", id);
+            }
+            
+            return result;
         }
         catch (Exception ex)
         {
@@ -276,11 +360,9 @@ public class ProductService : IProductService
     {
         try
         {
-            foreach (var id in ids)
-            {
-                await DeleteProductAsync(id);
-            }
-            return true;
+            var tasks = ids.Select(id => DeleteProductAsync(id));
+            var results = await Task.WhenAll(tasks);
+            return results.All(r => r);
         }
         catch (Exception ex)
         {
@@ -342,8 +424,34 @@ public class ProductService : IProductService
         }
     }
 
+    public string GenerateUniqueSku()
+    {
+        // Generate format: PROD-YYYYMMDD-XXXX (e.g., PROD-20250514-A3B9)
+        var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
+        var randomPart = GenerateRandomString(4);
+        
+        return $"PROD-{datePart}-{randomPart}";
+    }
+
+    private string GenerateRandomString(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        var result = new StringBuilder(length);
+        
+        for (int i = 0; i < length; i++)
+        {
+            result.Append(chars[random.Next(chars.Length)]);
+        }
+        
+        return result.ToString();
+    }
+
     private string GenerateSlug(string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            return string.Empty;
+
         return name
             .ToLower()
             .Replace(" ", "-")
@@ -364,8 +472,9 @@ public class ProductService : IProductService
             
             return category?.Name ?? string.Empty;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Error getting category name: {CategoryId}", categoryId);
             return string.Empty;
         }
     }
@@ -385,11 +494,13 @@ public class ProductService : IProductService
             Sku = model.Sku,
             CategoryId = model.CategoryId,
             Category = model.Category,
+            SubCategory = model.SubCategory,
             Brand = model.Brand,
             Tags = model.Tags.ToList(),
             Sizes = model.Sizes.ToList(),
             Colors = model.Colors.ToList(),
             Images = model.Images.ToList(),
+            VideoUrl = model.VideoUrl,
             Rating = model.Rating,
             ReviewCount = model.ReviewCount,
             ViewCount = model.ViewCount,
