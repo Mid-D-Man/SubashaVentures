@@ -11,7 +11,7 @@
     <div class="nav-header">
         <div class="nav-brand">
             <span class="brand-icon">🌟</span>
-            <span class="brand-text">Subasha Admin</span>
+            <span class="brand-text">Subasha</span>
         </div>
         
         <button class="nav-toggle-btn desktop-only" 
@@ -40,7 +40,7 @@
     <div class="nav-items">
         @foreach (var navSection in NavigationSections)
         {
-            @if (!string.IsNullOrEmpty(navSection.Title) && isExpanded)
+            @if (!string.IsNullOrEmpty(navSection.Title))
             {
                 <div class="nav-section-title">@navSection.Title</div>
             }
@@ -55,7 +55,10 @@
                                 @onclick="() => ToggleGroup(item.Id)">
                             <span class="nav-item-icon">@GetIconSvg(item.Icon)</span>
                             <span class="nav-item-label">@item.Label</span>
-                            <span class="nav-item-badge" style="display: @(item.Badge > 0 ? "flex" : "none")">@item.Badge</span>
+                            @if (item.Badge > 0)
+                            {
+                                <span class="nav-item-badge">@item.Badge</span>
+                            }
                             <span class="nav-item-arrow">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -71,7 +74,10 @@
                                    @onclick="() => HandleNavigation(child.Path)">
                                     <span class="nav-item-icon">@GetIconSvg(child.Icon)</span>
                                     <span class="nav-item-label">@child.Label</span>
-                                    <span class="nav-item-badge" style="display: @(child.Badge > 0 ? "flex" : "none")">@child.Badge</span>
+                                    @if (child.Badge > 0)
+                                    {
+                                        <span class="nav-item-badge">@child.Badge</span>
+                                    }
                                 </a>
                             }
                         </div>
@@ -85,7 +91,10 @@
                        @onclick="() => HandleNavigation(item.Path)">
                         <span class="nav-item-icon">@GetIconSvg(item.Icon)</span>
                         <span class="nav-item-label">@item.Label</span>
-                        <span class="nav-item-badge" style="display: @(item.Badge > 0 ? "flex" : "none")">@item.Badge</span>
+                        @if (item.Badge > 0)
+                        {
+                            <span class="nav-item-badge">@item.Badge</span>
+                        }
                     </a>
                 }
             }
