@@ -1,6 +1,7 @@
-@* Components/Shared/Popups/ImageSelectorPopup.razor *@
+@* Components/Shared/Popups/ImageSelectorPopup.razor - FIXED *@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Admin.Images
 
 <div class="image-selector-overlay @(IsOpen ? "open" : "")" @onclick="HandleOverlayClick">
     <div class="image-selector-popup @(IsOpen ? "open" : "")" @onclick:stopPropagation="true">
@@ -74,7 +75,7 @@
             </div>
         </div>
 
-        <!-- Image Grid -->
+        <!-- Image Grid using AdminImageCard -->
         <div class="isp-content">
             @if (isLoading)
             {
@@ -96,36 +97,12 @@
                 <div class="isp-grid @viewSize">
                     @foreach (var image in filteredImages)
                     {
-                        var isSelected = SelectedImages.Contains(image.Url);
+                        var isSelected = SelectedImages.Contains(image.PublicUrl);
                         
-                        <div class="isp-image-card @(isSelected ? "selected" : "")"
-                             @onclick="@(() => HandleImageSelect(image))">
-                            
-                            @if (AllowMultiple || isSelected)
-                            {
-                                <div class="selection-indicator">
-                                    @if (isSelected)
-                                    {
-                                        <span class="check-icon">✓</span>
-                                    }
-                                </div>
-                            }
-
-                            <div class="isp-image-wrapper">
-                                <img src="@image.ThumbnailUrl" 
-                                     alt="@image.FileName"
-                                     loading="lazy" />
-                            </div>
-
-                            <div class="isp-image-info">
-                                <span class="isp-image-name" title="@image.FileName">
-                                    @image.FileName
-                                </span>
-                                <span class="isp-image-meta">
-                                    @image.Dimensions • @image.FormattedSize
-                                </span>
-                            </div>
-                        </div>
+                        <AdminImageCard Image="@image"
+                                       IsSelected="@isSelected"
+                                       OnClick="@(() => HandleImageSelect(image))"
+                                       OnSelectionChanged="@((args) => HandleImageSelect(image))" />
                     }
                 </div>
             }
