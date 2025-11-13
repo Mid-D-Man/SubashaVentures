@@ -2,7 +2,7 @@ using Supabase;
 using Supabase.Postgrest;
 using Supabase.Postgrest.Models;
 using Supabase.Postgrest.Responses;
-
+using Client = Supabase.Client;
 namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseService : ISupabaseService
