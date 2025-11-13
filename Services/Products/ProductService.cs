@@ -1,11 +1,10 @@
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
-using System.Text;
 using SubashaVentures.Services.SupaBase;
+using System.Text;
 using SupabaseProductModel = SubashaVentures.Models.Supabase.ProductModel;
 using FirebaseCategoryModel = SubashaVentures.Models.Firebase.CategoryModel;
-
 
 namespace SubashaVentures.Services.Products;
 
@@ -16,7 +15,6 @@ public class ProductService : IProductService
     private readonly ISupabaseStorageService _storageService;
     private readonly ILogger<ProductService> _logger;
     
-    private const string ProductsTable = "products";
     private const string CategoriesCollection = "categories"; // Firebase
 
     public ProductService(
@@ -31,11 +29,14 @@ public class ProductService : IProductService
         _logger = logger;
     }
 
+    #region READ Operations
+
     public async Task<ProductViewModel?> GetProductAsync(string id)
     {
         try
         {
-            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
+            var product = allProducts.FirstOrDefault(p => p.Id == id);
             return product != null ? MapToViewModel(product) : null;
         }
         catch (Exception ex)
@@ -49,7 +50,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             
             var filtered = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted)
@@ -71,7 +72,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             
             var searchLower = query.ToLower();
             var results = allProducts
@@ -95,7 +96,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             
             var filtered = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted && p.CategoryId == categoryId)
@@ -115,7 +116,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             return allProducts.Count(p => p.IsActive && !p.IsDeleted);
         }
         catch (Exception ex)
@@ -129,7 +130,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             
             var trending = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted)
@@ -151,7 +152,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             
             var featured = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted && p.IsFeatured)
@@ -168,32 +169,22 @@ public class ProductService : IProductService
         }
     }
 
+    #endregion
+
+    #region CREATE Operations
+
     public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
     {
         try
         {
-            if (string.IsNullOrEmpty(request.Name))
-            {
-                throw new ArgumentException("Product name is required");
-            }
-
-            if (request.Price <= 0)
-            {
-                throw new ArgumentException("Price must be greater than 0");
-            }
-
-            if (string.IsNullOrEmpty(request.Sku))
-            {
-                throw new ArgumentException("SKU is required");
-            }
-
-            if (string.IsNullOrEmpty(request.CategoryId))
-            {
-                throw new ArgumentException("Category is required");
-            }
+            // Validate request
+            ValidateCreateRequest(request);
 
             var productId = Guid.NewGuid().ToString();
             var now = DateTime.UtcNow;
+
+            // Get category name from Firebase
+            var categoryName = await GetCategoryNameAsync(request.CategoryId);
 
             var productModel = new SupabaseProductModel
             {
@@ -207,7 +198,7 @@ public class ProductService : IProductService
                 Stock = request.Stock,
                 Sku = request.Sku,
                 CategoryId = request.CategoryId,
-                Category = await GetCategoryNameAsync(request.CategoryId),
+                Category = categoryName,
                 Brand = request.Brand ?? string.Empty,
                 Tags = request.Tags ?? new List<string>(),
                 Sizes = request.Sizes ?? new List<string>(),
@@ -226,23 +217,22 @@ public class ProductService : IProductService
                 Rating = 0,
                 ReviewCount = 0,
                 IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
-                Discount = request.OriginalPrice.HasValue 
-                    ? (int)Math.Round(((request.OriginalPrice.Value - request.Price) / request.OriginalPrice.Value) * 100)
-                    : 0,
+                Discount = CalculateDiscount(request.OriginalPrice, request.Price),
                 IsDeleted = false
             };
 
-            var insertedId = await _supabaseDatabaseService.InsertAsync(ProductsTable, productModel);
+            var insertedProducts = await _supabaseDatabaseService.InsertAsync(productModel);
             
-            if (string.IsNullOrEmpty(insertedId))
+            if (insertedProducts == null || !insertedProducts.Any())
             {
-                _logger.LogError("Failed to create product: No ID returned");
+                _logger.LogError("Failed to create product: No product returned");
                 return null;
             }
 
-            _logger.LogInformation("Product created: {Name} (ID: {Id})", request.Name, insertedId);
+            var insertedProduct = insertedProducts.First();
+            _logger.LogInformation("Product created: {Name} (ID: {Id})", request.Name, insertedProduct.Id);
             
-            return await GetProductAsync(insertedId);
+            return MapToViewModel(insertedProduct);
         }
         catch (Exception ex)
         {
@@ -251,54 +241,65 @@ public class ProductService : IProductService
         }
     }
 
+    #endregion
+
+    #region UPDATE Operations
+
     public async Task<bool> UpdateProductAsync(string id, UpdateProductRequest request)
     {
         try
         {
-            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            // Get existing product
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
+            var product = allProducts.FirstOrDefault(p => p.Id == id);
+            
             if (product == null)
             {
                 _logger.LogWarning("Product not found for update: {Id}", id);
                 return false;
             }
 
-            var updatedProduct = product with
-            {
-                Name = request.Name ?? product.Name,
-                Slug = !string.IsNullOrEmpty(request.Name) ? GenerateSlug(request.Name) : product.Slug,
-                Description = request.Description ?? product.Description,
-                LongDescription = request.LongDescription ?? product.LongDescription,
-                Price = request.Price ?? product.Price,
-                OriginalPrice = request.OriginalPrice ?? product.OriginalPrice,
-                Stock = request.Stock ?? product.Stock,
-                CategoryId = request.CategoryId ?? product.CategoryId,
-                Category = !string.IsNullOrEmpty(request.CategoryId) 
-                    ? await GetCategoryNameAsync(request.CategoryId) 
-                    : product.Category,
-                Brand = request.Brand ?? product.Brand,
-                Tags = request.Tags ?? product.Tags,
-                Sizes = request.Sizes ?? product.Sizes,
-                Colors = request.Colors ?? product.Colors,
-                IsFeatured = request.IsFeatured ?? product.IsFeatured,
-                IsActive = request.IsActive ?? product.IsActive,
-                UpdatedAt = DateTime.UtcNow,
-                UpdatedBy = "system",
-                IsOnSale = (request.OriginalPrice ?? product.OriginalPrice).HasValue && 
-                          (request.OriginalPrice ?? product.OriginalPrice) > (request.Price ?? product.Price),
-                Discount = (request.OriginalPrice ?? product.OriginalPrice).HasValue
-                    ? (int)Math.Round((((request.OriginalPrice ?? product.OriginalPrice).Value - (request.Price ?? product.Price)) / 
-                       (request.OriginalPrice ?? product.OriginalPrice).Value) * 100)
-                    : product.Discount
-            };
+            // Get category name if category changed
+            var categoryName = !string.IsNullOrEmpty(request.CategoryId) 
+                ? await GetCategoryNameAsync(request.CategoryId) 
+                : product.Category;
 
-            var result = await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, updatedProduct);
+            // Calculate new discount if price changed
+            var newOriginalPrice = request.OriginalPrice ?? product.OriginalPrice;
+            var newPrice = request.Price ?? product.Price;
+            var newDiscount = CalculateDiscount(newOriginalPrice, newPrice);
+            var isOnSale = newOriginalPrice.HasValue && newOriginalPrice > newPrice;
+
+            // Create updated product (ProductModel is a class, so we can modify it)
+            product.Name = request.Name ?? product.Name;
+            product.Slug = !string.IsNullOrEmpty(request.Name) ? GenerateSlug(request.Name) : product.Slug;
+            product.Description = request.Description ?? product.Description;
+            product.LongDescription = request.LongDescription ?? product.LongDescription;
+            product.Price = newPrice;
+            product.OriginalPrice = newOriginalPrice;
+            product.Stock = request.Stock ?? product.Stock;
+            product.CategoryId = request.CategoryId ?? product.CategoryId;
+            product.Category = categoryName;
+            product.Brand = request.Brand ?? product.Brand;
+            product.Tags = request.Tags ?? product.Tags;
+            product.Sizes = request.Sizes ?? product.Sizes;
+            product.Colors = request.Colors ?? product.Colors;
+            product.IsFeatured = request.IsFeatured ?? product.IsFeatured;
+            product.IsActive = request.IsActive ?? product.IsActive;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = "system";
+            product.IsOnSale = isOnSale;
+            product.Discount = newDiscount;
+
+            var updatedProducts = await _supabaseDatabaseService.UpdateAsync(product);
             
-            if (result)
+            if (updatedProducts != null && updatedProducts.Any())
             {
                 _logger.LogInformation("Product updated: {Id}", id);
+                return true;
             }
             
-            return result;
+            return false;
         }
         catch (Exception ex)
         {
@@ -311,17 +312,17 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
+            var product = allProducts.FirstOrDefault(p => p.Id == id);
+            
             if (product == null) return false;
 
-            var updated = product with 
-            { 
-                Images = imageUrls, 
-                UpdatedAt = DateTime.UtcNow,
-                UpdatedBy = "system"
-            };
+            product.Images = imageUrls;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = "system";
 
-            return await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, updated);
+            var updatedProducts = await _supabaseDatabaseService.UpdateAsync(product);
+            return updatedProducts != null && updatedProducts.Any();
         }
         catch (Exception ex)
         {
@@ -334,17 +335,17 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
+            var product = allProducts.FirstOrDefault(p => p.Id == id);
+            
             if (product == null) return false;
 
-            var updated = product with 
-            { 
-                Stock = quantity, 
-                UpdatedAt = DateTime.UtcNow,
-                UpdatedBy = "system"
-            };
+            product.Stock = quantity;
+            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedBy = "system";
 
-            return await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, updated);
+            var updatedProducts = await _supabaseDatabaseService.UpdateAsync(product);
+            return updatedProducts != null && updatedProducts.Any();
         }
         catch (Exception ex)
         {
@@ -353,28 +354,33 @@ public class ProductService : IProductService
         }
     }
 
+    #endregion
+
+    #region DELETE Operations
+
     public async Task<bool> DeleteProductAsync(string id)
     {
         try
         {
-            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
+            var product = allProducts.FirstOrDefault(p => p.Id == id);
+            
             if (product == null) return false;
 
-            var deleted = product with
-            {
-                IsDeleted = true,
-                DeletedAt = DateTime.UtcNow,
-                DeletedBy = "system"
-            };
+            // Soft delete
+            product.IsDeleted = true;
+            product.DeletedAt = DateTime.UtcNow;
+            product.DeletedBy = "system";
 
-            var result = await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, deleted);
+            var result = await _supabaseDatabaseService.UpdateAsync(product);
             
-            if (result)
+            if (result != null && result.Any())
             {
                 _logger.LogInformation("Product soft-deleted: {Id}", id);
+                return true;
             }
             
-            return result;
+            return false;
         }
         catch (Exception ex)
         {
@@ -397,6 +403,10 @@ public class ProductService : IProductService
             return false;
         }
     }
+
+    #endregion
+
+    #region IMAGE MANAGEMENT
 
     public async Task<ProductImageUploadResult> UploadProductImageAsync(Stream imageStream, string fileName)
     {
@@ -451,6 +461,10 @@ public class ProductService : IProductService
         }
     }
 
+    #endregion
+
+    #region UTILITY Methods
+
     public string GenerateUniqueSku()
     {
         var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
@@ -485,7 +499,29 @@ public class ProductService : IProductService
             .Trim('-');
     }
 
-    // Get category name from Firebase
+    private int CalculateDiscount(decimal? originalPrice, decimal price)
+    {
+        if (!originalPrice.HasValue || originalPrice.Value <= price)
+            return 0;
+
+        return (int)Math.Round(((originalPrice.Value - price) / originalPrice.Value) * 100);
+    }
+
+    private void ValidateCreateRequest(CreateProductRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Name))
+            throw new ArgumentException("Product name is required");
+
+        if (request.Price <= 0)
+            throw new ArgumentException("Price must be greater than 0");
+
+        if (string.IsNullOrEmpty(request.Sku))
+            throw new ArgumentException("SKU is required");
+
+        if (string.IsNullOrEmpty(request.CategoryId))
+            throw new ArgumentException("Category is required");
+    }
+
     private async Task<string> GetCategoryNameAsync(string categoryId)
     {
         try
@@ -540,4 +576,6 @@ public class ProductService : IProductService
             UpdatedAt = model.UpdatedAt
         };
     }
+
+    #endregion
 }

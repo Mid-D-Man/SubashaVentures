@@ -15,6 +15,7 @@ using Blazored.LocalStorage;
 using Blazored.Toast;
 using Supabase;
 using Microsoft.JSInterop;
+using SubashaVentures.Services.SupaBase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
