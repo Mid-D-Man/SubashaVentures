@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Thu Nov 13 00:40:05 UTC 2025
+Generated: Thu Nov 13 13:25:50 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 4a0340d3943f1f3d509bc5dab15854819ca0bc79
+Commit: 1b71abfa892da3b2502f0729d40abd7974b0f5b8
 Branch: master
 ==================================
 
@@ -103,6 +103,7 @@ Models/Supabase/ProductAnalyticsModel.cs
 Models/Supabase/ProductModel.cs
 Models/Supabase/PromoCodeModel.cs
 Models/Supabase/SupabaseConfigModel.cs
+Models/Supabase/SupabaseMessageModel.cs
 Models/Supabase/UserModel.cs
 Models/Supabase/WishlistModel.cs
 Pages/Admin/AdminDashboard.razor
@@ -154,11 +155,11 @@ Services/Storage/IImageCompressionService.cs
 Services/Storage/ImageCompressionService.cs
 Services/Supabase/ISupabaseAuthService.cs
 Services/Supabase/ISupabaseConfigService.cs
-Services/Supabase/ISupabaseService.cs
+Services/Supabase/ISupabaseDatabaseService.cs
 Services/Supabase/ISupabaseStorageService.cs
 Services/Supabase/SupabaseAuthService.cs
 Services/Supabase/SupabaseConfigService.cs
-Services/Supabase/SupabaseService.cs
+Services/Supabase/SupabaseDatabaseService.cs
 Services/Supabase/SupabaseStorageService.cs
 Services/Time/IServerTimeService.cs
 Services/Time/ServerTimeService.cs
@@ -264,7 +265,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 80 files
+.cs       : 81 files
 .razor    : 42 files
 .csproj   : 1 files
 .sln      : 1 files
