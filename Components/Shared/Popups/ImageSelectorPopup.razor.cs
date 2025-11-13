@@ -1,4 +1,4 @@
-// Components/Shared/Popups/ImageSelectorPopup.razor.cs
+// Components/Shared/Popups/ImageSelectorPopup.razor.cs - FIXED IMAGE LOADING
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Storage;
@@ -23,7 +23,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     [Parameter] public EventCallback<List<string>> OnImagesSelected { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
-    // Object pool for image lists
     private MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>? _imageListPool;
 
     private bool isLoading = false;
@@ -36,7 +35,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     private List<AdminImageCard.ImageItem> allImages = new();
     private List<AdminImageCard.ImageItem> filteredImages = new();
 
-    // Cache key for storing loaded images
     private const string CACHE_KEY = "image_selector_cache";
     private const int CACHE_DURATION_MINUTES = 5;
 
@@ -44,7 +42,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     {
         try
         {
-            // Initialize object pool
             _imageListPool = new MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>(
                 () => new List<AdminImageCard.ImageItem>(),
                 list => list.Clear(),
@@ -63,25 +60,21 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     {
         if (IsOpen && !isInitialized)
         {
-            // Set pre-selected images
             if (PreSelectedUrls.Any())
             {
                 SelectedImages = new List<string>(PreSelectedUrls);
             }
 
-            // Set default folder if provided
             if (!string.IsNullOrEmpty(DefaultFolder))
             {
                 selectedFolder = DefaultFolder;
             }
 
-            // Load images
             await LoadImagesAsync();
             isInitialized = true;
         }
         else if (!IsOpen)
         {
-            // Reset when closed
             isInitialized = false;
         }
     }
@@ -93,7 +86,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             isLoading = true;
             StateHasChanged();
 
-            // Try to load from cache first
             var cachedData = await LoadFromCacheAsync();
             if (cachedData != null)
             {
@@ -109,11 +101,10 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // Load from storage service
             using var pooledImages = _imageListPool?.GetPooled();
             var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
 
-            // Define folders to load from
+            // FIXED: Load from ALL standard folders
             var folders = new[]
             {
                 "products",
@@ -126,21 +117,18 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 "categories"
             };
 
-            var loadTasks = folders.Select(folder => 
-                LoadImagesFromFolderAsync(folder, imageList)
-            ).ToList();
-
-            await Task.WhenAll(loadTasks);
+            foreach (var folder in folders)
+            {
+                await LoadImagesFromFolderAsync(folder, imageList);
+            }
 
             allImages = new List<AdminImageCard.ImageItem>(imageList);
 
-            // Cache the loaded images
             await SaveToCacheAsync(allImages);
-
             ApplyFilters();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {allImages.Count} images from storage",
+                $"✓ Loaded {allImages.Count} images from {folders.Length} folders",
                 LogLevel.Info
             );
         }
@@ -160,11 +148,13 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     {
         try
         {
-            var files = await StorageService.ListFilesAsync(folder);
+            var files = await StorageService.ListFilesAsync(folder, "products");
 
             foreach (var file in files)
             {
-                var publicUrl = StorageService.GetPublicUrl(file.Name, "products");
+                // FIXED: Proper path construction
+                var filePath = $"{folder}/{file.Name}";
+                var publicUrl = StorageService.GetPublicUrl(filePath, "products");
                 
                 var imageInfo = new AdminImageCard.ImageItem
                 {
@@ -185,6 +175,11 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                     imageList.Add(imageInfo);
                 }
             }
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {files.Count} images from {folder}",
+                LogLevel.Debug
+            );
         }
         catch (Exception ex)
         {
@@ -204,7 +199,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             if (cacheData == null)
                 return null;
 
-            // Check if cache is expired
             if ((DateTime.UtcNow - cacheData.CachedAt).TotalMinutes > CACHE_DURATION_MINUTES)
             {
                 await LocalStorage.RemoveItemAsync(CACHE_KEY);
@@ -266,13 +260,11 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         {
             if (!AllowMultiple)
             {
-                // Single selection mode
                 SelectedImages.Clear();
                 SelectedImages.Add(image.PublicUrl);
             }
             else
             {
-                // Multiple selection mode
                 if (SelectedImages.Contains(image.PublicUrl))
                 {
                     SelectedImages.Remove(image.PublicUrl);
@@ -301,8 +293,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             MID_HelperFunctions.LogException(ex, "Handling image selection");
-        }
-    }
+        }}
 
     private void ClearSelection()
     {

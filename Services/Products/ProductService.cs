@@ -180,15 +180,17 @@ public class ProductService : IProductService
             // Validate request
             ValidateCreateRequest(request);
 
-            var productId = Guid.NewGuid().ToString();
+            // CRITICAL FIX: Generate GUID without dashes for Supabase UUID compatibility
+            var productId = Guid.NewGuid().ToString("N"); // "N" format removes dashes
             var now = DateTime.UtcNow;
 
             // Get category name from Firebase
             var categoryName = await GetCategoryNameAsync(request.CategoryId);
 
+            // CRITICAL FIX: Set ID before creating model
             var productModel = new SupabaseProductModel
             {
-                Id = productId,
+                Id = productId, // MUST be set before insert
                 Name = request.Name,
                 Slug = GenerateSlug(request.Name),
                 Description = request.Description,
@@ -221,22 +223,24 @@ public class ProductService : IProductService
                 IsDeleted = false
             };
 
+            _logger.LogInformation("Attempting to insert product with ID: {Id}, Name: {Name}", productId, request.Name);
+
             var insertedProducts = await _supabaseDatabaseService.InsertAsync(productModel);
             
             if (insertedProducts == null || !insertedProducts.Any())
             {
-                _logger.LogError("Failed to create product: No product returned");
+                _logger.LogError("Failed to create product: No product returned from insert");
                 return null;
             }
 
             var insertedProduct = insertedProducts.First();
-            _logger.LogInformation("Product created: {Name} (ID: {Id})", request.Name, insertedProduct.Id);
+            _logger.LogInformation("✓ Product created successfully: {Name} (ID: {Id})", request.Name, insertedProduct.Id);
             
             return MapToViewModel(insertedProduct);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating product: {Name}", request.Name);
+            _logger.LogError(ex, "Error creating product: {Name}. Exception: {Message}", request.Name, ex.Message);
             throw;
         }
     }
@@ -270,7 +274,7 @@ public class ProductService : IProductService
             var newDiscount = CalculateDiscount(newOriginalPrice, newPrice);
             var isOnSale = newOriginalPrice.HasValue && newOriginalPrice > newPrice;
 
-            // Create updated product (ProductModel is a class, so we can modify it)
+            // Update product properties
             product.Name = request.Name ?? product.Name;
             product.Slug = !string.IsNullOrEmpty(request.Name) ? GenerateSlug(request.Name) : product.Slug;
             product.Description = request.Description ?? product.Description;

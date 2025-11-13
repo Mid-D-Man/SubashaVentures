@@ -1,3 +1,4 @@
+// Pages/Admin/ProductManagement.razor.cs - FIXED
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Supabase;
@@ -20,7 +21,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
-    
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
@@ -62,7 +62,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private List<CategoryViewModel> categories = new();
     private List<string> selectedProducts = new();
 
-    // Form state - FIXED: Use proper two-way binding properties
+    // Form state
     private ProductFormData productForm = new();
     private Dictionary<string, string> validationErrors = new();
 
@@ -153,7 +153,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            // Load categories from FIREBASE (not Supabase)
             var categoryModels = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
             
             if (categoryModels != null && categoryModels.Any())
@@ -198,13 +197,11 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-
     private void ApplyFiltersAndSort()
     {
         using var pooledList = _productListPool?.GetPooled();
         var tempList = pooledList?.Object ?? new List<ProductViewModel>();
 
-        // Apply filters
         tempList.AddRange(allProducts.Where(p =>
             (string.IsNullOrEmpty(searchQuery) ||
              p.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
@@ -215,7 +212,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             (string.IsNullOrEmpty(selectedStatus) || FilterByStatus(p, selectedStatus))
         ));
 
-        // Apply sorting
         filteredProducts = sortBy switch
         {
             "newest" => tempList.OrderByDescending(x => x.CreatedAt).ToList(),
@@ -319,7 +315,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         isProductModalOpen = true;
         StateHasChanged();
     }
-
     private void CloseProductModal()
     {
         isProductModalOpen = false;
@@ -328,7 +323,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // FIXED: Generate unique SKU
     private void GenerateSku()
     {
         productForm.Sku = ProductService.GenerateUniqueSku();
@@ -977,7 +971,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // Form data class - FIXED: Direct properties for two-way binding
+    // FIXED: Form data class with "/" separator for tags
     public class ProductFormData
     {
         public string Id { get; set; } = "";
@@ -997,23 +991,34 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         public bool IsFeatured { get; set; }
         public bool IsActive { get; set; } = true;
         
-        // Helper properties for input parsing
+        // FIXED: Use "/" separator for tags
         public string TagsInput
         {
-            get => Tags != null ? string.Join(", ", Tags) : "";
-            set => Tags = value?.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+            get => Tags != null ? string.Join(" / ", Tags) : "";
+            set => Tags = value?.Split('/')
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrEmpty(t))
+                .ToList();
         }
         
+        // FIXED: Use "/" separator for sizes
         public string SizesInput
         {
-            get => Sizes != null ? string.Join(", ", Sizes) : "";
-            set => Sizes = value?.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+            get => Sizes != null ? string.Join(" / ", Sizes) : "";
+            set => Sizes = value?.Split('/')
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
         }
         
+        // FIXED: Use "/" separator for colors
         public string ColorsInput
         {
-            get => Colors != null ? string.Join(", ", Colors) : "";
-            set => Colors = value?.Split(',').Select(c => c.Trim()).Where(c => !string.IsNullOrEmpty(c)).ToList();
+            get => Colors != null ? string.Join(" / ", Colors) : "";
+            set => Colors = value?.Split('/')
+                .Select(c => c.Trim())
+                .Where(c => !string.IsNullOrEmpty(c))
+                .ToList();
         }
     }
 }
