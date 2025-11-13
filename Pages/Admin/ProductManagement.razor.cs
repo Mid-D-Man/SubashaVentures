@@ -893,11 +893,14 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         };
     }
 
+    // ONLY showing the CreateProductAsync mapping fix
+
     private CreateProductRequest MapToCreateRequest(ProductFormData form)
     {
         return new CreateProductRequest
         {
-            Id = string.IsNullOrEmpty(form.Id) ? null : form.Id, // Pass ID if exists
+            // CRITICAL FIX: Don't pass empty string - let service generate UUID
+            Id = null, // Service will generate proper UUID
             Name = form.Name,
             Description = form.Description,
             LongDescription = form.LongDescription,

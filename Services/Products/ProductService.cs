@@ -7,6 +7,7 @@ using SubashaVentures.Utilities.HelperScripts;
 using SupabaseProductModel = SubashaVentures.Models.Supabase.ProductModel;
 using FirebaseCategoryModel = SubashaVentures.Models.Firebase.CategoryModel;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
+
 namespace SubashaVentures.Services.Products;
 
 public class ProductService : IProductService
@@ -16,7 +17,7 @@ public class ProductService : IProductService
     private readonly ISupabaseStorageService _storageService;
     private readonly ILogger<ProductService> _logger;
     
-    private const string CategoriesCollection = "categories"; // Firebase
+    private const string CategoriesCollection = "categories"; // Firebase ONLY
 
     public ProductService(
         ISupabaseDatabaseService supabaseDatabaseService,
@@ -174,121 +175,99 @@ public class ProductService : IProductService
 
     #region CREATE Operations
 
-    // Services/Products/ProductService.cs - CreateProductAsync method
-public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
-{
-    try
+    public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Attempting to insert product with ID: {request.Id ?? "NULL"}, Name: {request.Name}",
-            LogLevel.Info
-        );
-
-        // CRITICAL FIX: Generate ID if not provided
-        if (string.IsNullOrEmpty(request.Id))
+        try
         {
-            request.Id = GenerateProductId(request.Name);
+            // CRITICAL FIX: Always generate a proper UUID for the ID
+            var productId = !string.IsNullOrEmpty(request.Id) 
+                ? request.Id 
+                : Guid.NewGuid().ToString();
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Generated new product ID: {request.Id}",
+                $"Creating product: ID={productId}, Name={request.Name}",
                 LogLevel.Info
             );
-        }
 
-        // Generate SKU if not provided
-        if (string.IsNullOrEmpty(request.Sku))
-        {
-            request.Sku = GenerateUniqueSku();
-        }
+            // Generate SKU if not provided
+            if (string.IsNullOrEmpty(request.Sku))
+            {
+                request.Sku = GenerateUniqueSku();
+            }
 
-        var productModel = new SupabaseProductModel
-        {
-            Id = request.Id, // CRITICAL: Set the ID
-            Name = request.Name,
-            Slug = GenerateSlug(request.Name),
-            Description = request.Description ?? string.Empty,
-            LongDescription = request.LongDescription ?? string.Empty,
-            Price = request.Price,
-            OriginalPrice = request.OriginalPrice,
-            IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
-            Discount = CalculateDiscount(request.OriginalPrice,request.Price),
-            Images = request.ImageUrls ?? new List<string>(),
-            VideoUrl = null,
-            Sizes = request.Sizes ?? new List<string>(),
-            Colors = request.Colors ?? new List<string>(),
-            Stock = request.Stock,
-            Sku = request.Sku,
-            CategoryId = request.CategoryId ?? string.Empty,
-            Category = await GetCategoryNameAsync(request.CategoryId ?? string.Empty),
-            SubCategory = null,
-            Brand = request.Brand ?? string.Empty,
-            Tags = request.Tags ?? new List<string>(),
-            Rating = 0,
-            ReviewCount = 0,
-            ViewCount = 0,
-            ClickCount = 0,
-            AddToCartCount = 0,
-            PurchaseCount = 0,
-            SalesCount = 0,
-            TotalRevenue = 0,
-            IsActive = true,
-            IsFeatured = request.IsFeatured,
-            LastViewedAt = null,
-            LastPurchasedAt = null,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "system",
-            UpdatedAt = null,
-            UpdatedBy = null,
-            IsDeleted = false,
-            DeletedAt = null,
-            DeletedBy = null
-        };
+            // Get category name from Firebase
+            var categoryName = await GetCategoryNameAsync(request.CategoryId ?? string.Empty);
 
-        var result = await _supabaseDatabaseService.InsertAsync(productModel);
+            var productModel = new SupabaseProductModel
+            {
+                Id = productId, // CRITICAL: Set the UUID
+                Name = request.Name,
+                Slug = GenerateSlug(request.Name),
+                Description = request.Description ?? string.Empty,
+                LongDescription = request.LongDescription ?? string.Empty,
+                Price = request.Price,
+                OriginalPrice = request.OriginalPrice,
+                IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
+                Discount = CalculateDiscount(request.OriginalPrice, request.Price),
+                Images = request.ImageUrls ?? new List<string>(),
+                VideoUrl = null,
+                Sizes = request.Sizes ?? new List<string>(),
+                Colors = request.Colors ?? new List<string>(),
+                Stock = request.Stock,
+                Sku = request.Sku,
+                CategoryId = request.CategoryId ?? string.Empty,
+                Category = categoryName,
+                SubCategory = null,
+                Brand = request.Brand ?? string.Empty,
+                Tags = request.Tags ?? new List<string>(),
+                Rating = 0,
+                ReviewCount = 0,
+                ViewCount = 0,
+                ClickCount = 0,
+                AddToCartCount = 0,
+                PurchaseCount = 0,
+                SalesCount = 0,
+                TotalRevenue = 0,
+                IsActive = true,
+                IsFeatured = request.IsFeatured,
+                LastViewedAt = null,
+                LastPurchasedAt = null,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "system",
+                UpdatedAt = null,
+                UpdatedBy = null,
+                IsDeleted = false,
+                DeletedAt = null,
+                DeletedBy = null
+            };
 
-        if (result == null || !result.Any())
-        {
+            // Insert into Supabase ONLY (NOT Firebase)
+            var result = await _supabaseDatabaseService.InsertAsync(productModel);
+
+            if (result == null || !result.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Failed to insert product - no result returned",
+                    LogLevel.Error
+                );
+                return null;
+            }
+
+            var createdProduct = result.First();
+
             await MID_HelperFunctions.DebugMessageAsync(
-                "Failed to insert product - no result returned",
-                LogLevel.Error
+                $"✓ Product created successfully: {createdProduct.Name} (ID: {createdProduct.Id})",
+                LogLevel.Info
             );
-            return null;
+
+            return MapToViewModel(createdProduct);
         }
-
-        var createdProduct = result.First();
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✓ Product created successfully: {createdProduct.Name} (ID: {createdProduct.Id})",
-            LogLevel.Info
-        );
-
-        return MapToViewModel(createdProduct);
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating product: {request.Name}");
+            throw;
+        }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating product: {request.Name}");
-        throw;
-    }
-}
-
-// Add this helper method to generate readable product IDs
-private string GenerateProductId(string productName)
-{
-    // Clean the product name
-    var cleanName = new string(productName
-        .ToLower()
-        .Take(20) // Max 20 chars from name
-        .Where(c => char.IsLetterOrDigit(c) || c == '-')
-        .ToArray())
-        .Replace(' ', '-');
-    
-    // Add timestamp for uniqueness
-    var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-    
-    // Add random suffix for extra uniqueness
-    var random = new Random().Next(1000, 9999);
-    
-    return $"{cleanName}-{timestamp}-{random}";
-}
 
     #endregion
 
@@ -298,7 +277,7 @@ private string GenerateProductId(string productName)
     {
         try
         {
-            // Get existing product
+            // Get existing product from Supabase
             var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>();
             var product = allProducts.FirstOrDefault(p => p.Id == id);
             
@@ -308,7 +287,7 @@ private string GenerateProductId(string productName)
                 return false;
             }
 
-            // Get category name if category changed
+            // Get category name from Firebase if category changed
             var categoryName = !string.IsNullOrEmpty(request.CategoryId) 
                 ? await GetCategoryNameAsync(request.CategoryId) 
                 : product.Category;
@@ -556,21 +535,6 @@ private string GenerateProductId(string productName)
         return (int)Math.Round(((originalPrice.Value - price) / originalPrice.Value) * 100);
     }
 
-    private void ValidateCreateRequest(CreateProductRequest request)
-    {
-        if (string.IsNullOrEmpty(request.Name))
-            throw new ArgumentException("Product name is required");
-
-        if (request.Price <= 0)
-            throw new ArgumentException("Price must be greater than 0");
-
-        if (string.IsNullOrEmpty(request.Sku))
-            throw new ArgumentException("SKU is required");
-
-        if (string.IsNullOrEmpty(request.CategoryId))
-            throw new ArgumentException("Category is required");
-    }
-
     private async Task<string> GetCategoryNameAsync(string categoryId)
     {
         try
@@ -578,6 +542,7 @@ private string GenerateProductId(string productName)
             if (string.IsNullOrEmpty(categoryId))
                 return string.Empty;
 
+            // Get category from Firebase ONLY
             var category = await _firestoreService.GetDocumentAsync<FirebaseCategoryModel>(
                 CategoriesCollection,
                 categoryId);

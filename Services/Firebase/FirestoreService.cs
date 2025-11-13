@@ -26,6 +26,8 @@ namespace SubashaVentures.Services.Firebase
             WriteIndented = false
         };
 
+
+        
         public FirestoreService(IJSRuntime jsRuntime, IBlazorAppLocalStorageService localStorage)
         {
             _jsRuntime = jsRuntime;
@@ -34,10 +36,9 @@ namespace SubashaVentures.Services.Firebase
 
         private async Task InitializeAsync()
         {
-            // Prevent multiple simultaneous initializations
+            // CRITICAL FIX: Prevent multiple initializations
             if (_isInitialized || _isInitializing)
             {
-                MID_HelperFunctions.DebugMessage("Firestore already initialized or initializing, skipping...", LogLevel.Info);
                 return;
             }
 
@@ -53,28 +54,45 @@ namespace SubashaVentures.Services.Firebase
 
                 _isInitializing = true;
 
-                if (IsConfigured)
+                // Check if already initialized via JavaScript
+                var alreadyInitialized = await _jsRuntime.InvokeAsync<bool>(
+                    "eval", 
+                    "typeof window.firestoreModule !== 'undefined' && window.firestoreModule.isConnected !== undefined"
+                );
+
+                if (alreadyInitialized)
                 {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "Firestore already initialized in JavaScript", 
+                        LogLevel.Info
+                    );
                     _isInitialized = true;
-                    _isInitializing = false;
+                    IsConfigured = true;
                     return;
                 }
 
+                // Initialize through JavaScript module
                 _isInitialized = await _jsRuntime.InvokeAsync<bool>("firestoreModule.initializeFirestore");
                 IsConfigured = _isInitialized;
                 
                 if (_isInitialized)
                 {
-                    MID_HelperFunctions.DebugMessage("✓ Firestore initialized successfully", LogLevel.Info);
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "✓ Firestore initialized successfully", 
+                        LogLevel.Info
+                    );
                 }
                 else
                 {
-                    MID_HelperFunctions.DebugMessage("❌ Failed to initialize Firestore", LogLevel.Error);
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Failed to initialize Firestore", 
+                        LogLevel.Error
+                    );
                 }
             }
             catch (Exception ex)
             {
-                MID_HelperFunctions.DebugMessage($"Error initializing Firestore: {ex.Message}", LogLevel.Exception);
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing Firestore");
             }
             finally
             {
