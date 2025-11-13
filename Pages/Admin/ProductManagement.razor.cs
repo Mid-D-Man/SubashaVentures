@@ -11,6 +11,7 @@ using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Domain.Enums;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
+using SubashaVentures.Services.SupaBase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Admin;
@@ -19,6 +20,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
+    
+    [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
@@ -150,32 +153,51 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            var categoryModels = await FirestoreService.GetAllAsync<CategoryModel>("categories");
-            categories = categoryModels?.Select(c => new CategoryViewModel
+            // Load categories from FIREBASE (not Supabase)
+            var categoryModels = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
+            
+            if (categoryModels != null && categoryModels.Any())
             {
-                Id = c.Id,
-                Name = c.Name,
-                Slug = c.Slug,
-                Description = c.Description,
-                ImageUrl = c.ImageUrl,
-                IconEmoji = c.IconEmoji,
-                ParentId = c.ParentId,
-                ProductCount = c.ProductCount,
-                DisplayOrder = c.DisplayOrder,
-                IsActive = c.IsActive
-            }).OrderBy(c => c.DisplayOrder).ToList() ?? new List<CategoryViewModel>();
+                categories = categoryModels
+                    .Where(c => c.IsActive)
+                    .Select(c => new CategoryViewModel
+                    {
+                        Id = c.Id,
+                        Name = c.Name,
+                        Slug = c.Slug,
+                        Description = c.Description,
+                        ImageUrl = c.ImageUrl,
+                        IconEmoji = c.IconEmoji,
+                        ParentId = c.ParentId,
+                        ProductCount = c.ProductCount,
+                        DisplayOrder = c.DisplayOrder,
+                        IsActive = c.IsActive
+                    })
+                    .OrderBy(c => c.DisplayOrder)
+                    .ToList();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {categories.Count} categories",
-                LogLevel.Info
-            );
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Loaded {categories.Count} categories from Firebase",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No categories found in Firebase",
+                    LogLevel.Warning
+                );
+                categories = new List<CategoryViewModel>();
+            }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories from Firebase");
             ShowErrorNotification("Failed to load categories");
+            categories = new List<CategoryViewModel>();
         }
     }
+
 
     private void ApplyFiltersAndSort()
     {

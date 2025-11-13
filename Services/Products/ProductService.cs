@@ -2,6 +2,7 @@ using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
 using System.Text;
+using SubashaVentures.Services.SupaBase;
 using SupabaseProductModel = SubashaVentures.Models.Supabase.ProductModel;
 using FirebaseCategoryModel = SubashaVentures.Models.Firebase.CategoryModel;
 

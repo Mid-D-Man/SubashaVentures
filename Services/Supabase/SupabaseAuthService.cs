@@ -39,7 +39,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            var session = await _client.Auth.SignIn(email, password);
+            var session = await _client.SignIn(email, password);
             
             if (session?.User == null)
             {
@@ -109,7 +109,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 { "avatar_url", userData.AvatarUrl ?? string.Empty }
             };
 
-            var session = await _client.Auth.SignUp(email, password, new SignUpOptions
+            var session = await _client.SignUp(email, password, new SignUpOptions
             {
                 Data = userMetadata
             });
@@ -195,7 +195,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await _client.Auth.SignOut();
+            await _client.SignOut();
             
             // Clear stored session
             await _localStorage.RemoveItemAsync(SESSION_STORAGE_KEY);
@@ -215,7 +215,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            return _client.Auth.CurrentUser;
+            return _client.CurrentUser;
         }
         catch (Exception ex)
         {
@@ -242,7 +242,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            var session = await _client.Auth.RefreshSession();
+            var session = await _client.RefreshSession();
             
             if (session != null)
             {
@@ -267,7 +267,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(email))
                 return false;
 
-            await _client.Auth.ResetPasswordForEmail(email);
+            await _client.ResetPasswordForEmail(email);
             _logger.LogInformation("Password reset email sent to: {Email}", email);
             return true;
         }
@@ -285,7 +285,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(newPassword))
                 return false;
 
-            var user = await _client.Auth.Update(new UserAttributes
+            var user = await _client.Update(new UserAttributes
             {
                 Password = newPassword
             });
@@ -306,7 +306,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (updates == null || updates.Count == 0)
                 return false;
 
-            var user = await _client.Auth.Update(new UserAttributes
+            var user = await _client.Update(new UserAttributes
             {
                 Data = updates
             });
@@ -324,7 +324,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            var session = _client.Auth.CurrentSession;
+            var session = _client.CurrentSession;
             return session != null ? MapToSessionInfo(session) : null;
         }
         catch (Exception ex)

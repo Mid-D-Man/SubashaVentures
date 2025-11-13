@@ -1,231 +1,482 @@
-using Supabase;
-using Supabase.Postgrest;
+using SubashaVentures.Services.Storage;
+using SubashaVentures.Models.Supabase;
+using Microsoft.AspNetCore.Components.Authorization;
+using Newtonsoft.Json;
 using Supabase.Postgrest.Models;
-using Supabase.Postgrest.Responses;
-using Client = Supabase.Postgrest.Client;
-namespace SubashaVentures.Services.Supabase;
+using static Supabase.Postgrest.Constants;
+using Client = Supabase.Client;
+using Realtime = Supabase.Realtime;
 
-public class SupabaseDatabaseService : ISupabaseDatabaseService
+namespace SubashaVentures.Services.SupaBase
 {
-    private readonly Client _client;
-    private readonly ILogger<SupabaseDatabaseService> _logger;
-
-    public SupabaseDatabaseService(Client client, ILogger<SupabaseDatabaseService> logger)
+    public class SupabaseDatabaseService : ISupabaseDatabaseService
     {
-        _client = client;
-        _logger = logger;
-    }
+        private readonly Client _client;
+        private readonly AuthenticationStateProvider _authStateProvider;
+        private readonly IBlazorAppLocalStorageService _localStorage;
+        private readonly ILogger<SupabaseDatabaseService> _logger;
+        private bool _initialized = false;
 
-    public async Task<T?> GetByIdAsync<T>(string table, string id) where T : BaseModel, new()
-    {
-        try
+        public SupabaseDatabaseService(
+            Client client,
+            AuthenticationStateProvider authStateProvider,
+            IBlazorAppLocalStorageService localStorage,
+            ILogger<SupabaseDatabaseService> logger)
         {
-            var response = await _client
-                .From<T>()
-                .Filter("id", Postgrest.Constants.Operator.Equals, id)
-                .Single();
-
-            return response;
+            _logger = logger;
+            _logger.LogInformation("------------------- DATABASE SERVICE CONSTRUCTOR -------------------");
+            _client = client;
+            _authStateProvider = authStateProvider;
+            _localStorage = localStorage;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting record from {Table}: {Id}", table, id);
-            return null;
-        }
-    }
 
-    public async Task<List<T>> GetAllAsync<T>(string table) where T : BaseModel, new()
-    {
-        try
+        public async Task InitializeAsync()
         {
-            var response = await _client
-                .From<T>()
-                .Get();
-
-            return response.Models ?? new List<T>();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting all records from {Table}", table);
-            return new List<T>();
-        }
-    }
-
-    public async Task<List<T>> QueryAsync<T>(string table, string filter) where T : BaseModel, new()
-    {
-        try
-        {
-            var query = _client.From<T>();
-            
-            // Apply basic filters
-            if (filter.Contains("ORDER BY"))
+            if (!_initialized)
             {
-                var parts = filter.Split(new[] { "ORDER BY" }, StringSplitOptions.None);
+                try
+                {
+                    await _client.InitializeAsync();
+                    _initialized = true;
+                    _logger.LogInformation("Supabase client initialized successfully");
+                }
+                catch (Realtime.Exceptions.RealtimeException ex) when (ex.InnerException is System.PlatformNotSupportedException)
+                {
+                    _logger.LogWarning("Realtime features disabled due to WebAssembly platform limitations: {Message}", ex.Message);
+                    _initialized = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to initialize Supabase client");
+                    throw;
+                }
+            }
+        }
+
+        #region Core CRUD Operations
+        public async Task<IReadOnlyList<TModel>> GetAllAsync<TModel>() where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                var response = await _client.From<TModel>().Get();
+                return response.Models;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all items of type {ModelType}", typeof(TModel).Name);
+                return new List<TModel>();
+            }
+        }
+
+        public async Task<TModel?> GetByIdAsync<TModel>(int id) where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                return await _client
+                    .From<TModel>()
+                    .Filter("id", Operator.Equals, id)
+                    .Single();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving {ModelType} by ID: {Id}", typeof(TModel).Name, id);
+                return null;
+            }
+        }
+
+        public async Task<List<TModel>> InsertAsync<TModel>(TModel item) where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                var response = await _client.From<TModel>().Insert(item);
+                _logger.LogInformation("Successfully inserted {ModelType}", typeof(TModel).Name);
+                return response.Models;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inserting {ModelType}", typeof(TModel).Name);
+                throw;
+            }
+        }
+
+        public async Task<List<TModel>> UpdateAsync<TModel>(TModel item) where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                var response = await _client.From<TModel>().Update(item);
+                _logger.LogInformation("Successfully updated {ModelType}", typeof(TModel).Name);
+                return response.Models;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating {ModelType}", typeof(TModel).Name);
+                throw;
+            }
+        }
+
+        public async Task<List<TModel>> DeleteAsync<TModel>(TModel item) where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                var response = await _client.From<TModel>().Delete(item);
+                _logger.LogInformation("Successfully deleted {ModelType}", typeof(TModel).Name);
+                return response.Models;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting {ModelType}", typeof(TModel).Name);
+                throw;
+            }
+        }
+
+        public async Task<List<TModel>> SoftDeleteAsync<TModel>(TModel item) where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                // Implementation depends on model having soft delete properties
+                return new List<TModel>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error soft deleting {ModelType}", typeof(TModel).Name);
+                throw;
+            }
+        }
+
+        public async Task<List<TModel>> GetWithFilterAsync<TModel>(string columnName, Operator filterOperator, object value) 
+            where TModel : BaseModel, new()
+        {
+            await EnsureInitializedAsync();
+    
+            try
+            {
+                var result = await _client
+                    .From<TModel>()
+                    .Filter(columnName, filterOperator, value)
+                    .Get();
+        
+                return result?.Models ?? new List<TModel>();
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogError(jsonEx, "JSON deserialization error for {ModelType}. Column: {Column}, Value: {Value}", 
+                    typeof(TModel).Name, columnName, value);
+                return new List<TModel>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database query error for {ModelType}. Column: {Column}, Value: {Value}", 
+                    typeof(TModel).Name, columnName, value);
+                return new List<TModel>();
+            }
+        }
+
+        public async Task<T> ExecuteRpcAsync<T>(string functionName, object? parameters)
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                return await _client.Rpc<T>(functionName, parameters);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error executing RPC function: {FunctionName}", functionName);
+                throw;
+            }
+        }
+        #endregion
+
+        #region Security Violation Operations
+        public async Task<bool> LogSecurityViolationAsync(string userId, string userEmail, 
+            List<SecurityViolation> violations, Dictionary<string, object>? metadata = null)
+        {
+            try
+            {
+                var log = new SecurityViolationLog
+                {
+                    UserId = userId,
+                    UserEmail = userEmail,
+                    TimeSent = DateTime.UtcNow,
+                    ExpiryAt = DateTime.UtcNow.AddDays(30)
+                };
+
+                log.SetViolations(violations);
+                log.SetMetadata(metadata ?? new Dictionary<string, object>());
+
+                await InsertAsync(log);
+
+                // Backup critical violations locally
+                if (IsCriticalViolation(violations))
+                    await BackupCriticalDataLocallyAsync(log, "security_violations");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log security violation for user {UserId}", userId);
+                return false;
+            }
+        }
+
+        public async Task<List<SecurityViolationLog>> GetSecurityViolationsAsync(string? userId = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId))
+                    return (await GetAllAsync<SecurityViolationLog>()).ToList();
                 
-                if (parts.Length > 1)
+                return await GetWithFilterAsync<SecurityViolationLog>("user_id", Operator.Equals, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve security violations");
+                return new List<SecurityViolationLog>();
+            }
+        }
+
+        public async Task<bool> CleanExpiredSecurityViolationsAsync()
+        {
+            try
+            {
+                var expired = await GetWithFilterAsync<SecurityViolationLog>("expiry_at", Operator.LessThan, DateTime.UtcNow);
+                
+                foreach (var item in expired)
+                    await DeleteAsync(item);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to clean expired security violations");
+                return false;
+            }
+        }
+        #endregion
+
+        #region Admin Message Operations
+        public async Task<bool> SendMessageToAdminAsync(string userId, string userEmail,
+            List<AdminMessage> messages, Dictionary<string, object>? metadata = null)
+        {
+            try
+            {
+                var message = new MessageToSuperiorAdmin
                 {
-                    var orderPart = parts[1].Trim();
-                    if (orderPart.Contains("DESC"))
+                    UserId = userId,
+                    UserEmail = userEmail,
+                    TimeSent = DateTime.UtcNow,
+                    ExpiryAt = DateTime.UtcNow.AddDays(30)
+                };
+
+                message.SetMessages(messages);
+                message.SetMetadata(metadata ?? new Dictionary<string, object>());
+
+                await InsertAsync(message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send message to admin for user {UserId}", userId);
+                return false;
+            }
+        }
+
+        public async Task<List<MessageToSuperiorAdmin>> GetAdminMessagesAsync(string? userId = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId))
+                    return (await GetAllAsync<MessageToSuperiorAdmin>()).ToList();
+                
+                return await GetWithFilterAsync<MessageToSuperiorAdmin>("user_id", Operator.Equals, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve admin messages");
+                return new List<MessageToSuperiorAdmin>();
+            }
+        }
+
+        public async Task<bool> CleanExpiredAdminMessagesAsync()
+        {
+            try
+            {
+                var expired = await GetWithFilterAsync<MessageToSuperiorAdmin>("expiry_at", Operator.LessThan, DateTime.UtcNow);
+                
+                foreach (var item in expired)
+                    await DeleteAsync(item);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to clean expired admin messages");
+                return false;
+            }
+        }
+        #endregion
+
+        #region User Notification Operations
+        public async Task<bool> SendNotificationAsync(string senderUserId, string senderEmail,
+            string receiverUserId, string receiverEmail, List<NotificationMessage> messages,
+            bool isSystemMessage = false, Dictionary<string, object>? metadata = null)
+        {
+            try
+            {
+                var notification = new UserNotificationMessage
+                {
+                    SenderUserId = senderUserId,
+                    SenderEmail = senderEmail,
+                    ReceiverUserId = receiverUserId,
+                    ReceiverEmail = receiverEmail,
+                    IsSystemMessage = isSystemMessage,
+                    TimeSent = DateTime.UtcNow,
+                    ExpiryAt = DateTime.UtcNow.AddDays(7)
+                };
+
+                notification.SetMessages(messages);
+                notification.SetMetadata(metadata ?? new Dictionary<string, object>());
+
+                await InsertAsync(notification);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send notification from {SenderId} to {ReceiverId}", 
+                    senderUserId, receiverUserId);
+                return false;
+            }
+        }
+
+        public async Task<List<UserNotificationMessage>> GetUserNotificationsAsync(string userId, bool unreadOnly = false)
+        {
+            try
+            {
+                var notifications = await GetWithFilterAsync<UserNotificationMessage>("receiver_user_id", Operator.Equals, userId);
+                
+                if (unreadOnly)
+                    return notifications.Where(n => !n.IsRead).ToList();
+                
+                return notifications;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve notifications for user {UserId}", userId);
+                return new List<UserNotificationMessage>();
+            }
+        }
+
+        public async Task<bool> MarkNotificationAsReadAsync(long notificationId)
+        {
+            try
+            {
+                var notification = await GetByIdAsync<UserNotificationMessage>((int)notificationId);
+                if (notification == null) return false;
+
+                notification.IsRead = true;
+                await UpdateAsync(notification);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to mark notification {Id} as read", notificationId);
+                return false;
+            }
+        }
+
+        public async Task<bool> CleanExpiredNotificationsAsync()
+        {
+            try
+            {
+                var expired = await GetWithFilterAsync<UserNotificationMessage>("expiry_at", Operator.LessThan, DateTime.UtcNow);
+                
+                foreach (var item in expired)
+                    await DeleteAsync(item);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to clean expired notifications");
+                return false;
+            }
+        }
+        #endregion
+
+        #region Local Backup Operations
+        public async Task BackupCriticalDataLocallyAsync(object data, string dataType)
+        {
+            try
+            {
+                var backupKey = $"backup_{dataType}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
+                await _localStorage.SetItemAsync(backupKey, data);
+                
+                // Keep only last 10 backups per type
+                await CleanOldBackups(dataType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to backup {DataType} locally", dataType);
+            }
+        }
+
+        public async Task<List<T>> GetLocalBackupsAsync<T>(string dataType)
+        {
+            var backups = new List<T>();
+            
+            try
+            {
+                // This is a simplified approach - you'd need to implement key enumeration
+                // based on your specific local storage implementation
+                for (int i = 0; i < 10; i++)
+                {
+                    var key = $"backup_{dataType}_{i}";
+                    if (await _localStorage.ContainsKeyAsync(key))
                     {
-                        var column = orderPart.Replace("DESC", "").Trim();
-                        query = query.Order(column, Postgrest.Constants.Ordering.Descending);
-                    }
-                    else if (orderPart.Contains("ASC"))
-                    {
-                        var column = orderPart.Replace("ASC", "").Trim();
-                        query = query.Order(column, Postgrest.Constants.Ordering.Ascending);
+                        var backup = await _localStorage.GetItemAsync<T>(key);
+                        if (backup != null) backups.Add(backup);
                     }
                 }
             }
-            
-            var response = await query.Get();
-            return response.Models ?? new List<T>();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error querying {Table} with filter: {Filter}", table, filter);
-            return new List<T>();
-        }
-    }
-
-    public async Task<string?> InsertAsync<T>(string table, T data) where T : BaseModel, new()
-    {
-        try
-        {
-            var response = await _client
-                .From<T>()
-                .Insert(data);
-
-            var inserted = response.Models?.FirstOrDefault();
-            
-            // Use reflection to get the Id property value
-            if (inserted != null)
+            catch (Exception ex)
             {
-                var idProperty = typeof(T).GetProperty("Id");
-                if (idProperty != null)
-                {
-                    var idValue = idProperty.GetValue(inserted);
-                    return idValue?.ToString();
-                }
+                _logger.LogError(ex, "Failed to retrieve local backups for {DataType}", dataType);
             }
             
-            return null;
+            return backups;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error inserting into {Table}", table);
-            return null;
-        }
-    }
 
-    public async Task<bool> UpdateAsync<T>(string table, string id, T data) where T : BaseModel, new()
-    {
-        try
+        private async Task CleanOldBackups(string dataType)
         {
-            await _client
-                .From<T>()
-                .Filter("id", Postgrest.Constants.Operator.Equals, id)
-                .Update(data);
+            // Implementation would enumerate and remove old backups
+            // keeping only the most recent 10 for the specified data type
+        }
+        #endregion
 
-            return true;
-        }
-        catch (Exception ex)
+        #region Private Helper Methods
+        private async Task EnsureInitializedAsync()
         {
-            _logger.LogError(ex, "Error updating {Table}: {Id}", table, id);
-            return false;
+            if (!_initialized)
+                await InitializeAsync();
         }
-    }
 
-    public async Task<bool> DeleteAsync(string table, string id)
-    {
-        try
+        private bool IsCriticalViolation(List<SecurityViolation> violations)
         {
-            // Use RPC or raw query for delete operations
-            await _client.Rpc("delete_by_id", new Dictionary<string, object>
-            {
-                { "table_name", table },
-                { "record_id", id }
-            });
-
-            return true;
+            return violations.Any(v => v.Severity.Equals("critical", StringComparison.OrdinalIgnoreCase) ||
+                                     v.Severity.Equals("high", StringComparison.OrdinalIgnoreCase));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting from {Table}: {Id}", table, id);
-            return false;
-        }
-    }
-
-    public async Task<bool> InsertBatchAsync<T>(string table, List<T> items) where T : BaseModel, new()
-    {
-        try
-        {
-            await _client
-                .From<T>()
-                .Insert(items);
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error batch inserting into {Table}", table);
-            return false;
-        }
-    }
-
-    public async Task<bool> UpdateBatchAsync<T>(string table, Dictionary<string, T> updates) where T : BaseModel, new()
-    {
-        try
-        {
-            foreach (var (id, data) in updates)
-            {
-                await UpdateAsync(table, id, data);
-            }
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error batch updating {Table}", table);
-            return false;
-        }
-    }
-
-    public async Task<T?> ExecuteScalarAsync<T>(string sql)
-    {
-        try
-        {
-            // Use RPC for custom SQL
-            var result = await _client.Rpc("execute_scalar", new Dictionary<string, object>
-            {
-                { "query", sql }
-            });
-
-            if (result != null && typeof(T).IsAssignableFrom(result.GetType()))
-            {
-                return (T)result;
-            }
-
-            return default;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error executing scalar SQL");
-            return default;
-        }
-    }
-
-    public async Task ExecuteAsync(string sql)
-    {
-        try
-        {
-            await _client.Rpc("execute_query", new Dictionary<string, object>
-            {
-                { "query", sql }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error executing SQL");
-        }
+        #endregion
     }
 }
