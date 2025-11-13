@@ -3,6 +3,7 @@ using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
 
+
 /// <summary>
 /// Supabase user model - linked to auth.users
 /// </summary>
