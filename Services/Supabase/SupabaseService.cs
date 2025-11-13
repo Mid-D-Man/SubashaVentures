@@ -1,6 +1,7 @@
 using Supabase;
+using Supabase.Postgrest;
 using Supabase.Postgrest.Models;
-using SubashaVentures.Utilities.HelperScripts;
+using Supabase.Postgrest.Responses;
 
 namespace SubashaVentures.Services.Supabase;
 
@@ -21,8 +22,7 @@ public class SupabaseService : ISupabaseService
         {
             var response = await _client
                 .From<T>()
-                .Select("*")
-                .Where(x => x.Id == id)
+                .Filter("id", Postgrest.Constants.Operator.Equals, id)
                 .Single();
 
             return response;
@@ -40,7 +40,6 @@ public class SupabaseService : ISupabaseService
         {
             var response = await _client
                 .From<T>()
-                .Select("*")
                 .Get();
 
             return response.Models ?? new List<T>();
@@ -56,7 +55,7 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            var query = _client.From<T>().Select("*");
+            var query = _client.From<T>();
             
             // Apply basic filters
             if (filter.Contains("ORDER BY"))
@@ -69,12 +68,12 @@ public class SupabaseService : ISupabaseService
                     if (orderPart.Contains("DESC"))
                     {
                         var column = orderPart.Replace("DESC", "").Trim();
-                        query = query.Order(column, Supabase.Postgrest.Constants.Ordering.Descending);
+                        query = query.Order(column, Postgrest.Constants.Ordering.Descending);
                     }
                     else if (orderPart.Contains("ASC"))
                     {
                         var column = orderPart.Replace("ASC", "").Trim();
-                        query = query.Order(column, Supabase.Postgrest.Constants.Ordering.Ascending);
+                        query = query.Order(column, Postgrest.Constants.Ordering.Ascending);
                     }
                 }
             }
@@ -98,7 +97,19 @@ public class SupabaseService : ISupabaseService
                 .Insert(data);
 
             var inserted = response.Models?.FirstOrDefault();
-            return inserted?.Id;
+            
+            // Use reflection to get the Id property value
+            if (inserted != null)
+            {
+                var idProperty = typeof(T).GetProperty("Id");
+                if (idProperty != null)
+                {
+                    var idValue = idProperty.GetValue(inserted);
+                    return idValue?.ToString();
+                }
+            }
+            
+            return null;
         }
         catch (Exception ex)
         {
@@ -113,7 +124,7 @@ public class SupabaseService : ISupabaseService
         {
             await _client
                 .From<T>()
-                .Where(x => x.Id == id)
+                .Filter("id", Postgrest.Constants.Operator.Equals, id)
                 .Update(data);
 
             return true;
@@ -129,11 +140,12 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            // For delete, we need to use a generic BaseModel approach
-            // This is a simplified version - you may need to specify the actual table type
-            await _client.Postgrest
-                .Table(table)
-                .Delete(new Dictionary<string, string> { { "id", id } });
+            // Use RPC or raw query for delete operations
+            await _client.Rpc("delete_by_id", new Dictionary<string, object>
+            {
+                { "table_name", table },
+                { "record_id", id }
+            });
 
             return true;
         }
@@ -182,21 +194,17 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            if (sql.Contains("COUNT(*)"))
+            // Use RPC for custom SQL
+            var result = await _client.Rpc("execute_scalar", new Dictionary<string, object>
             {
-                var tableName = ExtractTableName(sql);
-                
-                // This is a workaround - get all and count
-                // In production, use RPC functions for better performance
-                var response = await _client.Postgrest
-                    .Table(tableName)
-                    .Get();
+                { "query", sql }
+            });
 
-                var count = response.Models?.Count ?? 0;
-                return (T)(object)count;
+            if (result != null && typeof(T).IsAssignableFrom(result.GetType()))
+            {
+                return (T)result;
             }
 
-            _logger.LogWarning("ExecuteScalarAsync not fully supported for: {Sql}", sql);
             return default;
         }
         catch (Exception ex)
@@ -210,23 +218,14 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            _logger.LogWarning("ExecuteAsync requires RPC functions: {Sql}", sql);
-            await Task.CompletedTask;
+            await _client.Rpc("execute_query", new Dictionary<string, object>
+            {
+                { "query", sql }
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing SQL");
         }
-    }
-
-    private string ExtractTableName(string sql)
-    {
-        var parts = sql.Split(new[] { "FROM", "from" }, StringSplitOptions.None);
-        if (parts.Length > 1)
-        {
-            var tablePart = parts[1].Trim().Split(' ')[0];
-            return tablePart;
-        }
-        return string.Empty;
     }
 }
