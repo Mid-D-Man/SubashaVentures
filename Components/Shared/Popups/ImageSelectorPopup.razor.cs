@@ -1,10 +1,12 @@
-// Components/Shared/Popups/ImageSelectorPopup.razor.cs - FIXED IMAGE LOADING
+// Components/Shared/Popups/ImageSelectorPopup.razor.cs - FINAL FIX WITH FIREBASE CATEGORIES
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Firebase;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Components.Admin.Images;
+using SubashaVentures.Models.Firebase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Components.Shared.Popups;
@@ -13,6 +15,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 {
     [Inject] private ISupabaseStorageService StorageService { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
+    [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private ILogger<ImageSelectorPopup> Logger { get; set; } = default!;
 
     [Parameter] public bool IsOpen { get; set; }
@@ -34,6 +37,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     private List<string> SelectedImages = new();
     private List<AdminImageCard.ImageItem> allImages = new();
     private List<AdminImageCard.ImageItem> filteredImages = new();
+    private List<CategoryModel> categories = new();
 
     private const string CACHE_KEY = "image_selector_cache";
     private const int CACHE_DURATION_MINUTES = 5;
@@ -49,6 +53,9 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             );
 
             await MID_HelperFunctions.DebugMessageAsync("ImageSelectorPopup initialized", LogLevel.Info);
+            
+            // Load categories from Firebase
+            await LoadCategoriesAsync();
         }
         catch (Exception ex)
         {
@@ -79,6 +86,42 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            var loadedCategories = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
+            
+            if (loadedCategories != null && loadedCategories.Any())
+            {
+                categories = loadedCategories
+                    .Where(c => c.IsActive)
+                    .OrderBy(c => c.DisplayOrder)
+                    .ToList();
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Loaded {categories.Count} categories from Firebase",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No categories found in Firebase, using defaults",
+                    LogLevel.Warning
+                );
+                
+                // Fallback to default folders if Firebase fails
+                categories = new List<CategoryModel>();
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories from Firebase");
+            categories = new List<CategoryModel>();
+        }
+    }
+
     private async Task LoadImagesAsync()
     {
         try
@@ -104,18 +147,15 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             using var pooledImages = _imageListPool?.GetPooled();
             var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
 
-            // FIXED: Load from ALL standard folders
-            var folders = new[]
-            {
-                "products",
-                "products/mens",
-                "products/womens",
-                "products/children",
-                "products/baby",
-                "products/home",
-                "banners",
-                "categories"
-            };
+            // Use categories from Firebase, or fallback to defaults
+            var folders = categories.Any() 
+                ? categories.Select(c => c.Slug).ToArray()
+                : new[] { "products", "banners", "categories" };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loading images from {folders.Length} folders",
+                LogLevel.Info
+            );
 
             foreach (var folder in folders)
             {
@@ -150,9 +190,17 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         {
             var files = await StorageService.ListFilesAsync(folder, "products");
 
+            if (!files.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"No files found in folder: {folder}",
+                    LogLevel.Debug
+                );
+                return;
+            }
+
             foreach (var file in files)
             {
-                // FIXED: Proper path construction
                 var filePath = $"{folder}/{file.Name}";
                 var publicUrl = StorageService.GetPublicUrl(filePath, "products");
                 
@@ -227,7 +275,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             var cacheJson = JsonHelper.Serialize(cacheData);
             await LocalStorage.SetItemAsync(CACHE_KEY, cacheJson);
 
-            await MID_HelperFunctions.DebugMessageAsync("Images cached successfully", LogLevel.Debug);
+            await MID_HelperFunctions.DebugMessageAsync("✓ Images cached successfully", LogLevel.Debug);
         }
         catch (Exception ex)
         {
@@ -293,7 +341,8 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             MID_HelperFunctions.LogException(ex, "Handling image selection");
-        }}
+        }
+    }
 
     private void ClearSelection()
     {
@@ -321,7 +370,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 await OnImagesSelected.InvokeAsync(new List<string>(SelectedImages));
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Confirmed selection of {SelectedImages.Count} image(s)",
+                    $"✓ Confirmed selection of {SelectedImages.Count} image(s)",
                     LogLevel.Info
                 );
             }

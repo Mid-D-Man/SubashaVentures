@@ -33,16 +33,22 @@
         <!-- Toolbar -->
         <div class="isp-toolbar">
             <div class="isp-filters">
+                <!-- Folder Selection Dropdown - Replace the existing one -->
                 <select class="isp-select" @onchange="HandleFolderFilter">
                     <option value="">All Folders</option>
-                    <option value="products">Products</option>
-                    <option value="products/mens">Men's Fashion</option>
-                    <option value="products/womens">Women's Fashion</option>
-                    <option value="products/children">Children's</option>
-                    <option value="products/baby">Baby & Toddler</option>
-                    <option value="products/home">Home & Living</option>
-                    <option value="banners">Banners</option>
-                    <option value="categories">Categories</option>
+                    @if (categories.Any())
+                    {
+                        @foreach (var category in categories)
+                        {
+                            <option value="@category.Slug">@category.Name</option>
+                        }
+                    }
+                    else
+                    {
+                        <option value="products">Products</option>
+                        <option value="banners">Banners</option>
+                        <option value="categories">Categories</option>
+                    }
                 </select>
 
                 <InputField @bind-Value="searchQuery"
