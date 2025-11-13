@@ -1,6 +1,5 @@
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Models.Supabase;
-using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Exceptions;
@@ -40,7 +39,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            var session = await _client.SignIn(email, password);
+            var session = await _client.Auth.SignIn(email, password);
             
             if (session?.User == null)
             {
@@ -110,7 +109,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 { "avatar_url", userData.AvatarUrl ?? string.Empty }
             };
 
-            var session = await _client.SignUp(email, password, new SignUpOptions
+            var session = await _client.Auth.SignUp(email, password, new SignUpOptions
             {
                 Data = userMetadata
             });
@@ -130,12 +129,44 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             _logger.LogInformation("User signed up successfully: {Email}", email);
 
+            // Create new UserModel instead of using 'with' syntax
+            var newUserData = new UserModel
+            {
+                Id = session.User.Id,
+                Email = email,
+                FirstName = userData.FirstName,
+                LastName = userData.LastName,
+                PhoneNumber = userData.PhoneNumber,
+                AvatarUrl = userData.AvatarUrl,
+                DateOfBirth = userData.DateOfBirth,
+                Gender = userData.Gender,
+                IsEmailVerified = userData.IsEmailVerified,
+                IsPhoneVerified = userData.IsPhoneVerified,
+                AccountStatus = userData.AccountStatus,
+                EmailNotifications = userData.EmailNotifications,
+                SmsNotifications = userData.SmsNotifications,
+                PreferredLanguage = userData.PreferredLanguage,
+                Currency = userData.Currency,
+                TotalOrders = userData.TotalOrders,
+                TotalSpent = userData.TotalSpent,
+                LoyaltyPoints = userData.LoyaltyPoints,
+                MembershipTier = userData.MembershipTier,
+                CreatedAt = userData.CreatedAt,
+                CreatedBy = userData.CreatedBy,
+                UpdatedAt = userData.UpdatedAt,
+                UpdatedBy = userData.UpdatedBy,
+                IsDeleted = userData.IsDeleted,
+                DeletedAt = userData.DeletedAt,
+                DeletedBy = userData.DeletedBy,
+                LastLoginAt = userData.LastLoginAt
+            };
+
             return new SupabaseAuthResult
             {
                 Success = true,
                 Message = "Registration successful. Please check your email to verify your account.",
                 Session = MapToSessionInfo(session),
-                User = userData with { Id = session.User.Id, Email = email }
+                User = newUserData
             };
         }
         catch (GotrueException ex)
@@ -164,7 +195,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await _client.SignOut();
+            await _client.Auth.SignOut();
             
             // Clear stored session
             await _localStorage.RemoveItemAsync(SESSION_STORAGE_KEY);
@@ -184,7 +215,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            return _client.CurrentUser;
+            return _client.Auth.CurrentUser;
         }
         catch (Exception ex)
         {
@@ -211,7 +242,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            var session = await _client.RefreshSession();
+            var session = await _client.Auth.RefreshSession();
             
             if (session != null)
             {
@@ -236,7 +267,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(email))
                 return false;
 
-            await _client.ResetPasswordForEmail(email);
+            await _client.Auth.ResetPasswordForEmail(email);
             _logger.LogInformation("Password reset email sent to: {Email}", email);
             return true;
         }
@@ -254,7 +285,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(newPassword))
                 return false;
 
-            var user = await _client.Update(new UserAttributes
+            var user = await _client.Auth.Update(new UserAttributes
             {
                 Password = newPassword
             });
@@ -275,7 +306,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (updates == null || updates.Count == 0)
                 return false;
 
-            var user = await _client.Update(new UserAttributes
+            var user = await _client.Auth.Update(new UserAttributes
             {
                 Data = updates
             });
@@ -293,7 +324,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            var session = _client.CurrentSession;
+            var session = _client.Auth.CurrentSession;
             return session != null ? MapToSessionInfo(session) : null;
         }
         catch (Exception ex)
