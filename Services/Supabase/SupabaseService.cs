@@ -1,6 +1,6 @@
 using Supabase;
+using Supabase.Postgrest.Models;
 using SubashaVentures.Utilities.HelperScripts;
-using System.Text.Json;
 
 namespace SubashaVentures.Services.Supabase;
 
@@ -15,14 +15,14 @@ public class SupabaseService : ISupabaseService
         _logger = logger;
     }
 
-    public async Task<T?> GetByIdAsync<T>(string table, string id) where T : class, new()
+    public async Task<T?> GetByIdAsync<T>(string table, string id) where T : BaseModel, new()
     {
         try
         {
             var response = await _client
                 .From<T>()
                 .Select("*")
-                .Where(x => GetId(x) == id)
+                .Where(x => x.Id == id)
                 .Single();
 
             return response;
@@ -34,7 +34,7 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    public async Task<List<T>> GetAllAsync<T>(string table) where T : class, new()
+    public async Task<List<T>> GetAllAsync<T>(string table) where T : BaseModel, new()
     {
         try
         {
@@ -52,22 +52,16 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    public async Task<List<T>> QueryAsync<T>(string table, string filter) where T : class, new()
+    public async Task<List<T>> QueryAsync<T>(string table, string filter) where T : BaseModel, new()
     {
         try
         {
-            // For simple filters like "is_active = true AND is_deleted = false"
-            // We need to parse and apply them manually since Supabase C# client
-            // doesn't support raw SQL filters directly
-            
             var query = _client.From<T>().Select("*");
             
-            // Apply basic filters (this is simplified - expand as needed)
+            // Apply basic filters
             if (filter.Contains("ORDER BY"))
             {
                 var parts = filter.Split(new[] { "ORDER BY" }, StringSplitOptions.None);
-                // Apply the where conditions from parts[0] if any
-                // Apply ordering from parts[1]
                 
                 if (parts.Length > 1)
                 {
@@ -95,7 +89,7 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    public async Task<string?> InsertAsync<T>(string table, T data) where T : class, new()
+    public async Task<string?> InsertAsync<T>(string table, T data) where T : BaseModel, new()
     {
         try
         {
@@ -104,7 +98,7 @@ public class SupabaseService : ISupabaseService
                 .Insert(data);
 
             var inserted = response.Models?.FirstOrDefault();
-            return inserted != null ? GetId(inserted) : null;
+            return inserted?.Id;
         }
         catch (Exception ex)
         {
@@ -113,13 +107,13 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    public async Task<bool> UpdateAsync<T>(string table, string id, T data) where T : class, new()
+    public async Task<bool> UpdateAsync<T>(string table, string id, T data) where T : BaseModel, new()
     {
         try
         {
             await _client
                 .From<T>()
-                .Where(x => GetId(x) == id)
+                .Where(x => x.Id == id)
                 .Update(data);
 
             return true;
@@ -135,10 +129,11 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            await _client
-                .From<dynamic>()
-                .Where(x => x.id == id)
-                .Delete();
+            // For delete, we need to use a generic BaseModel approach
+            // This is a simplified version - you may need to specify the actual table type
+            await _client.Postgrest
+                .Table(table)
+                .Delete(new Dictionary<string, string> { { "id", id } });
 
             return true;
         }
@@ -149,7 +144,7 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    public async Task<bool> InsertBatchAsync<T>(string table, List<T> items) where T : class, new()
+    public async Task<bool> InsertBatchAsync<T>(string table, List<T> items) where T : BaseModel, new()
     {
         try
         {
@@ -166,7 +161,7 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    public async Task<bool> UpdateBatchAsync<T>(string table, Dictionary<string, T> updates) where T : class, new()
+    public async Task<bool> UpdateBatchAsync<T>(string table, Dictionary<string, T> updates) where T : BaseModel, new()
     {
         try
         {
@@ -187,17 +182,14 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            // For count queries, we can use the Count method
             if (sql.Contains("COUNT(*)"))
             {
-                // Extract table name from SQL
                 var tableName = ExtractTableName(sql);
                 
                 // This is a workaround - get all and count
-                // In production, you'd want to use RPC or a proper count endpoint
-                var response = await _client
-                    .From<dynamic>()
-                    .Select("*")
+                // In production, use RPC functions for better performance
+                var response = await _client.Postgrest
+                    .Table(tableName)
                     .Get();
 
                 var count = response.Models?.Count ?? 0;
@@ -218,8 +210,6 @@ public class SupabaseService : ISupabaseService
     {
         try
         {
-            // Raw SQL execution requires RPC functions in Supabase
-            // This is a placeholder - implement based on your needs
             _logger.LogWarning("ExecuteAsync requires RPC functions: {Sql}", sql);
             await Task.CompletedTask;
         }
@@ -229,26 +219,8 @@ public class SupabaseService : ISupabaseService
         }
     }
 
-    // Helper method to get Id from dynamic object
-    private string GetId(object obj)
-    {
-        if (obj == null) return string.Empty;
-
-        var type = obj.GetType();
-        var idProperty = type.GetProperty("Id") ?? type.GetProperty("id");
-        
-        if (idProperty != null)
-        {
-            var value = idProperty.GetValue(obj);
-            return value?.ToString() ?? string.Empty;
-        }
-
-        return string.Empty;
-    }
-
     private string ExtractTableName(string sql)
     {
-        // Simple extraction - enhance as needed
         var parts = sql.Split(new[] { "FROM", "from" }, StringSplitOptions.None);
         if (parts.Length > 1)
         {
