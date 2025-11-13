@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -15,6 +16,7 @@ using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.SupaBase;
+using Microsoft.AspNetCore.Components.Authorization;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -45,6 +47,11 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
+// ==================== AUTHENTICATION (PLACEHOLDER FOR NOW) ====================
+builder.Services.AddAuthorizationCore();
+/* builder.Services.AddScoped<AuthenticationStateProvider, 
+    Microsoft.AspNetCore.Components.WebAssembly.Authentication.RemoteAuthenticationService>();
+*/
 // ==================== CORE SERVICES ====================
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();

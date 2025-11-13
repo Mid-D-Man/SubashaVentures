@@ -19,14 +19,14 @@ namespace SubashaVentures.Services.SupaBase
 
         public SupabaseDatabaseService(
             Client client,
-            AuthenticationStateProvider authStateProvider,
+            // REMOVED: AuthenticationStateProvider authStateProvider,
             IBlazorAppLocalStorageService localStorage,
             ILogger<SupabaseDatabaseService> logger)
         {
             _logger = logger;
             _logger.LogInformation("------------------- DATABASE SERVICE CONSTRUCTOR -------------------");
             _client = client;
-            _authStateProvider = authStateProvider;
+            // REMOVED: _authStateProvider = authStateProvider;
             _localStorage = localStorage;
         }
 
