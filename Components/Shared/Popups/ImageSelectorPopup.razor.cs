@@ -4,6 +4,7 @@ using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
+using SubashaVentures.Components.Admin.Images;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Components.Shared.Popups;
@@ -23,7 +24,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     [Parameter] public EventCallback OnClose { get; set; }
 
     // Object pool for image lists
-    private MID_ComponentObjectPool<List<ImageInfo>>? _imageListPool;
+    private MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>? _imageListPool;
 
     private bool isLoading = false;
     private bool isInitialized = false;
@@ -32,8 +33,8 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     private string viewSize = "medium";
 
     private List<string> SelectedImages = new();
-    private List<ImageInfo> allImages = new();
-    private List<ImageInfo> filteredImages = new();
+    private List<AdminImageCard.ImageItem> allImages = new();
+    private List<AdminImageCard.ImageItem> filteredImages = new();
 
     // Cache key for storing loaded images
     private const string CACHE_KEY = "image_selector_cache";
@@ -44,8 +45,8 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         try
         {
             // Initialize object pool
-            _imageListPool = new MID_ComponentObjectPool<List<ImageInfo>>(
-                () => new List<ImageInfo>(),
+            _imageListPool = new MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>(
+                () => new List<AdminImageCard.ImageItem>(),
                 list => list.Clear(),
                 maxPoolSize: 5
             );
@@ -110,7 +111,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             // Load from storage service
             using var pooledImages = _imageListPool?.GetPooled();
-            var imageList = pooledImages?.Object ?? new List<ImageInfo>();
+            var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
 
             // Define folders to load from
             var folders = new[]
@@ -131,7 +132,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             await Task.WhenAll(loadTasks);
 
-            allImages = new List<ImageInfo>(imageList);
+            allImages = new List<AdminImageCard.ImageItem>(imageList);
 
             // Cache the loaded images
             await SaveToCacheAsync(allImages);
@@ -155,7 +156,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task LoadImagesFromFolderAsync(string folder, List<ImageInfo> imageList)
+    private async Task LoadImagesFromFolderAsync(string folder, List<AdminImageCard.ImageItem> imageList)
     {
         try
         {
@@ -165,17 +166,18 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             {
                 var publicUrl = StorageService.GetPublicUrl(file.Name, "products");
                 
-                var imageInfo = new ImageInfo
+                var imageInfo = new AdminImageCard.ImageItem
                 {
                     Id = file.Id,
                     FileName = file.Name,
-                    Url = publicUrl,
-                    ThumbnailUrl = publicUrl, // TODO: Use actual thumbnail
+                    PublicUrl = publicUrl,
+                    ThumbnailUrl = publicUrl,
                     Folder = folder,
                     FileSize = file.Size,
-                    Width = 800, // TODO: Get actual dimensions
-                    Height = 800,
-                    UploadedAt = file.UpdatedAt
+                    Dimensions = "800x800",
+                    UploadedAt = file.UpdatedAt,
+                    IsReferenced = false,
+                    ReferenceCount = 0
                 };
 
                 lock (imageList)
@@ -190,7 +192,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task<List<ImageInfo>?> LoadFromCacheAsync()
+    private async Task<List<AdminImageCard.ImageItem>?> LoadFromCacheAsync()
     {
         try
         {
@@ -218,7 +220,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task SaveToCacheAsync(List<ImageInfo> images)
+    private async Task SaveToCacheAsync(List<AdminImageCard.ImageItem> images)
     {
         try
         {
@@ -258,7 +260,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         ApplyFilters();
     }
 
-    private void HandleImageSelect(ImageInfo image)
+    private void HandleImageSelect(AdminImageCard.ImageItem image)
     {
         try
         {
@@ -266,14 +268,14 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             {
                 // Single selection mode
                 SelectedImages.Clear();
-                SelectedImages.Add(image.Url);
+                SelectedImages.Add(image.PublicUrl);
             }
             else
             {
                 // Multiple selection mode
-                if (SelectedImages.Contains(image.Url))
+                if (SelectedImages.Contains(image.PublicUrl))
                 {
-                    SelectedImages.Remove(image.Url);
+                    SelectedImages.Remove(image.PublicUrl);
                 }
                 else
                 {
@@ -283,10 +285,9 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                             $"Maximum selection limit ({MaxSelection}) reached",
                             LogLevel.Warning
                         );
-                        // TODO: Show toast notification
                         return;
                     }
-                    SelectedImages.Add(image.Url);
+                    SelectedImages.Add(image.PublicUrl);
                 }
             }
 
@@ -363,7 +364,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
     private void HandleOverlayClick()
     {
-        // Close on overlay click
         _ = Close();
     }
 
@@ -384,41 +384,9 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    // Data models
-    public class ImageInfo
-    {
-        public string Id { get; set; } = "";
-        public string FileName { get; set; } = "";
-        public string Url { get; set; } = "";
-        public string ThumbnailUrl { get; set; } = "";
-        public string Folder { get; set; } = "";
-        public long FileSize { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-        public DateTime UploadedAt { get; set; }
-
-        public string Dimensions => $"{Width}x{Height}";
-
-        public string FormattedSize
-        {
-            get
-            {
-                string[] sizes = { "B", "KB", "MB", "GB" };
-                double len = FileSize;
-                int order = 0;
-                while (len >= 1024 && order < sizes.Length - 1)
-                {
-                    order++;
-                    len = len / 1024;
-                }
-                return $"{len:0.##} {sizes[order]}";
-            }
-        }
-    }
-
     private class ImageCacheData
     {
-        public List<ImageInfo> Images { get; set; } = new();
+        public List<AdminImageCard.ImageItem> Images { get; set; } = new();
         public DateTime CachedAt { get; set; }
     }
 }
