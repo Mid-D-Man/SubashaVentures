@@ -2,7 +2,7 @@ using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Services.Supabase;
 
-public interface ISupabaseService
+public interface ISupabaseDatabaseService
 {
     // CRUD Operations - T must inherit from BaseModel for Supabase
     Task<T?> GetByIdAsync<T>(string table, string id) where T : BaseModel, new();

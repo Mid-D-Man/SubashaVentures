@@ -10,7 +10,7 @@ namespace SubashaVentures.Services.Products;
 
 public class ProductService : IProductService
 {
-    private readonly ISupabaseService _supabaseService;
+    private readonly ISupabaseDatabaseService _supabaseDatabaseService;
     private readonly IFirestoreService _firestoreService;
     private readonly ISupabaseStorageService _storageService;
     private readonly ILogger<ProductService> _logger;
@@ -19,12 +19,12 @@ public class ProductService : IProductService
     private const string CategoriesCollection = "categories"; // Firebase
 
     public ProductService(
-        ISupabaseService supabaseService,
+        ISupabaseDatabaseService supabaseDatabaseService,
         IFirestoreService firestoreService,
         ISupabaseStorageService storageService,
         ILogger<ProductService> logger)
     {
-        _supabaseService = supabaseService;
+        _supabaseDatabaseService = supabaseDatabaseService;
         _firestoreService = firestoreService;
         _storageService = storageService;
         _logger = logger;
@@ -34,7 +34,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             return product != null ? MapToViewModel(product) : null;
         }
         catch (Exception ex)
@@ -48,7 +48,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var filtered = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted)
@@ -70,7 +70,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var searchLower = query.ToLower();
             var results = allProducts
@@ -94,7 +94,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var filtered = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted && p.CategoryId == categoryId)
@@ -114,7 +114,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             return allProducts.Count(p => p.IsActive && !p.IsDeleted);
         }
         catch (Exception ex)
@@ -128,7 +128,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var trending = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted)
@@ -150,7 +150,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
+            var allProducts = await _supabaseDatabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var featured = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted && p.IsFeatured)
@@ -231,7 +231,7 @@ public class ProductService : IProductService
                 IsDeleted = false
             };
 
-            var insertedId = await _supabaseService.InsertAsync(ProductsTable, productModel);
+            var insertedId = await _supabaseDatabaseService.InsertAsync(ProductsTable, productModel);
             
             if (string.IsNullOrEmpty(insertedId))
             {
@@ -254,7 +254,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null)
             {
                 _logger.LogWarning("Product not found for update: {Id}", id);
@@ -290,7 +290,7 @@ public class ProductService : IProductService
                     : product.Discount
             };
 
-            var result = await _supabaseService.UpdateAsync(ProductsTable, id, updatedProduct);
+            var result = await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, updatedProduct);
             
             if (result)
             {
@@ -310,7 +310,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null) return false;
 
             var updated = product with 
@@ -320,7 +320,7 @@ public class ProductService : IProductService
                 UpdatedBy = "system"
             };
 
-            return await _supabaseService.UpdateAsync(ProductsTable, id, updated);
+            return await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, updated);
         }
         catch (Exception ex)
         {
@@ -333,7 +333,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null) return false;
 
             var updated = product with 
@@ -343,7 +343,7 @@ public class ProductService : IProductService
                 UpdatedBy = "system"
             };
 
-            return await _supabaseService.UpdateAsync(ProductsTable, id, updated);
+            return await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, updated);
         }
         catch (Exception ex)
         {
@@ -356,7 +356,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
+            var product = await _supabaseDatabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null) return false;
 
             var deleted = product with
@@ -366,7 +366,7 @@ public class ProductService : IProductService
                 DeletedBy = "system"
             };
 
-            var result = await _supabaseService.UpdateAsync(ProductsTable, id, deleted);
+            var result = await _supabaseDatabaseService.UpdateAsync(ProductsTable, id, deleted);
             
             if (result)
             {

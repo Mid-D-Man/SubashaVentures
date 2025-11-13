@@ -2,15 +2,15 @@ using Supabase;
 using Supabase.Postgrest;
 using Supabase.Postgrest.Models;
 using Supabase.Postgrest.Responses;
-using Client = Supabase.Client;
+using Client = Supabase.Postgrest.Client;
 namespace SubashaVentures.Services.Supabase;
 
-public class SupabaseService : ISupabaseService
+public class SupabaseDatabaseService : ISupabaseDatabaseService
 {
     private readonly Client _client;
-    private readonly ILogger<SupabaseService> _logger;
+    private readonly ILogger<SupabaseDatabaseService> _logger;
 
-    public SupabaseService(Client client, ILogger<SupabaseService> logger)
+    public SupabaseDatabaseService(Client client, ILogger<SupabaseDatabaseService> logger)
     {
         _client = client;
         _logger = logger;

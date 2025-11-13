@@ -88,7 +88,7 @@ else
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
-builder.Services.AddScoped<ISupabaseService, SupabaseService>();
+builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 
 // ==================== IMAGE SERVICES ====================
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();

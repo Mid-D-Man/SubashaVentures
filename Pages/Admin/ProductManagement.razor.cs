@@ -9,6 +9,8 @@ using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Domain.Enums;
+using SubashaVentures.Models.Firebase;
+using SubashaVentures.Services.Firebase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Admin;
@@ -16,7 +18,7 @@ namespace SubashaVentures.Pages.Admin;
 public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
-    [Inject] private ISupabaseService SupabaseService { get; set; } = default!;
+    [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
@@ -148,7 +150,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            var categoryModels = await SupabaseService.GetAllAsync<CategoryModel>("categories");
+            var categoryModels = await FirestoreService.GetAllAsync<CategoryModel>("categories");
             categories = categoryModels?.Select(c => new CategoryViewModel
             {
                 Id = c.Id,
