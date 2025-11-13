@@ -85,6 +85,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     protected override async Task OnInitializedAsync()
     {
+        
         try
         {
             // Initialize object pools
@@ -896,6 +897,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         return new CreateProductRequest
         {
+            Id = string.IsNullOrEmpty(form.Id) ? null : form.Id, // Pass ID if exists
             Name = form.Name,
             Description = form.Description,
             LongDescription = form.LongDescription,
@@ -912,7 +914,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             IsFeatured = form.IsFeatured
         };
     }
-
     private UpdateProductRequest MapToUpdateRequest(ProductFormData form)
     {
         return new UpdateProductRequest
@@ -973,52 +974,56 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     // FIXED: Form data class with "/" separator for tags
     public class ProductFormData
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string LongDescription { get; set; } = "";
+    public decimal Price { get; set; }
+    public decimal? OriginalPrice { get; set; }
+    public int Stock { get; set; }
+    public string Sku { get; set; } = "";
+    public string CategoryId { get; set; } = "";
+    public string Brand { get; set; } = "";
+    public List<string>? Tags { get; set; }
+    public List<string>? Sizes { get; set; }
+    public List<string>? Colors { get; set; }
+    public List<string>? ImageUrls { get; set; }
+    public bool IsFeatured { get; set; }
+    public bool IsActive { get; set; } = true;
+    
+    // FIXED: Use comma separator with proper trimming
+    public string TagsInput
     {
-        public string Id { get; set; } = "";
-        public string Name { get; set; } = "";
-        public string Description { get; set; } = "";
-        public string LongDescription { get; set; } = "";
-        public decimal Price { get; set; }
-        public decimal? OriginalPrice { get; set; }
-        public int Stock { get; set; }
-        public string Sku { get; set; } = "";
-        public string CategoryId { get; set; } = "";
-        public string Brand { get; set; } = "";
-        public List<string>? Tags { get; set; }
-        public List<string>? Sizes { get; set; }
-        public List<string>? Colors { get; set; }
-        public List<string>? ImageUrls { get; set; }
-        public bool IsFeatured { get; set; }
-        public bool IsActive { get; set; } = true;
-        
-        // FIXED: Use "/" separator for tags
-        public string TagsInput
-        {
-            get => Tags != null ? string.Join(" / ", Tags) : "";
-            set => Tags = value?.Split('/')
+        get => Tags != null && Tags.Any() ? string.Join(", ", Tags) : "";
+        set => Tags = string.IsNullOrWhiteSpace(value) 
+            ? new List<string>() 
+            : value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.Trim())
                 .Where(t => !string.IsNullOrEmpty(t))
                 .ToList();
-        }
-        
-        // FIXED: Use "/" separator for sizes
-        public string SizesInput
-        {
-            get => Sizes != null ? string.Join(" / ", Sizes) : "";
-            set => Sizes = value?.Split('/')
+    }
+    
+    public string SizesInput
+    {
+        get => Sizes != null && Sizes.Any() ? string.Join(", ", Sizes) : "";
+        set => Sizes = string.IsNullOrWhiteSpace(value)
+            ? new List<string>()
+            : value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
-        }
-        
-        // FIXED: Use "/" separator for colors
-        public string ColorsInput
-        {
-            get => Colors != null ? string.Join(" / ", Colors) : "";
-            set => Colors = value?.Split('/')
+    }
+    
+    public string ColorsInput
+    {
+        get => Colors != null && Colors.Any() ? string.Join(", ", Colors) : "";
+        set => Colors = string.IsNullOrWhiteSpace(value)
+            ? new List<string>()
+            : value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(c => c.Trim())
                 .Where(c => !string.IsNullOrEmpty(c))
                 .ToList();
-        }
     }
+}
 }

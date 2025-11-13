@@ -3,9 +3,10 @@ using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Services.SupaBase;
 using System.Text;
+using SubashaVentures.Utilities.HelperScripts;
 using SupabaseProductModel = SubashaVentures.Models.Supabase.ProductModel;
 using FirebaseCategoryModel = SubashaVentures.Models.Firebase.CategoryModel;
-
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Products;
 
 public class ProductService : IProductService
@@ -173,77 +174,121 @@ public class ProductService : IProductService
 
     #region CREATE Operations
 
-    public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
+    // Services/Products/ProductService.cs - CreateProductAsync method
+public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
+{
+    try
     {
-        try
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Attempting to insert product with ID: {request.Id ?? "NULL"}, Name: {request.Name}",
+            LogLevel.Info
+        );
+
+        // CRITICAL FIX: Generate ID if not provided
+        if (string.IsNullOrEmpty(request.Id))
         {
-            // Validate request
-            ValidateCreateRequest(request);
-
-            // CRITICAL FIX: Generate GUID without dashes for Supabase UUID compatibility
-            var productId = Guid.NewGuid().ToString("N"); // "N" format removes dashes
-            var now = DateTime.UtcNow;
-
-            // Get category name from Firebase
-            var categoryName = await GetCategoryNameAsync(request.CategoryId);
-
-            // CRITICAL FIX: Set ID before creating model
-            var productModel = new SupabaseProductModel
-            {
-                Id = productId, // MUST be set before insert
-                Name = request.Name,
-                Slug = GenerateSlug(request.Name),
-                Description = request.Description,
-                LongDescription = request.LongDescription,
-                Price = request.Price,
-                OriginalPrice = request.OriginalPrice,
-                Stock = request.Stock,
-                Sku = request.Sku,
-                CategoryId = request.CategoryId,
-                Category = categoryName,
-                Brand = request.Brand ?? string.Empty,
-                Tags = request.Tags ?? new List<string>(),
-                Sizes = request.Sizes ?? new List<string>(),
-                Colors = request.Colors ?? new List<string>(),
-                Images = request.ImageUrls ?? new List<string>(),
-                IsFeatured = request.IsFeatured,
-                IsActive = true,
-                CreatedAt = now,
-                CreatedBy = "system",
-                ViewCount = 0,
-                ClickCount = 0,
-                AddToCartCount = 0,
-                PurchaseCount = 0,
-                SalesCount = 0,
-                TotalRevenue = 0,
-                Rating = 0,
-                ReviewCount = 0,
-                IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
-                Discount = CalculateDiscount(request.OriginalPrice, request.Price),
-                IsDeleted = false
-            };
-
-            _logger.LogInformation("Attempting to insert product with ID: {Id}, Name: {Name}", productId, request.Name);
-
-            var insertedProducts = await _supabaseDatabaseService.InsertAsync(productModel);
-            
-            if (insertedProducts == null || !insertedProducts.Any())
-            {
-                _logger.LogError("Failed to create product: No product returned from insert");
-                return null;
-            }
-
-            var insertedProduct = insertedProducts.First();
-            _logger.LogInformation("✓ Product created successfully: {Name} (ID: {Id})", request.Name, insertedProduct.Id);
-            
-            return MapToViewModel(insertedProduct);
+            request.Id = GenerateProductId(request.Name);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Generated new product ID: {request.Id}",
+                LogLevel.Info
+            );
         }
-        catch (Exception ex)
+
+        // Generate SKU if not provided
+        if (string.IsNullOrEmpty(request.Sku))
         {
-            _logger.LogError(ex, "Error creating product: {Name}. Exception: {Message}", request.Name, ex.Message);
-            throw;
+            request.Sku = GenerateUniqueSku();
         }
+
+        var productModel = new SupabaseProductModel
+        {
+            Id = request.Id, // CRITICAL: Set the ID
+            Name = request.Name,
+            Slug = GenerateSlug(request.Name),
+            Description = request.Description ?? string.Empty,
+            LongDescription = request.LongDescription ?? string.Empty,
+            Price = request.Price,
+            OriginalPrice = request.OriginalPrice,
+            IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
+            Discount = CalculateDiscount(request.OriginalPrice,request.Price),
+            Images = request.ImageUrls ?? new List<string>(),
+            VideoUrl = null,
+            Sizes = request.Sizes ?? new List<string>(),
+            Colors = request.Colors ?? new List<string>(),
+            Stock = request.Stock,
+            Sku = request.Sku,
+            CategoryId = request.CategoryId ?? string.Empty,
+            Category = await GetCategoryNameAsync(request.CategoryId ?? string.Empty),
+            SubCategory = null,
+            Brand = request.Brand ?? string.Empty,
+            Tags = request.Tags ?? new List<string>(),
+            Rating = 0,
+            ReviewCount = 0,
+            ViewCount = 0,
+            ClickCount = 0,
+            AddToCartCount = 0,
+            PurchaseCount = 0,
+            SalesCount = 0,
+            TotalRevenue = 0,
+            IsActive = true,
+            IsFeatured = request.IsFeatured,
+            LastViewedAt = null,
+            LastPurchasedAt = null,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "system",
+            UpdatedAt = null,
+            UpdatedBy = null,
+            IsDeleted = false,
+            DeletedAt = null,
+            DeletedBy = null
+        };
+
+        var result = await _supabaseDatabaseService.InsertAsync(productModel);
+
+        if (result == null || !result.Any())
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Failed to insert product - no result returned",
+                LogLevel.Error
+            );
+            return null;
+        }
+
+        var createdProduct = result.First();
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ Product created successfully: {createdProduct.Name} (ID: {createdProduct.Id})",
+            LogLevel.Info
+        );
+
+        return MapToViewModel(createdProduct);
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating product: {request.Name}");
+        throw;
+    }
+}
+
+// Add this helper method to generate readable product IDs
+private string GenerateProductId(string productName)
+{
+    // Clean the product name
+    var cleanName = new string(productName
+        .ToLower()
+        .Take(20) // Max 20 chars from name
+        .Where(c => char.IsLetterOrDigit(c) || c == '-')
+        .ToArray())
+        .Replace(' ', '-');
+    
+    // Add timestamp for uniqueness
+    var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+    
+    // Add random suffix for extra uniqueness
+    var random = new Random().Next(1000, 9999);
+    
+    return $"{cleanName}-{timestamp}-{random}";
+}
 
     #endregion
 

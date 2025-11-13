@@ -416,7 +416,19 @@
 .manage-stock-btn {
     flex-shrink: 0;
 }
+.product-id {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'Courier New', monospace;
+    background: var(--gray-100);
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    display: inline-block;
+}
 
+[data-theme="dark"] .product-id {
+    background: var(--gray-700);
+}
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .admin-product-card {
     background: var(--dark-card-background, #1f2937);

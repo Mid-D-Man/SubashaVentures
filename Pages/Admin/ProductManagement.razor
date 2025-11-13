@@ -463,25 +463,29 @@
                                Placeholder="Brand name" />
                 </div>
 
+                <!-- Tags Section -->
                 <InputField @bind-Value="productForm.TagsInput"
-                           Label="Tags"
-                           Placeholder="Enter tags separated by commas"
-                           HelperText="e.g., summer, cotton, casual" />
+                            Label="Tags"
+                            Placeholder="summer, cotton, casual"
+                            HelperText="Enter tags separated by commas (e.g., summer, cotton, casual)" />
+
             </div>
 
             <!-- Variants -->
             <div class="form-section">
                 <h3 class="section-title">Product Variants</h3>
-                
-                <InputField @bind-Value="productForm.SizesInput"
-                           Label="Available Sizes"
-                           Placeholder="S, M, L, XL, XXL"
-                           HelperText="Enter sizes separated by commas" />
 
+                <!-- Sizes Section -->
+                <InputField @bind-Value="productForm.SizesInput"
+                            Label="Available Sizes"
+                            Placeholder="S, M, L, XL, XXL"
+                            HelperText="Enter sizes separated by commas" />
+
+                <!-- Colors Section -->
                 <InputField @bind-Value="productForm.ColorsInput"
-                           Label="Available Colors"
-                           Placeholder="Red, Blue, Green"
-                           HelperText="Enter colors separated by commas" />
+                            Label="Available Colors"
+                            Placeholder="Red, Blue, Green"
+                            HelperText="Enter colors separated by commas" />
             </div>
 
             <!-- Images -->

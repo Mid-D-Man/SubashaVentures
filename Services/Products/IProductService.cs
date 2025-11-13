@@ -43,6 +43,7 @@ public interface IProductService
 /// </summary>
 public class CreateProductRequest
 {
+    public string Id {get;set;}=string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string LongDescription { get; set; } = string.Empty;
