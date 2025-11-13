@@ -1,67 +1,137 @@
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
-
 
 /// <summary>
 /// Supabase product model with analytics
 /// </summary>
-public record ProductModel : ISecureEntity
+[Table("products")]
+public class ProductModel : BaseModel
 {
-    public string Id { get; init; } = string.Empty;
-    public string Name { get; init; } = string.Empty;
-    public string Slug { get; init; } = string.Empty;
-    public string Description { get; init; } = string.Empty;
-    public string LongDescription { get; init; } = string.Empty;
+    [PrimaryKey("id", false)]
+    public string Id { get; set; } = string.Empty;
+    
+    [Column("name")]
+    public string Name { get; set; } = string.Empty;
+    
+    [Column("slug")]
+    public string Slug { get; set; } = string.Empty;
+    
+    [Column("description")]
+    public string Description { get; set; } = string.Empty;
+    
+    [Column("long_description")]
+    public string LongDescription { get; set; } = string.Empty;
     
     // Pricing
-    public decimal Price { get; init; }
-    public decimal? OriginalPrice { get; init; }
-    public bool IsOnSale { get; init; }
-    public int Discount { get; init; }
+    [Column("price")]
+    public decimal Price { get; set; }
+    
+    [Column("original_price")]
+    public decimal? OriginalPrice { get; set; }
+    
+    [Column("is_on_sale")]
+    public bool IsOnSale { get; set; }
+    
+    [Column("discount")]
+    public int Discount { get; set; }
     
     // Media (JSONB array)
-    public List<string> Images { get; init; } = new();
-    public string? VideoUrl { get; init; }
+    [Column("images")]
+    public List<string> Images { get; set; } = new();
+    
+    [Column("video_url")]
+    public string? VideoUrl { get; set; }
     
     // Variants (JSONB arrays)
-    public List<string> Sizes { get; init; } = new();
-    public List<string> Colors { get; init; } = new();
+    [Column("sizes")]
+    public List<string> Sizes { get; set; } = new();
+    
+    [Column("colors")]
+    public List<string> Colors { get; set; } = new();
     
     // Inventory
-    public int Stock { get; init; }
-    public string Sku { get; init; } = string.Empty;
+    [Column("stock")]
+    public int Stock { get; set; }
+    
+    [Column("sku")]
+    public string Sku { get; set; } = string.Empty;
     
     // Classification
-    public string CategoryId { get; init; } = string.Empty;
-    public string Category { get; init; } = string.Empty;
-    public string? SubCategory { get; init; }
-    public string Brand { get; init; } = string.Empty;
-    public List<string> Tags { get; init; } = new();
+    [Column("category_id")]
+    public string CategoryId { get; set; } = string.Empty;
+    
+    [Column("category")]
+    public string Category { get; set; } = string.Empty;
+    
+    [Column("sub_category")]
+    public string? SubCategory { get; set; }
+    
+    [Column("brand")]
+    public string Brand { get; set; } = string.Empty;
+    
+    [Column("tags")]
+    public List<string> Tags { get; set; } = new();
     
     // Rating & Reviews
-    public float Rating { get; init; }
-    public int ReviewCount { get; init; }
+    [Column("rating")]
+    public float Rating { get; set; }
+    
+    [Column("review_count")]
+    public int ReviewCount { get; set; }
     
     // Analytics (aggregated from product_analytics table)
-    public int ViewCount { get; init; }
-    public int ClickCount { get; init; }
-    public int AddToCartCount { get; init; }
-    public int PurchaseCount { get; init; }
-    public int SalesCount { get; init; }
-    public decimal TotalRevenue { get; init; }
+    [Column("view_count")]
+    public int ViewCount { get; set; }
+    
+    [Column("click_count")]
+    public int ClickCount { get; set; }
+    
+    [Column("add_to_cart_count")]
+    public int AddToCartCount { get; set; }
+    
+    [Column("purchase_count")]
+    public int PurchaseCount { get; set; }
+    
+    [Column("sales_count")]
+    public int SalesCount { get; set; }
+    
+    [Column("total_revenue")]
+    public decimal TotalRevenue { get; set; }
     
     // Metadata
-    public bool IsActive { get; init; } = true;
-    public bool IsFeatured { get; init; }
-    public DateTime? LastViewedAt { get; init; }
-    public DateTime? LastPurchasedAt { get; init; }
+    [Column("is_active")]
+    public bool IsActive { get; set; } = true;
+    
+    [Column("is_featured")]
+    public bool IsFeatured { get; set; }
+    
+    [Column("last_viewed_at")]
+    public DateTime? LastViewedAt { get; set; }
+    
+    [Column("last_purchased_at")]
+    public DateTime? LastPurchasedAt { get; set; }
     
     // ISecureEntity
-    public DateTime CreatedAt { get; init; }
-    public string CreatedBy { get; init; } = string.Empty;
-    public DateTime? UpdatedAt { get; init; }
-    public string? UpdatedBy { get; init; }
-    public bool IsDeleted { get; init; }
-    public DateTime? DeletedAt { get; init; }
-    public string? DeletedBy { get; init; }
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; }
+    
+    [Column("created_by")]
+    public string CreatedBy { get; set; } = string.Empty;
+    
+    [Column("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+    
+    [Column("updated_by")]
+    public string? UpdatedBy { get; set; }
+    
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+    
+    [Column("deleted_at")]
+    public DateTime? DeletedAt { get; set; }
+    
+    [Column("deleted_by")]
+    public string? DeletedBy { get; set; }
 }
