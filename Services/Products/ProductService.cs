@@ -5,6 +5,7 @@ using System.Text;
 using SupabaseProductModel = SubashaVentures.Models.Supabase.ProductModel;
 using FirebaseCategoryModel = SubashaVentures.Models.Firebase.CategoryModel;
 
+
 namespace SubashaVentures.Services.Products;
 
 public class ProductService : IProductService
