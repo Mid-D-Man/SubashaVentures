@@ -15,6 +15,7 @@ using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.SupaBase;
+using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -67,7 +68,7 @@ if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
         {
             AutoRefreshToken = true,
             AutoConnectRealtime = false,  // CRITICAL: Disabled for WebAssembly
-            SessionHandler = new Supabase.Gotrue.SessionHandler()
+            SessionHandler = new DefaultSupabaseSessionHandler()
         };
         
         return new Supabase.Client(supabaseUrl, supabaseKey, options);
