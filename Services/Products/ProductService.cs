@@ -1,9 +1,9 @@
 using SubashaVentures.Domain.Product;
-using SubashaVentures.Models.Supabase;
-using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
 using System.Text;
+using SupabaseProductModel = SubashaVentures.Models.Supabase.ProductModel;
+using FirebaseCategoryModel = SubashaVentures.Models.Firebase.CategoryModel;
 
 namespace SubashaVentures.Services.Products;
 
@@ -33,7 +33,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             return product != null ? MapToViewModel(product) : null;
         }
         catch (Exception ex)
@@ -47,8 +47,7 @@ public class ProductService : IProductService
     {
         try
         {
-            // Get all products and filter in memory (simplified for now)
-            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var filtered = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted)
@@ -70,8 +69,7 @@ public class ProductService : IProductService
     {
         try
         {
-            // Get all products and search in memory
-            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var searchLower = query.ToLower();
             var results = allProducts
@@ -95,7 +93,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var filtered = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted && p.CategoryId == categoryId)
@@ -115,7 +113,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             return allProducts.Count(p => p.IsActive && !p.IsDeleted);
         }
         catch (Exception ex)
@@ -129,7 +127,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var trending = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted)
@@ -151,7 +149,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var allProducts = await _supabaseService.GetAllAsync<ProductModel>(ProductsTable);
+            var allProducts = await _supabaseService.GetAllAsync<SupabaseProductModel>(ProductsTable);
             
             var featured = allProducts
                 .Where(p => p.IsActive && !p.IsDeleted && p.IsFeatured)
@@ -195,7 +193,7 @@ public class ProductService : IProductService
             var productId = Guid.NewGuid().ToString();
             var now = DateTime.UtcNow;
 
-            var productModel = new ProductModel
+            var productModel = new SupabaseProductModel
             {
                 Id = productId,
                 Name = request.Name,
@@ -255,7 +253,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null)
             {
                 _logger.LogWarning("Product not found for update: {Id}", id);
@@ -311,7 +309,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null) return false;
 
             var updated = product with 
@@ -334,7 +332,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null) return false;
 
             var updated = product with 
@@ -357,7 +355,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var product = await _supabaseService.GetByIdAsync<ProductModel>(ProductsTable, id);
+            var product = await _supabaseService.GetByIdAsync<SupabaseProductModel>(ProductsTable, id);
             if (product == null) return false;
 
             var deleted = product with
@@ -485,7 +483,7 @@ public class ProductService : IProductService
             .Trim('-');
     }
 
-    // Get category name from Firebase (like image management does)
+    // Get category name from Firebase
     private async Task<string> GetCategoryNameAsync(string categoryId)
     {
         try
@@ -493,7 +491,7 @@ public class ProductService : IProductService
             if (string.IsNullOrEmpty(categoryId))
                 return string.Empty;
 
-            var category = await _firestoreService.GetDocumentAsync<CategoryModel>(
+            var category = await _firestoreService.GetDocumentAsync<FirebaseCategoryModel>(
                 CategoriesCollection,
                 categoryId);
             
@@ -506,7 +504,7 @@ public class ProductService : IProductService
         }
     }
 
-    private ProductViewModel MapToViewModel(ProductModel model)
+    private ProductViewModel MapToViewModel(SupabaseProductModel model)
     {
         return new ProductViewModel
         {
