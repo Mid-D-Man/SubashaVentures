@@ -21,7 +21,7 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// ==================== HTTP CLIENT =================== =
+// ==================== HTTP CLIENT ====================
 builder.Services.AddScoped(sp => new HttpClient 
 {  
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress),
@@ -69,23 +69,16 @@ if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
     // Register the main Supabase Client
     builder.Services.AddScoped<Supabase.Client>(sp =>
     {
-        var options = new Supabase.SupabaseOptions
+        var options = new SupabaseOptions
         {
             AutoRefreshToken = true,
-            AutoConnectRealtime = false,
-            SessionHandler = new DefaultSupabaseSessionHandler()
+            AutoConnectRealtime = false
         };
         
         var client = new Supabase.Client(supabaseUrl, supabaseKey, options);
         
-        // Initialize the client (this is important!)
-        // Note: In Blazor WASM, we can't use await here, so we'll handle it in the service
         return client;
     });
-    
-    // Register Storage Client explicitly
-    // The Storage.Client is accessed via the main Supabase.Client.Storage property
-    // So we don't need to register it separately - we need to fix the service instead
 }
 else
 {
@@ -95,6 +88,7 @@ else
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
+builder.Services.AddScoped<ISupabaseService, SupabaseService>();
 
 // ==================== IMAGE SERVICES ====================
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
