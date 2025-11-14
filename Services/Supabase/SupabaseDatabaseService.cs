@@ -497,6 +497,7 @@ namespace SubashaVentures.Services.SupaBase
             if (!_initialized)
                 await InitializeAsync();
         }
+        
 
         private bool IsCriticalViolation(List<SecurityViolation> violations)
         {
