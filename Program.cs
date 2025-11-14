@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
+
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
