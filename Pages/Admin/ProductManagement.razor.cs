@@ -60,7 +60,12 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private List<ProductViewModel> filteredProducts = new();
     private List<ProductViewModel> paginatedProducts = new();
     private List<CategoryViewModel> categories = new();
-    private List<string> selectedProducts = new();
+    private List<int> selectedProducts = new();
+
+    //template selection methods
+    private List<string> commonTags = new();
+    private List<string> commonSizes = new();
+    private List<string> commonColors = new();
 
     // Form state
     private ProductFormData productForm = new();
@@ -72,7 +77,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     // Delete confirmation
     private ProductViewModel? productToDelete = null;
-    private List<string>? productsToDelete = null;
+    private List<int>? productsToDelete = null;
 
     // Component references
     private DynamicModal? productModal;
@@ -110,6 +115,10 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             );
 
             CalculateStats();
+            
+            commonTags = ProductService.GetCommonTags();
+            commonSizes = ProductService.GetCommonSizes();
+            commonColors = ProductService.GetCommonColors();
         }
         catch (Exception ex)
         {
@@ -198,6 +207,44 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    private void AddTagFromTemplate(string tag)
+    {
+        if (productForm.Tags == null)
+            productForm.Tags = new List<string>();
+    
+        if (!productForm.Tags.Contains(tag))
+        {
+            productForm.Tags.Add(tag);
+            productForm.InitializeRawInputs();
+            StateHasChanged();
+        }
+    }
+
+    private void AddSizeFromTemplate(string size)
+    {
+        if (productForm.Sizes == null)
+            productForm.Sizes = new List<string>();
+    
+        if (!productForm.Sizes.Contains(size))
+        {
+            productForm.Sizes.Add(size);
+            productForm.InitializeRawInputs();
+            StateHasChanged();
+        }
+    }
+
+    private void AddColorFromTemplate(string color)
+    {
+        if (productForm.Colors == null)
+            productForm.Colors = new List<string>();
+    
+        if (!productForm.Colors.Contains(color))
+        {
+            productForm.Colors.Add(color);
+            productForm.InitializeRawInputs();
+            StateHasChanged();
+        }
+    }
     private void ApplyFiltersAndSort()
     {
         using var pooledList = _productListPool?.GetPooled();
@@ -525,7 +572,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         try
         {
             var duplicateForm = MapToFormData(product);
-            duplicateForm.Id = "";
+            duplicateForm.Id = 0;
             duplicateForm.Name = $"{product.Name} (Copy)";
             duplicateForm.Sku = ProductService.GenerateUniqueSku();
 
@@ -674,7 +721,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void HandleSelectionChanged(string productId, bool isSelected)
+    private void HandleSelectionChanged(int productId, bool isSelected)
     {
         if (isSelected)
         {
@@ -768,7 +815,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             return;
         }
 
-        productsToDelete = new List<string>(selectedProducts);
+        productsToDelete = new List<int>(selectedProducts);
         productToDelete = null;
         showDeleteConfirmation = true;
         StateHasChanged();
@@ -776,6 +823,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     private async Task ConfirmBulkDelete()
     {
+        
         if (productsToDelete != null && productsToDelete.Any())
         {
             try
@@ -894,7 +942,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     
         // 🔴 CRITICAL: Initialize raw inputs after setting lists
         form.InitializeRawInputs();
-    
+   
         return form;
     }
 
@@ -904,15 +952,14 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         return new CreateProductRequest
         {
-            // CRITICAL FIX: Don't pass empty string - let service generate UUID
-            Id = null, // Service will generate proper UUID
+            // Don't set ID - Supabase handles it
             Name = form.Name,
             Description = form.Description,
             LongDescription = form.LongDescription,
             Price = form.Price,
             OriginalPrice = form.OriginalPrice,
             Stock = form.Stock,
-            Sku = form.Sku,
+            Sku = form.Sku, // Required
             CategoryId = form.CategoryId,
             Brand = form.Brand,
             Tags = form.Tags,
@@ -944,7 +991,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     private void ResetFormData(ProductFormData form)
     {
-        form.Id = "";
+        form.Id = 0;
         form.Name = "";
         form.Description = "";
         form.LongDescription = "";
@@ -983,7 +1030,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     // FIXED: Form data class with "/" separator for tags
    public class ProductFormData
 {
-    public string Id { get; set; } = "";
+    public int Id { get; set; }
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string LongDescription { get; set; } = "";

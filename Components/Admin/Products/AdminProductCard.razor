@@ -120,7 +120,7 @@
             <span class="product-sku">SKU: @Product.Sku</span>
         </div>
         <div class="product-meta">
-            <span class="product-id" title="Product ID">ID: @Product.Id.Substring(0, Math.Min(12, Product.Id.Length))...</span>
+            <span class="product-id" title="Product ID">ID: @Product.Id...</span>
             <span class="product-sku">SKU: @Product.Sku</span>
         </div>
         <div class="product-category">
@@ -243,7 +243,7 @@
     [Parameter] public EventCallback<ProductViewModel> OnManageStock { get; set; }
     [Parameter] public EventCallback<(ProductViewModel product, bool isActive)> OnToggleActive { get; set; }
     [Parameter] public EventCallback<(ProductViewModel product, bool isFeatured)> OnToggleFeatured { get; set; }
-    [Parameter] public EventCallback<(string productId, bool isSelected)> OnSelectionChanged { get; set; }
+    [Parameter] public EventCallback<(int productId, bool isSelected)> OnSelectionChanged { get; set; }
     [Parameter] public EventCallback<ProductViewModel> OnCardClick { get; set; }
 
     private bool isHovered = false;

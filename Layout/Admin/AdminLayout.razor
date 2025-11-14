@@ -1,5 +1,16 @@
 @inherits LayoutComponentBase
 @using SubashaVentures.Layout.Admin
+@using Blazored.Toast.Configuration
+
+<BlazoredToasts Position="ToastPosition.TopRight"
+                Timeout="5"
+                IconType="IconType.FontAwesome"
+                SuccessClass="success-toast"
+                ErrorClass="error-toast"
+                InfoClass="info-toast"
+                WarningClass="warning-toast"
+                ShowProgressBar="true"
+                CloseButtonContent="✕" />
 
 <div class="admin-layout">
     <!-- Navigation Menu -->
@@ -14,7 +25,7 @@
 
     <!-- Main Content Area -->
     <div class="admin-main">
-        <!-- Simple Top Header Bar (FIXED - Removed duplicate elements) -->
+        <!-- Simple Top Header Bar -->
         <header class="admin-header">
             <h1 class="page-title">@PageTitle</h1>
         </header>

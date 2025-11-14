@@ -4,13 +4,15 @@ using Supabase.Postgrest.Models;
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Supabase product model with analytics
+/// Supabase product model with auto-increment ID and analytics
 /// </summary>
 [Table("products")]
 public class ProductModel : BaseModel
 {
-    [PrimaryKey("id", true)]
-    public string Id { get; set; } = string.Empty;
+    // AUTO-INCREMENT PRIMARY KEY - Supabase handles this
+    [PrimaryKey("id", false)] // false = not client-generated
+    [Column("id")]
+    public int Id { get; set; }
     
     [Column("name")]
     public string Name { get; set; } = string.Empty;
@@ -56,7 +58,7 @@ public class ProductModel : BaseModel
     public int Stock { get; set; }
     
     [Column("sku")]
-    public string Sku { get; set; } = string.Empty;
+    public string Sku { get; set; } = string.Empty; // Unique identifier
     
     // Classification
     [Column("category_id")]

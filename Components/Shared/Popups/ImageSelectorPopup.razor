@@ -1,4 +1,4 @@
-@* Components/Shared/Popups/ImageSelectorPopup.razor - FIXED *@
+@* Components/Shared/Popups/ImageSelectorPopup.razor - FIXED ACTIONS DISABLED *@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Admin.Images
@@ -33,7 +33,6 @@
         <!-- Toolbar -->
         <div class="isp-toolbar">
             <div class="isp-filters">
-                <!-- Folder Selection Dropdown - Replace the existing one -->
                 <select class="isp-select" @onchange="HandleFolderFilter">
                     <option value="">All Folders</option>
                     @if (categories.Any())
@@ -105,8 +104,10 @@
                     {
                         var isSelected = SelectedImages.Contains(image.PublicUrl);
                         
+                        @* ✅ CRITICAL FIX: Set ShowActions to false *@
                         <AdminImageCard Image="@image"
                                        IsSelected="@isSelected"
+                                       ShowActions="false"
                                        OnClick="@(() => HandleImageSelect(image))"
                                        OnSelectionChanged="@((args) => HandleImageSelect(image))" />
                     }
