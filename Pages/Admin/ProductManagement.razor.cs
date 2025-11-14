@@ -869,10 +869,10 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         notificationComponent?.ShowInfo(message);
     }
 
-    // Mapping methods
+    // ✓ UPDATE YOUR MapToFormData METHOD:
     private ProductFormData MapToFormData(ProductViewModel product)
     {
-        return new ProductFormData
+        var form = new ProductFormData
         {
             Id = product.Id,
             Name = product.Name,
@@ -891,6 +891,11 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             IsFeatured = product.IsFeatured,
             IsActive = product.IsActive
         };
+    
+        // 🔴 CRITICAL: Initialize raw inputs after setting lists
+        form.InitializeRawInputs();
+    
+        return form;
     }
 
     // ONLY showing the CreateProductAsync mapping fix
@@ -976,7 +981,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     }
 
     // FIXED: Form data class with "/" separator for tags
-    public class ProductFormData
+   public class ProductFormData
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
@@ -995,38 +1000,72 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     public bool IsFeatured { get; set; }
     public bool IsActive { get; set; } = true;
     
-    // FIXED: Use comma separator with proper trimming
+    // 🔴 FIX: Use raw string storage for inputs, process only when needed
+    private string _tagsRawInput = "";
+    private string _sizesRawInput = "";
+    private string _colorsRawInput = "";
+    
+    // ✓ FIXED: Get/set raw string, process separately
     public string TagsInput
     {
-        get => Tags != null && Tags.Any() ? string.Join(", ", Tags) : "";
-        set => Tags = string.IsNullOrWhiteSpace(value) 
-            ? new List<string>() 
-            : value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(t => t.Trim())
-                .Where(t => !string.IsNullOrEmpty(t))
-                .ToList();
+        get => _tagsRawInput;
+        set
+        {
+            _tagsRawInput = value ?? "";
+            // Process into list when value changes
+            Tags = ParseCommaSeparated(_tagsRawInput);
+        }
     }
     
     public string SizesInput
     {
-        get => Sizes != null && Sizes.Any() ? string.Join(", ", Sizes) : "";
-        set => Sizes = string.IsNullOrWhiteSpace(value)
-            ? new List<string>()
-            : value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrEmpty(s))
-                .ToList();
+        get => _sizesRawInput;
+        set
+        {
+            _sizesRawInput = value ?? "";
+            Sizes = ParseCommaSeparated(_sizesRawInput);
+        }
     }
     
     public string ColorsInput
     {
-        get => Colors != null && Colors.Any() ? string.Join(", ", Colors) : "";
-        set => Colors = string.IsNullOrWhiteSpace(value)
-            ? new List<string>()
-            : value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(c => c.Trim())
-                .Where(c => !string.IsNullOrEmpty(c))
-                .ToList();
+        get => _colorsRawInput;
+        set
+        {
+            _colorsRawInput = value ?? "";
+            Colors = ParseCommaSeparated(_colorsRawInput);
+        }
+    }
+    
+    // Helper to parse comma-separated values
+    private static List<string> ParseCommaSeparated(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return new List<string>();
+            
+        return input
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Distinct() // Remove duplicates
+            .ToList();
+    }
+    
+    // Helper to initialize raw inputs from lists (for editing)
+    public void InitializeRawInputs()
+    {
+        _tagsRawInput = Tags != null && Tags.Any() 
+            ? string.Join(", ", Tags) 
+            : "";
+            
+        _sizesRawInput = Sizes != null && Sizes.Any() 
+            ? string.Join(", ", Sizes) 
+            : "";
+            
+        _colorsRawInput = Colors != null && Colors.Any() 
+            ? string.Join(", ", Colors) 
+            : "";
     }
 }
+
 }

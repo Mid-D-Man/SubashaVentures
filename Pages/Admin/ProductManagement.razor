@@ -463,11 +463,27 @@
                                Placeholder="Brand name" />
                 </div>
 
-                <!-- Tags Section -->
-                <InputField @bind-Value="productForm.TagsInput"
-                            Label="Tags"
-                            Placeholder="summer, cotton, casual"
-                            HelperText="Enter tags separated by commas (e.g., summer, cotton, casual)" />
+                <!-- Tags Input with Live Preview -->
+                <div class="form-section">
+                    <InputField @bind-Value="productForm.TagsInput"
+                                Label="Tags"
+                                Placeholder="summer, cotton, casual, comfortable"
+                                HelperText="Enter tags separated by commas" />
+
+                    <!-- ✨ LIVE PREVIEW of parsed tags -->
+                    @if (productForm.Tags != null && productForm.Tags.Any())
+                    {
+                    <div class="tag-preview-container">
+                        <span class="tag-preview-label">Preview:</span>
+                        <div class="tag-preview-list">
+                            @foreach (var tag in productForm.Tags)
+                            {
+                            <span class="tag-preview-item">@tag</span>
+                            }
+                        </div>
+                    </div>
+                    }
+                </div>
 
             </div>
 
@@ -475,17 +491,45 @@
             <div class="form-section">
                 <h3 class="section-title">Product Variants</h3>
 
-                <!-- Sizes Section -->
-                <InputField @bind-Value="productForm.SizesInput"
-                            Label="Available Sizes"
-                            Placeholder="S, M, L, XL, XXL"
-                            HelperText="Enter sizes separated by commas" />
+                <!-- Similar for Sizes -->
+                <div class="form-section">
+                    <InputField @bind-Value="productForm.SizesInput"
+                                Label="Available Sizes"
+                                Placeholder="S, M, L, XL, XXL" />
 
-                <!-- Colors Section -->
-                <InputField @bind-Value="productForm.ColorsInput"
-                            Label="Available Colors"
-                            Placeholder="Red, Blue, Green"
-                            HelperText="Enter colors separated by commas" />
+                    @if (productForm.Sizes != null && productForm.Sizes.Any())
+                    {
+                    <div class="tag-preview-container">
+                        <span class="tag-preview-label">Preview:</span>
+                        <div class="tag-preview-list">
+                            @foreach (var size in productForm.Sizes)
+                            {
+                            <span class="tag-preview-item size">@size</span>
+                            }
+                        </div>
+                    </div>
+                    }
+                </div>
+
+                <!-- Similar for Colors -->
+                <div class="form-section">
+                    <InputField @bind-Value="productForm.ColorsInput"
+                                Label="Available Colors"
+                                Placeholder="Red, Blue, Green, Yellow" />
+
+                    @if (productForm.Colors != null && productForm.Colors.Any())
+                    {
+                    <div class="tag-preview-container">
+                        <span class="tag-preview-label">Preview:</span>
+                        <div class="tag-preview-list">
+                            @foreach (var color in productForm.Colors)
+                            {
+                            <span class="tag-preview-item color">@color</span>
+                            }
+                        </div>
+                    </div>
+                    }
+                </div>
             </div>
 
             <!-- Images -->

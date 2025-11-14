@@ -91,11 +91,37 @@ namespace SubashaVentures.Services.SupaBase
         public async Task<List<TModel>> InsertAsync<TModel>(TModel item) where TModel : BaseModel, new()
         {
             await EnsureInitializedAsync();
-            
+    
             try
             {
+                // 🔍 DEBUG: Log the item before insertion
+                var itemType = typeof(TModel).Name;
+                _logger.LogInformation("=== INSERT DEBUG START ===");
+                _logger.LogInformation("Inserting {ModelType}", itemType);
+        
+                // Check if item has Id property
+                var idProperty = typeof(TModel).GetProperty("Id");
+                if (idProperty != null)
+                {
+                    var idValue = idProperty.GetValue(item);
+                    _logger.LogInformation("ID Property Value: {IdValue} (Type: {IdType})", 
+                        idValue ?? "NULL", 
+                        idValue?.GetType().Name ?? "NULL");
+                }
+        
+                // Serialize to see what's being sent
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(item, 
+                    new Newtonsoft.Json.JsonSerializerSettings 
+                    { 
+                        NullValueHandling = Newtonsoft.Json.NullValueHandling.Include,
+                        Formatting = Newtonsoft.Json.Formatting.Indented
+                    });
+                _logger.LogInformation("Serialized JSON:\n{Json}", json);
+                _logger.LogInformation("=== INSERT DEBUG END ===");
+        
                 var response = await _client.From<TModel>().Insert(item);
-                _logger.LogInformation("Successfully inserted {ModelType}", typeof(TModel).Name);
+                _logger.LogInformation("Successfully inserted {ModelType}", itemType);
+        
                 return response.Models;
             }
             catch (Exception ex)
@@ -474,6 +500,7 @@ namespace SubashaVentures.Services.SupaBase
 
         private bool IsCriticalViolation(List<SecurityViolation> violations)
         {
+          
             return violations.Any(v => v.Severity.Equals("critical", StringComparison.OrdinalIgnoreCase) ||
                                      v.Severity.Equals("high", StringComparison.OrdinalIgnoreCase));
         }
