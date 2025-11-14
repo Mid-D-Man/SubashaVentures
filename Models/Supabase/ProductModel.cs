@@ -9,7 +9,7 @@ namespace SubashaVentures.Models.Supabase;
 [Table("products")]
 public class ProductModel : BaseModel
 {
-    [PrimaryKey("id", false)]
+    [PrimaryKey("id", true)]
     public string Id { get; set; } = string.Empty;
     
     [Column("name")]
