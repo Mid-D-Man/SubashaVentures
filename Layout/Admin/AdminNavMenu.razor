@@ -1,5 +1,6 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@using SubashaVentures.Components.Shared.Buttons
 @implements IAsyncDisposable
 
 <nav class="admin-nav-menu @(isExpanded ? "expanded" : "collapsed") @(isMobileOpen ? "mobile-open" : "")"
@@ -10,23 +11,31 @@
     <!-- Navigation Header -->
     <div class="nav-header">
         <div class="nav-brand">
-            <span class="brand-icon">🌟</span>
-            <span class="brand-text">Subasha</span>
+            @if (isExpanded || isMobileOpen)
+            {
+                <BrandLogo />
+            }
+            else
+            {
+                <span class="brand-icon-only">🌟</span>
+            }
         </div>
         
         <button class="nav-toggle-btn desktop-only" 
                 @onclick="TogglePinned"
                 title="@(isPinned ? "Unpin sidebar" : "Pin sidebar")">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                @if (isPinned)
-                {
-                    <path d="M10 2L12 8H16L12 12V18L10 16L8 18V12L4 8H8L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                }
-                else
-                {
-                    <path d="M10 2L12 8H16L12 12V18L10 16L8 18V12L4 8H8L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
-                }
-            </svg>
+            @if (isPinned)
+            {
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M15 4L5 14M5 4L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            }
+            else
+            {
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M4 10H16M4 10L8 6M4 10L8 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            }
         </button>
 
         <button class="nav-close-btn mobile-only" @onclick="CloseMobileNav">
@@ -103,7 +112,7 @@
 
     <!-- Navigation Footer -->
     <div class="nav-footer">
-        <a href="/admin/settings" class="nav-item">
+        <a href="/admin/settings" class="nav-item @(IsCurrentPath("/admin/settings") ? "active" : "")">
             <span class="nav-item-icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/>
@@ -114,7 +123,6 @@
         </a>
     </div>
 </nav>
-
 <!-- Mobile Overlay -->
 @if (isMobileOpen)
 {

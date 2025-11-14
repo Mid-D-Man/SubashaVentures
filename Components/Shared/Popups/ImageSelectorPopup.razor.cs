@@ -1,4 +1,4 @@
-// Components/Shared/Popups/ImageSelectorPopup.razor.cs - FINAL FIX WITH FIREBASE CATEGORIES
+// Pages/Admin/ImageSelectorPopup.razor.cs - FIXED WITH FILE SIZES
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
@@ -6,7 +6,10 @@ using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Components.Admin.Images;
+using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Models.Firebase;
+using SubashaVentures.Domain.Enums;
+using Microsoft.JSInterop;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Components.Shared.Popups;
@@ -16,6 +19,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     [Inject] private ISupabaseStorageService StorageService { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<ImageSelectorPopup> Logger { get; set; } = default!;
 
     [Parameter] public bool IsOpen { get; set; }
@@ -54,7 +58,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             await MID_HelperFunctions.DebugMessageAsync("ImageSelectorPopup initialized", LogLevel.Info);
             
-            // Load categories from Firebase
             await LoadCategoriesAsync();
         }
         catch (Exception ex)
@@ -111,7 +114,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                     LogLevel.Warning
                 );
                 
-                // Fallback to default folders if Firebase fails
                 categories = new List<CategoryModel>();
             }
         }
@@ -147,7 +149,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             using var pooledImages = _imageListPool?.GetPooled();
             var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
 
-            // Use categories from Firebase, or fallback to defaults
             var folders = categories.Any() 
                 ? categories.Select(c => c.Slug).ToArray()
                 : new[] { "products", "banners", "categories" };
@@ -204,6 +205,10 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 var filePath = $"{folder}/{file.Name}";
                 var publicUrl = StorageService.GetPublicUrl(filePath, "products");
                 
+                // ✅ FIX: Get actual file size and dimensions
+                var fileSize = await GetFileSizeAsync(publicUrl);
+                var dimensions = await GetImageDimensionsAsync(publicUrl);
+                
                 var imageInfo = new AdminImageCard.ImageItem
                 {
                     Id = file.Id,
@@ -211,8 +216,8 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                     PublicUrl = publicUrl,
                     ThumbnailUrl = publicUrl,
                     Folder = folder,
-                    FileSize = file.Size,
-                    Dimensions = "800x800",
+                    FileSize = fileSize,
+                    Dimensions = dimensions,
                     UploadedAt = file.UpdatedAt,
                     IsReferenced = false,
                     ReferenceCount = 0
@@ -232,6 +237,48 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading from folder: {folder}");
+        }
+    }
+
+    // ✅ NEW: Get file size from URL
+    private async Task<long> GetFileSizeAsync(string imageUrl)
+    {
+        try
+        {
+            var size = await JSRuntime.InvokeAsync<long>("eval", $@"
+                fetch('{imageUrl}', {{method: 'HEAD'}})
+                    .then(response => {{
+                        const length = response.headers.get('Content-Length');
+                        return length ? parseInt(length) : 0;
+                    }})
+                    .catch(() => 0);
+            ");
+            return size;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    // ✅ NEW: Get image dimensions from URL
+    private async Task<string> GetImageDimensionsAsync(string imageUrl)
+    {
+        try
+        {
+            var dimensions = await JSRuntime.InvokeAsync<string>("eval", $@"
+                new Promise((resolve) => {{
+                    const img = new Image();
+                    img.onload = () => resolve(`${{img.width}}x${{img.height}}`);
+                    img.onerror = () => resolve('Unknown');
+                    img.src = '{imageUrl}';
+                }});
+            ");
+            return dimensions ?? "Unknown";
+        }
+        catch
+        {
+            return "Unknown";
         }
     }
 

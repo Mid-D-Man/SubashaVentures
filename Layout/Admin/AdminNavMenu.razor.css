@@ -1,4 +1,4 @@
-/* ===== ADMIN NAV MENU - FIXED LAYOUT ===== */
+/* ===== ADMIN NAV MENU - FIXED ACTIVE STATE ===== */
 .admin-nav-menu {
     position: fixed;
     left: 0;
@@ -35,12 +35,11 @@
 .nav-brand {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
     min-width: 0;
     overflow: hidden;
 }
 
-.brand-icon {
+.brand-icon-only {
     font-size: 1.5rem;
     flex-shrink: 0;
     width: 32px;
@@ -48,22 +47,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.brand-text {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--primary-color, #96994A);
-    white-space: nowrap;
-    opacity: 1;
-    transition: opacity 0.2s ease, width 0.2s ease;
-}
-
-.admin-nav-menu.collapsed .brand-text {
-    opacity: 0;
-    width: 0;
-    overflow: hidden;
 }
 
 .nav-toggle-btn,
@@ -131,7 +114,7 @@
     overflow: hidden;
 }
 
-/* Nav Item - FIXED FLEX LAYOUT */
+/* ✅ CRITICAL FIX: Nav Item - NO PERMANENT OVERLAY */
 .nav-item {
     display: flex;
     align-items: center;
@@ -153,17 +136,20 @@
     min-height: 44px;
 }
 
+/* ✅ HOVER STATE - Light background on hover */
 .nav-item:hover {
     background: rgba(150, 153, 74, 0.08);
     color: var(--text-primary, #1f2937);
 }
 
+/* ✅ ACTIVE STATE - Only indicator bar, NO full overlay */
 .nav-item.active {
-    background: rgba(150, 153, 74, 0.15);
     color: var(--primary-color, #96994A);
     font-weight: 600;
+    background: transparent; /* ← NO background overlay */
 }
 
+/* ✅ Active indicator - LEFT BAR ONLY */
 .nav-item.active::before {
     content: '';
     position: absolute;
@@ -173,6 +159,11 @@
     width: 3px;
     background: var(--primary-color, #96994A);
     border-radius: 0 2px 2px 0;
+}
+
+/* ✅ Active hover - slight background on hover */
+.nav-item.active:hover {
+    background: rgba(150, 153, 74, 0.05);
 }
 
 .nav-item-icon {
@@ -310,10 +301,6 @@
     border-color: rgba(184, 187, 106, 0.15);
 }
 
-[data-theme="dark"] .brand-text {
-    color: var(--primary-color, #B8BB6A);
-}
-
 [data-theme="dark"] .nav-toggle-btn,
 [data-theme="dark"] .nav-close-btn {
     background: rgba(184, 187, 106, 0.1);
@@ -323,6 +310,14 @@
 [data-theme="dark"] .nav-close-btn:hover {
     background: rgba(184, 187, 106, 0.2);
     color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .nav-item:hover {
+    background: rgba(184, 187, 106, 0.08);
+}
+
+[data-theme="dark"] .nav-item.active:hover {
+    background: rgba(184, 187, 106, 0.05);
 }
 
 /* Responsive - Mobile */
@@ -342,7 +337,6 @@
         width: 280px;
     }
 
-    .admin-nav-menu .brand-text,
     .admin-nav-menu .nav-item-label,
     .admin-nav-menu .nav-section-title,
     .admin-nav-menu .nav-item-arrow {
@@ -379,7 +373,6 @@
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
     .admin-nav-menu,
-    .brand-text,
     .nav-item-label,
     .nav-section-title,
     .nav-item-arrow,
