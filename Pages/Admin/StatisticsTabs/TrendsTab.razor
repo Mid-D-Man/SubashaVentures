@@ -1,0 +1,179 @@
+@using SubashaVentures.Domain.Statistics
+
+<div class="trends-tab">
+    <!-- Monthly Sales Trend -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">📈 Monthly Performance Trend</h2>
+        </div>
+        
+        <div class="trend-summary">
+            @if (MonthlySalesTrends.Count >= 2)
+            {
+                var latest = MonthlySalesTrends.First();
+                var previous = MonthlySalesTrends.Skip(1).First();
+                var revenueChange = latest.TotalRevenue - previous.TotalRevenue;
+                var percentChange = previous.TotalRevenue != 0 
+                    ? (revenueChange / previous.TotalRevenue) * 100 
+                    : 0;
+
+                <div class="trend-card @(percentChange >= 0 ? "positive" : "negative")">
+                    <div class="trend-icon">@(percentChange >= 0 ? "📈" : "📉")</div>
+                    <div class="trend-details">
+                        <span class="trend-label">Revenue Change (Month-over-Month)</span>
+                        <span class="trend-value">
+                            @(percentChange >= 0 ? "+" : "")@percentChange.ToString("F1")%
+                        </span>
+                        <span class="trend-amount">
+                            @(revenueChange >= 0 ? "+" : "")₦@Math.Abs(revenueChange).ToString("N0")
+                        </span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="chart-container large">
+            <canvas id="monthlyTrendChart"></canvas>
+        </div>
+
+        <div class="trend-table">
+            <table class="simple-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Products Added</th>
+                        <th>Total Sales</th>
+                        <th>Revenue</th>
+                        <th>Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < MonthlySalesTrends.Count; i++)
+                    {
+                        var trend = MonthlySalesTrends[i];
+                        var hasNext = i < MonthlySalesTrends.Count - 1;
+                        var changePercent = 0m;
+                        
+                        if (hasNext)
+                        {
+                            var next = MonthlySalesTrends[i + 1];
+                            if (next.TotalRevenue != 0)
+                            {
+                                changePercent = ((trend.TotalRevenue - next.TotalRevenue) / next.TotalRevenue) * 100;
+                            }
+                        }
+
+                        <tr>
+                            <td><strong>@trend.MonthName</strong></td>
+                            <td>@trend.ProductsAdded</td>
+                            <td>@trend.TotalSales.ToString("N0")</td>
+                            <td>@trend.FormattedRevenue</td>
+                            <td>
+                                @if (hasNext)
+                                {
+                                    <span class="change-badge @(changePercent >= 0 ? "positive" : "negative")">
+                                        @(changePercent >= 0 ? "▲" : "▼") @Math.Abs(changePercent).ToString("F1")%
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="change-badge neutral">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Product Performance Metrics -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">🎯 Conversion Metrics</h2>
+            <span class="section-subtitle">Top 20 products by conversion rate</span>
+        </div>
+
+        <div class="performance-grid">
+            @foreach (var metric in PerformanceMetrics.Take(20))
+            {
+                <div class="performance-card">
+                    <div class="performance-header">
+                        <span class="performance-name" title="@metric.Name">@metric.Name</span>
+                        <span class="performance-sku">@metric.Sku</span>
+                    </div>
+                    
+                    <div class="performance-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">Views</span>
+                            <span class="metric-number">@metric.ViewCount.ToString("N0")</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Add to Cart</span>
+                            <span class="metric-number">@metric.AddToCartCount</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Purchases</span>
+                            <span class="metric-number">@metric.PurchaseCount</span>
+                        </div>
+                    </div>
+
+                    <div class="conversion-rates">
+                        <div class="rate-item">
+                            <span class="rate-label">View → Cart</span>
+                            <div class="rate-bar-container">
+                                <div class="rate-bar" style="width: @metric.ViewToCartRate%"></div>
+                            </div>
+                            <span class="rate-value">@metric.ViewToCartDisplay</span>
+                        </div>
+                        <div class="rate-item">
+                            <span class="rate-label">Cart → Purchase</span>
+                            <div class="rate-bar-container">
+                                <div class="rate-bar" style="width: @metric.CartToPurchaseRate%"></div>
+                            </div>
+                            <span class="rate-value">@metric.CartToPurchaseDisplay</span>
+                        </div>
+                        <div class="rate-item highlight">
+                            <span class="rate-label">Overall Conversion</span>
+                            <div class="rate-bar-container">
+                                <div class="rate-bar primary" style="width: @metric.OverallConversionRate%"></div>
+                            </div>
+                            <span class="rate-value">@metric.ConversionDisplay</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<MonthlySalesTrend> MonthlySalesTrends { get; set; } = new();
+    [Parameter] public List<ProductPerformanceMetric> PerformanceMetrics { get; set; } = new();
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && MonthlySalesTrends.Any())
+        {
+            await InitializeChart();
+        }
+    }
+
+    private async Task InitializeChart()
+    {
+        try
+        {
+            var labels = MonthlySalesTrends.Select(t => t.MonthName).Reverse().ToArray();
+            var revenueData = MonthlySalesTrends.Select(t => (double)t.TotalRevenue).Reverse().ToArray();
+            var salesData = MonthlySalesTrends.Select(t => (double)t.TotalSales).Reverse().ToArray();
+
+            await JSRuntime.InvokeVoidAsync("createMultiLineChart", "monthlyTrendChart", labels, revenueData, salesData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chart initialization error: {ex.Message}");
+        }
+    }
+}
