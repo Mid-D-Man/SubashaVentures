@@ -856,11 +856,104 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void HandleExport()
+   // Add to ProductManagement.razor.cs
+
+private async Task HandleExport()
+{
+    try
     {
-        ShowInfoNotification("Export functionality coming soon");
-        MID_HelperFunctions.DebugMessage("Export not yet implemented", LogLevel.Info);
+        isLoading = true;
+        StateHasChanged();
+
+        var exportData = filteredProducts.Select(p => new
+        {
+            ID = p.Id,
+            SKU = p.Sku,
+            Name = p.Name,
+            Category = p.Category,
+            Brand = p.Brand,
+            Price = p.Price,
+            OriginalPrice = p.OriginalPrice,
+            Discount = p.Discount,
+            Stock = p.Stock,
+            Status = p.IsActive ? "Active" : "Inactive",
+            Featured = p.IsFeatured ? "Yes" : "No",
+            OnSale = p.IsOnSale ? "Yes" : "No",
+            Rating = p.Rating,
+            Reviews = p.ReviewCount,
+            Views = p.ViewCount,
+            Sales = p.SalesCount,
+            CreatedAt = p.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+            UpdatedAt = p.UpdatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? ""
+        }).ToList();
+
+        var csv = new StringBuilder();
+        
+        // Headers
+        csv.AppendLine("ID,SKU,Name,Category,Brand,Price,Original Price,Discount %,Stock,Status,Featured,On Sale,Rating,Reviews,Views,Sales,Created At,Updated At");
+        
+        // Data rows
+        foreach (var item in exportData)
+        {
+            csv.AppendLine($"{item.ID}," +
+                          $"\"{EscapeCsv(item.SKU)}\"," +
+                          $"\"{EscapeCsv(item.Name)}\"," +
+                          $"\"{EscapeCsv(item.Category)}\"," +
+                          $"\"{EscapeCsv(item.Brand)}\"," +
+                          $"{item.Price}," +
+                          $"{item.OriginalPrice}," +
+                          $"{item.Discount}," +
+                          $"{item.Stock}," +
+                          $"{item.Status}," +
+                          $"{item.Featured}," +
+                          $"{item.OnSale}," +
+                          $"{item.Rating}," +
+                          $"{item.Reviews}," +
+                          $"{item.Views}," +
+                          $"{item.Sales}," +
+                          $"{item.CreatedAt}," +
+                          $"{item.UpdatedAt}");
+        }
+
+        var fileName = $"products_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+        var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
+        var base64 = Convert.ToBase64String(csvBytes);
+
+        await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
+
+        ShowSuccessNotification($"Exported {exportData.Count} products successfully!");
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ Exported {exportData.Count} products to {fileName}",
+            LogLevel.Info
+        );
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Exporting products");
+        ShowErrorNotification($"Export failed: {ex.Message}");
+    }
+    finally
+    {
+        isLoading = false;
+        StateHasChanged();
+    }
+}
+
+private string EscapeCsv(string value)
+{
+    if (string.IsNullOrEmpty(value))
+        return "";
+    
+    // Escape double quotes and wrap in quotes if contains comma or quote
+    if (value.Contains("\""))
+        value = value.Replace("\"", "\"\"");
+    
+    if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
+        return value;
+    
+    return value;
+}
 
     private string GetStockClass(int stock)
     {
