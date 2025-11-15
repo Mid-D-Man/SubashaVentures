@@ -1,0 +1,192 @@
+@using SubashaVentures.Domain.Statistics
+
+<div class="alerts-tab">
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">🚨 Stock Alerts</h2>
+            <span class="section-subtitle">@StockAlerts.Count products need attention</span>
+        </div>
+
+        <!-- Alert Summary -->
+        <div class="alert-summary">
+            <div class="alert-summary-card critical">
+                <span class="summary-icon">🔴</span>
+                <div class="summary-content">
+                    <span class="summary-label">Out of Stock</span>
+                    <span class="summary-value">@StockAlerts.Count(a => a.AlertLevel == "Out of Stock")</span>
+                </div>
+            </div>
+
+            <div class="alert-summary-card danger">
+                <span class="summary-icon">🟠</span>
+                <div class="summary-content">
+                    <span class="summary-label">Critical (≤5)</span>
+                    <span class="summary-value">@StockAlerts.Count(a => a.AlertLevel == "Critical")</span>
+                </div>
+            </div>
+
+            <div class="alert-summary-card warning">
+                <span class="summary-icon">🟡</span>
+                <div class="summary-content">
+                    <span class="summary-label">Low (≤10)</span>
+                    <span class="summary-value">@StockAlerts.Count(a => a.AlertLevel == "Low")</span>
+                </div>
+            </div>
+        </div>
+
+        @if (!StockAlerts.Any())
+        {
+            <div class="empty-state success">
+                <div class="empty-icon">✅</div>
+                <h3>All Good!</h3>
+                <p>No stock alerts at this time. All products are well-stocked.</p>
+            </div>
+        }
+        else
+        {
+            <!-- Alerts Table -->
+            <div class="alerts-table-container">
+                <table class="alerts-table">
+                    <thead>
+                        <tr>
+                            <th>Alert</th>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Category</th>
+                            <th>Stock</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var alert in PaginatedAlerts)
+                        {
+                            <tr class="alert-row @alert.AlertColorClass">
+                                <td>
+                                    <div class="alert-badge @alert.AlertColorClass">
+                                        @GetAlertIcon(alert.AlertLevel)
+                                        <span>@alert.AlertLevel</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="product-cell">
+                                        <span class="product-name">@alert.Name</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="sku-text">@alert.Sku</span>
+                                </td>
+                                <td>
+                                    <span class="category-text">@alert.Category</span>
+                                </td>
+                                <td>
+                                    <span class="stock-value @GetStockColorClass(alert.Stock)">
+                                        @alert.Stock units
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="action-btn restock"
+                                            @onclick="@(() => HandleRestock(alert))"
+                                            title="Manage Stock">
+                                        📦 Restock
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (TotalPages > 1)
+            {
+                <div class="pagination">
+                    <button class="page-btn" 
+                            @onclick="PreviousPage" 
+                            disabled="@(CurrentPage == 1)">
+                        ← Previous
+                    </button>
+                    
+                    <div class="page-numbers">
+                        @for (int i = Math.Max(1, CurrentPage - 2); i <= Math.Min(TotalPages, CurrentPage + 2); i++)
+                        {
+                            var pageNumber = i;
+                            <button class="page-btn @(pageNumber == CurrentPage ? "active" : "")" 
+                                    @onclick="@(() => GoToPage(pageNumber))">
+                                @pageNumber
+                            </button>
+                        }
+                    </div>
+                    
+                    <button class="page-btn" 
+                            @onclick="NextPage" 
+                            disabled="@(CurrentPage == TotalPages)">
+                        Next →
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<StockAlert> StockAlerts { get; set; } = new();
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private List<StockAlert> PaginatedAlerts => 
+        StockAlerts.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
+
+    private int TotalPages => (int)Math.Ceiling(StockAlerts.Count / (double)PageSize);
+
+    private string GetAlertIcon(string alertLevel)
+    {
+        return alertLevel switch
+        {
+            "Out of Stock" => "🔴",
+            "Critical" => "🟠",
+            "Low" => "🟡",
+            _ => "🟢"
+        };
+    }
+
+    private string GetStockColorClass(int stock)
+    {
+        if (stock == 0) return "critical";
+        if (stock <= 5) return "danger";
+        if (stock <= 10) return "warning";
+        return "normal";
+    }
+
+    private void HandleRestock(StockAlert alert)
+    {
+        // Navigate to product management with stock modal
+        NavigationManager.NavigateTo($"/admin/products?stockModal={alert.Id}");
+    }
+
+    private async Task PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            await OnPageChange.InvokeAsync(CurrentPage - 1);
+}
+    }
+
+    private async Task NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            await OnPageChange.InvokeAsync(CurrentPage + 1);
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            await OnPageChange.InvokeAsync(page);
+        }
+    }
+}
