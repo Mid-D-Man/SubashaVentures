@@ -1,0 +1,166 @@
+@page "/admin/statistics"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Domain.Statistics
+@using SubashaVentures.Domain.Enums
+@layout AdminLayout
+
+<div class="statistics-page">
+    <!-- Notification Component -->
+    <NotificationComponent @ref="notificationComponent"
+                          Position="NotificationPosition.TopRight"
+                          AutoDismissTime="5000" />
+
+    <!-- Header -->
+    <div class="stats-header">
+        <div class="stats-header-left">
+            <h1 class="stats-title">📊 Analytics Dashboard</h1>
+            <p class="stats-subtitle">Comprehensive business insights and performance metrics</p>
+        </div>
+        <div class="stats-header-right">
+            <div class="date-range-selector">
+                <select class="date-range-select" @onchange="HandleDateRangeChange">
+                    <option value="7">Last 7 Days</option>
+                    <option value="30" selected>Last 30 Days</option>
+                    <option value="90">Last 90 Days</option>
+                    <option value="365">Last Year</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+            <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                           Size="SecondaryButton.ButtonSize.Medium"
+                           Icon="🔄"
+                           OnClick="RefreshData">
+                Refresh
+            </SecondaryButton>
+            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                          Size="PrimaryButton.ButtonSize.Medium"
+                          Icon="⬇"
+                          OnClick="ExportData">
+                Export Report
+            </PrimaryButton>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="stats-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading analytics data...</p>
+        </div>
+    }
+    else if (generalStats == null)
+    {
+        <div class="stats-error">
+            <div class="error-icon">⚠️</div>
+            <h3>Failed to Load Statistics</h3>
+            <p>Unable to retrieve analytics data. Please try again.</p>
+            <PrimaryButton OnClick="RefreshData">Retry</PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card primary">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Total Products</span>
+                    <span class="kpi-value">@generalStats.TotalProducts.ToString("N0")</span>
+                    <span class="kpi-detail">@generalStats.ActiveProducts active</span>
+                </div>
+            </div>
+
+            <div class="kpi-card success">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Total Revenue</span>
+                    <span class="kpi-value">@generalStats.FormattedRevenue</span>
+                    <span class="kpi-detail">@generalStats.TotalSales.ToString("N0") sales</span>
+                </div>
+            </div>
+
+            <div class="kpi-card info">
+                <div class="kpi-icon">👁️</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Total Views</span>
+                    <span class="kpi-value">@generalStats.TotalViews.ToString("N0")</span>
+                    <span class="kpi-detail">All time engagement</span>
+                </div>
+            </div>
+
+            <div class="kpi-card warning">
+                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Stock Alerts</span>
+                    <span class="kpi-value">@(generalStats.OutOfStock + generalStats.LowStock)</span>
+                    <span class="kpi-detail">@generalStats.OutOfStock out of stock</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="stats-tabs">
+            <button class="tab-btn @(activeTab == "overview" ? "active" : "")"
+                    @onclick="@(() => SetActiveTab("overview"))">
+                📈 Overview
+            </button>
+            <button class="tab-btn @(activeTab == "products" ? "active" : "")"
+                    @onclick="@(() => SetActiveTab("products"))">
+                🏆 Top Products
+            </button>
+            <button class="tab-btn @(activeTab == "categories" ? "active" : "")"
+                    @onclick="@(() => SetActiveTab("categories"))">
+                📂 Categories
+            </button>
+            <button class="tab-btn @(activeTab == "trends" ? "active" : "")"
+                    @onclick="@(() => SetActiveTab("trends"))">
+                📊 Trends
+            </button>
+            <button class="tab-btn @(activeTab == "alerts" ? "active" : "")"
+                    @onclick="@(() => SetActiveTab("alerts"))">
+                🚨 Alerts
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="stats-content">
+            @if (activeTab == "overview")
+            {
+                <OverviewTab GeneralStats="@generalStats"
+                            RevenueByCategory="@revenueByCategory"
+                            MonthlySalesTrends="@monthlySalesTrends" />
+            }
+            else if (activeTab == "products")
+            {
+                <ProductsTab TopProducts="@topProducts"
+                            CurrentPage="@productsCurrentPage"
+                            PageSize="@productsPageSize"
+                            OnPageChange="@HandleProductsPageChange" />
+            }
+            else if (activeTab == "categories")
+            {
+                <CategoriesTab CategoryStats="@categoryStats"
+                              RevenueByCategory="@revenueByCategory" />
+            }
+            else if (activeTab == "trends")
+            {
+                <TrendsTab MonthlySalesTrends="@monthlySalesTrends"
+                          PerformanceMetrics="@performanceMetrics" />
+            }
+            else if (activeTab == "alerts")
+            {
+                <AlertsTab StockAlerts="@stockAlerts"
+                          CurrentPage="@alertsCurrentPage"
+                          PageSize="@alertsPageSize"
+                          OnPageChange="@HandleAlertsPageChange" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    // Component references and state variables
+    // Implementation in Statistics.razor.cs
+}
