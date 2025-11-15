@@ -1,0 +1,187 @@
+@using SubashaVentures.Domain.Statistics
+
+<div class="categories-tab">
+    <!-- Category Statistics Grid -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">📂 Category Performance</h2>
+        </div>
+
+        <div class="category-grid">
+            @foreach (var category in CategoryStats)
+            {
+                <div class="category-card">
+                    <div class="category-header">
+                        <span class="category-icon">@GetCategoryIcon(category.Category)</span>
+                        <h3 class="category-name">@category.Category</h3>
+                    </div>
+                    
+                    <div class="category-stats">
+                        <div class="stat-row">
+                            <span class="stat-label">Products</span>
+                            <span class="stat-value">@category.ProductCount</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Total Sales</span>
+                            <span class="stat-value">@category.TotalSales.ToString("N0")</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Revenue</span>
+                            <span class="stat-value highlight">@category.FormattedRevenue</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Avg Price</span>
+                            <span class="stat-value">@category.FormattedAvgPrice</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Views</span>
+                            <span class="stat-value">@category.TotalViews.ToString("N0")</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Stock</span>
+                            <span class="stat-value">@category.TotalStock.ToString("N0")</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Revenue Comparison Bar Chart -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">📊 Revenue Comparison</h2>
+        </div>
+        <div class="chart-container">
+            <canvas id="categoryRevenueChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Category Rankings -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">🏅 Category Rankings</h2>
+        </div>
+        
+        <div class="rankings-grid">
+            <div class="ranking-card">
+                <h4 class="ranking-title">🥇 Most Products</h4>
+                @if (CategoryStats.Any())
+                {
+                    var top = CategoryStats.OrderByDescending(c => c.ProductCount).First();
+                    <div class="ranking-winner">
+                        <span class="winner-icon">@GetCategoryIcon(top.Category)</span>
+                        <span class="winner-name">@top.Category</span>
+                        <span class="winner-value">@top.ProductCount products</span>
+                    </div>
+                }
+            </div>
+
+            <div class="ranking-card">
+                <h4 class="ranking-title">💰 Highest Revenue</h4>
+                @if (CategoryStats.Any())
+                {
+                    var top = CategoryStats.OrderByDescending(c => c.TotalRevenue).First();
+                    <div class="ranking-winner">
+                        <span class="winner-icon">@GetCategoryIcon(top.Category)</span>
+                        <span class="winner-name">@top.Category</span>
+                        <span class="winner-value">@top.FormattedRevenue</span>
+                    </div>
+                }
+            </div>
+
+            <div class="ranking-card">
+                <h4 class="ranking-title">🛍️ Most Sales</h4>
+                @if (CategoryStats.Any())
+                {
+                    var top = CategoryStats.OrderByDescending(c => c.TotalSales).First();
+                    <div class="ranking-winner">
+                        <span class="winner-icon">@GetCategoryIcon(top.Category)</span>
+                        <span class="winner-name">@top.Category</span>
+                        <span class="winner-value">@top.TotalSales.ToString("N0") sales</span>
+                    </div>
+                }
+            </div>
+
+            <div class="ranking-card">
+                <h4 class="ranking-title">👁️ Most Viewed</h4>
+                @if (CategoryStats.Any())
+                {
+                    var top = CategoryStats.OrderByDescending(c => c.TotalViews).First();
+                    <div class="ranking-winner">
+                        <span class="winner-icon">@GetCategoryIcon(top.Category)</span>
+                        <span class="winner-name">@top.Category</span>
+                        <span class="winner-value">@top.TotalViews.ToString("N0") views</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<CategoryStatistic> CategoryStats { get; set; } = new();
+    [Parameter] public List<RevenueByCategory> RevenueByCategory { get; set; } = new();
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && CategoryStats.Any())
+        {
+            await InitializeChart();
+        }
+    }
+
+    private async Task InitializeChart()
+    {
+        try
+        {
+            var labels = CategoryStats.Select(c => c.Category).ToArray();
+            var data = CategoryStats.Select(c => (double)c.TotalRevenue).ToArray();
+            var colors = CategoryStats.Select(c => GetCategoryColorCode(c.Category)).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("createBarChart", "categoryRevenueChart", labels, data, colors);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chart initialization error: {ex.Message}");
+        }
+    }
+
+    private string GetCategoryIcon(string category)
+    {
+        return category.ToLower() switch
+        {
+            "men's clothing" or "mens" or "men" => "👔",
+            "women's clothing" or "womens" or "women" => "👗",
+            "children" or "kids" => "🧒",
+            "baby" => "👶",
+            "home" or "home & living" => "🏠",
+            "electronics" => "📱",
+            "sports" or "sports & outdoors" => "⚽",
+            "beauty" or "beauty & personal care" => "💄",
+            "books" => "📚",
+            "toys" => "🧸",
+            "jewelry" => "💎",
+            "shoes" => "👟",
+            _ => "📦"
+        };
+    }
+
+    private string GetCategoryColorCode(string category)
+    {
+        return category.ToLower() switch
+        {
+            "men's clothing" or "mens" or "men" => "#2C3E50",
+            "women's clothing" or "womens" or "women" => "#E91E63",
+            "children" or "kids" => "#FF9800",
+            "baby" => "#9C27B0",
+            "home" or "home & living" => "#795548",
+            "electronics" => "#3F51B5",
+            "sports" or "sports & outdoors" => "#4CAF50",
+            "beauty" or "beauty & personal care" => "#F06292",
+            _ => "#96994A"
+        };
+    }
+}
