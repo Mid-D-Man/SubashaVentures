@@ -90,7 +90,8 @@ builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
-
+// Stats
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 // ==================== PRODUCT SERVICES ====================
 builder.Services.AddScoped<IProductService, ProductService>();
 
