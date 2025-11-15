@@ -75,12 +75,13 @@
     <!-- Toolbar -->
     <div class="pm-toolbar">
         <div class="pm-filters">
-            <InputField @bind-Value="searchQuery"
-                       Placeholder="Search products..."
-                       PrefixIcon="🔍"
-                       ShowClearButton="true"
-                       OnBlur="HandleSearch"
-                       CssClass="search-input" />
+            <!--  search InputField -->
+            <InputField Value="@searchQuery"
+                        ValueChanged="@((value) => { searchQuery = value; HandleSearch(); })"
+                        Placeholder="Search products..."
+                        PrefixIcon="🔍"
+                        ShowClearButton="true"
+                        CssClass="search-input" />
 
             <select class="filter-select" @onchange="HandleCategoryFilter">
                 <option value="">All Categories</option>

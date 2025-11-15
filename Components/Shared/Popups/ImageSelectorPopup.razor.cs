@@ -1,4 +1,4 @@
-// Pages/Admin/ImageSelectorPopup.razor.cs - FIXED WITH FILE SIZES
+// Pages/Admin/ImageSelectorPopup.razor.cs - FIXED SEARCH & FILTERING
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
@@ -34,7 +34,23 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
     private bool isLoading = false;
     private bool isInitialized = false;
-    private string searchQuery = "";
+    
+    // ✅ FIX: Make searchQuery two-way bindable
+    private string _searchQuery = "";
+    private string searchQuery 
+    { 
+        get => _searchQuery;
+        set
+        {
+            if (_searchQuery != value)
+            {
+                _searchQuery = value;
+                ApplyFilters(); // Apply filters on change
+                StateHasChanged();
+            }
+        }
+    }
+    
     private string selectedFolder = "";
     private string viewSize = "medium";
 
@@ -205,7 +221,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 var filePath = $"{folder}/{file.Name}";
                 var publicUrl = StorageService.GetPublicUrl(filePath, "products");
                 
-                // ✅ FIX: Get actual file size and dimensions
                 var fileSize = await GetFileSizeAsync(publicUrl);
                 var dimensions = await GetImageDimensionsAsync(publicUrl);
                 
@@ -240,7 +255,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ✅ NEW: Get file size from URL
     private async Task<long> GetFileSizeAsync(string imageUrl)
     {
         try
@@ -261,7 +275,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ✅ NEW: Get image dimensions from URL
     private async Task<string> GetImageDimensionsAsync(string imageUrl)
     {
         try
@@ -330,13 +343,23 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
+    // ✅ FIX: Proper filtering logic
     private void ApplyFilters()
     {
         filteredImages = allImages
             .Where(img =>
-                (string.IsNullOrEmpty(selectedFolder) || img.Folder == selectedFolder) &&
-                (string.IsNullOrEmpty(searchQuery) ||
-                 img.FileName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
+            {
+                // Folder filter
+                bool folderMatch = string.IsNullOrEmpty(selectedFolder) || 
+                                 img.Folder.Equals(selectedFolder, StringComparison.OrdinalIgnoreCase);
+                
+                // Search filter
+                bool searchMatch = string.IsNullOrEmpty(searchQuery) ||
+                                 img.FileName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                                 img.Folder.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);
+                
+                return folderMatch && searchMatch;
+            })
             .OrderByDescending(x => x.UploadedAt)
             .ToList();
 
