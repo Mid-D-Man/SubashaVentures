@@ -1,0 +1,135 @@
+@using SubashaVentures.Domain.Statistics
+
+<div class="overview-tab">
+    <!-- Revenue Overview -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">💰 Revenue Overview</h2>
+        </div>
+        <div class="revenue-cards">
+            <div class="revenue-card">
+                <span class="revenue-label">Average Price</span>
+                <span class="revenue-value">@GeneralStats.FormattedAvgPrice</span>
+            </div>
+            <div class="revenue-card">
+                <span class="revenue-label">Highest Price</span>
+                <span class="revenue-value">₦@GeneralStats.HighestPrice.ToString("N0")</span>
+            </div>
+            <div class="revenue-card">
+                <span class="revenue-label">Lowest Price</span>
+                <span class="revenue-value">₦@GeneralStats.LowestPrice.ToString("N0")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue by Category - Pie Chart -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">📊 Revenue Distribution</h2>
+        </div>
+        <div class="chart-container">
+            <canvas id="revenuePieChart"></canvas>
+        </div>
+        <div class="legend-grid">
+            @foreach (var category in RevenueByCategory.Take(5))
+            {
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: @GetCategoryColor(category.Category)"></span>
+                    <div class="legend-details">
+                        <span class="legend-name">@category.Category</span>
+                        <span class="legend-value">@category.FormattedRevenue (@category.PercentageDisplay)</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Monthly Sales Trend - Line Chart -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">📈 Sales Trend (Last 12 Months)</h2>
+        </div>
+        <div class="chart-container">
+            <canvas id="salesTrendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">📋 Quick Statistics</h2>
+        </div>
+        <div class="quick-stats-grid">
+            <div class="quick-stat">
+                <span class="quick-stat-icon">⭐</span>
+                <span class="quick-stat-label">Featured Products</span>
+                <span class="quick-stat-value">@GeneralStats.FeaturedProducts</span>
+            </div>
+            <div class="quick-stat">
+                <span class="quick-stat-icon">🔥</span>
+                <span class="quick-stat-label">Products On Sale</span>
+                <span class="quick-stat-value">@GeneralStats.ProductsOnSale</span>
+            </div>
+            <div class="quick-stat">
+                <span class="quick-stat-icon">📦</span>
+                <span class="quick-stat-label">Total Stock Units</span>
+                <span class="quick-stat-value">@GeneralStats.TotalStockUnits.ToString("N0")</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public GeneralStatistics GeneralStats { get; set; } = default!;
+    [Parameter] public List<RevenueByCategory> RevenueByCategory { get; set; } = new();
+    [Parameter] public List<MonthlySalesTrend> MonthlySalesTrends { get; set; } = new();
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RevenueByCategory.Any() && MonthlySalesTrends.Any())
+        {
+            await InitializeCharts();
+        }
+    }
+
+    private async Task InitializeCharts()
+    {
+        try
+        {
+            // Pie Chart Data
+            var pieLabels = RevenueByCategory.Select(c => c.Category).ToArray();
+            var pieData = RevenueByCategory.Select(c => (double)c.Revenue).ToArray();
+            var pieColors = RevenueByCategory.Select(c => GetCategoryColor(c.Category)).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("createPieChart", "revenuePieChart", pieLabels, pieData, pieColors);
+
+            // Line Chart Data
+            var lineLabels = MonthlySalesTrends.Select(t => t.MonthName).ToArray();
+            var lineData = MonthlySalesTrends.Select(t => (double)t.TotalRevenue).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("createLineChart", "salesTrendChart", lineLabels, lineData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chart initialization error: {ex.Message}");
+        }
+    }
+
+    private string GetCategoryColor(string category)
+    {
+        return category.ToLower() switch
+        {
+            "men's clothing" or "mens" or "men" => "#2C3E50",
+            "women's clothing" or "womens" or "women" => "#E91E63",
+            "children" or "kids" => "#FF9800",
+            "baby" => "#9C27B0",
+            "home" or "home & living" => "#795548",
+            "electronics" => "#3F51B5",
+            "sports" => "#4CAF50",
+            "beauty" => "#F06292",
+            _ => "#96994A"
+        };
+    }
+}
