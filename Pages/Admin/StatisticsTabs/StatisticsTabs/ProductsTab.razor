@@ -1,0 +1,207 @@
+@using SubashaVentures.Domain.Statistics
+
+<div class="products-tab">
+    <div class="stats-section">
+        <div class="section-header">
+            <h2 class="section-title">🏆 Top Performing Products</h2>
+            <span class="section-subtitle">Showing @PaginatedProducts.Count of @TopProducts.Count products</span>
+        </div>
+
+        @if (!TopProducts.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📦</div>
+                <p>No product data available</p>
+            </div>
+        }
+        else
+        {
+            <div class="products-table-container">
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th>Sales</th>
+                            <th>Revenue</th>
+                            <th>Views</th>
+                            <th>Rating</th>
+                            <th>Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var (product, index) in PaginatedProducts.Select((p, i) => (p, i)))
+                        {
+                            var rank = (CurrentPage - 1) * PageSize + index + 1;
+                            <tr class="product-row">
+                                <td>
+                                    <div class="rank-badge rank-@GetRankClass(rank)">
+                                        @if (rank <= 3)
+                                        {
+                                            <span class="rank-medal">@GetMedal(rank)</span>
+                                        }
+                                        else
+                                        {
+                                            <span>#@rank</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="product-info">
+                                        <span class="product-name">@product.Name</span>
+                                        <span class="product-sku">@product.Sku</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="category-badge">@product.Category</span>
+                                </td>
+                                <td>
+                                    <span class="price-value">@product.FormattedPrice</span>
+                                </td>
+                                <td>
+                                    <div class="metric-cell">
+                                        <span class="metric-value">@product.SalesCount.ToString("N0")</span>
+                                        <div class="metric-bar" style="width: @GetPercentage(product.SalesCount, MaxSales)%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="revenue-value">@product.FormattedRevenue</span>
+                                </td>
+                                <td>
+                                    <span class="views-value">@product.ViewCount.ToString("N0")</span>
+                                </td>
+                                <td>
+                                    <div class="rating-cell">
+                                        <span class="rating-stars">@GetStars(product.Rating)</span>
+                                        <span class="rating-text">@product.Rating.ToString("F1")</span>
+                                        <span class="review-count">(@product.ReviewCount)</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="stock-badge @GetStockClass(product.Stock)">
+                                        @product.Stock
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (TotalPages > 1)
+            {
+                <div class="pagination">
+                    <button class="page-btn" 
+                            @onclick="PreviousPage" 
+                            disabled="@(CurrentPage == 1)">
+                        ← Previous
+                    </button>
+                    
+                    <div class="page-numbers">
+                        @for (int i = Math.Max(1, CurrentPage - 2); i <= Math.Min(TotalPages, CurrentPage + 2); i++)
+                        {
+                            var pageNumber = i;
+                            <button class="page-btn @(pageNumber == CurrentPage ? "active" : "")" 
+                                    @onclick="@(() => GoToPage(pageNumber))">
+                                @pageNumber
+                            </button>
+                        }
+                    </div>
+                    
+                    <button class="page-btn" 
+                            @onclick="NextPage" 
+                            disabled="@(CurrentPage == TotalPages)">
+                        Next →
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<TopPerformingProduct> TopProducts { get; set; } = new();
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+
+    private List<TopPerformingProduct> PaginatedProducts => 
+        TopProducts.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
+
+    private int TotalPages => (int)Math.Ceiling(TopProducts.Count / (double)PageSize);
+    
+    private int MaxSales => TopProducts.Any() ? TopProducts.Max(p => p.SalesCount) : 1;
+
+    private string GetRankClass(int rank)
+    {
+        return rank switch
+        {
+            1 => "gold",
+            2 => "silver",
+            3 => "bronze",
+            _ => "default"
+        };
+    }
+
+    private string GetMedal(int rank)
+    {
+        return rank switch
+        {
+            1 => "🥇",
+            2 => "🥈",
+            3 => "🥉",
+            _ => ""
+        };
+    }
+
+    private string GetStars(float rating)
+    {
+        var fullStars = (int)Math.Floor(rating);
+        var hasHalfStar = rating - fullStars >= 0.5;
+        
+        var stars = string.Concat(Enumerable.Repeat("⭐", fullStars));
+        if (hasHalfStar) stars += "½";
+        
+        return stars;
+    }
+
+    private string GetStockClass(int stock)
+    {
+        if (stock == 0) return "out-of-stock";
+        if (stock <= 10) return "low-stock";
+        return "in-stock";
+    }
+
+    private int GetPercentage(int value, int max)
+    {
+        if (max == 0) return 0;
+        return (int)Math.Round((value / (double)max) * 100);
+    }
+
+    private async Task PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            await OnPageChange.InvokeAsync(CurrentPage - 1);
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            await OnPageChange.InvokeAsync(CurrentPage + 1);
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            await OnPageChange.InvokeAsync(page);
+        }
+    }
+}
