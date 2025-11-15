@@ -1,3 +1,4 @@
+// Services/Supabase/ISupabaseAuthService.cs
 using SubashaVentures.Models.Supabase;
 using Supabase.Gotrue;
 

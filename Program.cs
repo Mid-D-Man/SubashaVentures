@@ -1,3 +1,4 @@
+// Program.cs - CORRECTED (Simpler without custom SessionHandler)
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -20,7 +21,6 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
-
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
@@ -37,7 +37,6 @@ builder.Logging.SetMinimumLevel(LogLevel.Information);
 builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
 builder.Logging.AddFilter("SubashaVentures", LogLevel.Debug);
 
-// Register Mid_Logger as Singleton (it's thread-safe)
 builder.Services.AddSingleton<IMid_Logger, Mid_Logger>();
 
 // ==================== CRITICAL: Add Blazored Services FIRST ====================
@@ -50,9 +49,7 @@ builder.Services.AddBlazoredToast();
 
 // ==================== AUTHENTICATION (PLACEHOLDER FOR NOW) ====================
 builder.Services.AddAuthorizationCore();
-/* builder.Services.AddScoped<AuthenticationStateProvider, 
-    Microsoft.AspNetCore.Components.WebAssembly.Authentication.RemoteAuthenticationService>();
-*/
+
 // ==================== CORE SERVICES ====================
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();
@@ -70,13 +67,14 @@ var supabaseKey = builder.Configuration["Supabase:AnonKey"];
 
 if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
 {
+    // CORRECTED: Simple registration without custom session handler
     builder.Services.AddScoped<Supabase.Client>(sp =>
     {
-        var options = new Supabase.SupabaseOptions
+        var options = new SupabaseOptions
         {
             AutoRefreshToken = true,
             AutoConnectRealtime = false,  // CRITICAL: Disabled for WebAssembly
-            SessionHandler = new DefaultSupabaseSessionHandler()
+            // SessionHandler is optional - Supabase has built-in handling
         };
         
         return new Supabase.Client(supabaseUrl, supabaseKey, options);

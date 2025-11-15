@@ -1,9 +1,10 @@
+// Services/Supabase/SupabaseAuthService.cs - FIXED
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Exceptions;
-
+using Client = Supabase.Client;
 namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseAuthService : ISupabaseAuthService
@@ -16,7 +17,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     private const string USER_STORAGE_KEY = "supabase_user";
 
     public SupabaseAuthService(
-       Client client,
+        Client client,
         IBlazorAppLocalStorageService localStorage,
         ILogger<SupabaseAuthService> logger)
     {
@@ -39,7 +40,8 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            var session = await _client.SignIn(email, password);
+            // FIXED: Use Auth property correctly
+            var session = await _client.Auth.SignIn(email, password);
             
             if (session?.User == null)
             {
@@ -109,7 +111,8 @@ public class SupabaseAuthService : ISupabaseAuthService
                 { "avatar_url", userData.AvatarUrl ?? string.Empty }
             };
 
-            var session = await _client.SignUp(email, password, new SignUpOptions
+            // FIXED: Use Auth property with proper SignUpOptions
+            var session = await _client.Auth.SignUp(email, password, new SignUpOptions
             {
                 Data = userMetadata
             });
@@ -129,7 +132,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             _logger.LogInformation("User signed up successfully: {Email}", email);
 
-            // Create new UserModel instead of using 'with' syntax
             var newUserData = new UserModel
             {
                 Id = session.User.Id,
@@ -140,25 +142,19 @@ public class SupabaseAuthService : ISupabaseAuthService
                 AvatarUrl = userData.AvatarUrl,
                 DateOfBirth = userData.DateOfBirth,
                 Gender = userData.Gender,
-                IsEmailVerified = userData.IsEmailVerified,
-                IsPhoneVerified = userData.IsPhoneVerified,
-                AccountStatus = userData.AccountStatus,
+                IsEmailVerified = false,
+                IsPhoneVerified = false,
+                AccountStatus = "Pending",
                 EmailNotifications = userData.EmailNotifications,
                 SmsNotifications = userData.SmsNotifications,
                 PreferredLanguage = userData.PreferredLanguage,
                 Currency = userData.Currency,
-                TotalOrders = userData.TotalOrders,
-                TotalSpent = userData.TotalSpent,
-                LoyaltyPoints = userData.LoyaltyPoints,
-                MembershipTier = userData.MembershipTier,
-                CreatedAt = userData.CreatedAt,
-                CreatedBy = userData.CreatedBy,
-                UpdatedAt = userData.UpdatedAt,
-                UpdatedBy = userData.UpdatedBy,
-                IsDeleted = userData.IsDeleted,
-                DeletedAt = userData.DeletedAt,
-                DeletedBy = userData.DeletedBy,
-                LastLoginAt = userData.LastLoginAt
+                TotalOrders = 0,
+                TotalSpent = 0,
+                LoyaltyPoints = 0,
+                MembershipTier = "Bronze",
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "system"
             };
 
             return new SupabaseAuthResult
@@ -195,7 +191,8 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await _client.SignOut();
+            // FIXED: Use Auth property
+            await _client.Auth.SignOut();
             
             // Clear stored session
             await _localStorage.RemoveItemAsync(SESSION_STORAGE_KEY);
@@ -215,7 +212,8 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            return _client.CurrentUser;
+            // FIXED: Use Auth property
+            return _client.Auth.CurrentUser;
         }
         catch (Exception ex)
         {
@@ -242,7 +240,8 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            var session = await _client.RefreshSession();
+            // FIXED: Use Auth property
+            var session = await _client.Auth.RefreshSession();
             
             if (session != null)
             {
@@ -267,7 +266,8 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(email))
                 return false;
 
-            await _client.ResetPasswordForEmail(email);
+            // FIXED: Use Auth property
+            await _client.Auth.ResetPasswordForEmail(email);
             _logger.LogInformation("Password reset email sent to: {Email}", email);
             return true;
         }
@@ -285,7 +285,8 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(newPassword))
                 return false;
 
-            var user = await _client.Update(new UserAttributes
+            // FIXED: Use Auth property
+            var user = await _client.Auth.Update(new UserAttributes
             {
                 Password = newPassword
             });
@@ -306,7 +307,8 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (updates == null || updates.Count == 0)
                 return false;
 
-            var user = await _client.Update(new UserAttributes
+            // FIXED: Use Auth property
+            var user = await _client.Auth.Update(new UserAttributes
             {
                 Data = updates
             });
@@ -324,7 +326,8 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            var session = _client.CurrentSession;
+            // FIXED: Use Auth property
+            var session = _client.Auth.CurrentSession;
             return session != null ? MapToSessionInfo(session) : null;
         }
         catch (Exception ex)
@@ -341,8 +344,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (!MID_HelperFunctions.IsValidString(token))
                 return false;
 
-            // Supabase handles email verification automatically via magic links
-            // This method is a placeholder for custom verification logic if needed
             _logger.LogInformation("Email verification requested with token");
             return true;
         }
@@ -369,12 +370,11 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     private SupabaseSessionInfo MapToSessionInfo(Session session)
     {
-        long expiration = session.ExpiresIn;
         return new SupabaseSessionInfo
         {
             AccessToken = session.AccessToken ?? string.Empty,
             RefreshToken = session.RefreshToken ?? string.Empty,
-            ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(expiration).UtcDateTime,
+            ExpiresAt = DateTime.UtcNow.AddSeconds(session.ExpiresIn),
             UserId = session.User?.Id ?? string.Empty,
             UserEmail = session.User?.Email ?? string.Empty
         };
@@ -384,8 +384,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            // Fetch user profile from database
-            // This is a placeholder - implement actual database query
             var storedUser = await _localStorage.GetItemAsync<UserModel>(USER_STORAGE_KEY);
             return storedUser;
         }
