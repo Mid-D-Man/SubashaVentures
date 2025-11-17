@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Nov 17 17:29:26 UTC 2025
+Generated: Mon Nov 17 17:30:30 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 8f04b29e875985f962a9aefba337bd689c980479
+Commit: 2726213556b9260a3d276dc586c34781546f698f
 Branch: master
 ==================================
 
@@ -187,6 +187,7 @@ Services/VisualElements/IThemeServce.cs
 SubashaVentures.csproj
 SubashaVentures.sln
 Utilities/Configuration/ConfigurationHelper.cs
+Utilities/Constants/AdminConstants.cs
 Utilities/Constants/AppConstants.cs
 Utilities/HelperScripts/JsonHelper.cs
 Utilities/HelperScripts/MID_HelperFunctions.cs
@@ -292,7 +293,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 94 files
+.cs       : 95 files
 .razor    : 47 files
 .csproj   : 1 files
 .sln      : 1 files
