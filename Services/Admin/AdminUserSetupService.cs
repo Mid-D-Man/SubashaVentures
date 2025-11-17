@@ -1,18 +1,10 @@
-// Services/Admin/AdminUserSetupService.cs - NEW
+// Services/Admin/AdminUserSetupService.cs - COMPLETE IMPLEMENTATION
 using SubashaVentures.Services.Users;
+using SubashaVentures.Domain.User;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Admin;
-
-/// <summary>
-/// Service for setting up the predefined admin user
-/// </summary>
-public interface IAdminUserSetupService
-{
-    Task<bool> EnsureAdminUserExistsAsync();
-    Task<bool> IsAdminUserAsync(string email);
-}
 
 public class AdminUserSetupService : IAdminUserSetupService
 {
@@ -20,7 +12,7 @@ public class AdminUserSetupService : IAdminUserSetupService
     private readonly Supabase.Client _supabaseClient;
     private readonly ILogger<AdminUserSetupService> _logger;
 
-    // PREDEFINED ADMIN CREDENTIALS
+    // PREDEFINED ADMIN CREDENTIALS - NEVER CHANGE THESE IN PRODUCTION
     private const string ADMIN_EMAIL = "subashaventures.dev@gmail.com";
     private const string ADMIN_PASSWORD = "@SubashaAdmin#0307!";
     private const string ADMIN_FIRST_NAME = "SubashaVentures";
@@ -36,16 +28,20 @@ public class AdminUserSetupService : IAdminUserSetupService
         _logger = logger;
     }
 
-    /// <summary>
-    /// Ensures the admin user exists in the system
-    /// Call this on application startup
-    /// </summary>
     public async Task<bool> EnsureAdminUserExistsAsync()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Checking for admin user existence...",
+                "═══════════════════════════════════════════",
+                LogLevel.Info
+            );
+            await MID_HelperFunctions.DebugMessageAsync(
+                "ADMIN USER SETUP - CHECKING...",
+                LogLevel.Info
+            );
+            await MID_HelperFunctions.DebugMessageAsync(
+                "═══════════════════════════════════════════",
                 LogLevel.Info
             );
 
@@ -55,15 +51,25 @@ public class AdminUserSetupService : IAdminUserSetupService
             if (existingAdmin != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Admin user already exists: {ADMIN_EMAIL}",
+                    $"✓ Admin user already exists",
                     LogLevel.Info
                 );
+                
+                _logger.LogInformation("Admin User Status: EXISTS");
+                _logger.LogInformation("Admin Email: {Email}", ADMIN_EMAIL);
+                _logger.LogInformation("Admin ID: {UserId}", existingAdmin.Id);
+                _logger.LogInformation("Account Status: {Status}", existingAdmin.AccountStatus);
+                _logger.LogInformation("Membership Tier: {Tier}", existingAdmin.MembershipTier);
+                
+                // Ensure admin has proper role metadata
+                await EnsureAdminRoleAsync(existingAdmin.Id);
+                
                 return true;
             }
 
-            // Create admin user
+            // Admin user doesn't exist - create it
             await MID_HelperFunctions.DebugMessageAsync(
-                "Creating admin user...",
+                "⚠️ Admin user NOT found - Creating now...",
                 LogLevel.Warning
             );
 
@@ -73,9 +79,9 @@ public class AdminUserSetupService : IAdminUserSetupService
                 Password = ADMIN_PASSWORD,
                 FirstName = ADMIN_FIRST_NAME,
                 LastName = ADMIN_LAST_NAME,
-                PhoneNumber = null,
-                DateOfBirth = null,
-                Gender = null,
+                PhoneNumber = "+234 000 000 0000", // Placeholder
+                DateOfBirth = new DateTime(1990, 1, 1),
+                Gender = "Other",
                 SendWelcomeEmail = false
             };
 
@@ -83,7 +89,11 @@ public class AdminUserSetupService : IAdminUserSetupService
 
             if (createdAdmin == null)
             {
-                _logger.LogError("Failed to create admin user");
+                _logger.LogError("❌ CRITICAL: Failed to create admin user!");
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ CRITICAL: Admin user creation FAILED",
+                    LogLevel.Error
+                );
                 return false;
             }
 
@@ -92,34 +102,52 @@ public class AdminUserSetupService : IAdminUserSetupService
 
             // Verify email automatically for admin
             await _userService.VerifyUserEmailAsync(createdAdmin.Id);
+            
+            // Verify phone automatically for admin
+            await _userService.VerifyUserPhoneAsync(createdAdmin.Id);
 
             // Upgrade to Platinum tier
-            await _userService.UpdateMembershipTierAsync(createdAdmin.Id, Domain.User.MembershipTier.Platinum);
+            await _userService.UpdateMembershipTierAsync(createdAdmin.Id, MembershipTier.Platinum);
+
+            // Give admin 100,000 loyalty points
+            await _userService.UpdateLoyaltyPointsAsync(createdAdmin.Id, 100000);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Admin user created successfully: {ADMIN_EMAIL}",
+                "═══════════════════════════════════════════",
+                LogLevel.Info
+            );
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✓ ADMIN USER CREATED SUCCESSFULLY",
+                LogLevel.Info
+            );
+            await MID_HelperFunctions.DebugMessageAsync(
+                "═══════════════════════════════════════════",
                 LogLevel.Info
             );
 
-            _logger.LogInformation("═══════════════════════════════════════════");
-            _logger.LogInformation("ADMIN USER CREATED");
-            _logger.LogInformation("Email: {Email}", ADMIN_EMAIL);
-            _logger.LogInformation("Password: {Password}", ADMIN_PASSWORD);
-            _logger.LogInformation("═══════════════════════════════════════════");
+            _logger.LogWarning("═══════════════════════════════════════════");
+            _logger.LogWarning("🔐 ADMIN USER CREATED - CREDENTIALS BELOW");
+            _logger.LogWarning("═══════════════════════════════════════════");
+            _logger.LogWarning("Email: {Email}", ADMIN_EMAIL);
+            _logger.LogWarning("Password: {Password}", ADMIN_PASSWORD);
+            _logger.LogWarning("User ID: {UserId}", createdAdmin.Id);
+            _logger.LogWarning("Status: {Status}", createdAdmin.AccountStatus);
+            _logger.LogWarning("Tier: {Tier}", createdAdmin.MembershipTier);
+            _logger.LogWarning("Loyalty Points: {Points}", createdAdmin.LoyaltyPoints);
+            _logger.LogWarning("═══════════════════════════════════════════");
+            _logger.LogWarning("⚠️ STORE THESE CREDENTIALS SECURELY!");
+            _logger.LogWarning("═══════════════════════════════════════════");
 
             return true;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring admin user exists");
-            _logger.LogError(ex, "Failed to ensure admin user exists");
+            _logger.LogCritical(ex, "❌ CRITICAL ERROR: Failed to ensure admin user exists!");
             return false;
         }
     }
 
-    /// <summary>
-    /// Check if a user is the admin user
-    /// </summary>
     public async Task<bool> IsAdminUserAsync(string email)
     {
         try
@@ -136,13 +164,43 @@ public class AdminUserSetupService : IAdminUserSetupService
         }
     }
 
+    public async Task<AdminUserInfo?> GetAdminUserInfoAsync()
+    {
+        try
+        {
+            var admin = await _userService.GetUserByEmailAsync(ADMIN_EMAIL);
+            
+            if (admin == null)
+                return null;
+
+            return new AdminUserInfo
+            {
+                Email = admin.Email,
+                UserId = admin.Id,
+                FullName = admin.FullName,
+                IsActive = admin.AccountStatus == "Active",
+                CreatedAt = admin.CreatedAt
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting admin user info");
+            return null;
+        }
+    }
+
     /// <summary>
-    /// Set admin role in user's metadata
+    /// Set admin role in user's Supabase Auth metadata
     /// </summary>
     private async Task<bool> SetAdminRoleAsync(string userId)
     {
         try
         {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Setting admin role for user: {userId}",
+                LogLevel.Info
+            );
+
             // Update user metadata to include admin role
             var updated = await _supabaseClient.Auth.Update(new Supabase.Gotrue.UserAttributes
             {
@@ -150,15 +208,68 @@ public class AdminUserSetupService : IAdminUserSetupService
                 {
                     { "role", "admin" },
                     { "user_role", "admin" },
-                    { "is_admin", true }
+                    { "is_admin", true },
+                    { "admin_level", "super" },
+                    { "permissions", new[] { "all" } }
                 }
             });
 
-            return updated != null;
+            if (updated != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ Admin role set successfully",
+                    LogLevel.Info
+                );
+                return true;
+            }
+
+            _logger.LogWarning("Failed to set admin role - update returned null");
+            return false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to set admin role for user: {UserId}", userId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Ensure existing admin user has proper role metadata
+    /// </summary>
+    private async Task<bool> EnsureAdminRoleAsync(string userId)
+    {
+        try
+        {
+            // Check if current user already has admin role
+            var currentUser = await _supabaseClient.Auth.GetUser();
+            
+            if (currentUser?.User?.Id == userId)
+            {
+                var userData = currentUser.User.UserMetadata;
+                
+                if (userData != null && 
+                    userData.ContainsKey("role") && 
+                    userData["role"]?.ToString() == "admin")
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "✓ Admin role already set",
+                        LogLevel.Info
+                    );
+                    return true;
+                }
+            }
+
+            // Role not set or incorrect - update it
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Updating admin role metadata...",
+                LogLevel.Warning
+            );
+            
+            return await SetAdminRoleAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not verify/update admin role for user: {UserId}", userId);
             return false;
         }
     }
