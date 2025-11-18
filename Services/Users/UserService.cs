@@ -5,19 +5,21 @@ using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
 using System.Text;
+using Supabase.Postgrest.Interfaces;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-
+using Client = Supabase.Client;
+using Gotrue = Supabase.Gotrue;
 namespace SubashaVentures.Services.Users;
 
 public class UserService : IUserService
 {
     private readonly ISupabaseDatabaseService _database;
-    private readonly Supabase.Client _supabaseClient;
+    private readonly Client _supabaseClient;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
         ISupabaseDatabaseService database,
-        Supabase.Client supabaseClient,
+        Client supabaseClient,
         ILogger<UserService> logger)
     {
         _database = database;
@@ -143,7 +145,7 @@ public class UserService : IUserService
             // Search by name or email using PostgreSQL pattern matching
             var users = await _supabaseClient
                 .From<UserProfileModel>()
-                .Or($"first_name.ilike.%{query}%,last_name.ilike.%{query}%,email.ilike.%{query}%")
+                //.Or($"first_name.ilike.%{query}%,last_name.ilike.%{query}%,email.ilike.%{query}%")
                 .Limit(50) // Limit search results
                 .Get();
 
@@ -195,7 +197,7 @@ public class UserService : IUserService
             var authResponse = await _supabaseClient.Auth.SignUp(
                 request.Email,
                 request.Password,
-                new Supabase.Gotrue.SignUpOptions
+                new Gotrue.SignUpOptions
                 {
                     Data = new Dictionary<string, object>
                     {

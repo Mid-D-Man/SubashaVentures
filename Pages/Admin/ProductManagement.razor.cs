@@ -1,5 +1,8 @@
 // Pages/Admin/ProductManagement.razor.cs - FIXED
+
+using System.Text;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Domain.Product;
@@ -25,6 +28,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
+    [Inject] private JSRuntime IJsRuntime { get; set; } = default!;
     // Object pools for performance
     private MID_ComponentObjectPool<List<ProductViewModel>>? _productListPool;
     private MID_ComponentObjectPool<ProductFormData>? _formDataPool;
@@ -919,7 +923,7 @@ private async Task HandleExport()
         var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
         var base64 = Convert.ToBase64String(csvBytes);
 
-        await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
+        await IJsRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
 
         ShowSuccessNotification($"Exported {exportData.Count} products successfully!");
         

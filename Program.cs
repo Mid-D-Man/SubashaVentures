@@ -18,6 +18,8 @@ using Blazored.Toast;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.SupaBase;
 using Microsoft.AspNetCore.Components.Authorization;
+using SubashaVentures.Services.Statistics;
+using SubashaVentures.Services.Users;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -92,6 +94,7 @@ builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 // Stats
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<IUserService, UserService>();
 // ==================== PRODUCT SERVICES ====================
 builder.Services.AddScoped<IProductService, ProductService>();
 

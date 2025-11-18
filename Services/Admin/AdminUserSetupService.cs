@@ -3,13 +3,14 @@ using SubashaVentures.Services.Users;
 using SubashaVentures.Domain.User;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-
+using Client = Supabase.Client;
+using Gotrue = Supabase.Gotrue;
 namespace SubashaVentures.Services.Admin;
 
 public class AdminUserSetupService : IAdminUserSetupService
 {
     private readonly IUserService _userService;
-    private readonly Supabase.Client _supabaseClient;
+    private readonly Client _supabaseClient;
     private readonly ILogger<AdminUserSetupService> _logger;
 
     // PREDEFINED ADMIN CREDENTIALS - NEVER CHANGE THESE IN PRODUCTION
@@ -20,7 +21,7 @@ public class AdminUserSetupService : IAdminUserSetupService
 
     public AdminUserSetupService(
         IUserService userService,
-        Supabase.Client supabaseClient,
+        Client supabaseClient,
         ILogger<AdminUserSetupService> logger)
     {
         _userService = userService;
@@ -202,7 +203,7 @@ public class AdminUserSetupService : IAdminUserSetupService
             );
 
             // Update user metadata to include admin role
-            var updated = await _supabaseClient.Auth.Update(new Supabase.Gotrue.UserAttributes
+            var updated = await _supabaseClient.Auth.Update(new Gotrue.UserAttributes
             {
                 Data = new Dictionary<string, object>
                 {
@@ -241,11 +242,11 @@ public class AdminUserSetupService : IAdminUserSetupService
         try
         {
             // Check if current user already has admin role
-            var currentUser = await _supabaseClient.Auth.GetUser();
+            var currentUser = await _supabaseClient.Auth.GetUser(userId);
             
-            if (currentUser?.User?.Id == userId)
+            if (currentUser?.Id == userId)
             {
-                var userData = currentUser.User.UserMetadata;
+                var userData = currentUser.UserMetadata;
                 
                 if (userData != null && 
                     userData.ContainsKey("role") && 

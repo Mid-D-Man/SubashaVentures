@@ -6,7 +6,7 @@ using Supabase.Postgrest;
 using Supabase.Postgrest.Models;
 using Supabase.Postgrest.Attributes;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-
+using  Client = Supabase.Client;
 namespace SubashaVentures.Services.Statistics;
 
 public class StatisticsService : IStatisticsService
@@ -17,7 +17,7 @@ public class StatisticsService : IStatisticsService
 
     public StatisticsService(
         ISupabaseDatabaseService database,
-        Supabase.Client supabaseClient,
+        Client supabaseClient,
         ILogger<StatisticsService> logger)
     {
         _database = database;
