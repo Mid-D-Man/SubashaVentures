@@ -25,7 +25,7 @@
                            Size="SecondaryButton.ButtonSize.Medium"
                            Icon="⬇"
                            OnClick="HandleExport">
-                Export Users
+                Export
             </SecondaryButton>
             <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
                           Size="PrimaryButton.ButtonSize.Medium"
@@ -42,31 +42,31 @@
             <div class="stat-icon">👥</div>
             <div class="stat-info">
                 <span class="stat-label">Total Users</span>
-                <span class="stat-value">@userStats.TotalUsers</span>
+                <span class="stat-value">@stats.TotalUsers</span>
             </div>
         </div>
 
-        <div class="stat-card active">
+        <div class="stat-card">
             <div class="stat-icon">✅</div>
             <div class="stat-info">
                 <span class="stat-label">Active Users</span>
-                <span class="stat-value">@userStats.ActiveUsers</span>
+                <span class="stat-value">@stats.ActiveUsers</span>
             </div>
         </div>
 
-        <div class="stat-card verified">
-            <div class="stat-icon">🔒</div>
+        <div class="stat-card">
+            <div class="stat-icon">⏸️</div>
+            <div class="stat-info">
+                <span class="stat-label">Suspended</span>
+                <span class="stat-value">@stats.SuspendedUsers</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📧</div>
             <div class="stat-info">
                 <span class="stat-label">Verified</span>
-                <span class="stat-value">@userStats.VerifiedUsers</span>
-            </div>
-        </div>
-
-        <div class="stat-card new">
-            <div class="stat-icon">🆕</div>
-            <div class="stat-info">
-                <span class="stat-label">New Today</span>
-                <span class="stat-value">@userStats.NewUsersToday</span>
+                <span class="stat-value">@stats.VerifiedUsers</span>
             </div>
         </div>
     </div>
@@ -75,17 +75,23 @@
     <div class="um-toolbar">
         <div class="um-filters">
             <InputField Value="@searchQuery"
-                       ValueChanged="@((value) => { searchQuery = value; HandleSearch(); })"
-                       Placeholder="Search users..."
-                       PrefixIcon="🔍"
-                       ShowClearButton="true"
-                       CssClass="search-input" />
+                        ValueChanged="@((value) => { searchQuery = value; HandleSearch(); })"
+                        Placeholder="Search users..."
+                        PrefixIcon="🔍"
+                        ShowClearButton="true"
+                        CssClass="search-input" />
 
             <select class="filter-select" @onchange="HandleStatusFilter">
                 <option value="">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Deleted">Deleted</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+                <option value="deleted">Deleted</option>
+            </select>
+
+            <select class="filter-select" @onchange="HandleVerificationFilter">
+                <option value="">All Verification</option>
+                <option value="verified">Verified</option>
+                <option value="unverified">Unverified</option>
             </select>
 
             <select class="filter-select" @onchange="HandleTierFilter">
@@ -96,21 +102,13 @@
                 <option value="Platinum">Platinum</option>
             </select>
 
-            <select class="filter-select" @onchange="HandleVerificationFilter">
-                <option value="">All Verification</option>
-                <option value="verified">Email Verified</option>
-                <option value="unverified">Not Verified</option>
-                <option value="phone-verified">Phone Verified</option>
-            </select>
-
             <select class="filter-select" @onchange="HandleSortChange">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="name-az">Name (A-Z)</option>
                 <option value="name-za">Name (Z-A)</option>
-                <option value="spent-high">Highest Spent</option>
-                <option value="spent-low">Lowest Spent</option>
                 <option value="orders-high">Most Orders</option>
+                <option value="spent-high">Highest Spending</option>
             </select>
         </div>
 
@@ -125,14 +123,8 @@
                 </SecondaryButton>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
                                 Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="HandleBulkSuspend"
-                                CssClass="btn-warning">
+                                OnClick="HandleBulkSuspend">
                     Suspend
-                </SecondaryButton>
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="ClearSelection">
-                    Clear
                 </SecondaryButton>
             }
 
@@ -160,9 +152,12 @@
     else if (!filteredUsers.Any())
     {
         <div class="um-empty">
-            <div class="empty-icon">👤</div>
+            <div class="empty-icon">👥</div>
             <h3>No users found</h3>
-            <p>@(string.IsNullOrEmpty(searchQuery) ? "No users in the system yet" : "Try adjusting your search or filters")</p>
+            <p>@(string.IsNullOrEmpty(searchQuery) ? "Start by adding your first user" : "Try adjusting your search or filters")</p>
+            <PrimaryButton OnClick="OpenCreateUserModal">
+                Add User
+            </PrimaryButton>
         </div>
     }
     else
@@ -174,15 +169,14 @@
                 @foreach (var user in paginatedUsers)
                 {
                     <AdminUserCard User="@user"
-                                  AllowSelection="true"
-                                  IsSelected="@selectedUsers.Contains(user.Id)"
-                                  OnViewDetails="@((u) => OpenUserDetailsModal(u))"
-                                  OnSendMessage="@((u) => HandleSendMessage(u))"
-                                  OnViewOrders="@((u) => HandleViewOrders(u))"
-                                  OnToggleSuspend="@((args) => HandleToggleSuspend(args.user, args.isSuspended))"
-                                  OnDelete="@((u) => HandleDeleteUser(u))"
-                                  OnSelectionChanged="@((args) => HandleSelectionChanged(args.userId, args.isSelected))"
-                                  OnCardClick="@((u) => OpenUserDetailsModal(u))" />
+                                 IsSelected="@selectedUsers.Contains(user.Id)"
+                                 OnEdit="@((u) => OpenEditUserModal(u))"
+                                 OnSuspend="@((u) => HandleSuspendUser(u))"
+                                 OnActivate="@((u) => HandleActivateUser(u))"
+                                 OnDelete="@((u) => HandleDeleteUser(u))"
+                                 OnVerifyEmail="@((u) => HandleVerifyEmail(u))"
+                                 OnSelectionChanged="@((args) => HandleSelectionChanged(args.userId, args.isSelected))"
+                                 OnCardClick="@((u) => OpenEditUserModal(u))" />
                 }
             </div>
         }
@@ -203,7 +197,7 @@
                             <th>Status</th>
                             <th>Tier</th>
                             <th>Orders</th>
-                            <th>Spent</th>
+                            <th>Total Spent</th>
                             <th>Joined</th>
                             <th>Actions</th>
                         </tr>
@@ -225,11 +219,11 @@
                                         }
                                         else
                                         {
-                                            <div class="user-avatar-placeholder">@user.Initials</div>
+                                            <div class="avatar-placeholder">@user.Initials</div>
                                         }
                                         <div>
                                             <span class="user-name">@user.DisplayName</span>
-                                            @if (user.IsEmailVerified)
+                                            @if (user.IsVerified)
                                             {
                                                 <span class="verified-badge" title="Verified">✓</span>
                                             }
@@ -243,21 +237,30 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="tier-badge" style="--tier-color: @GetTierColor(user.MembershipTier)">
+                                    <span class="tier-badge @GetTierClass(user.MembershipTier)">
                                         @user.MembershipTier
                                     </span>
                                 </td>
                                 <td>@user.TotalOrders</td>
                                 <td>@user.DisplayTotalSpent</td>
-                                <td>@user.MemberSince</td>
+                                <td>@user.CreatedAt.ToString("MMM dd, yyyy")</td>
                                 <td>
                                     <div class="table-actions">
-                                        <button class="action-btn" @onclick="@(() => OpenUserDetailsModal(user))" title="View Details">
-                                            👁️
+                                        <button class="action-btn" @onclick="@(() => OpenEditUserModal(user))" title="Edit">
+                                            ✏️
                                         </button>
-                                        <button class="action-btn" @onclick="@(() => HandleSendMessage(user))" title="Send Message">
-                                            ✉️
-                                        </button>
+                                        @if (user.AccountStatus == "Active")
+                                        {
+                                            <button class="action-btn" @onclick="@(() => HandleSuspendUser(user))" title="Suspend">
+                                                ⏸️
+                                            </button>
+                                        }
+                                        else if (user.AccountStatus == "Suspended")
+                                        {
+                                            <button class="action-btn" @onclick="@(() => HandleActivateUser(user))" title="Activate">
+                                                ▶️
+                                            </button>
+                                        }
                                         <button class="action-btn danger" @onclick="@(() => HandleDeleteUser(user))" title="Delete">
                                             🗑️
                                         </button>
@@ -320,37 +323,35 @@
                                Label="First Name"
                                Placeholder="John"
                                IsRequired="true"
-                               HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("FirstName")))"
-                               ErrorMessage="@validationErrors.GetValueOrDefault("FirstName")" />
+                               HasError="@validationErrors.ContainsKey("FirstName")"
+                               ErrorMessage="@(validationErrors.ContainsKey("FirstName") ? validationErrors["FirstName"] : "")" />
 
                     <InputField @bind-Value="userForm.LastName"
                                Label="Last Name"
                                Placeholder="Doe"
                                IsRequired="true"
-                               HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("LastName")))"
-                               ErrorMessage="@validationErrors.GetValueOrDefault("LastName")" />
+                               HasError="@validationErrors.ContainsKey("LastName")"
+                               ErrorMessage="@(validationErrors.ContainsKey("LastName") ? validationErrors["LastName"] : "")" />
                 </div>
 
                 <InputField @bind-Value="userForm.Email"
                            Label="Email Address"
                            Type="email"
-                           Placeholder="user@example.com"
+                           Placeholder="john.doe@example.com"
                            IsRequired="true"
-                           IsReadOnly="@isEditMode"
-                           HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Email")))"
-                           ErrorMessage="@validationErrors.GetValueOrDefault("Email")"
-                           HelperText="@(isEditMode ? "Email cannot be changed after creation" : "")" />
+                           HasError="@validationErrors.ContainsKey("Email")"
+                           ErrorMessage="@(validationErrors.ContainsKey("Email") ? validationErrors["Email"] : "")" />
 
                 @if (!isEditMode)
                 {
                     <InputField @bind-Value="userForm.Password"
                                Label="Password"
                                Type="password"
-                               Placeholder="Enter secure password"
+                               Placeholder="••••••••"
                                IsRequired="true"
-                               HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Password")))"
-                               ErrorMessage="@validationErrors.GetValueOrDefault("Password"))"
-                               HelperText="Minimum 8 characters, include uppercase, lowercase, and number" />
+                               HasError="@validationErrors.ContainsKey("Password")"
+                               ErrorMessage="@(validationErrors.ContainsKey("Password") ? validationErrors["Password"] : "")"
+                               HelperText="Minimum 8 characters" />
                 }
 
                 <InputField @bind-Value="userForm.PhoneNumber"
@@ -359,31 +360,80 @@
                            Placeholder="+234 XXX XXX XXXX" />
             </div>
 
-            <!-- Additional Details -->
-            <div class="form-section">
-                <h3 class="section-title">Additional Details</h3>
-                
-                <div class="form-row">
+            <!-- Account Settings -->
+            @if (isEditMode)
+            {
+                <div class="form-section">
+                    <h3 class="section-title">Account Settings</h3>
+                    
                     <div class="form-group">
-                        <label class="form-label">Gender</label>
-                        <select class="form-select" @bind="userForm.Gender">
-                            <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                            <option value="Prefer not to say">Prefer not to say</option>
+                        <label class="form-label">Account Status</label>
+                        <select class="form-select" @bind="userForm.AccountStatus">
+                            <option value="Active">Active</option>
+                            <option value="Suspended">Suspended</option>
                         </select>
                     </div>
 
+                    @if (userForm.AccountStatus == "Suspended")
+                    {
+                        <div class="form-group">
+                            <label class="form-label">Suspension Reason</label>
+                            <textarea class="form-textarea"
+                                     @bind="userForm.SuspensionReason"
+                                     placeholder="Reason for suspension..."
+                                     rows="3"></textarea>
+                        </div>
+                    }
+
                     <div class="form-group">
-                        <label class="form-label">Date of Birth</label>
-                        <input type="date" 
-                               class="form-input"
-                               @bind="userForm.DateOfBirth"
-                               max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                        <label class="form-label">Membership Tier</label>
+                        <select class="form-select" @bind="userForm.MembershipTier">
+                            <option value="Bronze">Bronze</option>
+                            <option value="Silver">Silver</option>
+                            <option value="Gold">Gold</option>
+                            <option value="Platinum">Platinum</option>
+                        </select>
+                    </div>
+
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="userForm.IsEmailVerified" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Email Verified</span>
+                        </label>
+
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="userForm.IsPhoneVerified" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Phone Verified</span>
+                        </label>
                     </div>
                 </div>
-            </div>
+
+                <!-- Statistics (Read-only) -->
+                <div class="form-section">
+                    <h3 class="section-title">Statistics</h3>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Orders</span>
+                            <span class="stat-value">@userForm.TotalOrders</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Total Spent</span>
+                            <span class="stat-value">₦@userForm.TotalSpent.ToString("N0")</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Loyalty Points</span>
+                            <span class="stat-value">@userForm.LoyaltyPoints</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Member Since</span>
+                            <span class="stat-value">@userForm.CreatedAt.ToString("MMM yyyy")</span>
+                        </div>
+                    </div>
+                </div>
+            }
 
             <!-- Form Actions -->
             <div class="form-actions">
@@ -403,141 +453,55 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- User Details Modal -->
-<DynamicModal @ref="detailsModal"
-              Title="User Details"
-              Size="DynamicModal.ModalSize.Large"
-              IsOpen="@isDetailsModalOpen"
-              ShowFooter="false"
-              IsScrollable="true"
-              OnClose="CloseDetailsModal">
-    <BodyContent>
-        @if (selectedUser != null)
-        {
-            <div class="user-details">
-                <!-- Profile Section -->
-                <div class="details-section">
-                    <div class="profile-header">
-                        @if (!string.IsNullOrEmpty(selectedUser.AvatarUrl))
-                        {
-                            <img src="@selectedUser.AvatarUrl" alt="@selectedUser.DisplayName" class="profile-avatar" />
-                        }
-                        else
-                        {
-                            <div class="profile-avatar-placeholder">@selectedUser.Initials</div>
-                        }
-                        <div class="profile-info">
-                            <h2>@selectedUser.DisplayName</h2>
-                            <p class="profile-email">@selectedUser.Email</p>
-                            <div class="profile-badges">
-                                @if (selectedUser.IsEmailVerified)
-                                {
-                                    <span class="badge verified">✓ Email Verified</span>
-                                }
-                                @if (selectedUser.IsPhoneVerified)
-                                {
-                                    <span class="badge verified">📱 Phone Verified</span>
-                                }
-                                <span class="badge tier" style="--tier-color: @GetTierColor(selectedUser.MembershipTier)">
-                                    @selectedUser.MembershipTier Member
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Stats Grid -->
-                <div class="details-stats">
-                    <div class="stat-box">
-                        <span class="stat-icon">🛍️</span>
-                        <div>
-                            <span class="stat-number">@selectedUser.TotalOrders</span>
-                            <span class="stat-text">Total Orders</span>
-                        </div>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-icon">💰</span>
-                        <div>
-                            <span class="stat-number">@selectedUser.DisplayTotalSpent</span>
-                            <span class="stat-text">Total Spent</span>
-                        </div>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-icon">⭐</span>
-                        <div>
-                            <span class="stat-number">@selectedUser.LoyaltyPoints</span>
-                            <span class="stat-text">Loyalty Points</span>
-                        </div>
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-icon">📝</span>
-                        <div>
-                            <span class="stat-number">@selectedUser.ReviewsCount</span>
-                            <span class="stat-text">Reviews</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Information Grid -->
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <span class="detail-label">Phone Number:</span>
-                        <span class="detail-value">@(selectedUser.PhoneNumber ?? "Not provided")</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Account Status:</span>
-                        <span class="status-badge @GetStatusClass(selectedUser.AccountStatus)">
-                            @selectedUser.AccountStatus
-                        </span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Member Since:</span>
-                        <span class="detail-value">@selectedUser.MemberSince</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Last Login:</span>
-                        <span class="detail-value">
-                            @(selectedUser.LastLoginAt?.ToString("MMM dd, yyyy HH:mm") ?? "Never")
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="details-actions">
-                    <PrimaryButton OnClick="@(() => OpenEditUserModal(selectedUser))"
-                                  Icon="✏️">
-                        Edit Profile
-                    </PrimaryButton>
-                    <SecondaryButton OnClick="@(() => HandleSendMessage(selectedUser))"
-                                    Variant="SecondaryButton.ButtonVariant.Outline"
-                                    Icon="✉️">
-                        Send Message
-                    </SecondaryButton>
-                    <SecondaryButton OnClick="@(() => HandleViewOrders(selectedUser))"
-                                    Variant="SecondaryButton.ButtonVariant.Outline"
-                                    Icon="📦">
-                        View Orders
-                    </SecondaryButton>
-                </div>
-            </div>
-        }
-    </BodyContent>
-</DynamicModal>
-
-<!-- Delete Confirmation -->
+<!-- Delete Confirmation Popup -->
 <ConfirmationPopup @ref="deleteConfirmationPopup"
                   IsOpen="@showDeleteConfirmation"
-                  Title="@(usersToDelete != null ? "Delete Multiple Users?" : "Delete User?")"
+                  Title="@GetDeleteTitle()"
                   Message="@GetDeleteMessage()"
-                  WarningText="This action will soft-delete the user(s). They can be recovered later."
+                  WarningText="This action cannot be undone."
                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
                   ConfirmButtonText="Delete"
                   CancelButtonText="Cancel"
                   IsProcessing="@isSaving"
-                  OnConfirm="@(usersToDelete != null ? ConfirmBulkDelete : ConfirmDeleteUser)"
-                  OnCancel="@(() => { showDeleteConfirmation = false; userToDelete = null; usersToDelete = null; })"
-                  OnClose="@(() => { showDeleteConfirmation = false; userToDelete = null; usersToDelete = null; })" />
+                  OnConfirm="@ConfirmDeleteUser"
+                  OnCancel="@(() => { showDeleteConfirmation = false; userToDelete = null; })"
+                  OnClose="@(() => { showDeleteConfirmation = false; userToDelete = null; })" />
+
+<!-- Suspend Confirmation Popup -->
+<ConfirmationPopup @ref="suspendConfirmationPopup"
+                  IsOpen="@showSuspendConfirmation"
+                  Title="Suspend User?"
+                  Message="@GetSuspendMessage()"
+                  WarningText="The user will not be able to access their account."
+                  Variant="ConfirmationPopup.ConfirmationVariant.Warning"
+                  ConfirmButtonText="Suspend"
+                  CancelButtonText="Cancel"
+                  IsProcessing="@isSaving"
+                  OnConfirm="@ConfirmSuspendUser"
+                  OnCancel="@(() => { showSuspendConfirmation = false; userToSuspend = null; })"
+                  OnClose="@(() => { showSuspendConfirmation = false; userToSuspend = null; })" />
 
 @code {
-    // Code is in .razor.cs file
+    private string GetDeleteTitle()
+    {
+        return userToDelete != null ? "Delete User?" : "No User Selected";
+    }
+
+    private string GetDeleteMessage()
+    {
+        if (userToDelete != null)
+        {
+            return $"Are you sure you want to delete '{userToDelete.DisplayName}'? This will permanently remove their account and all associated data.";
+        }
+        return "No user selected for deletion.";
+    }
+
+    private string GetSuspendMessage()
+    {
+        if (userToSuspend != null)
+        {
+            return $"Are you sure you want to suspend '{userToSuspend.DisplayName}'? They will not be able to access their account until reactivated.";
+        }
+        return "No user selected for suspension.";
+    }
 }
