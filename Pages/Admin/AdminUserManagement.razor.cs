@@ -6,7 +6,6 @@ using SubashaVentures.Domain.User;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Utilities.HelperScripts;
-using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Domain.Enums;
 using System.Text;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -17,33 +16,28 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
 {
     [Inject] private IUserService UserService { get; set; } = default!;
     [Inject] private ILogger<AdminUserManagement> Logger { get; set; } = default!;
-    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
-
-    // Object pools for performance
-    private MID_ComponentObjectPool<List<UserProfileViewModel>>? _userListPool;
-    private MID_ComponentObjectPool<UserFormData>? _formDataPool;
 
     // Component state
     private bool isLoading = true;
     private bool isUserModalOpen = false;
-    private bool isDetailsModalOpen = false;
     private bool isEditMode = false;
     private bool isSaving = false;
     private bool showDeleteConfirmation = false;
+    private bool showSuspendConfirmation = false;
 
     private string viewMode = "grid";
     private string searchQuery = "";
     private string selectedStatus = "";
-    private string selectedTier = "";
     private string selectedVerification = "";
+    private string selectedTier = "";
     private string sortBy = "newest";
 
     private int currentPage = 1;
     private int pageSize = 24;
 
     // Stats
-    private UserStatistics userStats = new();
+    private UserStatistics stats = new();
 
     // Data
     private List<UserProfileViewModel> allUsers = new();
@@ -55,15 +49,14 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
     private UserFormData userForm = new();
     private Dictionary<string, string> validationErrors = new();
 
-    // Selected user for operations
-    private UserProfileViewModel? selectedUser = null;
+    // Delete/Suspend confirmation
     private UserProfileViewModel? userToDelete = null;
-    private List<string>? usersToDelete = null;
+    private UserProfileViewModel? userToSuspend = null;
 
     // Component references
     private DynamicModal? userModal;
-    private DynamicModal? detailsModal;
     private ConfirmationPopup? deleteConfirmationPopup;
+    private ConfirmationPopup? suspendConfirmationPopup;
     private NotificationComponent? notificationComponent;
 
     private int totalPages => (int)Math.Ceiling(filteredUsers.Count / (double)pageSize);
@@ -72,25 +65,12 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            // Initialize object pools
-            _userListPool = new MID_ComponentObjectPool<List<UserProfileViewModel>>(
-                () => new List<UserProfileViewModel>(),
-                list => list.Clear(),
-                maxPoolSize: 10
-            );
-
-            _formDataPool = new MID_ComponentObjectPool<UserFormData>(
-                () => new UserFormData(),
-                form => ResetFormData(form),
-                maxPoolSize: 5
-            );
-
             await MID_HelperFunctions.DebugMessageAsync("AdminUserManagement initialized", LogLevel.Info);
 
             // Load initial data
             await Task.WhenAll(
                 LoadUsersAsync(),
-                LoadUserStatisticsAsync()
+                LoadStatisticsAsync()
             );
         }
         catch (Exception ex)
@@ -131,47 +111,38 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task LoadUserStatisticsAsync()
+    private async Task LoadStatisticsAsync()
     {
         try
         {
-            userStats = await UserService.GetUserStatisticsAsync();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded user statistics: {userStats.TotalUsers} users",
-                LogLevel.Info
-            );
+            stats = await UserService.GetUserStatisticsAsync();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading user statistics");
-            ShowErrorNotification("Failed to load statistics");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading statistics");
+            Logger.LogError(ex, "Failed to load statistics");
         }
     }
 
     private void ApplyFiltersAndSort()
     {
-        using var pooledList = _userListPool?.GetPooled();
-        var tempList = pooledList?.Object ?? new List<UserProfileViewModel>();
-
-        tempList.AddRange(allUsers.Where(u =>
+        var tempList = allUsers.Where(u =>
             (string.IsNullOrEmpty(searchQuery) ||
-             u.DisplayName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+             u.FullName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
              u.Email.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
-            (string.IsNullOrEmpty(selectedStatus) || u.AccountStatus == selectedStatus) &&
-            (string.IsNullOrEmpty(selectedTier) || u.MembershipTier.ToString() == selectedTier) &&
-            (string.IsNullOrEmpty(selectedVerification) || FilterByVerification(u, selectedVerification))
-        ));
+            (string.IsNullOrEmpty(selectedStatus) || FilterByStatus(u, selectedStatus)) &&
+            (string.IsNullOrEmpty(selectedVerification) || FilterByVerification(u, selectedVerification)) &&
+            (string.IsNullOrEmpty(selectedTier) || u.MembershipTier.ToString() == selectedTier)
+        ).ToList();
 
         filteredUsers = sortBy switch
         {
             "newest" => tempList.OrderByDescending(x => x.CreatedAt).ToList(),
             "oldest" => tempList.OrderBy(x => x.CreatedAt).ToList(),
-            "name-az" => tempList.OrderBy(x => x.DisplayName).ToList(),
-            "name-za" => tempList.OrderByDescending(x => x.DisplayName).ToList(),
-            "spent-high" => tempList.OrderByDescending(x => x.TotalSpent).ToList(),
-            "spent-low" => tempList.OrderBy(x => x.TotalSpent).ToList(),
+            "name-az" => tempList.OrderBy(x => x.FullName).ToList(),
+            "name-za" => tempList.OrderByDescending(x => x.FullName).ToList(),
             "orders-high" => tempList.OrderByDescending(x => x.TotalOrders).ToList(),
+            "spent-high" => tempList.OrderByDescending(x => x.TotalSpent).ToList(),
             _ => tempList
         };
 
@@ -179,13 +150,23 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         UpdatePaginatedUsers();
     }
 
-    private bool FilterByVerification(UserProfileViewModel user, string filter)
+    private bool FilterByStatus(UserProfileViewModel user, string status)
     {
-        return filter switch
+        return status.ToLower() switch
         {
-            "verified" => user.IsEmailVerified,
-            "unverified" => !user.IsEmailVerified,
-            "phone-verified" => user.IsPhoneVerified,
+            "active" => user.AccountStatus == "Active",
+            "suspended" => user.AccountStatus == "Suspended",
+            "deleted" => user.AccountStatus == "Deleted",
+            _ => true
+        };
+    }
+
+    private bool FilterByVerification(UserProfileViewModel user, string verification)
+    {
+        return verification.ToLower() switch
+        {
+            "verified" => user.IsVerified,
+            "unverified" => !user.IsVerified,
             _ => true
         };
     }
@@ -211,15 +192,15 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         ApplyFiltersAndSort();
     }
 
-    private void HandleTierFilter(ChangeEventArgs e)
-    {
-        selectedTier = e.Value?.ToString() ?? "";
-        ApplyFiltersAndSort();
-    }
-
     private void HandleVerificationFilter(ChangeEventArgs e)
     {
         selectedVerification = e.Value?.ToString() ?? "";
+        ApplyFiltersAndSort();
+    }
+
+    private void HandleTierFilter(ChangeEventArgs e)
+    {
+        selectedTier = e.Value?.ToString() ?? "";
         ApplyFiltersAndSort();
     }
 
@@ -241,17 +222,9 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
     private void OpenEditUserModal(UserProfileViewModel user)
     {
         isEditMode = true;
-        selectedUser = user;
         userForm = MapToFormData(user);
         validationErrors.Clear();
         isUserModalOpen = true;
-        StateHasChanged();
-    }
-
-    private void OpenUserDetailsModal(UserProfileViewModel user)
-    {
-        selectedUser = user;
-        isDetailsModalOpen = true;
         StateHasChanged();
     }
 
@@ -260,14 +233,6 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         isUserModalOpen = false;
         userForm = new UserFormData();
         validationErrors.Clear();
-        selectedUser = null;
-        StateHasChanged();
-    }
-
-    private void CloseDetailsModal()
-    {
-        isDetailsModalOpen = false;
-        selectedUser = null;
         StateHasChanged();
     }
 
@@ -284,18 +249,18 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
             isSaving = true;
             StateHasChanged();
 
-            if (isEditMode && selectedUser != null)
+            if (isEditMode)
             {
                 var updateRequest = MapToUpdateRequest(userForm);
-                var success = await UserService.UpdateUserProfileAsync(selectedUser.Id, updateRequest);
+                var success = await UserService.UpdateUserProfileAsync(userForm.Id, updateRequest);
 
                 if (success)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"User updated: {userForm.FirstName} {userForm.LastName}",
+                        $"User updated: {userForm.Email}",
                         LogLevel.Info
                     );
-                    ShowSuccessNotification($"User '{userForm.FirstName} {userForm.LastName}' updated successfully!");
+                    ShowSuccessNotification($"User '{userForm.FullName}' updated successfully!");
                 }
                 else
                 {
@@ -311,10 +276,10 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
                 if (result != null)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"User created: {userForm.FirstName} {userForm.LastName}",
+                        $"User created: {userForm.Email}",
                         LogLevel.Info
                     );
-                    ShowSuccessNotification($"User '{userForm.FirstName} {userForm.LastName}' created successfully!");
+                    ShowSuccessNotification($"User '{userForm.FullName}' created successfully!");
                 }
                 else
                 {
@@ -325,7 +290,7 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
 
             CloseUserModal();
             await LoadUsersAsync();
-            await LoadUserStatisticsAsync();
+            await LoadStatisticsAsync();
         }
         catch (Exception ex)
         {
@@ -344,89 +309,27 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         validationErrors.Clear();
 
         if (string.IsNullOrWhiteSpace(userForm.FirstName))
-        {
             validationErrors["FirstName"] = "First name is required";
-        }
 
         if (string.IsNullOrWhiteSpace(userForm.LastName))
-        {
             validationErrors["LastName"] = "Last name is required";
-        }
 
         if (string.IsNullOrWhiteSpace(userForm.Email))
-        {
             validationErrors["Email"] = "Email is required";
-        }
-        else if (!IsValidEmail(userForm.Email))
-        {
+        else if (!MID_HelperFunctions.IsValidEmail(userForm.Email))
             validationErrors["Email"] = "Invalid email format";
-        }
 
         if (!isEditMode && string.IsNullOrWhiteSpace(userForm.Password))
-        {
             validationErrors["Password"] = "Password is required";
-        }
-        else if (!isEditMode && !IsValidPassword(userForm.Password))
-        {
-            validationErrors["Password"] = "Password must be at least 8 characters with uppercase, lowercase, and number";
-        }
+        else if (!isEditMode && userForm.Password.Length < 8)
+            validationErrors["Password"] = "Password must be at least 8 characters";
 
         return !validationErrors.Any();
-    }
-
-    private bool IsValidEmail(string email)
-    {
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private bool IsValidPassword(string password)
-    {
-        if (string.IsNullOrEmpty(password) || password.Length < 8) return false;
-        
-        bool hasUpper = password.Any(char.IsUpper);
-        bool hasLower = password.Any(char.IsLower);
-        bool hasDigit = password.Any(char.IsDigit);
-        
-        return hasUpper && hasLower && hasDigit;
-    }
-
-    private async Task HandleToggleSuspend(UserProfileViewModel user, bool suspend)
-    {
-        try
-        {
-            var reason = suspend ? "Suspended by administrator" : null;
-            var success = await UserService.ToggleSuspendUserAsync(user.Id, suspend, reason);
-
-            if (success)
-            {
-                ShowSuccessNotification($"User {(suspend ? "suspended" : "activated")} successfully");
-                await LoadUsersAsync();
-                await LoadUserStatisticsAsync();
-            }
-            else
-            {
-                ShowErrorNotification($"Failed to {(suspend ? "suspend" : "activate")} user");
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling suspend");
-            ShowErrorNotification("Error toggling user status");
-        }
     }
 
     private void HandleDeleteUser(UserProfileViewModel user)
     {
         userToDelete = user;
-        usersToDelete = null;
         showDeleteConfirmation = true;
         StateHasChanged();
     }
@@ -441,13 +344,9 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
                 
                 if (success)
                 {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"User deleted: {userToDelete.DisplayName}",
-                        LogLevel.Info
-                    );
                     ShowSuccessNotification($"User '{userToDelete.DisplayName}' deleted successfully!");
                     await LoadUsersAsync();
-                    await LoadUserStatisticsAsync();
+                    await LoadStatisticsAsync();
                 }
                 else
                 {
@@ -468,16 +367,92 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void HandleSendMessage(UserProfileViewModel user)
+    private void HandleSuspendUser(UserProfileViewModel user)
     {
-        // TODO: Navigate to messaging page
-        ShowInfoNotification($"Send message to {user.DisplayName} - Feature coming soon");
+        userToSuspend = user;
+        showSuspendConfirmation = true;
+        StateHasChanged();
     }
 
-    private void HandleViewOrders(UserProfileViewModel user)
+    private async Task ConfirmSuspendUser()
     {
-        // TODO: Navigate to user's orders
-        ShowInfoNotification($"View orders for {user.DisplayName} - Feature coming soon");
+        if (userToSuspend != null)
+        {
+            try
+            {
+                var success = await UserService.ToggleSuspendUserAsync(userToSuspend.Id, true, "Suspended by admin");
+                
+                if (success)
+                {
+                    ShowSuccessNotification($"User '{userToSuspend.DisplayName}' suspended successfully!");
+                    await LoadUsersAsync();
+                    await LoadStatisticsAsync();
+                }
+                else
+                {
+                    ShowErrorNotification("Failed to suspend user");
+                }
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Suspending user");
+                ShowErrorNotification($"Error suspending user: {ex.Message}");
+            }
+            finally
+            {
+                showSuspendConfirmation = false;
+                userToSuspend = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task HandleActivateUser(UserProfileViewModel user)
+    {
+        try
+        {
+            var success = await UserService.ToggleSuspendUserAsync(user.Id, false);
+            
+            if (success)
+            {
+                ShowSuccessNotification($"User '{user.DisplayName}' activated successfully!");
+                await LoadUsersAsync();
+                await LoadStatisticsAsync();
+            }
+            else
+            {
+                ShowErrorNotification("Failed to activate user");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Activating user");
+            ShowErrorNotification($"Error activating user: {ex.Message}");
+        }
+    }
+
+    private async Task HandleVerifyEmail(UserProfileViewModel user)
+    {
+        try
+        {
+            var success = await UserService.VerifyUserEmailAsync(user.Id);
+            
+            if (success)
+            {
+                ShowSuccessNotification($"Email verified for '{user.DisplayName}'!");
+                await LoadUsersAsync();
+                await LoadStatisticsAsync();
+            }
+            else
+            {
+                ShowErrorNotification("Failed to verify email");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying email");
+            ShowErrorNotification($"Error verifying email: {ex.Message}");
+        }
     }
 
     private void HandleSelectionChanged(string userId, bool isSelected)
@@ -510,12 +485,6 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void ClearSelection()
-    {
-        selectedUsers.Clear();
-        StateHasChanged();
-    }
-
     private async Task HandleBulkActivate()
     {
         if (!selectedUsers.Any())
@@ -533,7 +502,7 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
                 ShowSuccessNotification($"{selectedUsers.Count} users activated");
                 selectedUsers.Clear();
                 await LoadUsersAsync();
-                await LoadUserStatisticsAsync();
+                await LoadStatisticsAsync();
             }
             else
             {
@@ -557,17 +526,14 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
 
         try
         {
-            var success = await UserService.BulkSuspendUsersAsync(
-                selectedUsers, 
-                "Bulk suspension by administrator"
-            );
+            var success = await UserService.BulkSuspendUsersAsync(selectedUsers, "Bulk suspension by admin");
             
             if (success)
             {
                 ShowSuccessNotification($"{selectedUsers.Count} users suspended");
                 selectedUsers.Clear();
                 await LoadUsersAsync();
-                await LoadUserStatisticsAsync();
+                await LoadStatisticsAsync();
             }
             else
             {
@@ -581,64 +547,41 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task ConfirmBulkDelete()
-    {
-        if (usersToDelete != null && usersToDelete.Any())
-        {
-            try
-            {
-                var successCount = 0;
-                foreach (var userId in usersToDelete)
-                {
-                    if (await UserService.DeleteUserAsync(userId))
-                    {
-                        successCount++;
-                    }
-                }
-                
-                ShowSuccessNotification($"{successCount} users deleted");
-                selectedUsers.Clear();
-                await LoadUsersAsync();
-                await LoadUserStatisticsAsync();
-            }
-            catch (Exception ex)
-            {
-                await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk delete");
-                ShowErrorNotification("Error deleting users");
-            }
-            finally
-            {
-                showDeleteConfirmation = false;
-                usersToDelete = null;
-                StateHasChanged();
-            }
-        }
-    }
-
     private async Task HandleExport()
     {
         try
         {
-            var csv = await UserService.ExportUsersAsync();
-            
-            if (string.IsNullOrEmpty(csv))
+            isLoading = true;
+            StateHasChanged();
+
+            var csv = await UserService.ExportUsersAsync(
+                filteredUsers.Select(u => u.Id).ToList()
+            );
+
+            if (!string.IsNullOrEmpty(csv))
             {
-                ShowErrorNotification("No data to export");
-                return;
+                var fileName = $"users_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+                var csvBytes = Encoding.UTF8.GetBytes(csv);
+                var base64 = Convert.ToBase64String(csvBytes);
+
+                await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
+
+                ShowSuccessNotification($"Exported {filteredUsers.Count} users successfully!");
             }
-
-            var fileName = $"users_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-            var csvBytes = Encoding.UTF8.GetBytes(csv);
-            var base64 = Convert.ToBase64String(csvBytes);
-
-            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
-
-            ShowSuccessNotification($"Exported {filteredUsers.Count} users successfully!");
+            else
+            {
+                ShowWarningNotification("No data to export");
+            }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Exporting users");
             ShowErrorNotification($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -646,23 +589,16 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
     {
         return status.ToLower() switch
         {
-            "active" => "status-active",
-            "suspended" => "status-suspended",
-            "deleted" => "status-deleted",
-            _ => "status-inactive"
+            "active" => "active",
+            "suspended" => "suspended",
+            "deleted" => "deleted",
+            _ => "unknown"
         };
     }
 
-    private string GetTierColor(MembershipTier tier)
+    private string GetTierClass(MembershipTier tier)
     {
-        return tier switch
-        {
-            MembershipTier.Bronze => "#cd7f32",
-            MembershipTier.Silver => "#c0c0c0",
-            MembershipTier.Gold => "#ffd700",
-            MembershipTier.Platinum => "#e5e4e2",
-            _ => "#6b7280"
-        };
+        return tier.ToString().ToLower();
     }
 
     private void PreviousPage()
@@ -708,22 +644,24 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         notificationComponent?.ShowWarning(message);
     }
 
-    private void ShowInfoNotification(string message)
-    {
-        notificationComponent?.ShowInfo(message);
-    }
-
-    // Mapping helpers
     private UserFormData MapToFormData(UserProfileViewModel user)
     {
         return new UserFormData
         {
+            Id = user.Id,
             FirstName = user.FirstName,
             LastName = user.LastName,
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
-            DateOfBirth = user.DateOfBirth,
-            Gender = user.Gender
+            AccountStatus = user.AccountStatus,
+            SuspensionReason = user.SuspensionReason,
+            MembershipTier = user.MembershipTier.ToString(),
+            IsEmailVerified = user.IsEmailVerified,
+            IsPhoneVerified = user.IsPhoneVerified,
+            TotalOrders = user.TotalOrders,
+            TotalSpent = user.TotalSpent,
+            LoyaltyPoints = user.LoyaltyPoints,
+            CreatedAt = user.CreatedAt
         };
     }
 
@@ -736,8 +674,6 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
             FirstName = form.FirstName,
             LastName = form.LastName,
             PhoneNumber = form.PhoneNumber,
-            DateOfBirth = form.DateOfBirth,
-            Gender = form.Gender,
             SendWelcomeEmail = true
         };
     }
@@ -748,65 +684,36 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         {
             FirstName = form.FirstName,
             LastName = form.LastName,
-            PhoneNumber = form.PhoneNumber,
-            DateOfBirth = form.DateOfBirth,
-            Gender = form.Gender
+            PhoneNumber = form.PhoneNumber
         };
-    }
-
-    private void ResetFormData(UserFormData form)
-    {
-        form.FirstName = "";
-        form.LastName = "";
-        form.Email = "";
-        form.Password = "";
-        form.PhoneNumber = null;
-        form.DateOfBirth = null;
-        form.Gender = null;
     }
 
     public async ValueTask DisposeAsync()
     {
-        try
-        {
-            _userListPool?.Dispose();
-            _formDataPool?.Dispose();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "AdminUserManagement disposed successfully",
-                LogLevel.Info
-            );
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error disposing AdminUserManagement");
-        }
+        await MID_HelperFunctions.DebugMessageAsync(
+            "AdminUserManagement disposed",
+            LogLevel.Info
+        );
     }
 
-    private string GetDeleteMessage()
-    {
-        if (usersToDelete != null && usersToDelete.Any())
-        {
-            return $"Are you sure you want to delete {usersToDelete.Count} user(s)?";
-        }
-        
-        if (userToDelete != null)
-        {
-            return $"Are you sure you want to delete '{userToDelete.DisplayName}'?";
-        }
-        
-        return "Are you sure you want to proceed?";
-    }
-
-    // Form data class
     public class UserFormData
     {
+        public string Id { get; set; } = string.Empty;
         public string FirstName { get; set; } = "";
         public string LastName { get; set; } = "";
         public string Email { get; set; } = "";
         public string Password { get; set; } = "";
         public string? PhoneNumber { get; set; }
-        public DateTime? DateOfBirth { get; set; }
-        public string? Gender { get; set; }
+        public string AccountStatus { get; set; } = "Active";
+        public string? SuspensionReason { get; set; }
+        public string MembershipTier { get; set; } = "Bronze";
+        public bool IsEmailVerified { get; set; }
+        public bool IsPhoneVerified { get; set; }
+        public int TotalOrders { get; set; }
+        public decimal TotalSpent { get; set; }
+        public int LoyaltyPoints { get; set; }
+        public DateTime CreatedAt { get; set; }
+        
+        public string FullName => $"{FirstName} {LastName}".Trim();
     }
 }
