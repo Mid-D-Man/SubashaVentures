@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Nov 18 20:24:31 UTC 2025
+Generated: Tue Nov 18 20:27:59 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 7f9b789140b91c435b16caff4804595ee527c030
+Commit: 4707cc36eafccf453d65b6c38571b57fb675d0a9
 Branch: master
 ==================================
 
@@ -211,6 +211,7 @@ wwwroot/js/adminHelpers.js
 wwwroot/js/adminNavMenu.js
 wwwroot/js/charts.js
 wwwroot/js/connectivityServices.js
+wwwroot/js/downloadHelper.cs
 wwwroot/js/firebaseSetup.js
 wwwroot/js/firestoreModule.js
 wwwroot/js/imageCompressor.js
@@ -296,7 +297,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 96 files
+.cs       : 97 files
 .razor    : 48 files
 .csproj   : 1 files
 .sln      : 1 files
