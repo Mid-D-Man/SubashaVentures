@@ -207,9 +207,10 @@
                         {
                             <tr class="@(selectedUsers.Contains(user.Id) ? "selected" : "")">
                                 <td>
-                                    <input type="checkbox"
-                                           checked="@selectedUsers.Contains(user.Id)"
-                                           @onchange="@((e) => HandleSelectionChanged((user.Id, (bool)e.Value)))" />
+                              @* Line ~212 - FIXED *@
+<input type="checkbox"
+       checked="@selectedUsers.Contains(user.Id)"
+       @onchange="@((e) => HandleSelectionChanged((user.Id, (bool)(e.Value ?? false))))" />
                                 </td>
                                 <td>
                                     <div class="table-user-info">
