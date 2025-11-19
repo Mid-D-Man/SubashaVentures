@@ -1,4 +1,4 @@
-// Components/Admin/Users/AdminUserCard.razor.cs
+// Components/Admin/Users/AdminUserCard.razor.cs - FIXED
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.User;
 
@@ -10,14 +10,18 @@ public partial class AdminUserCard : ComponentBase
     [Parameter] public bool AllowSelection { get; set; }
     [Parameter] public bool IsSelected { get; set; }
     
-    // Callbacks
+    // FIXED: Updated callback signatures
     [Parameter] public EventCallback<UserProfileViewModel> OnViewDetails { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnSendMessage { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnViewOrders { get; set; }
-    [Parameter] public EventCallback<(UserProfileViewModel user, bool isSuspended)> OnToggleSuspend { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnDelete { get; set; }
     [Parameter] public EventCallback<(string userId, bool isSelected)> OnSelectionChanged { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnCardClick { get; set; }
+    
+    // NEW: Separate callbacks for suspend/activate
+    [Parameter] public EventCallback<UserProfileViewModel> OnSuspend { get; set; }
+    [Parameter] public EventCallback<UserProfileViewModel> OnActivate { get; set; }
+    [Parameter] public EventCallback<UserProfileViewModel> OnVerifyEmail { get; set; }
 
     private string GetStatusClass()
     {
@@ -76,10 +80,19 @@ public partial class AdminUserCard : ComponentBase
 
     private async Task HandleToggleSuspend()
     {
-        var newStatus = User.AccountStatus == "Active";
-        if (OnToggleSuspend.HasDelegate)
+        if (User.AccountStatus == "Active")
         {
-            await OnToggleSuspend.InvokeAsync((User, newStatus));
+            if (OnSuspend.HasDelegate)
+            {
+                await OnSuspend.InvokeAsync(User);
+            }
+        }
+        else
+        {
+            if (OnActivate.HasDelegate)
+            {
+                await OnActivate.InvokeAsync(User);
+            }
         }
     }
 
