@@ -1,4 +1,4 @@
-// Pages/Admin/AdminUserManagement.razor.cs
+// Pages/Admin/AdminUserManagement.razor.cs - FIXED
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.Users;
@@ -8,6 +8,7 @@ using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Domain.Enums;
 using System.Text;
+using System.Text.RegularExpressions;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Admin;
@@ -316,7 +317,7 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
 
         if (string.IsNullOrWhiteSpace(userForm.Email))
             validationErrors["Email"] = "Email is required";
-        else if (!MID_HelperFunctions.IsValidEmail(userForm.Email))
+        else if (!IsValidEmail(userForm.Email))
             validationErrors["Email"] = "Invalid email format";
 
         if (!isEditMode && string.IsNullOrWhiteSpace(userForm.Password))
@@ -325,6 +326,67 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
             validationErrors["Password"] = "Password must be at least 8 characters";
 
         return !validationErrors.Any();
+    }
+
+    // ✅ ADD THIS METHOD - Email validation
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var regex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+            return regex.IsMatch(email);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ✅ ADD THIS METHOD - View user details
+    private async Task HandleViewUserDetails(UserProfileViewModel user)
+    {
+        try
+        {
+            OpenEditUserModal(user);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Viewing user details");
+            ShowErrorNotification("Failed to view user details");
+        }
+    }
+
+    // ✅ ADD THIS METHOD - Send message to user
+    private async Task HandleSendUserMessage(UserProfileViewModel user)
+    {
+        try
+        {
+            ShowInfoNotification($"Message feature coming soon for {user.DisplayName}");
+            // TODO: Implement messaging functionality
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sending message");
+            ShowErrorNotification("Failed to send message");
+        }
+    }
+
+    // ✅ ADD THIS METHOD - View user orders
+    private async Task HandleViewUserOrders(UserProfileViewModel user)
+    {
+        try
+        {
+            ShowInfoNotification($"Viewing orders for {user.DisplayName}");
+            // TODO: Navigate to orders page filtered by user
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Viewing orders");
+            ShowErrorNotification("Failed to view orders");
+        }
     }
 
     private void HandleDeleteUser(UserProfileViewModel user)
@@ -455,8 +517,11 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void HandleSelectionChanged(string userId, bool isSelected)
+    // ✅ FIX THIS METHOD - Correct signature for tuple parameter
+    private void HandleSelectionChanged((string userId, bool isSelected) selection)
     {
+        var (userId, isSelected) = selection;
+        
         if (isSelected)
         {
             if (!selectedUsers.Contains(userId))
@@ -589,10 +654,10 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
     {
         return status.ToLower() switch
         {
-            "active" => "active",
-            "suspended" => "suspended",
-            "deleted" => "deleted",
-            _ => "unknown"
+            "active" => "status-active",
+            "suspended" => "status-suspended",
+            "deleted" => "status-deleted",
+            _ => "status-inactive"
         };
     }
 
@@ -642,6 +707,12 @@ public partial class AdminUserManagement : ComponentBase, IAsyncDisposable
     private void ShowWarningNotification(string message)
     {
         notificationComponent?.ShowWarning(message);
+    }
+
+    // ✅ ADD THIS METHOD - Info notification
+    private void ShowInfoNotification(string message)
+    {
+        notificationComponent?.ShowInfo(message);
     }
 
     private UserFormData MapToFormData(UserProfileViewModel user)
