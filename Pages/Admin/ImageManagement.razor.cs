@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs - WITH NOTIFICATIONS
+// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIX FOR MULTIPLE FILE UPLOADS
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -571,6 +571,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
+    // ✅ CRITICAL FIX: Store file data immediately, don't rely on IBrowserFile references
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
         try
@@ -578,37 +579,60 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             const int maxAllowedFiles = 10;
             var files = e.GetMultipleFiles(maxAllowedFiles);
             
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Processing {files.Count} selected files",
+                LogLevel.Info
+            );
+
             var validFileCount = 0;
+
+            // Process each file IMMEDIATELY and store the data
             foreach (var file in files)
             {
-                var validation = await CompressionService.ValidateImageAsync(file);
-                
-                if (!validation.IsValid)
+                try
                 {
-                    ShowWarning($"{file.Name}: {validation.ErrorMessage}");
-                    continue;
+                    // Validate
+                    var validation = await CompressionService.ValidateImageAsync(file);
+                    
+                    if (!validation.IsValid)
+                    {
+                        ShowWarning($"{file.Name}: {validation.ErrorMessage}");
+                        continue;
+                    }
+
+                    // ✅ KEY FIX: Read and store file data IMMEDIATELY
+                    // Don't store IBrowserFile reference - it becomes invalid!
+                    var fileData = await ReadFileDataAsync(file);
+                    
+                    if (fileData == null)
+                    {
+                        ShowWarning($"{file.Name}: Failed to read file data");
+                        continue;
+                    }
+
+                    uploadQueue.Add(new UploadQueueItem
+                    {
+                        FileName = file.Name,
+                        PreviewUrl = fileData.PreviewUrl,
+                        FileSize = file.Size,
+                        Status = "pending",
+                        BrowserFile = null, // Don't store reference!
+                        FileData = fileData.FileBytes, // Store actual bytes
+                        ContentType = file.ContentType
+                    });
+                    
+                    validFileCount++;
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✓ Queued: {file.Name} ({file.Size / 1024}KB)",
+                        LogLevel.Debug
+                    );
                 }
-
-                var previewStream = file.OpenReadStream(2 * 1024 * 1024);
-                var buffer = new byte[Math.Min(file.Size, 2 * 1024 * 1024)];
-                var bytesRead = await previewStream.ReadAsync(buffer, 0, buffer.Length);
-                
-                var actualBuffer = new byte[bytesRead];
-                Array.Copy(buffer, actualBuffer, bytesRead);
-                
-                var base64 = Convert.ToBase64String(actualBuffer);
-                var previewUrl = $"data:{file.ContentType};base64,{base64}";
-
-                uploadQueue.Add(new UploadQueueItem
+                catch (Exception ex)
                 {
-                    FileName = file.Name,
-                    PreviewUrl = previewUrl,
-                    FileSize = file.Size,
-                    Status = "pending",
-                    BrowserFile = file
-                });
-                
-                validFileCount++;
+                    await MID_HelperFunctions.LogExceptionAsync(ex, $"Processing file: {file.Name}");
+                    ShowWarning($"{file.Name}: {ex.Message}");
+                }
             }
 
             if (validFileCount > 0)
@@ -625,6 +649,39 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    // ✅ NEW: Read file data immediately
+    private async Task<(byte[] FileBytes, string PreviewUrl)?> ReadFileDataAsync(IBrowserFile file)
+    {
+        try
+        {
+            const long maxPreviewSize = 2L * 1024L * 1024L; // 2MB preview
+            const long maxFileSize = 50L * 1024L * 1024L; // 50MB total
+            
+            // Read full file into memory
+            using var fileStream = file.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            
+            await fileStream.CopyToAsync(memoryStream);
+            var fileBytes = memoryStream.ToArray();
+
+            // Create preview from first 2MB
+            var previewBytes = fileBytes.Length > maxPreviewSize 
+                ? fileBytes.Take((int)maxPreviewSize).ToArray()
+                : fileBytes;
+                
+            var base64 = Convert.ToBase64String(previewBytes);
+            var previewUrl = $"data:{file.ContentType};base64,{base64}";
+
+            return (fileBytes, previewUrl);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Reading file data: {file.Name}");
+            return null;
+        }
+    }
+
+    // ✅ FIXED: Upload using stored byte arrays
     private async Task StartUpload()
     {
         if (!uploadQueue.Any() || isUploading)
@@ -638,6 +695,11 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             var successCount = 0;
             var failCount = 0;
 
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Starting upload of {uploadQueue.Count} files to folder: {uploadFolder}",
+                LogLevel.Info
+            );
+
             foreach (var item in uploadQueue.Where(x => x.Status == "pending"))
             {
                 try
@@ -646,13 +708,16 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     item.Progress = 30;
                     StateHasChanged();
 
-                    if (item.BrowserFile != null)
+                    // ✅ Use stored byte array instead of IBrowserFile
+                    if (item.FileData != null)
                     {
+                        using var fileStream = new MemoryStream(item.FileData);
+                        
                         var result = await StorageService.UploadImageAsync(
-                            item.BrowserFile,
+                            fileStream,
+                            item.FileName,
                             "products",
-                            uploadFolder,
-                            enableCompression
+                            uploadFolder
                         );
 
                         if (result.Success)
@@ -660,13 +725,29 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                             item.Status = "success";
                             item.Progress = 100;
                             successCount++;
+                            
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                $"✓ Uploaded: {item.FileName}",
+                                LogLevel.Info
+                            );
                         }
                         else
                         {
                             item.Status = "error";
                             item.ErrorMessage = result.ErrorMessage ?? "Upload failed";
                             failCount++;
+                            
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                $"✗ Failed: {item.FileName} - {item.ErrorMessage}",
+                                LogLevel.Warning
+                            );
                         }
+                    }
+                    else
+                    {
+                        item.Status = "error";
+                        item.ErrorMessage = "No file data available";
+                        failCount++;
                     }
                 }
                 catch (Exception ex)
@@ -674,12 +755,20 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     item.Status = "error";
                     item.ErrorMessage = ex.Message;
                     failCount++;
+                    
+                    await MID_HelperFunctions.LogExceptionAsync(ex, $"Uploading: {item.FileName}");
                 }
                 finally
                 {
                     StateHasChanged();
+                    await Task.Delay(100); // Small delay between uploads
                 }
             }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Upload complete: {successCount} succeeded, {failCount} failed",
+                LogLevel.Info
+            );
 
             await LoadImagesAsync();
             await LoadStorageInfoAsync();
@@ -821,6 +910,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    // ✅ UPDATED: Store byte array instead of IBrowserFile
     public class UploadQueueItem
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -830,7 +920,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         public string Status { get; set; } = "pending";
         public int Progress { get; set; }
         public string? ErrorMessage { get; set; }
-        public IBrowserFile? BrowserFile { get; set; }
+        
+        // ✅ CRITICAL: Store actual bytes, not IBrowserFile reference
+        public byte[]? FileData { get; set; }
+        public string ContentType { get; set; } = "image/jpeg";
+
+        // REMOVED: Don't store IBrowserFile - it becomes invalid!
+        // public IBrowserFile? BrowserFile { get; set; }
 
         public string FormattedSize
         {
