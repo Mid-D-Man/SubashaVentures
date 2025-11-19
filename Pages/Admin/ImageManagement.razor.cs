@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIX FOR MULTIPLE FILE UPLOADS .
+// Pages/Admin/ImageManagement.razor.cs - FIXED NULLABLE TUPLE HANDLING
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -571,7 +571,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // ✅ CRITICAL FIX: Store file data immediately, don't rely on IBrowserFile references
+    // ✅ CRITICAL FIX: Store file data immediately
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
         try
@@ -586,12 +586,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
             var validFileCount = 0;
 
-            // Process each file IMMEDIATELY and store the data
             foreach (var file in files)
             {
                 try
                 {
-                    // Validate
                     var validation = await CompressionService.ValidateImageAsync(file);
                     
                     if (!validation.IsValid)
@@ -600,24 +598,25 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                         continue;
                     }
 
-                    // ✅ KEY FIX: Read and store file data IMMEDIATELY
-                    // Don't store IBrowserFile reference - it becomes invalid!
-                    var fileData = await ReadFileDataAsync(file);
+                    // ✅ FIXED: Proper nullable tuple handling
+                    var fileDataResult = await ReadFileDataAsync(file);
                     
-                    if (fileData == null)
+                    if (fileDataResult == null)
                     {
                         ShowWarning($"{file.Name}: Failed to read file data");
                         continue;
                     }
 
+                    // ✅ FIXED: Check for null and access .Value
+                    var (fileBytes, previewUrl) = fileDataResult.Value;
+
                     uploadQueue.Add(new UploadQueueItem
                     {
                         FileName = file.Name,
-                        PreviewUrl = fileData.PreviewUrl,
+                        PreviewUrl = previewUrl,
                         FileSize = file.Size,
                         Status = "pending",
-                        BrowserFile = null, // Don't store reference!
-                        FileData = fileData.FileBytes, // Store actual bytes
+                        FileData = fileBytes,
                         ContentType = file.ContentType
                     });
                     
@@ -654,17 +653,15 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            const long maxPreviewSize = 2L * 1024L * 1024L; // 2MB preview
-            const long maxFileSize = 50L * 1024L * 1024L; // 50MB total
+            const long maxPreviewSize = 2L * 1024L * 1024L;
+            const long maxFileSize = 50L * 1024L * 1024L;
             
-            // Read full file into memory
             using var fileStream = file.OpenReadStream(maxFileSize);
             using var memoryStream = new MemoryStream();
             
             await fileStream.CopyToAsync(memoryStream);
             var fileBytes = memoryStream.ToArray();
 
-            // Create preview from first 2MB
             var previewBytes = fileBytes.Length > maxPreviewSize 
                 ? fileBytes.Take((int)maxPreviewSize).ToArray()
                 : fileBytes;
@@ -708,7 +705,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     item.Progress = 30;
                     StateHasChanged();
 
-                    // ✅ Use stored byte array instead of IBrowserFile
                     if (item.FileData != null)
                     {
                         using var fileStream = new MemoryStream(item.FileData);
@@ -761,7 +757,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 finally
                 {
                     StateHasChanged();
-                    await Task.Delay(100); // Small delay between uploads
+                    await Task.Delay(100);
                 }
             }
 
@@ -775,7 +771,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
             uploadQueue.RemoveAll(x => x.Status == "success");
 
-            // Show result notification
             if (successCount > 0 && failCount == 0)
             {
                 ShowSuccess($"Successfully uploaded {successCount} image(s)");
@@ -876,7 +871,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // Notification helper methods
     private void ShowSuccess(string message)
     {
         notificationComponent?.ShowNotification(message, NotificationType.Success);
@@ -910,7 +904,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ✅ UPDATED: Store byte array instead of IBrowserFile
     public class UploadQueueItem
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -920,13 +913,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         public string Status { get; set; } = "pending";
         public int Progress { get; set; }
         public string? ErrorMessage { get; set; }
-        
-        // ✅ CRITICAL: Store actual bytes, not IBrowserFile reference
         public byte[]? FileData { get; set; }
         public string ContentType { get; set; } = "image/jpeg";
-
-        // REMOVED: Don't store IBrowserFile - it becomes invalid!
-        // public IBrowserFile? BrowserFile { get; set; }
 
         public string FormattedSize
         {
