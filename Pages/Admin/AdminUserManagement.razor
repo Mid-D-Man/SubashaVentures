@@ -1,3 +1,4 @@
+@* Pages/Admin/AdminUserManagement.razor - FIXED CALLBACKS *@
 @page "/admin/users"
 @using SubashaVentures.Layout.Admin
 @using SubashaVentures.Components.Shared.Buttons
@@ -14,7 +15,7 @@
                           Position="NotificationPosition.TopRight"
                           AutoDismissTime="5000" />
 
-    <!-- Header -->
+    <!-- Header, Stats, Toolbar remain the same... -->
     <div class="um-header">
         <div class="um-header-left">
             <h1 class="um-title">User Management</h1>
@@ -45,7 +46,6 @@
                 <span class="stat-value">@stats.TotalUsers</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">✅</div>
             <div class="stat-info">
@@ -53,7 +53,6 @@
                 <span class="stat-value">@stats.ActiveUsers</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">⏸️</div>
             <div class="stat-info">
@@ -61,7 +60,6 @@
                 <span class="stat-value">@stats.SuspendedUsers</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">📧</div>
             <div class="stat-info">
@@ -164,25 +162,27 @@
     {
         @if (viewMode == "grid")
         {
-            <!-- Grid View -->
+            <!-- FIXED: Grid View with correct callbacks -->
             <div class="um-grid">
                 @foreach (var user in paginatedUsers)
                 {
                     <AdminUserCard User="@user"
                                  IsSelected="@selectedUsers.Contains(user.Id)"
-                                 OnEdit="@((u) => OpenEditUserModal(u))"
-                                 OnSuspend="@((u) => HandleSuspendUser(u))"
-                                 OnActivate="@((u) => HandleActivateUser(u))"
-                                 OnDelete="@((u) => HandleDeleteUser(u))"
-                                 OnVerifyEmail="@((u) => HandleVerifyEmail(u))"
-                                 OnSelectionChanged="@((args) => HandleSelectionChanged(args.userId, args.isSelected))"
-                                 OnCardClick="@((u) => OpenEditUserModal(u))" />
+                                 OnViewDetails="@HandleViewUserDetails"
+                                 OnSendMessage="@HandleSendUserMessage"
+                                 OnViewOrders="@HandleViewUserOrders"
+                                 OnSuspend="@HandleSuspendUser"
+                                 OnActivate="@HandleActivateUser"
+                                 OnDelete="@HandleDeleteUser"
+                                 OnVerifyEmail="@HandleVerifyEmail"
+                                 OnSelectionChanged="@HandleSelectionChanged"
+                                 OnCardClick="@HandleViewUserDetails" />
                 }
             </div>
         }
         else
         {
-            <!-- List View -->
+            <!-- List View remains the same... -->
             <div class="um-table-container">
                 <table class="um-table">
                     <thead>
@@ -209,7 +209,7 @@
                                 <td>
                                     <input type="checkbox"
                                            checked="@selectedUsers.Contains(user.Id)"
-                                           @onchange="@((e) => HandleSelectionChanged(user.Id, (bool)e.Value))" />
+                                           @onchange="@((e) => HandleSelectionChanged((user.Id, (bool)e.Value)))" />
                                 </td>
                                 <td>
                                     <div class="table-user-info">
@@ -246,7 +246,7 @@
                                 <td>@user.CreatedAt.ToString("MMM dd, yyyy")</td>
                                 <td>
                                     <div class="table-actions">
-                                        <button class="action-btn" @onclick="@(() => OpenEditUserModal(user))" title="Edit">
+                                        <button class="action-btn" @onclick="@(() => HandleViewUserDetails(user))" title="Edit">
                                             ✏️
                                         </button>
                                         @if (user.AccountStatus == "Active")
@@ -304,7 +304,7 @@
     }
 </div>
 
-<!-- Create/Edit User Modal -->
+<!-- Modals remain the same but are included for completeness -->
 <DynamicModal @ref="userModal"
               Title="@(isEditMode ? "Edit User" : "Create User")"
               Size="DynamicModal.ModalSize.Large"
@@ -314,7 +314,6 @@
               OnClose="CloseUserModal">
     <BodyContent>
         <div class="user-form">
-            <!-- Basic Information -->
             <div class="form-section">
                 <h3 class="section-title">Basic Information</h3>
                 
@@ -360,7 +359,6 @@
                            Placeholder="+234 XXX XXX XXXX" />
             </div>
 
-            <!-- Account Settings -->
             @if (isEditMode)
             {
                 <div class="form-section">
@@ -410,7 +408,6 @@
                     </div>
                 </div>
 
-                <!-- Statistics (Read-only) -->
                 <div class="form-section">
                     <h3 class="section-title">Statistics</h3>
                     
@@ -435,7 +432,6 @@
                 </div>
             }
 
-            <!-- Form Actions -->
             <div class="form-actions">
                 <SecondaryButton OnClick="CloseUserModal"
                                 Variant="SecondaryButton.ButtonVariant.Outline"
@@ -453,7 +449,6 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Delete Confirmation Popup -->
 <ConfirmationPopup @ref="deleteConfirmationPopup"
                   IsOpen="@showDeleteConfirmation"
                   Title="@GetDeleteTitle()"
@@ -467,7 +462,6 @@
                   OnCancel="@(() => { showDeleteConfirmation = false; userToDelete = null; })"
                   OnClose="@(() => { showDeleteConfirmation = false; userToDelete = null; })" />
 
-<!-- Suspend Confirmation Popup -->
 <ConfirmationPopup @ref="suspendConfirmationPopup"
                   IsOpen="@showSuspendConfirmation"
                   Title="Suspend User?"
