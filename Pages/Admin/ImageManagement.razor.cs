@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIX FOR MULTIPLE FILE UPLOADS
+// Pages/Admin/ImageManagement.razor.cs - COMPLETE FIX FOR MULTIPLE FILE UPLOADS .
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
