@@ -1,5 +1,3 @@
-// Pages/Admin/ProductManagement.razor.cs - FIXED
-
 using System.Text;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -23,13 +21,14 @@ namespace SubashaVentures.Pages.Admin;
 public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
+    [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
-
     [Inject] private JSRuntime IJsRuntime { get; set; } = default!;
-    // Object pools for performance
+
+    // Object pools
     private MID_ComponentObjectPool<List<ProductViewModel>>? _productListPool;
     private MID_ComponentObjectPool<ProductFormData>? _formDataPool;
 
@@ -59,6 +58,10 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private int outOfStockProducts = 0;
     private int featuredProducts = 0;
 
+    // Product of the Day
+    private ProductViewModel? productOfTheDay = null;
+    private DateTime? potdLastUpdate = null;
+
     // Data
     private List<ProductViewModel> allProducts = new();
     private List<ProductViewModel> filteredProducts = new();
@@ -66,7 +69,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private List<CategoryViewModel> categories = new();
     private List<int> selectedProducts = new();
 
-    //template selection methods
+    // Template selection
     private List<string> commonTags = new();
     private List<string> commonSizes = new();
     private List<string> commonColors = new();
@@ -94,7 +97,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     protected override async Task OnInitializedAsync()
     {
-        
         try
         {
             // Initialize object pools
@@ -115,7 +117,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             // Load initial data
             await Task.WhenAll(
                 LoadProductsAsync(),
-                LoadCategoriesAsync()
+                LoadCategoriesAsync(),
+                LoadProductOfTheDayAsync()
             );
 
             CalculateStats();
@@ -129,6 +132,77 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             await MID_HelperFunctions.LogExceptionAsync(ex, "ProductManagement initialization");
             ShowErrorNotification("Failed to initialize product management");
             isLoading = false;
+        }
+    }
+
+    // ==================== PRODUCT OF THE DAY METHODS ====================
+
+    private async Task LoadProductOfTheDayAsync()
+    {
+        try
+        {
+            productOfTheDay = await ProductOfTheDayService.GetProductOfTheDayAsync();
+            potdLastUpdate = await ProductOfTheDayService.GetLastUpdateTimeAsync();
+            
+            if (productOfTheDay != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Product of the Day loaded: {productOfTheDay.Name}",
+                    LogLevel.Info
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading Product of the Day");
+        }
+    }
+
+    private async Task SetAsProductOfTheDay(ProductViewModel product)
+    {
+        try
+        {
+            var success = await ProductOfTheDayService.SetProductOfTheDayAsync(product.Id);
+            
+            if (success)
+            {
+                await LoadProductOfTheDayAsync();
+                ShowSuccessNotification($"'{product.Name}' set as Product of the Day!");
+                StateHasChanged();
+            }
+            else
+            {
+                ShowErrorNotification("Failed to set Product of the Day. Ensure product is active and in stock.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Setting Product of the Day");
+            ShowErrorNotification("Error setting Product of the Day");
+        }
+    }
+
+    private async Task RefreshProductOfTheDay()
+    {
+        try
+        {
+            var success = await ProductOfTheDayService.AutoSelectProductOfTheDayAsync();
+            
+            if (success)
+            {
+                await LoadProductOfTheDayAsync();
+                ShowSuccessNotification("Product of the Day refreshed based on performance metrics!");
+                StateHasChanged();
+            }
+            else
+            {
+                ShowErrorNotification("Failed to refresh Product of the Day");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Refreshing Product of the Day");
+            ShowErrorNotification("Error refreshing Product of the Day");
         }
     }
 
