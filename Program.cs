@@ -97,7 +97,7 @@ builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 // ==================== PRODUCT SERVICES ====================
 builder.Services.AddScoped<IProductService, ProductService>();
-
+builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 // ==================== BUILD AND INITIALIZE ====================
 var host = builder.Build();
 
