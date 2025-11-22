@@ -72,10 +72,37 @@
         </div>
     </div>
 
+    <!-- Product of the Day Banner -->
+    @if (productOfTheDay != null)
+    {
+        <div class="potd-banner">
+            <div class="potd-badge">🌟 Product of the Day</div>
+            <div class="potd-content">
+                <img src="@productOfTheDay.Images.FirstOrDefault()" alt="@productOfTheDay.Name" class="potd-image" />
+                <div class="potd-info">
+                    <h3>@productOfTheDay.Name</h3>
+                    <p>@productOfTheDay.Description</p>
+                    <div class="potd-meta">
+                        <span>Rating: @productOfTheDay.Rating ⭐</span>
+                        <span>Sales: @productOfTheDay.SalesCount</span>
+                        <span>Views: @productOfTheDay.ViewCount</span>
+                    </div>
+                </div>
+            </div>
+            <div class="potd-actions">
+                <span class="potd-date">Last updated: @(potdLastUpdate?.ToString("MMM dd, HH:mm") ?? "Never")</span>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="RefreshProductOfTheDay">
+                    🔄 Refresh POTD
+                </SecondaryButton>
+            </div>
+        </div>
+    }
+
     <!-- Toolbar -->
     <div class="pm-toolbar">
         <div class="pm-filters">
-            <!--  search InputField -->
             <InputField Value="@searchQuery"
                         ValueChanged="@((value) => { searchQuery = value; HandleSearch(); })"
                         Placeholder="Search products..."
@@ -176,7 +203,6 @@
     {
         @if (viewMode == "grid")
         {
-            <!-- Grid View -->
             <div class="pm-grid">
                 @foreach (var product in paginatedProducts)
                 {
@@ -192,13 +218,18 @@
                                     OnToggleActive="@((args) => HandleToggleActive(args.product, args.isActive))"
                                     OnToggleFeatured="@((args) => HandleToggleFeatured(args.product, args.isFeatured))"
                                     OnSelectionChanged="@((args) => HandleSelectionChanged(args.productId, args.isSelected))"
-                                    OnCardClick="@((p) => OpenEditProductModal(p))" />
+                                    OnCardClick="@((p) => OpenEditProductModal(p))">
+                        <ContextMenu>
+                            <button class="context-menu-item" @onclick="@(() => SetAsProductOfTheDay(product))">
+                                🌟 Set as Product of the Day
+                            </button>
+                        </ContextMenu>
+                    </AdminProductCard>
                 }
             </div>
         }
         else
         {
-            <!-- List View -->
             <div class="pm-table-container">
                 <table class="pm-table">
                     <thead>
@@ -262,6 +293,9 @@
                                 <td>@product.CreatedAt.ToString("MMM dd, yyyy")</td>
                                 <td>
                                     <div class="table-actions">
+                                        <button class="action-btn" @onclick="@(() => SetAsProductOfTheDay(product))" title="Set as POTD">
+                                            🌟
+                                        </button>
                                         <button class="action-btn" @onclick="@(() => OpenEditProductModal(product))" title="Edit">
                                             ✏️
                                         </button>
@@ -309,6 +343,10 @@
             </div>
         </div>
     }
+</div>
+
+<!-- (Keep all existing modals: Create/Edit Product Modal, Image Selector, Stock Modal, Delete Confirmation) -->
+<!-- No changes to modal code -->
 </div><!-- Create/Edit Product Modal -->
 <DynamicModal @ref="productModal"
               Title="@(isEditMode ? "Edit Product" : "Create Product")"
