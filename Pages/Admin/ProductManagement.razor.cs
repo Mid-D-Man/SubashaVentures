@@ -270,10 +270,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             }
             else
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "No categories found in Firebase",
-                    LogLevel.Warning
-                );
                 categories = new List<CategoryViewModel>();
             }
         }
