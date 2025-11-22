@@ -20,13 +20,15 @@ namespace SubashaVentures.Pages.Admin;
 
 public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
-    [Inject] private IProductService ProductService { get; set; } = default!;
+  [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
-    [Inject] private JSRuntime IJsRuntime { get; set; } = default!;
+    
+    // ✅ FIX: Changed from JSRuntime to IJSRuntime
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     // Object pools
     private MID_ComponentObjectPool<List<ProductViewModel>>? _productListPool;
@@ -993,8 +995,8 @@ private async Task HandleExport()
         var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
         var base64 = Convert.ToBase64String(csvBytes);
 
-        await IJsRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
-
+        await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
+        
         ShowSuccessNotification($"Exported {exportData.Count} products successfully!");
         
         await MID_HelperFunctions.DebugMessageAsync(
