@@ -1,3 +1,4 @@
+// Domain/Product/ProductViewModel.cs - SINGLE SOURCE OF TRUTH
 namespace SubashaVentures.Domain.Product;
 
 /// <summary>
@@ -63,4 +64,9 @@ public class ProductViewModel
         > 0 and <= 5 => "Low Stock",
         _ => "In Stock"
     };
+    
+    // Display helpers
+    public string DisplayPrice => $"₦{Price:N0}";
+    public string DisplayOriginalPrice => OriginalPrice.HasValue ? $"₦{OriginalPrice.Value:N0}" : string.Empty;
+    public string DisplayRating => $"{Rating:F1}/5";
 }
