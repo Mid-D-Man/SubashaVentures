@@ -110,6 +110,14 @@
                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
+
+            @* CONTEXT MENU ACTIONS *@
+            @if (ContextMenuContent != null)
+            {
+                <div class="context-menu-actions">
+                    @ContextMenuContent
+                </div>
+            }
         </div>
     </div>
 
@@ -235,6 +243,9 @@
     [Parameter] public bool AllowSelection { get; set; } = true;
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public int LowStockThreshold { get; set; } = 10;
+    
+    // ✅ FIX: Add ContextMenuContent parameter
+    [Parameter] public RenderFragment? ContextMenuContent { get; set; }
     
     [Parameter] public EventCallback<ProductViewModel> OnEdit { get; set; }
     [Parameter] public EventCallback<ProductViewModel> OnDelete { get; set; }
