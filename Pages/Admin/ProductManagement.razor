@@ -206,25 +206,25 @@
             <div class="pm-grid">
                 @foreach (var product in paginatedProducts)
                 {
-                    <AdminProductCard Product="@product"
-                                    AllowSelection="true"
-                                    IsSelected="@selectedProducts.Contains(product.Id)"
-                                    LowStockThreshold="@lowStockThreshold"
-                                    OnEdit="@((p) => OpenEditProductModal(p))"
-                                    OnDelete="@((p) => HandleDeleteProduct(p))"
-                                    OnDuplicate="@((p) => HandleDuplicateProduct(p))"
-                                    OnPreview="@((p) => HandlePreviewProduct(p))"
-                                    OnManageStock="@((p) => OpenStockModal(p))"
-                                    OnToggleActive="@((args) => HandleToggleActive(args.product, args.isActive))"
-                                    OnToggleFeatured="@((args) => HandleToggleFeatured(args.product, args.isFeatured))"
-                                    OnSelectionChanged="@((args) => HandleSelectionChanged(args.productId, args.isSelected))"
-                                    OnCardClick="@((p) => OpenEditProductModal(p))">
-                        <ContextMenu>
-                            <button class="context-menu-item" @onclick="@(() => SetAsProductOfTheDay(product))">
-                                🌟 Set as Product of the Day
-                            </button>
-                        </ContextMenu>
-                    </AdminProductCard>
+               <AdminProductCard Product="@product"
+                AllowSelection="true"
+                IsSelected="@selectedProducts.Contains(product.Id)"
+                LowStockThreshold="@lowStockThreshold"
+                OnEdit="@((p) => OpenEditProductModal(p))"
+                OnDelete="@((p) => HandleDeleteProduct(p))"
+                OnDuplicate="@((p) => HandleDuplicateProduct(p))"
+                OnPreview="@((p) => HandlePreviewProduct(p))"
+                OnManageStock="@((p) => OpenStockModal(p))"
+                OnToggleActive="@((args) => HandleToggleActive(args.product, args.isActive))"
+                OnToggleFeatured="@((args) => HandleToggleFeatured(args.product, args.isFeatured))"
+                OnSelectionChanged="@((args) => HandleSelectionChanged(args.productId, args.isSelected))"
+                OnCardClick="@((p) => OpenEditProductModal(p))">
+    <ContextMenuContent>
+        <button class="context-menu-item" @onclick="@(() => SetAsProductOfTheDay(product))" @onclick:stopPropagation="true">
+            🌟 Set as Product of the Day
+        </button>
+    </ContextMenuContent>
+</AdminProductCard>
                 }
             </div>
         }
