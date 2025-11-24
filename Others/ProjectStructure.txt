@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Nov 23 05:26:48 UTC 2025
+Generated: Mon Nov 24 03:09:14 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 8162f40bf1ccdf75d90557b3e3debbefd8e384c3
+Commit: ffc436d86b7d41c1487af988a2b52628da7a0b0c
 Branch: master
 ==================================
 
@@ -175,7 +175,9 @@ Services/Statistics/IStatisticsService.cs
 Services/Statistics/StatisticsService.cs
 Services/Storage/BlazorAppLocalStorageService.cs
 Services/Storage/IBlazorAppLocalStorageService.cs
+Services/Storage/IImageCacheService.cs
 Services/Storage/IImageCompressionService.cs
+Services/Storage/ImageCacheService.cs
 Services/Storage/ImageCompressionService.cs
 Services/Supabase/ISupabaseAuthService.cs
 Services/Supabase/ISupabaseConfigService.cs
@@ -217,6 +219,7 @@ wwwroot/js/connectivityServices.js
 wwwroot/js/downloadHelper.cs
 wwwroot/js/firebaseSetup.js
 wwwroot/js/firestoreModule.js
+wwwroot/js/imageCacheHelper.js
 wwwroot/js/imageCompressor.js
 wwwroot/js/loading.js
 wwwroot/js/theme.js
@@ -300,11 +303,11 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 99 files
+.cs       : 101 files
 .razor    : 48 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
 .css      : 46 files
-.js       : 11 files
+.js       : 12 files
 .html     : 1 files
