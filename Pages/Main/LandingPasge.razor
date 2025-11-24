@@ -2,6 +2,7 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Layout.Main
 @layout LandingPageLayout
+@inject NavigationManager Navigation
 
 <div class="landing-page">
     <!-- Hero Section -->
@@ -21,16 +22,16 @@
                     </div>
                 </h1>
                 <p class="hero-description">
-                    Discover premium clothing and home goods that reflect your unique personality. 
+                    Discover premium clothing and home goods that reflect your unique personality.
                     From trendy fashion to cozy home essentials - find everything you love at SubashaVentures.
                 </p>
                 <div class="hero-actions">
-                    <PrimaryButton Size="PrimaryButton.ButtonSize.Large" class="cta-primary">
-                        🛍️ Shop Now
+                    <PrimaryButton
+                        Size="PrimaryButton.ButtonSize.Large"
+                        OnClick="@NavigateToShop"
+                        CssClass="hero-cta-btn">
+                        Shop Now
                     </PrimaryButton>
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" Size="SecondaryButton.ButtonSize.Large" class="cta-secondary">
-                        📖 Our Story
-                    </SecondaryButton>
                 </div>
                 <div class="hero-stats">
                     <div class="stat-item">
@@ -50,121 +51,156 @@
             <div class="hero-visual">
                 <div class="hero-image-container">
                     <div class="hero-image-placeholder">
-                        👗 Fashion Hub
+                        <span class="placeholder-text">Product of the Day</span>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-
-    <!-- Categories Section - Horizontal Scroll -->
+    <!-- Categories Section -->
     <section class="categories-section">
         <div class="section-header">
             <h2 class="section-title">Shop by Category</h2>
             <p class="section-subtitle">Explore our curated collections</p>
         </div>
-        
+
         <div class="categories-scroll-container">
             <div class="categories-horizontal">
-                <!-- Repeat the categories for infinite scroll effect -->
                 @for (int loop = 0; loop < 3; loop++)
                 {
-                    <div class="category-card mens">
-                        <div class="category-icon">👔</div>
-                        <h3 class="category-title">Men's Fashion</h3>
-                        <p class="category-description">Stylish clothing for the modern man</p>
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                            Explore Men's
-                        </SecondaryButton>
+                <div class="category-card mens" @onclick="@(() => NavigateToCategory("men"))">
+                    <div class="category-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-width="2"/>
+                            <circle cx="12" cy="7" r="4" stroke-width="2"/>
+                        </svg>
                     </div>
-                    
-                    <div class="category-card womens">
-                        <div class="category-icon">👚</div>
-                        <h3 class="category-title">Women's Fashion</h3>
-                        <p class="category-description">Elegant styles for every occasion</p>
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                            Explore Women's
-                        </SecondaryButton>
+                    <h3 class="category-title">Men's Fashion</h3>
+                    <p class="category-description">Stylish clothing for the modern man</p>
+                    <SecondaryButton
+                        Variant="SecondaryButton.ButtonVariant.Ghost"
+                        Size="SecondaryButton.ButtonSize.Small"
+                        OnClick="@(() => NavigateToCategory("men"))">
+                        Explore Men's
+                    </SecondaryButton>
+                </div>
+
+                <div class="category-card womens" @onclick="@(() => NavigateToCategory("women"))">
+                    <div class="category-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="8" r="7" stroke-width="2"/>
+                            <path d="M12 15v6m-3-3h6" stroke-width="2"/>
+                        </svg>
                     </div>
-                    
-                    <div class="category-card children">
-                        <div class="category-icon">🧸</div>
-                        <h3 class="category-title">Kids & Baby</h3>
-                        <p class="category-description">Comfortable clothes for little ones</p>
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                            Explore Kids
-                        </SecondaryButton>
+                    <h3 class="category-title">Women's Fashion</h3>
+                    <p class="category-description">Elegant styles for every occasion</p>
+                    <SecondaryButton
+                        Variant="SecondaryButton.ButtonVariant.Ghost"
+                        Size="SecondaryButton.ButtonSize.Small"
+                        OnClick="@(() => NavigateToCategory("women"))">
+                        Explore Women's
+                    </SecondaryButton>
+                </div>
+
+                <div class="category-card children" @onclick="@(() => NavigateToCategory("kids"))">
+                    <div class="category-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="9" cy="7" r="4" stroke-width="2"/>
+                            <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" stroke-width="2"/>
+                        </svg>
                     </div>
-                    
-                    <div class="category-card home">
-                        <div class="category-icon">🏠</div>
-                        <h3 class="category-title">Home & Living</h3>
-                        <p class="category-description">Beautiful items for your home</p>
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Ghost" Size="SecondaryButton.ButtonSize.Small">
-                            Explore Home
-                        </SecondaryButton>
+                    <h3 class="category-title">Kids & Baby</h3>
+                    <p class="category-description">Comfortable clothes for little ones</p>
+                    <SecondaryButton
+                        Variant="SecondaryButton.ButtonVariant.Ghost"
+                        Size="SecondaryButton.ButtonSize.Small"
+                        OnClick="@(() => NavigateToCategory("kids"))">
+                        Explore Kids
+                    </SecondaryButton>
+                </div>
+
+                <div class="category-card home" @onclick="@(() => NavigateToCategory("home"))">
+                    <div class="category-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2"/>
+                            <polyline points="9 22 9 12 15 12 15 22" stroke-width="2"/>
+                        </svg>
                     </div>
+                    <h3 class="category-title">Home & Living</h3>
+                    <p class="category-description">Beautiful items for your home</p>
+                    <SecondaryButton
+                        Variant="SecondaryButton.ButtonVariant.Ghost"
+                        Size="SecondaryButton.ButtonSize.Small"
+                        OnClick="@(() => NavigateToCategory("home"))">
+                        Explore Home
+                    </SecondaryButton>
+                </div>
                 }
             </div>
         </div>
     </section>
 
-    <!-- Featured Products Section - Grid Layout -->
+    <!-- Featured Products Section -->
     <section class="featured-section">
         <div class="section-header">
             <h2 class="section-title">Featured Products</h2>
             <p class="section-subtitle">Our most popular items this season</p>
         </div>
-        
+
         <div class="products-grid">
             @for (int i = 1; i <= 6; i++)
             {
-                <div class="product-card">
-                    <div class="product-image">
-                        <div class="product-placeholder">Product @i</div>
-                        <div class="product-overlay">
-                            <PrimaryButton Size="PrimaryButton.ButtonSize.Small" class="quick-view-btn">
-                                👁️ Quick View
-                            </PrimaryButton>
-                        </div>
-                    </div>
-                    <div class="product-info">
-                        <h4 class="product-name">Premium Product @i</h4>
-                        <p class="product-category">Category Name</p>
-                        <div class="product-price">
-                            <span class="current-price">$@(29.99 + i * 10)</span>
-                            <span class="original-price">$@(39.99 + i * 10)</span>
-                        </div>
-                        <div class="product-rating">
-                            ⭐⭐⭐⭐⭐ (4.@i)
-                        </div>
+            <div class="product-card">
+                <div class="product-image">
+                    <div class="product-placeholder">Product @i</div>
+                    <div class="product-overlay">
+                        <PrimaryButton
+                            Size="PrimaryButton.ButtonSize.Small"
+                            CssClass="quick-view-btn">
+                            Quick View
+                        </PrimaryButton>
                     </div>
                 </div>
+                <div class="product-info">
+                    <h4 class="product-name">Premium Product @i</h4>
+                    <p class="product-category">Category Name</p>
+                    <div class="product-price">
+                        <span class="current-price">$@(29.99 + i * 10)</span>
+                        <span class="original-price">$@(39.99 + i * 10)</span>
+                    </div>
+                    <div class="product-rating">
+                        <span class="stars">5 Stars</span>
+                        <span class="rating-value">(4.@i)</span>
+                    </div>
+                </div>
+            </div>
             }
         </div>
-        
+
         <div class="section-cta">
-            <PrimaryButton Size="PrimaryButton.ButtonSize.Large">
+            <PrimaryButton
+                Size="PrimaryButton.ButtonSize.Large"
+                OnClick="@NavigateToShop">
                 View All Products
             </PrimaryButton>
         </div>
     </section>
 
- <!-- Newsletter Section -->
+    <!-- Newsletter Section -->
     <section class="newsletter-section">
         <div class="newsletter-content">
             <div class="newsletter-text">
                 <h2 class="newsletter-title">Your Style Story Starts Here</h2>
                 <p class="newsletter-description">
-                    Discover fresh looks that speak your language and the stories behind our most unique pieces. 
+                    Discover fresh looks that speak your language and the stories behind our most unique pieces.
                     Plus, be the first to shop new arrivals and get insider style tips.
                 </p>
             </div>
             <div class="newsletter-form">
                 <div class="form-group">
                     <input type="email" placeholder="Enter your email address" class="newsletter-input" />
-                    <PrimaryButton class="newsletter-submit">
+                    <PrimaryButton CssClass="newsletter-submit">
                         Unlock Your Story
                     </PrimaryButton>
                 </div>
@@ -175,49 +211,49 @@
         </div>
     </section>
 
-    <!-- Testimonials Section - Grid Layout -->
+    <!-- Testimonials Section -->
     <section class="testimonials-section">
         <div class="section-header">
             <h2 class="section-title">What Our Customers Say</h2>
             <p class="section-subtitle">Real reviews from real customers</p>
         </div>
-        
+
         <div class="testimonials-grid">
             <div class="testimonial-card">
-                <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                <div class="testimonial-rating">5 Stars</div>
                 <p class="testimonial-text">
                     "Amazing quality and fast shipping! The clothes fit perfectly and the style is exactly what I was looking for."
                 </p>
                 <div class="testimonial-author">
-                    <div class="author-avatar">👩‍💼</div>
+                    <div class="author-avatar">SJ</div>
                     <div class="author-info">
                         <span class="author-name">Sarah Johnson</span>
                         <span class="author-location">New York, NY</span>
                     </div>
                 </div>
             </div>
-            
+
             <div class="testimonial-card">
-                <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                <div class="testimonial-rating">5 Stars</div>
                 <p class="testimonial-text">
                     "Love the home decor section! Found the perfect pieces to complete my living room makeover."
                 </p>
                 <div class="testimonial-author">
-                    <div class="author-avatar">👨‍💻</div>
+                    <div class="author-avatar">MC</div>
                     <div class="author-info">
                         <span class="author-name">Mike Chen</span>
                         <span class="author-location">San Francisco, CA</span>
                     </div>
                 </div>
             </div>
-            
+
             <div class="testimonial-card">
-                <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+                <div class="testimonial-rating">5 Stars</div>
                 <p class="testimonial-text">
                     "Great selection for kids' clothes. My daughter loves her new outfits and they're so comfortable!"
                 </p>
                 <div class="testimonial-author">
-                    <div class="author-avatar">👩‍👧</div>
+                    <div class="author-avatar">ED</div>
                     <div class="author-info">
                         <span class="author-name">Emma Davis</span>
                         <span class="author-location">Austin, TX</span>
@@ -229,8 +265,13 @@
 </div>
 
 @code {
-    protected override void OnInitialized()
-    {
-        // Initialize component state here if needed
-    }
+private void NavigateToShop()
+{
+Navigation.NavigateTo("shop");
+}
+
+private void NavigateToCategory(string category)
+{
+Navigation.NavigateTo($"shop/{category}");
+}
 }

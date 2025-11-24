@@ -1,4 +1,3 @@
-// Pages/Admin/ImageSelectorPopup.razor.cs - FIXED SEARCH & FILTERING
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Firebase;
@@ -19,6 +18,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     [Inject] private ISupabaseStorageService StorageService { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
+    [Inject] private IImageCacheService ImageCacheService { get; set; } = default!; // ✅ NEW
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<ImageSelectorPopup> Logger { get; set; } = default!;
 
@@ -35,7 +35,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     private bool isLoading = false;
     private bool isInitialized = false;
     
-    // ✅ FIX: Make searchQuery two-way bindable
     private string _searchQuery = "";
     private string searchQuery 
     { 
@@ -45,7 +44,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             if (_searchQuery != value)
             {
                 _searchQuery = value;
-                ApplyFilters(); // Apply filters on change
+                ApplyFilters();
                 StateHasChanged();
             }
         }
@@ -147,6 +146,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             isLoading = true;
             StateHasChanged();
 
+            // ✅ Try cache first
             var cachedData = await LoadFromCacheAsync();
             if (cachedData != null)
             {
@@ -164,6 +164,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             using var pooledImages = _imageListPool?.GetPooled();
             var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
+            var allImageUrls = new List<string>();
 
             var folders = categories.Any() 
                 ? categories.Select(c => c.Slug).ToArray()
@@ -176,10 +177,26 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             foreach (var folder in folders)
             {
-                await LoadImagesFromFolderAsync(folder, imageList);
+                await LoadImagesFromFolderAsync(folder, imageList, allImageUrls);
             }
 
             allImages = new List<AdminImageCard.ImageItem>(imageList);
+
+            // ✅ Preload into browser cache
+            if (allImageUrls.Any())
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ImageCacheService.PreloadImagesAsync(allImageUrls);
+                    }
+                    catch (Exception ex)
+                    {
+                        await MID_HelperFunctions.LogExceptionAsync(ex, "Preloading images");
+                    }
+                });
+            }
 
             await SaveToCacheAsync(allImages);
             ApplyFilters();
@@ -201,7 +218,10 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task LoadImagesFromFolderAsync(string folder, List<AdminImageCard.ImageItem> imageList)
+    private async Task LoadImagesFromFolderAsync(
+        string folder, 
+        List<AdminImageCard.ImageItem> imageList,
+        List<string> allImageUrls)
     {
         try
         {
@@ -220,6 +240,8 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             {
                 var filePath = $"{folder}/{file.Name}";
                 var publicUrl = StorageService.GetPublicUrl(filePath, "products");
+                
+                allImageUrls.Add(publicUrl);
                 
                 var fileSize = await GetFileSizeAsync(publicUrl);
                 var dimensions = await GetImageDimensionsAsync(publicUrl);
@@ -343,17 +365,14 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ✅ FIX: Proper filtering logic
     private void ApplyFilters()
     {
         filteredImages = allImages
             .Where(img =>
             {
-                // Folder filter
                 bool folderMatch = string.IsNullOrEmpty(selectedFolder) || 
                                  img.Folder.Equals(selectedFolder, StringComparison.OrdinalIgnoreCase);
                 
-                // Search filter
                 bool searchMatch = string.IsNullOrEmpty(searchQuery) ||
                                  img.FileName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
                                  img.Folder.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);

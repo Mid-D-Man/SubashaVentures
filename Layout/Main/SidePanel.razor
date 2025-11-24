@@ -5,18 +5,18 @@
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
         <div class="panel-content">
-            <!-- Panel Header -->
             <div class="panel-header">
                 <div class="panel-title">
                     <span class="panel-icon">SV</span>
                     <span class="panel-brand">SubashaVentures</span>
                 </div>
                 <button class="panel-close" @onclick="ClosePanel" aria-label="Close menu">
-                    ✕
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M18 6L6 18M6 6L18 18" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
                 </button>
             </div>
 
-            <!-- User Profile Section - Show when logged in -->
             @if (IsLoggedIn)
             {
                 <div class="user-profile-section">
@@ -32,9 +32,7 @@
                 </div>
             }
 
-            <!-- Navigation Links -->
             <div class="panel-nav">
-                <!-- Profile Section - Only show when logged in -->
                 @if (IsLoggedIn)
                 {
                     <div class="nav-section">
@@ -100,7 +98,6 @@
                 </div>
             </div>
 
-            <!-- User Actions -->
             <div class="panel-actions">
                 @if (IsLoggedIn)
                 {
@@ -120,24 +117,22 @@
 </div>
 
 @code {
-    // Navigation constants
-    private const string HomeDirectory = "/";
-    private const string ShopDirectory = "/shop";
-    private const string DealsDirectory = "/shop/deals";
-    private const string MenDirectory = "/shop/men";
-    private const string WomenDirectory = "/shop/women";
-    private const string KidsDirectory = "/shop/kids";
-    private const string HomeGoodsDirectory = "/shop/home";
-    private const string AccessoriesDirectory = "/shop/accessories";
-    private const string AboutDirectory = "/about";
-    private const string ContactDirectory = "/contact";
-    private const string HelpDirectory = "/help";
-    private const string TrackOrderDirectory = "/orders/track";
-    private const string ProfileDirectory = "/profile";
-    private const string OrdersDirectory = "/orders";
-    private const string WishlistDirectory = "/wishlist";
-    private const string SignInDirectory = "/signin";
-    private const string SignUpDirectory = "/signup";
+    private const string HomeDirectory = "";
+    private const string ShopDirectory = "shop";
+    private const string DealsDirectory = "shop/deals";
+    private const string MenDirectory = "shop/men";
+    private const string WomenDirectory = "shop/women";
+    private const string KidsDirectory = "shop/kids";
+    private const string HomeGoodsDirectory = "shop/home";
+    private const string AccessoriesDirectory = "shop/accessories";
+    private const string AboutDirectory = "about";
+    private const string ContactDirectory = "contact";
+    private const string HelpDirectory = "help";
+    private const string TrackOrderDirectory = "orders/track";
+    private const string ProfileDirectory = "profile";
+    private const string OrdersDirectory = "orders";
+    private const string WishlistDirectory = "wishlist";
+    private const string SignInDirectory = "signin";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }

@@ -1,4 +1,4 @@
-// Pages/Admin/ImageManagement.razor.cs - FIXED NULLABLE TUPLE HANDLING
+// Pages/Admin/ImageManagement.razor.cs - COMPLETE WITH CACHING
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -21,6 +21,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     [Inject] private ISupabaseStorageService StorageService { get; set; } = default!;
     [Inject] private IImageCompressionService CompressionService { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
+    [Inject] private IImageCacheService ImageCacheService { get; set; } = default!; // ✅ NEW
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<ImageManagement> Logger { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
@@ -68,6 +69,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     
     private int totalPages => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
 
+    private const string CACHE_KEY = "image_selector_cache";
+    private const int CACHE_DURATION_MINUTES = 5;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -93,8 +97,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "ImageManagement initialization");
-            isLoading = false;
             ShowError("Failed to initialize image management");
+            isLoading = false;
         }
     }
 
@@ -106,30 +110,30 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             
             if (loadedCategories != null && loadedCategories.Any())
             {
-                categories = loadedCategories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder).ToList();
-                
-                if (categories.Any())
-                {
-                    uploadFolder = categories.First().Slug;
-                }
+                categories = loadedCategories
+                    .Where(c => c.IsActive)
+                    .OrderBy(c => c.DisplayOrder)
+                    .ToList();
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Loaded {categories.Count} categories from Firestore",
+                    $"✓ Loaded {categories.Count} categories from Firebase",
                     LogLevel.Info
                 );
             }
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No categories found in Firestore",
+                    "No categories found in Firebase, using defaults",
                     LogLevel.Warning
                 );
+                
+                categories = new List<CategoryModel>();
             }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
-            ShowError("Failed to load categories");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories from Firebase");
+            categories = new List<CategoryModel>();
         }
     }
 
@@ -140,67 +144,145 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isLoading = true;
             StateHasChanged();
 
-            var folders = categories.Any() 
-                ? categories.Select(c => c.Slug).ToArray()
-                : new[] { "products" };
+            // ✅ Try loading from cache first
+            var cachedData = await LoadFromCacheAsync();
+            if (cachedData != null)
+            {
+                allImages = cachedData;
+                ApplyFiltersAndSort();
+                isLoading = false;
+                StateHasChanged();
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Loaded {allImages.Count} images from cache",
+                    LogLevel.Info
+                );
+                return;
+            }
 
             using var pooledImages = _imageListPool?.GetPooled();
             var imageList = pooledImages?.Object ?? new List<AdminImageCard.ImageItem>();
+            var allImageUrls = new List<string>(); // ✅ For preloading
+
+            var folders = categories.Any() 
+                ? categories.Select(c => c.Slug).ToArray()
+                : new[] { "products", "banners", "categories" };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loading images from {folders.Length} folders",
+                LogLevel.Info
+            );
 
             foreach (var folder in folders)
             {
-                try
-                {
-                    var files = await StorageService.ListFilesAsync(folder);
-
-                    foreach (var file in files)
-                    {
-                        var publicUrl = StorageService.GetPublicUrl($"{folder}/{file.Name}");
-                        
-                        var imageItem = new AdminImageCard.ImageItem
-                        {
-                            Id = file.Id,
-                            FileName = file.Name,
-                            PublicUrl = publicUrl,
-                            ThumbnailUrl = publicUrl,
-                            Folder = folder,
-                            FileSize = await GetFileSizeAsync(publicUrl),
-                            Dimensions = await GetImageDimensionsAsync(publicUrl),
-                            UploadedAt = file.UpdatedAt,
-                            IsReferenced = false,
-                            ReferenceCount = 0
-                        };
-
-                        imageList.Add(imageItem);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading from folder: {folder}");
-                }
+                await LoadImagesFromFolderAsync(folder, imageList, allImageUrls);
             }
 
             allImages = new List<AdminImageCard.ImageItem>(imageList);
-            totalImages = allImages.Count;
-            totalFolders = folders.Length;
-            referencedImages = allImages.Count(img => img.IsReferenced);
 
+            // ✅ Preload images into browser cache (non-blocking)
+            if (allImageUrls.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Preloading {allImageUrls.Count} images into cache...",
+                    LogLevel.Info
+                );
+                
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ImageCacheService.PreloadImagesAsync(allImageUrls);
+                        
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            "✓ Images preloaded successfully",
+                            LogLevel.Info
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        await MID_HelperFunctions.LogExceptionAsync(ex, "Preloading images");
+                    }
+                });
+            }
+
+            await SaveToCacheAsync(allImages);
             ApplyFiltersAndSort();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {totalImages} images from {totalFolders} categories", 
+                $"✓ Loaded {allImages.Count} images from {folders.Length} folders",
                 LogLevel.Info
             );
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading images");
-            ShowError("Failed to load images");
+            Logger.LogError(ex, "Failed to load images for selector");
         }
         finally
         {
             isLoading = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task LoadImagesFromFolderAsync(
+        string folder, 
+        List<AdminImageCard.ImageItem> imageList,
+        List<string> allImageUrls)
+    {
+        try
+        {
+            var files = await StorageService.ListFilesAsync(folder, "products");
+
+            if (!files.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"No files found in folder: {folder}",
+                    LogLevel.Debug
+                );
+                return;
+            }
+
+            foreach (var file in files)
+            {
+                var filePath = $"{folder}/{file.Name}";
+                var publicUrl = StorageService.GetPublicUrl(filePath, "products");
+                
+                // ✅ Add to preload list
+                allImageUrls.Add(publicUrl);
+                
+                var fileSize = await GetFileSizeAsync(publicUrl);
+                var dimensions = await GetImageDimensionsAsync(publicUrl);
+                
+                var imageInfo = new AdminImageCard.ImageItem
+                {
+                    Id = file.Id,
+                    FileName = file.Name,
+                    PublicUrl = publicUrl,
+                    ThumbnailUrl = publicUrl,
+                    Folder = folder,
+                    FileSize = fileSize,
+                    Dimensions = dimensions,
+                    UploadedAt = file.UpdatedAt,
+                    IsReferenced = false,
+                    ReferenceCount = 0
+                };
+
+                lock (imageList)
+                {
+                    imageList.Add(imageInfo);
+                }
+            }
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {files.Count} images from {folder}",
+                LogLevel.Debug
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading from folder: {folder}");
         }
     }
 
@@ -242,6 +324,76 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         {
             return "Unknown";
         }
+    }
+
+    // ✅ CACHE METHODS
+    private async Task<List<AdminImageCard.ImageItem>?> LoadFromCacheAsync()
+    {
+        try
+        {
+            var cacheJson = await LocalStorage.GetItemAsync<string>(CACHE_KEY);
+            if (string.IsNullOrEmpty(cacheJson))
+                return null;
+
+            var cacheData = JsonHelper.Deserialize<ImageCacheData>(cacheJson);
+            if (cacheData == null)
+                return null;
+
+            if ((DateTime.UtcNow - cacheData.CachedAt).TotalMinutes > CACHE_DURATION_MINUTES)
+            {
+                await LocalStorage.RemoveItemAsync(CACHE_KEY);
+                return null;
+            }
+
+            return cacheData.Images;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading from cache");
+            return null;
+        }
+    }
+
+    private async Task SaveToCacheAsync(List<AdminImageCard.ImageItem> images)
+    {
+        try
+        {
+            var cacheData = new ImageCacheData
+            {
+                Images = images,
+                CachedAt = DateTime.UtcNow
+            };
+
+            var cacheJson = JsonHelper.Serialize(cacheData);
+            await LocalStorage.SetItemAsync(CACHE_KEY, cacheJson);
+
+            await MID_HelperFunctions.DebugMessageAsync("✓ Images cached successfully", LogLevel.Debug);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Caching images");
+        }
+    }
+
+    // ✅ FILTERING & SORTING
+    private void ApplyFiltersAndSort()
+    {
+        filteredImages = allImages
+            .Where(img =>
+            {
+                bool folderMatch = string.IsNullOrEmpty(selectedFolder) || 
+                                 img.Folder.Equals(selectedFolder, StringComparison.OrdinalIgnoreCase);
+                
+                bool searchMatch = string.IsNullOrEmpty(searchQuery) ||
+                                 img.FileName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                                 img.Folder.Contains(searchQuery, StringComparison.OrdinalIgnoreCase);
+                
+                return folderMatch && searchMatch;
+            })
+            .OrderByDescending(x => x.UploadedAt)
+            .ToList();
+
+        UpdatePaginatedImages();
     }
 
     private async Task LoadStorageInfoAsync()
@@ -286,51 +438,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         return $"{len:0.##} {sizes[order]}";
     }
 
-    private void ApplyFiltersAndSort()
-    {
-        var query = allImages.AsEnumerable();
-        
-        if (!string.IsNullOrEmpty(selectedFolder))
-        {
-            query = query.Where(img => img.Folder == selectedFolder);
-        }
-
-        if (!string.IsNullOrEmpty(searchQuery))
-        {
-            var search = searchQuery.ToLower();
-            query = query.Where(img => 
-                img.FileName.ToLower().Contains(search) ||
-                img.Folder.ToLower().Contains(search));
-        }
-
-        filteredImages = sortBy switch
-        {
-            "newest" => query.OrderByDescending(x => x.UploadedAt).ToList(),
-            "oldest" => query.OrderBy(x => x.UploadedAt).ToList(),
-            "name-az" => query.OrderBy(x => x.FileName).ToList(),
-            "name-za" => query.OrderByDescending(x => x.FileName).ToList(),
-            "size-largest" => query.OrderByDescending(x => x.FileSize).ToList(),
-            "size-smallest" => query.OrderBy(x => x.FileSize).ToList(),
-            _ => query.ToList()
-        };
-
-        UpdatePaginatedImages();
-    }
-
-    private void UpdatePaginatedImages()
-    {
-        paginatedImages = filteredImages
-            .Skip((currentPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        StateHasChanged();
-    }
-
     private void HandleFolderFilterChange(ChangeEventArgs e)
     {
         selectedFolder = e.Value?.ToString() ?? "";
-        currentPage = 1;
         ApplyFiltersAndSort();
     }
 
@@ -571,7 +681,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // ✅ CRITICAL FIX: Store file data immediately
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
         try
@@ -598,7 +707,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                         continue;
                     }
 
-                    // ✅ FIXED: Proper nullable tuple handling
                     var fileDataResult = await ReadFileDataAsync(file);
                     
                     if (fileDataResult == null)
@@ -607,7 +715,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                         continue;
                     }
 
-                    // ✅ FIXED: Check for null and access .Value
                     var (fileBytes, previewUrl) = fileDataResult.Value;
 
                     uploadQueue.Add(new UploadQueueItem
@@ -648,7 +755,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ✅ NEW: Read file data immediately
     private async Task<(byte[] FileBytes, string PreviewUrl)?> ReadFileDataAsync(IBrowserFile file)
     {
         try
@@ -678,7 +784,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ✅ FIXED: Upload using stored byte arrays
     private async Task StartUpload()
     {
         if (!uploadQueue.Any() || isUploading)
@@ -813,6 +918,16 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
+    private void UpdatePaginatedImages()
+    {
+        paginatedImages = filteredImages
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        StateHasChanged();
+    }
+
     private void PreviousPage()
     {
         if (currentPage > 1)
@@ -870,27 +985,22 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         isDragging = false;
         StateHasChanged();
     }
-
     private void ShowSuccess(string message)
     {
         notificationComponent?.ShowNotification(message, NotificationType.Success);
     }
-
     private void ShowError(string message)
     {
         notificationComponent?.ShowNotification(message, NotificationType.Error);
     }
-
     private void ShowWarning(string message)
     {
         notificationComponent?.ShowNotification(message, NotificationType.Warning);
     }
-
     private void ShowInfo(string message)
     {
         notificationComponent?.ShowNotification(message, NotificationType.Info);
     }
-
     public async ValueTask DisposeAsync()
     {
         try
@@ -903,7 +1013,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             Logger.LogError(ex, "Error disposing");
         }
     }
-
     public class UploadQueueItem
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -915,7 +1024,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         public string? ErrorMessage { get; set; }
         public byte[]? FileData { get; set; }
         public string ContentType { get; set; } = "image/jpeg";
-
         public string FormattedSize
         {
             get
@@ -931,5 +1039,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return $"{len:0.##} {sizes[order]}";
             }
         }
+    }
+    private class ImageCacheData
+    {
+        public List<AdminImageCard.ImageItem> Images { get; set; } = new();
+        public DateTime CachedAt { get; set; }
     }
 }

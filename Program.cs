@@ -58,7 +58,7 @@ builder.Services.AddScoped<ConnectivityService>();
 builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
 builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
-
+builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
 // ==================== FIREBASE SERVICES ====================
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
