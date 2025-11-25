@@ -1,4 +1,4 @@
-// Program.cs - CORRECTED (Simpler without custom SessionHandler)
+// Program.cs - SECURITY FIXED
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -41,7 +41,7 @@ builder.Logging.AddFilter("SubashaVentures", LogLevel.Debug);
 
 builder.Services.AddSingleton<IMid_Logger, Mid_Logger>();
 
-// ==================== CRITICAL: Add Blazored Services FIRST ====================
+// ==================== BLAZORED SERVICES ====================
 builder.Services.AddBlazoredLocalStorage(config =>
 {
     config.JsonSerializerOptions.WriteIndented = false;
@@ -49,8 +49,9 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ==================== AUTHENTICATION (PLACEHOLDER FOR NOW) ====================
+// ==================== AUTHENTICATION & AUTHORIZATION ====================
 builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 
 // ==================== CORE SERVICES ====================
 builder.Services.AddSingleton<INavigationService, NavigationService>();
@@ -59,24 +60,23 @@ builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
 builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
+
 // ==================== FIREBASE SERVICES ====================
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
-// ==================== SUPABASE CLIENT (OPTIMIZED FOR WASM) ====================
+// ==================== SUPABASE CLIENT ====================
 var supabaseUrl = builder.Configuration["Supabase:Url"];
 var supabaseKey = builder.Configuration["Supabase:AnonKey"];
 
 if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
 {
-    // CORRECTED: Simple registration without custom session handler
     builder.Services.AddScoped<Supabase.Client>(sp =>
     {
         var options = new SupabaseOptions
         {
             AutoRefreshToken = true,
-            AutoConnectRealtime = false,  // CRITICAL: Disabled for WebAssembly
-            // SessionHandler is optional - Supabase has built-in handling
+            AutoConnectRealtime = false,
         };
         
         return new Supabase.Client(supabaseUrl, supabaseKey, options);
@@ -84,7 +84,7 @@ if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
 }
 else
 {
-    throw new InvalidOperationException("Supabase URL and AnonKey must be configured in appsettings.json");
+    throw new InvalidOperationException("Supabase URL and AnonKey must be configured");
 }
 
 // ==================== SUPABASE SERVICES ====================
@@ -92,12 +92,15 @@ builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
-// Stats
+
+// ==================== APPLICATION SERVICES ====================
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
-// ==================== PRODUCT SERVICES ====================
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
+
+// REMOVED: Admin setup service - SECURITY RISK
+
 // ==================== BUILD AND INITIALIZE ====================
 var host = builder.Build();
 
@@ -111,7 +114,7 @@ try
     midLogger.Initialize(logger, jsRuntime);
     MID_HelperFunctions.Initialize(midLogger);
     
-    logger.LogInformation("✓ Mid_Logger and MID_HelperFunctions initialized successfully");
+    logger.LogInformation("✓ Mid_Logger initialized");
 }
 catch (Exception ex)
 {
@@ -125,7 +128,7 @@ try
     await firebaseConfig.InitializeAsync();
     
     var logger = host.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("✓ Firebase initialized successfully");
+    logger.LogInformation("✓ Firebase initialized");
 }
 catch (Exception ex)
 {
@@ -137,12 +140,10 @@ catch (Exception ex)
 try
 {
     var supabaseClient = host.Services.GetRequiredService<Supabase.Client>();
-    
-    // CRITICAL: Only initialize Auth - NO REALTIME
     await supabaseClient.InitializeAsync();
     
     var logger = host.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("✓ Supabase client initialized successfully (Realtime disabled for WASM)");
+    logger.LogInformation("✓ Supabase client initialized (Realtime disabled for WASM)");
 }
 catch (Supabase.Realtime.Exceptions.RealtimeException ex)
 {
