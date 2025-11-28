@@ -11,13 +11,57 @@
     </div>
 
     <form class="signin-form" @onsubmit="HandleSignIn">
+        <!-- Success Message (from registration) -->
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="success-banner">
+                <span class="success-icon">✓</span>
+                <span class="success-text">@successMessage</span>
+            </div>
+        }
+
+        <!-- General Error Message -->
+        @if (!string.IsNullOrEmpty(generalError))
+        {
+            <div class="error-banner">
+                <span class="error-icon">!</span>
+                <span class="error-text">@generalError</span>
+            </div>
+        }
+
+        <!-- Social Sign In (OAuth) -->
+        <div class="social-buttons">
+            <button type="button" 
+                    class="social-btn google" 
+                    @onclick="HandleGoogleSignIn"
+                    disabled="@isLoading">
+                <span class="social-icon">G</span>
+                <span class="social-text">Continue with Google</span>
+            </button>
+            
+            <button type="button" 
+                    class="social-btn facebook" 
+                    @onclick="HandleFacebookSignIn"
+                    disabled="@isLoading">
+                <span class="social-icon">f</span>
+                <span class="social-text">Continue with Facebook</span>
+            </button>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider">
+            <span class="divider-line"></span>
+            <span class="divider-text">OR</span>
+            <span class="divider-line"></span>
+        </div>
+
         <!-- Email Field -->
         <InputField 
             Label="Email Address"
             Type="email"
             @bind-Value="email"
             Placeholder="Enter your email"
-            PrefixIcon="X"
+            PrefixIcon="✉"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(emailError))"
             ErrorMessage="@emailError"
@@ -30,7 +74,7 @@
             Type="@(showPassword ? "text" : "password")"
             @bind-Value="password"
             Placeholder="Enter your password"
-            PrefixIcon="*"
+            PrefixIcon="🔒"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(passwordError))"
             ErrorMessage="@passwordError"
@@ -46,15 +90,6 @@
             <a href="forgot-password" class="forgot-link">Forgot Password?</a>
         </div>
 
-        <!-- General Error Message -->
-        @if (!string.IsNullOrEmpty(generalError))
-        {
-            <div class="error-banner">
-                <span class="error-icon">!</span>
-                <span class="error-text">@generalError</span>
-            </div>
-        }
-
         <!-- Sign In Button -->
         <PrimaryButton 
             Type="submit" 
@@ -64,26 +99,6 @@
             CssClass="signin-button">
             Sign In
         </PrimaryButton>
-
-        <!-- Divider -->
-        <div class="divider">
-            <span class="divider-line"></span>
-            <span class="divider-text">OR</span>
-            <span class="divider-line"></span>
-        </div>
-
-        <!-- Social Sign In -->
-        <div class="social-buttons">
-            <button type="button" class="social-btn google" @onclick="HandleGoogleSignIn" disabled>
-                <span class="social-icon">G</span>
-                <span class="social-text">Continue with Google</span>
-            </button>
-            
-            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignIn" disabled>
-                <span class="social-icon">f</span>
-                <span class="social-text">Continue with Facebook</span>
-            </button>
-        </div>
 
         <!-- Sign Up Link -->
         <div class="form-footer">
