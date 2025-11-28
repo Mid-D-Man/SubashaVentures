@@ -20,6 +20,35 @@
             </div>
         }
 
+        <!-- Success Message -->
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="success-banner">
+                <span class="success-icon">✓</span>
+                <span class="success-text">@successMessage</span>
+            </div>
+        }
+
+        <!-- Social Sign Up (OAuth) -->
+        <div class="social-buttons">
+            <button type="button" class="social-btn google" @onclick="HandleGoogleSignUp">
+                <span class="social-icon">G</span>
+                <span class="social-text">Continue with Google</span>
+            </button>
+            
+            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignUp">
+                <span class="social-icon">f</span>
+                <span class="social-text">Continue with Facebook</span>
+            </button>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider">
+            <span class="divider-line"></span>
+            <span class="divider-text">OR</span>
+            <span class="divider-line"></span>
+        </div>
+
         <!-- Name Fields Row -->
         <div class="form-row">
             <InputField 
@@ -49,7 +78,7 @@
             Type="email"
             @bind-Value="email"
             Placeholder="john.doe@example.com"
-            PrefixIcon="X"
+            PrefixIcon="✉"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(emailError))"
             ErrorMessage="@emailError"
@@ -62,7 +91,7 @@
             Type="@(showPassword ? "text" : "password")"
             @bind-Value="password"
             Placeholder="Enter your password"
-            PrefixIcon="*"
+            PrefixIcon="🔒"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(passwordError))"
             ErrorMessage="@passwordError"
@@ -75,7 +104,7 @@
             Type="@(showConfirmPassword ? "text" : "password")"
             @bind-Value="confirmPassword"
             Placeholder="Confirm your password"
-            PrefixIcon="*"
+            PrefixIcon="🔒"
             IsRequired="true"
             HasError="@(!string.IsNullOrEmpty(confirmPasswordError))"
             ErrorMessage="@confirmPasswordError"
@@ -107,26 +136,6 @@
             CssClass="signup-button">
             Sign Up
         </PrimaryButton>
-
-        <!-- Divider -->
-        <div class="divider">
-            <span class="divider-line"></span>
-            <span class="divider-text">OR</span>
-            <span class="divider-line"></span>
-        </div>
-
-        <!-- Social Sign Up -->
-        <div class="social-buttons">
-            <button type="button" class="social-btn google" @onclick="HandleGoogleSignUp" disabled>
-                <span class="social-icon">G</span>
-                <span class="social-text">Continue with Google</span>
-            </button>
-            
-            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignUp" disabled>
-                <span class="social-icon">f</span>
-                <span class="social-text">Continue with Facebook</span>
-            </button>
-        </div>
 
         <!-- Sign In Link -->
         <div class="form-footer">
