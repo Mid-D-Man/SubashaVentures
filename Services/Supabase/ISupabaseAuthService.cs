@@ -1,11 +1,12 @@
-// Services/Supabase/ISupabaseAuthService.cs
+// Services/Supabase/ISupabaseAuthService.cs - UPDATED with OAuth
 using SubashaVentures.Models.Supabase;
 using Supabase.Gotrue;
+using Supabase.Gotrue.Interfaces;
 
 namespace SubashaVentures.Services.Supabase;
 
 /// <summary>
-/// Service for Supabase authentication operations
+/// Service for Supabase authentication operations with OAuth support
 /// </summary>
 public interface ISupabaseAuthService
 {
@@ -18,6 +19,16 @@ public interface ISupabaseAuthService
     /// Sign up with email and password
     /// </summary>
     Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData);
+    
+    /// <summary>
+    /// Sign in with Google OAuth
+    /// </summary>
+    Task<bool> SignInWithGoogleAsync();
+    
+    /// <summary>
+    /// Sign in with Facebook OAuth (if enabled)
+    /// </summary>
+    Task<bool> SignInWithFacebookAsync();
     
     /// <summary>
     /// Sign out current user
@@ -63,4 +74,11 @@ public interface ISupabaseAuthService
     /// Verify email with token
     /// </summary>
     Task<bool> VerifyEmailAsync(string token);
+    
+
+
+     /// <summary>
+    /// Resend verification email
+    /// </summary>
+    Task<bool> ResendVerificationEmailAsync(string email);
 }
