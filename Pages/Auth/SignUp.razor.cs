@@ -1,8 +1,10 @@
-// Pages/Auth/SignUp.razor.cs
+// Pages/Auth/SignUp.razor.cs - UPDATED with OAuth
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
+using Microsoft.AspNetCore.Components.Authorization;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;
 
@@ -11,6 +13,7 @@ public partial class SignUp : ComponentBase
     [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<SignUp> Logger { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
 
     // Form fields
     private string firstName = "";
@@ -32,14 +35,18 @@ public partial class SignUp : ComponentBase
     private string confirmPasswordError = "";
     private string termsError = "";
     private string generalError = "";
+    private string successMessage = "";
     
     // Loading state
     private bool isLoading = false;
 
+    // ==================== EMAIL/PASSWORD SIGN UP ====================
+
     private async Task HandleSignUp()
     {
-        // Clear previous errors
+        // Clear previous messages
         ClearErrors();
+        successMessage = "";
         
         // Validate form
         if (!ValidateForm())
@@ -53,6 +60,11 @@ public partial class SignUp : ComponentBase
         
         try
         {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Starting sign up for: {email}",
+                LogLevel.Info
+            );
+
             // Create user data
             var userData = new UserModel
             {
@@ -74,9 +86,24 @@ public partial class SignUp : ComponentBase
             
             if (result.Success)
             {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ User signed up successfully: {email}",
+                    LogLevel.Info
+                );
+
                 Logger.LogInformation("User signed up successfully: {Email}", email);
                 
-                // Navigate to sign in with success message
+                // Show success message
+                successMessage = "Account created! Please check your email to verify your account.";
+                
+                // Notify auth state changed
+                if (AuthStateProvider is SupabaseAuthStateProvider provider)
+                {
+                    provider.NotifyAuthenticationStateChanged();
+                }
+
+                // Wait 3 seconds then redirect to sign in
+                await Task.Delay(3000);
                 NavigationManager.NavigateTo("/signin?registered=true");
             }
             else
@@ -97,6 +124,7 @@ public partial class SignUp : ComponentBase
         catch (Exception ex)
         {
             generalError = "An error occurred during registration. Please try again later.";
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
             Logger.LogError(ex, "Error during sign up for {Email}", email);
         }
         finally
@@ -105,6 +133,101 @@ public partial class SignUp : ComponentBase
             StateHasChanged();
         }
     }
+
+    // ==================== OAUTH SIGN UP ====================
+
+    private async Task HandleGoogleSignUp()
+    {
+        try
+        {
+            isLoading = true;
+            ClearErrors();
+            successMessage = "";
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Initiating Google OAuth sign up",
+                LogLevel.Info
+            );
+            
+            var success = await AuthService.SignInWithGoogleAsync();
+            
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ Google OAuth redirect initiated",
+                    LogLevel.Info
+                );
+
+                // The browser will redirect to Google
+                // When user returns, they'll be authenticated
+                successMessage = "Redirecting to Google...";
+            }
+            else
+            {
+                generalError = "Failed to connect to Google. Please try again.";
+                Logger.LogError("Google OAuth initiation failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            generalError = "Failed to sign up with Google. Please try again.";
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth sign up");
+            Logger.LogError(ex, "Google sign up error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleFacebookSignUp()
+    {
+        try
+        {
+            isLoading = true;
+            ClearErrors();
+            successMessage = "";
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Initiating Facebook OAuth sign up",
+                LogLevel.Info
+            );
+            
+            var success = await AuthService.SignInWithFacebookAsync();
+            
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ Facebook OAuth redirect initiated",
+                    LogLevel.Info
+                );
+
+                // The browser will redirect to Facebook
+                successMessage = "Redirecting to Facebook...";
+            }
+            else
+            {
+                generalError = "Failed to connect to Facebook. Please try again.";
+                Logger.LogError("Facebook OAuth initiation failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            generalError = "Failed to sign up with Facebook. Please try again.";
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Facebook OAuth sign up");
+            Logger.LogError(ex, "Facebook sign up error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== VALIDATION ====================
 
     private bool ValidateForm()
     {
@@ -233,47 +356,5 @@ public partial class SignUp : ComponentBase
         bool hasDigit = password.Any(char.IsDigit);
         
         return hasUpper && hasLower && hasDigit;
-    }
-
-    private async Task HandleGoogleSignUp()
-    {
-        try
-        {
-            isLoading = true;
-            StateHasChanged();
-            
-            generalError = "Google sign up is not yet implemented. Please use email and password.";
-        }
-        catch (Exception ex)
-        {
-            generalError = "Failed to sign up with Google. Please try again.";
-            Logger.LogError(ex, "Google sign up error");
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task HandleFacebookSignUp()
-    {
-        try
-        {
-            isLoading = true;
-            StateHasChanged();
-            
-            generalError = "Facebook sign up is not yet implemented. Please use email and password.";
-        }
-        catch (Exception ex)
-        {
-            generalError = "Failed to sign up with Facebook. Please try again.";
-            Logger.LogError(ex, "Facebook sign up error");
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
     }
 }
