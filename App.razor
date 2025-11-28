@@ -1,12 +1,84 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
-    </Found>
-    <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+@using Microsoft.AspNetCore.Components.Authorization
+@using SubashaVentures.Services.Supabase
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISupabaseAuthService AuthService
+@inject NavigationManager Navigation
+@inject ILogger<App> Logger
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <p role="alert">You are not authorized to access this resource.</p>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Handle OAuth callback
+        await HandleOAuthCallback();
+    }
+
+    private async Task HandleOAuthCallback()
+    {
+        try
+        {
+            var uri = new Uri(Navigation.Uri);
+            
+            // Check if this is an OAuth callback (Supabase adds #access_token to URL)
+            if (uri.Fragment.Contains("access_token") || uri.Fragment.Contains("error"))
+            {
+                Logger.LogInformation("OAuth callback detected in URL fragment");
+                
+                // Wait a moment for Supabase to process the callback
+                await Task.Delay(1000);
+                
+                // Check if user is authenticated
+                var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+                
+                if (isAuthenticated)
+                {
+                    Logger.LogInformation("✓ OAuth authentication successful");
+                    
+                    // Notify authentication state changed
+                    if (AuthStateProvider is SupabaseAuthStateProvider provider)
+                    {
+                        provider.NotifyAuthenticationStateChanged();
+                    }
+                    
+                    // Redirect to home (remove fragment from URL)
+                    Navigation.NavigateTo("/", forceLoad: true);
+                }
+                else if (uri.Fragment.Contains("error"))
+                {
+                    Logger.LogWarning("OAuth authentication failed");
+                    // Redirect to sign in with error
+                    Navigation.NavigateTo("/signin", forceLoad: true);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error handling OAuth callback");
+        }
+    }
+}
