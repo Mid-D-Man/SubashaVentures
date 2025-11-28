@@ -317,6 +317,40 @@
         gap: 0.25rem;
     }
 }
+/* ===== ADD THESE STYLES TO EXISTING FILE ===== */
+
+/* Success Banner */
+.success-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.success-icon {
+    font-size: 1.2rem;
+    color: var(--success-color, #10b981);
+    flex-shrink: 0;
+}
+
+.success-text {
+    font-size: 0.9rem;
+    color: #059669;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .success-banner {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+[data-theme="dark"] .success-text {
+    color: #34d399;
+                     }
 
 /* ===== ACCESSIBILITY ===== */
 @media (prefers-reduced-motion: reduce) {
