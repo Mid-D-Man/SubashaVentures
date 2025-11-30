@@ -233,7 +233,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             };
 
             // This will redirect the browser to Google's OAuth page
-            await _client.Auth.SignIn(Provider.Google, options);
+            await _client.Auth.SignIn(Constants.Provider.Google, options);
             
             await MID_HelperFunctions.DebugMessageAsync(
                 "✓ Google OAuth redirect initiated",
@@ -265,7 +265,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             };
 
             // This will redirect the browser to Facebook's OAuth page
-            await _client.Auth.SignIn(Provider.Facebook, options);
+            await _client.Auth.SignIn(Constants.Provider.Facebook, options);
             
             await MID_HelperFunctions.DebugMessageAsync(
                 "✓ Facebook OAuth redirect initiated",
