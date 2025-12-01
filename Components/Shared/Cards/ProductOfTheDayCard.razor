@@ -1,0 +1,196 @@
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Domain.Product
+
+<div class="potd-card @CssClass">
+    <div class="potd-header">
+        <div class="potd-badge">
+            <span class="badge-icon">🌟</span>
+            <span class="badge-text">Product of the Day</span>
+        </div>
+        <div class="potd-timer" title="Refreshes daily">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                <polyline points="12 6 12 12 16 14" stroke-width="2"/>
+            </svg>
+            <span>@GetTimeRemaining()</span>
+        </div>
+    </div>
+
+    @if (Product != null)
+    {
+        <div class="potd-content" @onclick="HandleCardClick">
+            <div class="potd-image-wrapper">
+                @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
+                {
+                    <img src="@Product.Images.First()" alt="@Product.Name" class="potd-image" loading="eager" />
+                    
+                    <div class="potd-overlay">
+                        <div class="overlay-content">
+                            <h3 class="overlay-title">Today's Special</h3>
+                            <p class="overlay-subtitle">Limited Time Offer</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="potd-placeholder">
+                        <span class="placeholder-icon">✨</span>
+                    </div>
+                }
+
+                @if (Product.IsOnSale && Product.Discount > 0)
+                {
+                    <div class="potd-discount">
+                        <span class="discount-value">-@Product.Discount%</span>
+                        <span class="discount-label">OFF</span>
+                    </div>
+                }
+            </div>
+
+            <div class="potd-info">
+                <div class="potd-meta">
+                    <span class="potd-category">@Product.Category</span>
+                    @if (Product.Rating > 0)
+                    {
+                        <div class="potd-rating">
+                            <span class="rating-icon">⭐</span>
+                            <span class="rating-value">@Product.Rating.ToString("F1")</span>
+                            <span class="rating-count">(@Product.ReviewCount)</span>
+                        </div>
+                    }
+                </div>
+
+                <h2 class="potd-name">@Product.Name</h2>
+
+                @if (!string.IsNullOrEmpty(Product.Description))
+                {
+                    <p class="potd-description">@Product.Description</p>
+                }
+
+                <div class="potd-features">
+                    @if (Product.IsFeatured)
+                    {
+                        <span class="feature-tag">✓ Featured</span>
+                    }
+                    @if (Product.Stock > 0 && Product.Stock <= 10)
+                    {
+                        <span class="feature-tag stock-alert">⚠ Only @Product.Stock left</span>
+                    }
+                    @if (Product.IsOnSale)
+                    {
+                        <span class="feature-tag sale">🔥 On Sale</span>
+                    }
+                </div>
+
+                <div class="potd-price-section">
+                    <div class="price-wrapper">
+                        @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+                        {
+                            <span class="potd-original-price">@Product.DisplayOriginalPrice</span>
+                        }
+                        <span class="potd-current-price">@Product.DisplayPrice</span>
+                    </div>
+                    
+                    @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+                    {
+                        <div class="savings-badge">
+                            You save: @GetSavingsAmount()
+                        </div>
+                    }
+                </div>
+
+                <div class="potd-actions">
+                    <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                                  OnClick="HandleAddToCart"
+                                  IsDisabled="@(!Product.IsInStock)"
+                                  CssClass="potd-add-cart-btn">
+                        @(Product.IsInStock ? "🛒 Add to Cart" : "Out of Stock")
+                    </PrimaryButton>
+                    
+                    <SecondaryButton Size="SecondaryButton.ButtonSize.Large"
+                                    Variant="SecondaryButton.ButtonVariant.Outline"
+                                    OnClick="HandleViewDetails"
+                                    CssClass="potd-view-btn">
+                        View Details
+                    </SecondaryButton>
+                </div>
+            </div>
+        </div>
+    }
+    else if (IsLoading)
+    {
+        <div class="potd-loading">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Loading today's special product...</p>
+        </div>
+    }
+    else
+    {
+        <div class="potd-empty">
+            <div class="empty-icon">📦</div>
+            <h3 class="empty-title">No Product Selected</h3>
+            <p class="empty-text">Check back tomorrow for our next featured product!</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public ProductViewModel? Product { get; set; }
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnClick { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnAddToCart { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnViewDetails { get; set; }
+
+    private string GetTimeRemaining()
+    {
+        var now = DateTime.UtcNow;
+        var tomorrow = now.Date.AddDays(1);
+        var remaining = tomorrow - now;
+        
+        return $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+    }
+
+    private string GetSavingsAmount()
+    {
+        if (Product?.OriginalPrice.HasValue == true)
+        {
+            var savings = Product.OriginalPrice.Value - Product.Price;
+            return $"₦{savings:N0}";
+        }
+        return "₦0";
+    }
+
+    private async Task HandleCardClick()
+    {
+        if (Product != null && OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync(Product);
+        }
+    }
+
+    private async Task HandleAddToCart(MouseEventArgs e)
+    {
+        if (Product != null && OnAddToCart.HasDelegate && Product.IsInStock)
+        {
+            await OnAddToCart.InvokeAsync(Product);
+        }
+    }
+
+    private async Task HandleViewDetails(MouseEventArgs e)
+    {
+        if (Product != null && OnViewDetails.HasDelegate)
+        {
+            await OnViewDetails.InvokeAsync(Product);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Start timer update loop
+            StateHasChanged();
+        }
+    }
+}
