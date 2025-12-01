@@ -1,0 +1,83 @@
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Domain.Product
+
+<div class="featured-product-card @CssClass" @onclick="HandleCardClick">
+    <div class="featured-image-wrapper">
+        @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
+        {
+            <img src="@Product.Images.First()" alt="@Product.Name" class="featured-image" loading="lazy" />
+        }
+        else
+        {
+            <div class="featured-placeholder">
+                <span class="placeholder-icon">✨</span>
+            </div>
+        }
+        
+        @if (Product.IsOnSale && Product.Discount > 0)
+        {
+            <div class="featured-badge">
+                <span class="badge-text">Save @Product.Discount%</span>
+            </div>
+        }
+    </div>
+    
+    <div class="featured-info">
+        <div class="featured-header">
+            <p class="featured-category">@Product.Category</p>
+            @if (Product.Rating > 0)
+            {
+                <div class="featured-rating">
+                    <span class="rating-icon">⭐</span>
+                    <span class="rating-value">@Product.Rating.ToString("F1")</span>
+                </div>
+            }
+        </div>
+        
+        <h3 class="featured-name">@Product.Name</h3>
+        
+        @if (!string.IsNullOrEmpty(Product.Description))
+        {
+            <p class="featured-description">@Product.Description</p>
+        }
+        
+        <div class="featured-footer">
+            <div class="featured-price">
+                @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+                {
+                    <span class="featured-original-price">@Product.DisplayOriginalPrice</span>
+                }
+                <span class="featured-current-price">@Product.DisplayPrice</span>
+            </div>
+            
+            <PrimaryButton Size="PrimaryButton.ButtonSize.Small" 
+                          OnClick="HandleViewDetails"
+                          CssClass="featured-view-btn">
+                View Details
+            </PrimaryButton>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ProductViewModel Product { get; set; } = new();
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public EventCallback<ProductViewModel> OnClick { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnViewDetails { get; set; }
+
+    private async Task HandleCardClick()
+    {
+        if (OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync(Product);
+        }
+    }
+
+    private async Task HandleViewDetails(MouseEventArgs e)
+    {
+        if (OnViewDetails.HasDelegate)
+        {
+            await OnViewDetails.InvokeAsync(Product);
+        }
+    }
+}
