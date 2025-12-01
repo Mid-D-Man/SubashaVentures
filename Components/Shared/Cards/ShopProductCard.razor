@@ -1,0 +1,152 @@
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Domain.Product
+
+<div class="shop-product-card @CssClass @(IsLoading ? "loading" : "")" 
+     @onclick="HandleCardClick"
+     @onmouseenter="() => IsHovered = true"
+     @onmouseleave="() => IsHovered = false">
+    
+    <!-- Image Section -->
+    <div class="product-image-wrapper">
+        @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
+        {
+            <img src="@Product.Images.First()" 
+                 alt="@Product.Name" 
+                 class="product-image" 
+                 loading="lazy" />
+        }
+        else
+        {
+            <div class="product-placeholder">
+                <span class="placeholder-icon">📦</span>
+            </div>
+        }
+        
+        <!-- Badges -->
+        @if (Product.IsOnSale && Product.Discount > 0)
+        {
+            <div class="product-badge sale">-@Product.Discount%</div>
+        }
+        @if (Product.IsFeatured)
+        {
+            <div class="product-badge featured">Featured</div>
+        }
+        @if (!Product.IsInStock)
+        {
+            <div class="product-badge out-of-stock">Out of Stock</div>
+        }
+        
+        <!-- Quick Actions Overlay -->
+        <div class="quick-actions @(IsHovered ? "visible" : "")">
+            <button class="quick-action-btn" @onclick="HandleQuickView" @onclick:stopPropagation="true" title="Quick View">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="2"/>
+                    <circle cx="12" cy="12" r="3" stroke-width="2"/>
+                </svg>
+            </button>
+            <button class="quick-action-btn" @onclick="HandleAddToCart" @onclick:stopPropagation="true" title="Add to Cart">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="9" cy="21" r="1" stroke-width="2"/>
+                    <circle cx="20" cy="21" r="1" stroke-width="2"/>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke-width="2"/>
+                </svg>
+            </button>
+            <button class="quick-action-btn wishlist @(IsWishlisted ? "active" : "")" 
+                    @onclick="HandleWishlistToggle" 
+                    @onclick:stopPropagation="true" 
+                    title="@(IsWishlisted ? "Remove from Wishlist" : "Add to Wishlist")">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="@(IsWishlisted ? "currentColor" : "none")" stroke="currentColor">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke-width="2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Product Info -->
+    <div class="product-info">
+        <p class="product-category">@Product.Category</p>
+        <h3 class="product-name" title="@Product.Name">@Product.Name</h3>
+        
+        <!-- Rating -->
+        @if (Product.Rating > 0)
+        {
+            <div class="product-rating">
+                <div class="rating-stars">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <span class="star @(i <= Product.Rating ? "filled" : "")">⭐</span>
+                    }
+                </div>
+                <span class="rating-text">(@Product.Rating.ToString("F1"))</span>
+                @if (Product.ReviewCount > 0)
+                {
+                    <span class="review-count">@Product.ReviewCount reviews</span>
+                }
+            </div>
+        }
+        
+        <!-- Price -->
+        <div class="product-price">
+            @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+            {
+                <span class="original-price">@Product.DisplayOriginalPrice</span>
+            }
+            <span class="current-price">@Product.DisplayPrice</span>
+        </div>
+        
+        <!-- Stock Status -->
+        @if (!Product.IsInStock)
+        {
+            <p class="stock-status out-of-stock">Out of Stock</p>
+        }
+        else if (Product.Stock <= 5)
+        {
+            <p class="stock-status low-stock">Only @Product.Stock left</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public ProductViewModel Product { get; set; } = new();
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsWishlisted { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnClick { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnQuickView { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnAddToCart { get; set; }
+    [Parameter] public EventCallback<ProductViewModel> OnWishlistToggle { get; set; }
+
+    private bool IsHovered { get; set; }
+
+    private async Task HandleCardClick()
+    {
+        if (OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync(Product);
+        }
+    }
+
+    private async Task HandleQuickView(MouseEventArgs e)
+    {
+        if (OnQuickView.HasDelegate)
+        {
+            await OnQuickView.InvokeAsync(Product);
+        }
+    }
+
+    private async Task HandleAddToCart(MouseEventArgs e)
+    {
+        if (OnAddToCart.HasDelegate && Product.IsInStock)
+        {
+            await OnAddToCart.InvokeAsync(Product);
+        }
+    }
+
+    private async Task HandleWishlistToggle(MouseEventArgs e)
+    {
+        if (OnWishlistToggle.HasDelegate)
+        {
+            await OnWishlistToggle.InvokeAsync(Product);
+        }
+    }
+}
