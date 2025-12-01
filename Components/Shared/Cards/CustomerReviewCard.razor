@@ -1,0 +1,141 @@
+@using SubashaVentures.Domain.Product
+
+<div class="review-card @CssClass">
+    <div class="review-header">
+        <div class="reviewer-info">
+            @if (!string.IsNullOrEmpty(Review.UserAvatar))
+            {
+                <img src="@Review.UserAvatar" alt="@Review.UserName" class="reviewer-avatar" loading="lazy" />
+            }
+            else
+            {
+                <div class="reviewer-avatar-placeholder">
+                    <span class="avatar-initial">@GetInitial(Review.UserName)</span>
+                </div>
+            }
+            
+            <div class="reviewer-details">
+                <h4 class="reviewer-name">@Review.UserName</h4>
+                <p class="review-date">@Review.TimeAgo</p>
+            </div>
+        </div>
+        
+        <div class="review-rating-badge">
+            <span class="rating-number">@Review.Rating</span>
+            <span class="rating-stars">
+                @for (int i = 0; i < Review.Rating; i++)
+                {
+                    <span class="star">⭐</span>
+                }
+            </span>
+        </div>
+    </div>
+    
+    @if (!string.IsNullOrEmpty(Review.Title))
+    {
+        <h3 class="review-title">@Review.Title</h3>
+    }
+    
+    <p class="review-comment @(IsExpanded ? "expanded" : "")">@Review.Comment</p>
+    
+    @if (Review.Comment.Length > 200)
+    {
+        <button class="review-read-more" @onclick="ToggleExpanded">
+            @(IsExpanded ? "Read Less" : "Read More")
+        </button>
+    }
+    
+    @if (Review.Images?.Any() == true)
+    {
+        <div class="review-images">
+            @foreach (var image in Review.Images.Take(3))
+            {
+                <div class="review-image-wrapper" @onclick="() => HandleImageClick(image)">
+                    <img src="@image" alt="Review image" class="review-image" loading="lazy" />
+                </div>
+            }
+            @if (Review.Images.Count > 3)
+            {
+                <div class="review-image-more" @onclick="HandleShowMoreImages">
+                    <span class="more-count">+@(Review.Images.Count - 3)</span>
+                </div>
+            }
+        </div>
+    }
+    
+    <div class="review-footer">
+        <div class="review-badges">
+            @if (Review.IsVerifiedPurchase)
+            {
+                <span class="badge verified">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+                    </svg>
+                    Verified Purchase
+                </span>
+            }
+        </div>
+        
+        <div class="review-actions">
+            <button class="review-helpful @(IsHelpful ? "active" : "")" 
+                    @onclick="HandleHelpfulClick"
+                    title="Mark as helpful">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="@(IsHelpful ? "currentColor" : "none")" stroke="currentColor">
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" stroke-width="2"/>
+                </svg>
+                <span>Helpful (@GetHelpfulCount())</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ReviewViewModel Review { get; set; } = new();
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public bool IsHelpful { get; set; }
+    [Parameter] public EventCallback<ReviewViewModel> OnHelpfulClick { get; set; }
+    [Parameter] public EventCallback<string> OnImageClick { get; set; }
+    [Parameter] public EventCallback<ReviewViewModel> OnShowMoreImages { get; set; }
+
+    private bool IsExpanded { get; set; }
+
+    private string GetInitial(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "?";
+        return name.Substring(0, 1).ToUpper();
+    }
+
+    private int GetHelpfulCount()
+    {
+        return Review.HelpfulCount + (IsHelpful ? 1 : 0);
+    }
+
+    private void ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+    }
+
+    private async Task HandleHelpfulClick()
+    {
+        if (OnHelpfulClick.HasDelegate)
+        {
+            await OnHelpfulClick.InvokeAsync(Review);
+        }
+    }
+
+    private async Task HandleImageClick(string imageUrl)
+    {
+        if (OnImageClick.HasDelegate)
+        {
+            await OnImageClick.InvokeAsync(imageUrl);
+        }
+    }
+
+    private async Task HandleShowMoreImages()
+    {
+        if (OnShowMoreImages.HasDelegate)
+        {
+            await OnShowMoreImages.InvokeAsync(Review);
+        }
+    }
+}
