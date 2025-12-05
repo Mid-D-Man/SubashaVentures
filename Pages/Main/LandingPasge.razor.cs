@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using SubashaVentures.Domain.Product;
@@ -111,7 +110,8 @@ public partial class LandingPage : ComponentBase
         };
     }
 
-    // Navigation Handlers
+    // ==================== NAVIGATION HANDLERS ====================
+    
     private void NavigateToShop()
     {
         NavigationManager.NavigateTo("shop");
@@ -122,62 +122,110 @@ public partial class LandingPage : ComponentBase
         NavigationManager.NavigateTo($"shop/{category}");
     }
 
-    // Product of the Day Handlers
+    // ==================== PRODUCT OF THE DAY HANDLERS ====================
+    
     private void HandlePOTDClick(ProductViewModel product)
     {
+        // Navigate to product details page
         NavigationManager.NavigateTo($"product/{product.Id}");
     }
 
     private void HandleViewPOTDDetails(ProductViewModel product)
     {
+        // Navigate to product details page
         NavigationManager.NavigateTo($"product/{product.Id}");
     }
 
     private async Task HandleAddToCart(ProductViewModel product)
     {
-        // TODO: Implement add to cart functionality
-        Console.WriteLine($"Add to cart: {product.Name}");
-        await Task.CompletedTask;
+        try
+        {
+            // TODO: Implement actual add to cart functionality with CartService
+            Console.WriteLine($"[TODO] Add to cart: {product.Name} (ID: {product.Id})");
+            
+            // Once CartService is implemented:
+            // await CartService.AddToCartAsync(product.Id, quantity: 1);
+            // Show success notification
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding to cart: {ex.Message}");
+        }
     }
 
-    // Featured Products Handlers
+    // ==================== FEATURED PRODUCTS HANDLERS ====================
+    
     private void HandleProductClick(ProductViewModel product)
     {
-        // Show product details in current view (could open modal or sidebar)
-        Console.WriteLine($"Product clicked: {product.Name}");
+        // Navigate to product details
+        NavigationManager.NavigateTo($"product/{product.Id}");
     }
 
     private void HandleViewDetails(ProductViewModel product)
     {
-        // Navigate to full product page
+        // Navigate to full product details page
         NavigationManager.NavigateTo($"product/{product.Id}");
     }
 
-    // Review Handlers
+    // ==================== REVIEW HANDLERS ====================
+    
     private async Task HandleHelpfulClick(ReviewViewModel review)
     {
-        // TODO: Implement helpful vote functionality
-        Console.WriteLine($"Marked review {review.Id} as helpful");
-        await Task.CompletedTask;
+        try
+        {
+            // TODO: Implement helpful vote functionality with ReviewService
+            Console.WriteLine($"[TODO] Marked review {review.Id} as helpful");
+            
+            // Once ReviewService is implemented:
+            // await ReviewService.MarkReviewHelpfulAsync(review.Id);
+            // Update local state to reflect the change
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error marking review as helpful: {ex.Message}");
+        }
     }
 
     private async Task HandleReviewImageClick(string imageUrl)
     {
-        // TODO: Open image in lightbox/modal
-        Console.WriteLine($"Review image clicked: {imageUrl}");
-        await Task.CompletedTask;
+        try
+        {
+            // TODO: Open image in lightbox/modal
+            Console.WriteLine($"[TODO] Review image clicked: {imageUrl}");
+            
+            // Once ImageModal/Lightbox component is implemented:
+            // await ImageModalService.ShowImageAsync(imageUrl);
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error showing review image: {ex.Message}");
+        }
     }
 
-    // Newsletter Handlers
+    // ==================== NEWSLETTER HANDLERS ====================
+    
     private async Task HandleNewsletterSubmit()
     {
         if (string.IsNullOrWhiteSpace(newsletterEmail))
+        {
+            Console.WriteLine("Newsletter email is empty");
             return;
+        }
 
         try
         {
-            // TODO: Implement newsletter subscription
-            Console.WriteLine($"Newsletter subscription: {newsletterEmail}");
+            // TODO: Implement newsletter subscription with NewsletterService
+            Console.WriteLine($"[TODO] Newsletter subscription: {newsletterEmail}");
+            
+            // Once NewsletterService is implemented:
+            // await NewsletterService.SubscribeAsync(newsletterEmail);
+            // Show success message to user
             
             // Clear input on success
             newsletterEmail = "";
@@ -186,6 +234,7 @@ public partial class LandingPage : ComponentBase
         catch (Exception ex)
         {
             Console.WriteLine($"Newsletter subscription error: {ex.Message}");
+            // TODO: Show error message to user
         }
 
         await Task.CompletedTask;
@@ -197,5 +246,19 @@ public partial class LandingPage : ComponentBase
         {
             _ = HandleNewsletterSubmit();
         }
+    }
+
+    // ==================== HELPER METHODS ====================
+    
+    private void ShowSuccessNotification(string message)
+    {
+        // TODO: Implement with NotificationService
+        Console.WriteLine($"[SUCCESS] {message}");
+    }
+
+    private void ShowErrorNotification(string message)
+    {
+        // TODO: Implement with NotificationService
+        Console.WriteLine($"[ERROR] {message}");
     }
 }
