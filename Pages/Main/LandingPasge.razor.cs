@@ -9,7 +9,7 @@ public partial class LandingPage : ComponentBase
 {
     [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private IProductService ProductService { get; set; } = default!;
-    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     // State
     private ProductViewModel? productOfTheDay;
@@ -110,122 +110,73 @@ public partial class LandingPage : ComponentBase
         };
     }
 
-    // ==================== NAVIGATION HANDLERS ====================
-    
+    // ===== NAVIGATION HANDLERS =====
     private void NavigateToShop()
     {
-        NavigationManager.NavigateTo("shop");
+        Navigation.NavigateTo("shop");
     }
 
     private void NavigateToCategory(string category)
     {
-        NavigationManager.NavigateTo($"shop/{category}");
+        Navigation.NavigateTo($"shop/{category}");
     }
 
-    // ==================== PRODUCT OF THE DAY HANDLERS ====================
-    
+    // ===== PRODUCT OF THE DAY HANDLERS =====
     private void HandlePOTDClick(ProductViewModel product)
     {
-        // Navigate to product details page
-        NavigationManager.NavigateTo($"product/{product.Id}");
+        Navigation.NavigateTo($"product/{product.Id}");
     }
 
     private void HandleViewPOTDDetails(ProductViewModel product)
     {
-        // Navigate to product details page
-        NavigationManager.NavigateTo($"product/{product.Id}");
+        Navigation.NavigateTo($"product/{product.Id}");
     }
 
     private async Task HandleAddToCart(ProductViewModel product)
     {
-        try
-        {
-            // TODO: Implement actual add to cart functionality with CartService
-            Console.WriteLine($"[TODO] Add to cart: {product.Name} (ID: {product.Id})");
-            
-            // Once CartService is implemented:
-            // await CartService.AddToCartAsync(product.Id, quantity: 1);
-            // Show success notification
-            
-            await Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error adding to cart: {ex.Message}");
-        }
+        // TODO: Implement add to cart functionality
+        Console.WriteLine($"Add to cart: {product.Name}");
+        await Task.CompletedTask;
     }
 
-    // ==================== FEATURED PRODUCTS HANDLERS ====================
-    
+    // ===== FEATURED PRODUCTS HANDLERS =====
     private void HandleProductClick(ProductViewModel product)
     {
-        // Navigate to product details
-        NavigationManager.NavigateTo($"product/{product.Id}");
+        // For featured products, clicking anywhere navigates to details
+        Navigation.NavigateTo($"product/{product.Id}");
     }
 
     private void HandleViewDetails(ProductViewModel product)
     {
-        // Navigate to full product details page
-        NavigationManager.NavigateTo($"product/{product.Id}");
+        // Navigate to full product page
+        Navigation.NavigateTo($"product/{product.Id}");
     }
 
-    // ==================== REVIEW HANDLERS ====================
-    
+    // ===== REVIEW HANDLERS =====
     private async Task HandleHelpfulClick(ReviewViewModel review)
     {
-        try
-        {
-            // TODO: Implement helpful vote functionality with ReviewService
-            Console.WriteLine($"[TODO] Marked review {review.Id} as helpful");
-            
-            // Once ReviewService is implemented:
-            // await ReviewService.MarkReviewHelpfulAsync(review.Id);
-            // Update local state to reflect the change
-            
-            await Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error marking review as helpful: {ex.Message}");
-        }
+        // TODO: Implement helpful vote functionality
+        Console.WriteLine($"Marked review {review.Id} as helpful");
+        await Task.CompletedTask;
     }
 
     private async Task HandleReviewImageClick(string imageUrl)
     {
-        try
-        {
-            // TODO: Open image in lightbox/modal
-            Console.WriteLine($"[TODO] Review image clicked: {imageUrl}");
-            
-            // Once ImageModal/Lightbox component is implemented:
-            // await ImageModalService.ShowImageAsync(imageUrl);
-            
-            await Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error showing review image: {ex.Message}");
-        }
+        // TODO: Open image in lightbox/modal
+        Console.WriteLine($"Review image clicked: {imageUrl}");
+        await Task.CompletedTask;
     }
 
-    // ==================== NEWSLETTER HANDLERS ====================
-    
+    // ===== NEWSLETTER HANDLERS =====
     private async Task HandleNewsletterSubmit()
     {
         if (string.IsNullOrWhiteSpace(newsletterEmail))
-        {
-            Console.WriteLine("Newsletter email is empty");
             return;
-        }
 
         try
         {
-            // TODO: Implement newsletter subscription with NewsletterService
-            Console.WriteLine($"[TODO] Newsletter subscription: {newsletterEmail}");
-            
-            // Once NewsletterService is implemented:
-            // await NewsletterService.SubscribeAsync(newsletterEmail);
-            // Show success message to user
+            // TODO: Implement newsletter subscription
+            Console.WriteLine($"Newsletter subscription: {newsletterEmail}");
             
             // Clear input on success
             newsletterEmail = "";
@@ -234,7 +185,6 @@ public partial class LandingPage : ComponentBase
         catch (Exception ex)
         {
             Console.WriteLine($"Newsletter subscription error: {ex.Message}");
-            // TODO: Show error message to user
         }
 
         await Task.CompletedTask;
@@ -246,19 +196,5 @@ public partial class LandingPage : ComponentBase
         {
             _ = HandleNewsletterSubmit();
         }
-    }
-
-    // ==================== HELPER METHODS ====================
-    
-    private void ShowSuccessNotification(string message)
-    {
-        // TODO: Implement with NotificationService
-        Console.WriteLine($"[SUCCESS] {message}");
-    }
-
-    private void ShowErrorNotification(string message)
-    {
-        // TODO: Implement with NotificationService
-        Console.WriteLine($"[ERROR] {message}");
     }
 }
