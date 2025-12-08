@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Dec  8 00:12:45 UTC 2025
+Generated: Mon Dec  8 00:13:19 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: c74d44d2b35a67305b300a39ac52a7b372399a99
+Commit: 9fed39884e9f881727f7b9c28dc3914603757a4b
 Branch: master
 ==================================
 
@@ -154,7 +154,7 @@ Pages/Checkout/Checkout.razor.cs
 Pages/Checkout/Checkout.razor.css
 Pages/Main/LandingPage.razor
 Pages/Main/LandingPage.razor.cs
-Pages/Main/LandingPasge.razor.css
+Pages/Main/LandingPage.razor.css
 Pages/Product/ProductDetails.razor
 Pages/Product/ProductDetails.razor.cs
 Pages/Product/ProductDetails.razor.css
