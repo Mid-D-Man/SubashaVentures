@@ -1,21 +1,12 @@
-
-
-
 @inherits LayoutComponentBase
 @inject INavigationService NavService
 @implements IDisposable
-
-
-
 
 <div class="main-layout">
     <!-- Top Section - Navigation (Fixed Header)  -->
     <header class="layout-header">
         <TopNavigation />
     </header>  
-
-
-
 
     <!-- Main Content Section (Scrollable) -->
     <main class="layout-content">
@@ -42,9 +33,6 @@
                OnSearch="@HandleSearch"/>
 </div>
 
-
-
-
 @code {
     private bool isSidePanelOpen = false;
     private string searchQuery = "";
@@ -53,9 +41,6 @@
     private bool isLoggedIn = false;
     private string userName = "John Doe";
     private string userEmail = "john.doe@example.com";
-
-
-
 
     protected override void OnInitialized()
     {
@@ -68,17 +53,11 @@
         searchQuery = NavService.SearchQuery;
     }
 
-
-
-
     private void OnSidePanelStateChanged(object? sender, bool isOpen)
     {
         isSidePanelOpen = isOpen;
         StateHasChanged();
     }
-
-
-
 
     private void OnSearchQueryChangedFromService(object? sender, string query)
     {
@@ -86,26 +65,17 @@
         StateHasChanged();
     }
 
-
-
-
     private async Task HandleSidePanelToggle(bool isOpen)
     {
         NavService.SetSidePanelState(isOpen);
         await Task.CompletedTask;
     }
 
-
-
-
     private async Task OnSearchQueryChanged(string query)
     {
         NavService.UpdateSearchQuery(query);
         await Task.CompletedTask;
     }
-
-
-
 
     private async Task HandleActionClick(SidePanel.ActionType action)
     {
@@ -115,9 +85,9 @@
                 // Navigate to sign in
                 Console.WriteLine("Navigate to: /signin");
                 break;
-            case SidePanel.ActionType.Register:
+            case SidePanel.ActionType.SignUp:  // FIXED: Changed from Register to SignUp
                 // Navigate to register
-                Console.WriteLine("Navigate to: /register");
+                Console.WriteLine("Navigate to: /signup");
                 break;
             case SidePanel.ActionType.Profile:
                 // Navigate to profile
@@ -130,18 +100,12 @@
         await Task.CompletedTask;
     }
 
-
-
-
     private async Task HandleNavigate(string url)
     {
         // In real app: NavigationManager.NavigateTo(url);
         Console.WriteLine($"Navigate to: {url}");
         await Task.CompletedTask;
     }
-
-
-
 
     private async Task HandleSearch(string query)
     {
@@ -153,9 +117,6 @@
         await Task.CompletedTask;
     }
 
-
-
-
     private async Task HandleLogout()
     {
         isLoggedIn = false;
@@ -164,9 +125,6 @@
         StateHasChanged();
         await Task.CompletedTask;
     }
-
-
-
 
     public void Dispose()
     {
