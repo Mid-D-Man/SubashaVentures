@@ -239,6 +239,7 @@
     border-left: 3px solid transparent;
     font-weight: 500;
     position: relative;
+    cursor: pointer;
 }
 
 .nav-link::before {
@@ -272,12 +273,18 @@
     font-weight: 500;
 }
 
-/* Panel Actions */
+/* ===== PANEL ACTIONS ===== */
 .panel-actions {
     flex: 0 0 auto;
     padding: 1.5rem;
     border-top: 1px solid var(--border-light, rgba(150, 153, 74, 0.2));
     background: rgba(150, 153, 74, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
 }
 
 .action-btn {
@@ -311,6 +318,23 @@
 }
 
 .action-btn.sign-in:active {
+    transform: translateY(0);
+}
+
+/* Sign Up Button */
+.action-btn.sign-up {
+    background: var(--theme-secondary, #9A4A96);
+    color: white;
+    box-shadow: 0 4px 12px rgba(154, 74, 150, 0.3);
+}
+
+.action-btn.sign-up:hover {
+    background: var(--hover-secondary, #7D3A7A);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(154, 74, 150, 0.4);
+}
+
+.action-btn.sign-up:active {
     transform: translateY(0);
 }
 
@@ -373,7 +397,6 @@
     color: var(--text-on-primary, #212529);
 }
 
-/* Dark theme user profile */
 [data-theme="dark"] .user-profile-section {
     background: linear-gradient(135deg, rgba(184, 187, 106, 0.05) 0%, rgba(184, 187, 106, 0.1) 100%);
     border-bottom-color: rgba(184, 187, 106, 0.2);
@@ -436,6 +459,17 @@
     box-shadow: 0 6px 20px rgba(184, 187, 106, 0.6);
 }
 
+[data-theme="dark"] .action-btn.sign-up {
+    background: var(--theme-secondary, #BB6AB8);
+    color: var(--text-on-secondary, #212529);
+    box-shadow: 0 4px 12px rgba(187, 106, 184, 0.4);
+}
+
+[data-theme="dark"] .action-btn.sign-up:hover {
+    background: var(--hover-secondary, #CB7AC8);
+    box-shadow: 0 6px 20px rgba(187, 106, 184, 0.6);
+}
+
 [data-theme="dark"] .action-btn.sign-out {
     background: rgba(33, 37, 41, 0.5);
     color: #ff6b6b;
@@ -483,6 +517,8 @@
     
     .panel-actions {
         padding: 1.25rem;
+        background: rgba(150, 153, 74, 0.05);
+        backdrop-filter: blur(10px);
     }
     
     .action-btn {
@@ -613,4 +649,4 @@
     .user-profile-card {
         border-width: 2px;
     }
-}
+    }
