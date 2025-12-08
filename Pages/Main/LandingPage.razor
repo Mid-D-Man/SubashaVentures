@@ -6,182 +6,60 @@
 @layout LandingPageLayout
 
 <div class="landing-page">
-    <!-- Hero Section -->
+    <!-- Hero Section with Product of the Day -->
     <section class="hero-section">
-        <div class="hero-content">
-            <div class="hero-text">
-                <h1 class="hero-title">
-                    <span class="title-static">Style That Speaks</span>
-                    <div class="title-animated">
-                        <div class="flip-container">
-                            <div class="flip-text">
-                                <div><div>Your Language</div></div>
-                                <div><div>Your Story</div></div>
-                                <div><div>Your Vibes</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </h1>
-                <p class="hero-description">
-                    Discover premium clothing and home goods that reflect your unique personality.
-                    From trendy fashion to cozy home essentials - find everything you love at SubashaVentures.
-                </p>
-                <div class="hero-actions">
-                    <PrimaryButton
-                        Size="PrimaryButton.ButtonSize.Large"
-                        OnClick="@NavigateToShop"
-                        CssClass="hero-cta-btn">
-                        Shop Now
-                    </PrimaryButton>
-                </div>
-                <div class="hero-stats">
-                    <div class="stat-item">
-                        <span class="stat-number">10K+</span>
-                        <span class="stat-label">Happy Customers</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">5000+</span>
-                        <span class="stat-label">Products</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">50+</span>
-                        <span class="stat-label">Brands</span>
+        @if (isLoadingPOTD)
+        {
+            <div class="hero-loading">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Loading today's special...</p>
+            </div>
+        }
+        else if (productOfTheDay != null)
+        {
+            <ProductOfTheDayCard 
+                Product="@productOfTheDay"
+                OnClick="@HandlePOTDClick"
+                OnAddToCart="@HandleAddToCart"
+                OnViewDetails="@HandleViewPOTDDetails" />
+        }
+        else
+        {
+            <!-- Fallback if no POTD -->
+            <div class="hero-fallback">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        <span class="title-static">Style That Speaks</span>
+                        <span class="title-animated">Your Language</span>
+                    </h1>
+                    <p class="hero-description">
+                        Discover premium clothing and home goods that reflect your unique personality.
+                    </p>
+                    <div class="hero-actions">
+                        <PrimaryButton
+                            Size="PrimaryButton.ButtonSize.Large"
+                            OnClick="@NavigateToShop"
+                            CssClass="hero-cta-btn">
+                            Shop Now
+                        </PrimaryButton>
                     </div>
                 </div>
             </div>
-            <div class="hero-visual">
-                <div class="hero-image-container">
-                    @if (!string.IsNullOrEmpty(heroBackgroundImage))
-                    {
-                        <img src="@heroBackgroundImage" alt="Hero Background" class="hero-background-image" />
-                    }
-                    else
-                    {
-                        <div class="hero-image-placeholder">
-                            <span class="placeholder-text">Discover Amazing Products</span>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Product of the Day Section -->
-    <section class="potd-section">
-        <div class="section-container">
-            @if (isLoadingPOTD)
-            {
-                <div class="loading-container">
-                    <div class="loading-spinner"></div>
-                    <p>Loading today's special...</p>
-                </div>
-            }
-            else if (productOfTheDay != null)
-            {
-                <ProductOfTheDayCard 
-                    Product="@productOfTheDay"
-                    OnClick="@HandlePOTDClick"
-                    OnAddToCart="@HandleAddToCart"
-                    OnViewDetails="@HandleViewPOTDDetails" />
-            }
-        </div>
-    </section>
-
-    <!-- Categories Section -->
-    <section class="categories-section">
-        <div class="section-header">
-            <h2 class="section-title">Shop by Category</h2>
-            <p class="section-subtitle">Explore our curated collections</p>
-        </div>
-
-        <div class="categories-scroll-container">
-            <div class="categories-horizontal">
-                @for (int loop = 0; loop < 3; loop++)
-                {
-                    <div class="category-card mens" @onclick="@(() => NavigateToCategory("men"))">
-                        <div class="category-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-width="2"/>
-                                <circle cx="12" cy="7" r="4" stroke-width="2"/>
-                            </svg>
-                        </div>
-                        <h3 class="category-title">Men's Fashion</h3>
-                        <p class="category-description">Stylish clothing for the modern man</p>
-                        <SecondaryButton
-                            Variant="SecondaryButton.ButtonVariant.Ghost"
-                            Size="SecondaryButton.ButtonSize.Small"
-                            OnClick="@(() => NavigateToCategory("men"))">
-                            Explore Men's
-                        </SecondaryButton>
-                    </div>
-
-                    <div class="category-card womens" @onclick="@(() => NavigateToCategory("women"))">
-                        <div class="category-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <circle cx="12" cy="8" r="7" stroke-width="2"/>
-                                <path d="M12 15v6m-3-3h6" stroke-width="2"/>
-                            </svg>
-                        </div>
-                        <h3 class="category-title">Women's Fashion</h3>
-                        <p class="category-description">Elegant styles for every occasion</p>
-                        <SecondaryButton
-                            Variant="SecondaryButton.ButtonVariant.Ghost"
-                            Size="SecondaryButton.ButtonSize.Small"
-                            OnClick="@(() => NavigateToCategory("women"))">
-                            Explore Women's
-                        </SecondaryButton>
-                    </div>
-
-                    <div class="category-card children" @onclick="@(() => NavigateToCategory("kids"))">
-                        <div class="category-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <circle cx="9" cy="7" r="4" stroke-width="2"/>
-                                <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" stroke-width="2"/>
-                            </svg>
-                        </div>
-                        <h3 class="category-title">Kids & Baby</h3>
-                        <p class="category-description">Comfortable clothes for little ones</p>
-                        <SecondaryButton
-                            Variant="SecondaryButton.ButtonVariant.Ghost"
-                            Size="SecondaryButton.ButtonSize.Small"
-                            OnClick="@(() => NavigateToCategory("kids"))">
-                            Explore Kids
-                        </SecondaryButton>
-                    </div>
-
-                    <div class="category-card home" @onclick="@(() => NavigateToCategory("home"))">
-                        <div class="category-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="2"/>
-                                <polyline points="9 22 9 12 15 12 15 22" stroke-width="2"/>
-                            </svg>
-                        </div>
-                        <h3 class="category-title">Home & Living</h3>
-                        <p class="category-description">Beautiful items for your home</p>
-                        <SecondaryButton
-                            Variant="SecondaryButton.ButtonVariant.Ghost"
-                            Size="SecondaryButton.ButtonSize.Small"
-                            OnClick="@(() => NavigateToCategory("home"))">
-                            Explore Home
-                        </SecondaryButton>
-                    </div>
-                }
-            </div>
-        </div>
+        }
     </section>
 
     <!-- Featured Products Section -->
     <section class="featured-section">
         <div class="section-header">
             <h2 class="section-title">Featured Products</h2>
-            <p class="section-subtitle">Our most popular items this season</p>
+            <p class="section-subtitle">Handpicked items just for you</p>
         </div>
 
         @if (isLoadingFeatured)
         {
             <div class="loading-container">
                 <div class="loading-spinner"></div>
-                <p>Loading featured products...</p>
+                <p class="loading-text">Loading featured products...</p>
             </div>
         }
         else if (featuredProducts.Any())
@@ -207,7 +85,9 @@
         else
         {
             <div class="empty-state">
-                <p>No featured products available at the moment.</p>
+                <div class="empty-icon">📦</div>
+                <h3 class="empty-title">No Products Available</h3>
+                <p class="empty-text">Check back soon for amazing deals!</p>
             </div>
         }
     </section>
@@ -237,8 +117,7 @@
             <div class="newsletter-text">
                 <h2 class="newsletter-title">Your Style Story Starts Here</h2>
                 <p class="newsletter-description">
-                    Discover fresh looks that speak your language and the stories behind our most unique pieces.
-                    Plus, be the first to shop new arrivals and get insider style tips.
+                    Be the first to shop new arrivals and get insider style tips.
                 </p>
             </div>
             <div class="newsletter-form">
