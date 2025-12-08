@@ -20,7 +20,6 @@ public partial class LandingPage : ComponentBase
     private bool isLoadingFeatured = true;
     
     private string newsletterEmail = "";
-    private string heroBackgroundImage = ""; // TODO: Replace with actual image from Supabase Storage
 
     protected override async Task OnInitializedAsync()
     {
@@ -35,14 +34,24 @@ public partial class LandingPage : ComponentBase
         {
             isLoadingPOTD = true;
             productOfTheDay = await ProductOfTheDayService.GetProductOfTheDayAsync();
+            
+            if (productOfTheDay != null)
+            {
+                Console.WriteLine($"✓ Product of the Day loaded: {productOfTheDay.Name}");
+            }
+            else
+            {
+                Console.WriteLine("⚠ No Product of the Day available");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading Product of the Day: {ex.Message}");
+            Console.WriteLine($"❌ Error loading Product of the Day: {ex.Message}");
         }
         finally
         {
             isLoadingPOTD = false;
+            StateHasChanged();
         }
     }
 
@@ -51,19 +60,44 @@ public partial class LandingPage : ComponentBase
         try
         {
             isLoadingFeatured = true;
+            
+            // Get ALL products first
             var allProducts = await ProductService.GetProductsAsync(0, 100);
+            Console.WriteLine($"📦 Total products retrieved: {allProducts.Count}");
+            
+            // Filter for featured AND active products with stock
             featuredProducts = allProducts
-                .Where(p => p.IsFeatured && p.IsActive)
+                .Where(p => p.IsFeatured && p.IsActive && p.Stock > 0)
+                .OrderByDescending(p => p.Rating)
+                .ThenByDescending(p => p.SalesCount)
                 .Take(6)
                 .ToList();
+            
+            Console.WriteLine($"⭐ Featured products found: {featuredProducts.Count}");
+            
+            // If no featured products, get top-rated products instead
+            if (!featuredProducts.Any())
+            {
+                Console.WriteLine("⚠ No featured products, using top-rated instead");
+                featuredProducts = allProducts
+                    .Where(p => p.IsActive && p.Stock > 0)
+                    .OrderByDescending(p => p.Rating)
+                    .ThenByDescending(p => p.SalesCount)
+                    .Take(6)
+                    .ToList();
+                
+                Console.WriteLine($"📊 Top-rated products selected: {featuredProducts.Count}");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading featured products: {ex.Message}");
+            Console.WriteLine($"❌ Error loading featured products: {ex.Message}");
+            featuredProducts = new List<ProductViewModel>();
         }
         finally
         {
             isLoadingFeatured = false;
+            StateHasChanged();
         }
     }
 
@@ -116,54 +150,45 @@ public partial class LandingPage : ComponentBase
         Navigation.NavigateTo("shop");
     }
 
-    private void NavigateToCategory(string category)
-    {
-        Navigation.NavigateTo($"shop/{category}");
-    }
-
     // ===== PRODUCT OF THE DAY HANDLERS =====
     private void HandlePOTDClick(ProductViewModel product)
     {
-        Navigation.NavigateTo($"product/{product.Id}");
+        Navigation.NavigateTo($"shop?productId={product.Id}");
     }
 
     private void HandleViewPOTDDetails(ProductViewModel product)
     {
-        Navigation.NavigateTo($"product/{product.Id}");
+        Navigation.NavigateTo($"shop?productId={product.Id}");
     }
 
     private async Task HandleAddToCart(ProductViewModel product)
     {
         // TODO: Implement add to cart functionality
-        Console.WriteLine($"Add to cart: {product.Name}");
+        Console.WriteLine($"🛒 Add to cart: {product.Name}");
         await Task.CompletedTask;
     }
 
     // ===== FEATURED PRODUCTS HANDLERS =====
     private void HandleProductClick(ProductViewModel product)
     {
-        // For featured products, clicking anywhere navigates to details
-        Navigation.NavigateTo($"product/{product.Id}");
+        Navigation.NavigateTo($"shop?productId={product.Id}");
     }
 
     private void HandleViewDetails(ProductViewModel product)
     {
-        // Navigate to full product page
-        Navigation.NavigateTo($"product/{product.Id}");
+        Navigation.NavigateTo($"shop?productId={product.Id}");
     }
 
     // ===== REVIEW HANDLERS =====
     private async Task HandleHelpfulClick(ReviewViewModel review)
     {
-        // TODO: Implement helpful vote functionality
-        Console.WriteLine($"Marked review {review.Id} as helpful");
+        Console.WriteLine($"👍 Marked review {review.Id} as helpful");
         await Task.CompletedTask;
     }
 
     private async Task HandleReviewImageClick(string imageUrl)
     {
-        // TODO: Open image in lightbox/modal
-        Console.WriteLine($"Review image clicked: {imageUrl}");
+        Console.WriteLine($"🖼️ Review image clicked: {imageUrl}");
         await Task.CompletedTask;
     }
 
@@ -175,16 +200,14 @@ public partial class LandingPage : ComponentBase
 
         try
         {
-            // TODO: Implement newsletter subscription
-            Console.WriteLine($"Newsletter subscription: {newsletterEmail}");
+            Console.WriteLine($"📧 Newsletter subscription: {newsletterEmail}");
             
-            // Clear input on success
             newsletterEmail = "";
             StateHasChanged();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Newsletter subscription error: {ex.Message}");
+            Console.WriteLine($"❌ Newsletter subscription error: {ex.Message}");
         }
 
         await Task.CompletedTask;
