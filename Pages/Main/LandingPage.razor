@@ -5,138 +5,145 @@
 @using SubashaVentures.Domain.Product
 @layout LandingPageLayout
 
-<div class="landing-page">
+<div class="landing-page-wrapper">
     <!-- Hero Section with Product of the Day -->
     <section class="hero-section">
-        @if (isLoadingPOTD)
-        {
-            <div class="hero-loading">
-                <div class="loading-spinner"></div>
-                <p class="loading-text">Loading today's special...</p>
-            </div>
-        }
-        else if (productOfTheDay != null)
-        {
-            <ProductOfTheDayCard 
-                Product="@productOfTheDay"
-                OnClick="@HandlePOTDClick"
-                OnAddToCart="@HandleAddToCart"
-                OnViewDetails="@HandleViewPOTDDetails" />
-        }
-        else
-        {
-            <!-- Fallback if no POTD -->
-            <div class="hero-fallback">
-                <div class="hero-content">
-                    <h1 class="hero-title">
-                        <span class="title-static">Style That Speaks</span>
-                        <span class="title-animated">Your Language</span>
-                    </h1>
-                    <p class="hero-description">
-                        Discover premium clothing and home goods that reflect your unique personality.
-                    </p>
-                    <div class="hero-actions">
-                        <PrimaryButton
-                            Size="PrimaryButton.ButtonSize.Large"
-                            OnClick="@NavigateToShop"
-                            CssClass="hero-cta-btn">
-                            Shop Now
-                        </PrimaryButton>
+        <div class="hero-container">
+            @if (isLoadingPOTD)
+            {
+                <div class="hero-loading">
+                    <div class="loading-spinner"></div>
+                    <p class="loading-text">Loading today's special...</p>
+                </div>
+            }
+            else if (productOfTheDay != null)
+            {
+                <ProductOfTheDayCard 
+                    Product="@productOfTheDay"
+                    OnClick="@HandlePOTDClick"
+                    OnAddToCart="@HandleAddToCart"
+                    OnViewDetails="@HandleViewPOTDDetails" />
+            }
+            else
+            {
+                <div class="hero-fallback">
+                    <div class="hero-content">
+                        <h1 class="hero-title">
+                            <span class="title-line">Style That Speaks</span>
+                            <span class="title-line highlight">Your Language</span>
+                        </h1>
+                        <p class="hero-description">
+                            Discover premium clothing and home goods that reflect your unique personality.
+                        </p>
+                        <div class="hero-actions">
+                            <PrimaryButton
+                                Size="PrimaryButton.ButtonSize.Large"
+                                OnClick="@NavigateToShop"
+                                CssClass="hero-cta-btn">
+                                Shop Now
+                            </PrimaryButton>
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
+            }
+        </div>
     </section>
 
     <!-- Featured Products Section -->
     <section class="featured-section">
-        <div class="section-header">
-            <h2 class="section-title">Featured Products</h2>
-            <p class="section-subtitle">Handpicked items just for you</p>
+        <div class="section-container">
+            <div class="section-header">
+                <h2 class="section-title">Featured Products</h2>
+                <p class="section-subtitle">Handpicked items just for you</p>
+            </div>
+
+            @if (isLoadingFeatured)
+            {
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p class="loading-text">Loading featured products...</p>
+                </div>
+            }
+            else if (featuredProducts.Any())
+            {
+                <div class="products-grid">
+                    @foreach (var product in featuredProducts)
+                    {
+                        <FeaturedProductCard 
+                            Product="@product"
+                            OnClick="@(() => HandleProductClick(product))"
+                            OnViewDetails="@(() => HandleViewDetails(product))" />
+                    }
+                </div>
+
+                <div class="section-cta">
+                    <PrimaryButton
+                        Size="PrimaryButton.ButtonSize.Large"
+                        OnClick="@NavigateToShop">
+                        View All Products
+                    </PrimaryButton>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">📦</div>
+                    <h3 class="empty-title">No Products Available</h3>
+                    <p class="empty-text">Check back soon for amazing deals!</p>
+                </div>
+            }
         </div>
-
-        @if (isLoadingFeatured)
-        {
-            <div class="loading-container">
-                <div class="loading-spinner"></div>
-                <p class="loading-text">Loading featured products...</p>
-            </div>
-        }
-        else if (featuredProducts.Any())
-        {
-            <div class="products-grid">
-                @foreach (var product in featuredProducts)
-                {
-                    <FeaturedProductCard 
-                        Product="@product"
-                        OnClick="@(() => HandleProductClick(product))"
-                        OnViewDetails="@(() => HandleViewDetails(product))" />
-                }
-            </div>
-
-            <div class="section-cta">
-                <PrimaryButton
-                    Size="PrimaryButton.ButtonSize.Large"
-                    OnClick="@NavigateToShop">
-                    View All Products
-                </PrimaryButton>
-            </div>
-        }
-        else
-        {
-            <div class="empty-state">
-                <div class="empty-icon">📦</div>
-                <h3 class="empty-title">No Products Available</h3>
-                <p class="empty-text">Check back soon for amazing deals!</p>
-            </div>
-        }
     </section>
 
     <!-- Customer Reviews Section -->
     <section class="reviews-section">
-        <div class="section-header">
-            <h2 class="section-title">What Our Customers Say</h2>
-            <p class="section-subtitle">Real reviews from real customers</p>
-        </div>
+        <div class="section-container">
+            <div class="section-header">
+                <h2 class="section-title">What Our Customers Say</h2>
+                <p class="section-subtitle">Real reviews from real customers</p>
+            </div>
 
-        <div class="reviews-grid">
-            @foreach (var review in sampleReviews)
-            {
-                <CustomerReviewCard 
-                    Review="@review"
-                    IsHelpful="@false"
-                    OnHelpfulClick="@HandleHelpfulClick"
-                    OnImageClick="@HandleReviewImageClick" />
-            }
+            <div class="reviews-grid">
+                @foreach (var review in sampleReviews)
+                {
+                    <CustomerReviewCard 
+                        Review="@review"
+                        IsHelpful="@false"
+                        OnHelpfulClick="@HandleHelpfulClick"
+                        OnImageClick="@HandleReviewImageClick" />
+                }
+            </div>
         </div>
     </section>
 
     <!-- Newsletter Section -->
     <section class="newsletter-section">
-        <div class="newsletter-content">
-            <div class="newsletter-text">
-                <h2 class="newsletter-title">Your Style Story Starts Here</h2>
-                <p class="newsletter-description">
-                    Be the first to shop new arrivals and get insider style tips.
-                </p>
-            </div>
-            <div class="newsletter-form">
-                <div class="form-group">
-                    <input type="email" 
-                           placeholder="Enter your email address" 
-                           class="newsletter-input"
-                           @bind="newsletterEmail"
-                           @onkeydown="HandleNewsletterKeyPress" />
-                    <PrimaryButton 
-                        CssClass="newsletter-submit"
-                        OnClick="HandleNewsletterSubmit"
-                        IsDisabled="@string.IsNullOrWhiteSpace(newsletterEmail)">
-                        Subscribe
-                    </PrimaryButton>
+        <div class="newsletter-container">
+            <div class="newsletter-content">
+                <div class="newsletter-text">
+                    <h2 class="newsletter-title">Your Style Story Starts Here</h2>
+                    <p class="newsletter-description">
+                        Be the first to shop new arrivals and get insider style tips.
+                    </p>
                 </div>
-                <p class="newsletter-privacy">
-                    We respect your inbox. Unsubscribe anytime.
-                </p>
+                <div class="newsletter-form">
+                    <div class="form-group">
+                        <input type="email" 
+                               placeholder="Enter your email address" 
+                               class="newsletter-input"
+                               @bind="newsletterEmail"
+                               @onkeydown="HandleNewsletterKeyPress" />
+                        <PrimaryButton 
+                            CssClass="newsletter-submit"
+                            OnClick="HandleNewsletterSubmit"
+                            IsDisabled="@string.IsNullOrWhiteSpace(newsletterEmail)">
+                            Subscribe
+                        </PrimaryButton>
+                    </div>
+                    <p class="newsletter-privacy">
+                        We respect your inbox. Unsubscribe anytime.
+                    </p>
+                </div>
             </div>
         </div>
     </section>
