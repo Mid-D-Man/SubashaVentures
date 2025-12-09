@@ -7,8 +7,10 @@
     border: 2px solid var(--primary-color, #96994A);
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(150, 153, 74, 0.15);
+    box-shadow: 0 4px 20px rgba(150, 153, 74, 0.12);
     position: relative;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 .potd-card::before {
@@ -36,9 +38,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 2rem;
+    padding: 1.25rem 1.5rem;
     background: rgba(150, 153, 74, 0.1);
     border-bottom: 1px solid rgba(150, 153, 74, 0.2);
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 
 .potd-badge {
@@ -50,8 +54,8 @@
     padding: 0.5rem 1rem;
     border-radius: 24px;
     font-weight: 700;
-    font-size: 0.94rem;
-    box-shadow: 0 4px 12px rgba(150, 153, 74, 0.3);
+    font-size: 0.9375rem;
+    box-shadow: 0 2px 8px rgba(150, 153, 74, 0.3);
 }
 
 .badge-icon {
@@ -79,6 +83,8 @@
 
 .potd-timer svg {
     color: var(--primary-color, #96994A);
+    width: 16px;
+    height: 16px;
 }
 
 /* ===== CONTENT ===== */
@@ -96,7 +102,7 @@
     aspect-ratio: 1 / 1;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .potd-image {
@@ -120,7 +126,7 @@
 }
 
 .placeholder-icon {
-    font-size: 5rem;
+    font-size: 4rem;
     opacity: 0.3;
 }
 
@@ -131,7 +137,7 @@
     background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
     display: flex;
     align-items: flex-end;
-    padding: 2rem;
+    padding: 1.5rem;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
@@ -159,14 +165,14 @@
 /* ===== DISCOUNT BADGE ===== */
 .potd-discount {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 12px;
+    right: 12px;
     background: var(--danger-color, #ef4444);
     color: white;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.875rem;
     border-radius: 12px;
     text-align: center;
-    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4);
     z-index: 2;
 }
 
@@ -182,7 +188,7 @@
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     margin-top: 0.25rem;
 }
 
@@ -190,13 +196,15 @@
 .potd-info {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
 }
 
 .potd-meta {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .potd-category {
@@ -204,7 +212,7 @@
     text-transform: uppercase;
     color: var(--primary-color, #96994A);
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
 }
 
 .potd-rating {
@@ -233,7 +241,7 @@
 
 .potd-name {
     font-family: 'Poppins', sans-serif;
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 3vw, 2rem);
     font-weight: 800;
     color: var(--text-primary, #1f2937);
     margin: 0;
@@ -282,7 +290,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 1.25rem;
+    padding: 1rem;
     background: rgba(150, 153, 74, 0.05);
     border-radius: 12px;
     border: 1px solid rgba(150, 153, 74, 0.2);
@@ -292,17 +300,18 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .potd-current-price {
-    font-size: 2.5rem;
+    font-size: clamp(2rem, 4vw, 2.5rem);
     font-weight: 900;
     color: var(--primary-color, #96994A);
     line-height: 1;
 }
 
 .potd-original-price {
-    font-size: 1.5rem;
+    font-size: clamp(1.25rem, 2vw, 1.5rem);
     color: var(--text-muted, #9ca3af);
     text-decoration: line-through;
     line-height: 1;
@@ -340,6 +349,7 @@
     justify-content: center;
     padding: 4rem 2rem;
     text-align: center;
+    min-height: 400px;
 }
 
 .loading-spinner {
@@ -363,7 +373,7 @@
 }
 
 .empty-icon {
-    font-size: 5rem;
+    font-size: 4rem;
     margin-bottom: 1rem;
     opacity: 0.3;
 }
@@ -447,35 +457,21 @@
 @media (max-width: 1024px) {
     .potd-content {
         grid-template-columns: 1fr;
+        gap: 1.5rem;
     }
 
     .potd-name {
         font-size: 1.75rem;
-    }
-
-    .potd-current-price {
-        font-size: 2rem;
     }
 }
 
 @media (max-width: 768px) {
     .potd-header {
-        padding: 1rem 1.5rem;
-        flex-wrap: wrap;
-        gap: 0.75rem;
+        padding: 1rem 1.25rem;
     }
 
     .potd-content {
         padding: 1.5rem;
-        gap: 1.5rem;
-    }
-
-    .potd-name {
-        font-size: 1.5rem;
-    }
-
-    .potd-current-price {
-        font-size: 1.75rem;
     }
 
     .potd-actions {
@@ -510,10 +506,6 @@
     .discount-value {
         font-size: 1.25rem;
     }
-
-    .discount-label {
-        font-size: 0.7rem;
-    }
 }
 
 /* ===== ACCESSIBILITY ===== */
@@ -534,4 +526,4 @@
     .potd-content:hover .potd-image {
         transform: none;
     }
-                                }
+}
