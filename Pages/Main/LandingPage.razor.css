@@ -73,7 +73,7 @@
 }
 
 .title-static {
-    color: #1a1a1a;
+    color: var(--text-hero-primary, #1a1a1a);
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     font-weight: 900;
 }
@@ -141,7 +141,7 @@
 .hero-description {
     font-size: 1.2rem;
     line-height: 1.6;
-    color: var(--text-secondary, #666);
+    color: var(--text-body, #4b5563);
     margin: 0;
 }
 
@@ -187,7 +187,7 @@
 
 .stat-label {
     font-size: 0.9rem;
-    color: var(--text-muted, #999);
+    color: var(--text-muted, #9ca3af);
     margin-top: 0.25rem;
 }
 
@@ -257,17 +257,17 @@
     font-family: 'Poppins', sans-serif;
     font-size: 2.5rem;
     font-weight: 700;
-    color: var(--text-primary, #333);
+    color: var(--text-heading, #1f2937);
     margin: 0 0 1rem 0;
 }
 
 .section-subtitle {
     font-size: 1.1rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-body, #6b7280);
     margin: 0;
 }
 
-/* ===== FEATURED PRODUCTS - HORIZONTAL SCROLL ===== */
+/* ===== FEATURED PRODUCTS - HORIZONTAL SCROLL WITH MANUAL CONTROL ===== */
 .featured-section {
     padding: 4rem 0;
     overflow: hidden;
@@ -281,23 +281,34 @@
     cursor: grab;
     user-select: none;
     padding-bottom: 10px;
+    scroll-behavior: smooth;
     
-    /* Hide scrollbar but keep functionality */
+    /* Smooth scrolling with snap */
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    
+    /* Custom scrollbar */
     scrollbar-width: thin;
-    scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
+    scrollbar-color: rgba(150, 153, 74, 0.4) rgba(150, 153, 74, 0.1);
 }
 
 .products-scroll-container::-webkit-scrollbar {
-    height: 6px;
+    height: 8px;
 }
 
 .products-scroll-container::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(150, 153, 74, 0.1);
+    border-radius: 10px;
 }
 
 .products-scroll-container::-webkit-scrollbar-thumb {
-    background: rgba(150, 153, 74, 0.3);
-    border-radius: 3px;
+    background: rgba(150, 153, 74, 0.4);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.products-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.6);
 }
 
 .products-scroll-container:active {
@@ -314,6 +325,7 @@
 .product-card-wrapper {
     flex: 0 0 320px;
     scroll-snap-align: start;
+    scroll-snap-stop: always;
 }
 
 .section-cta {
@@ -341,7 +353,7 @@
 
 .loading-text {
     font-size: 1.125rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-body, #6b7280);
     font-weight: 500;
     margin: 0;
 }
@@ -364,13 +376,13 @@
 .empty-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary, #333);
+    color: var(--text-heading, #1f2937);
     margin: 0 0 0.5rem 0;
 }
 
 .empty-text {
     font-size: 1rem;
-    color: var(--text-secondary, #666);
+    color: var(--text-body, #6b7280);
     margin: 0;
 }
 
@@ -443,6 +455,7 @@
     gap: 1rem;
     max-width: 450px;
     margin: 0 auto;
+    width: 100%;
 }
 
 .newsletter-input {
@@ -452,15 +465,16 @@
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    color: var(--text-primary, #333);
+    color: var(--text-primary, #1f2937);
     font-size: 1.0625rem;
     outline: none;
     transition: all 0.3s ease;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
 }
 
 .newsletter-input::placeholder {
-    color: var(--text-muted, #999);
+    color: var(--text-muted, #9ca3af);
 }
 
 .newsletter-input:focus {
@@ -499,17 +513,62 @@
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== TESTIMONIALS SECTION ===== */
+/* ===== TESTIMONIALS SECTION - HORIZONTAL SCROLL ===== */
 .testimonials-section {
-    padding: 4rem 1rem;
-    max-width: 1200px;
-    margin: 0 auto;
+    padding: 4rem 0;
+    overflow: hidden;
 }
 
 .testimonials-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    width: 100%;
+    cursor: grab;
+    user-select: none;
+    padding-bottom: 10px;
+    scroll-behavior: smooth;
+    
+    /* Smooth scrolling with snap */
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    
+    display: flex;
     gap: 2rem;
+    padding: 0 2rem;
+    
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 153, 74, 0.4) rgba(150, 153, 74, 0.1);
+}
+
+.testimonials-grid::-webkit-scrollbar {
+    height: 8px;
+}
+
+.testimonials-grid::-webkit-scrollbar-track {
+    background: rgba(150, 153, 74, 0.1);
+    border-radius: 10px;
+}
+
+.testimonials-grid::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.4);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.testimonials-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.6);
+}
+
+.testimonials-grid:active {
+    cursor: grabbing;
+}
+
+.testimonials-grid > * {
+    flex: 0 0 340px;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
 }
 
 /* ===== DARK THEME ===== */
@@ -524,7 +583,7 @@
 }
 
 [data-theme="dark"] .title-static {
-    color: var(--text-primary, #f8f9fa);
+    color: var(--text-hero-primary, #f9fafb);
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
@@ -535,7 +594,7 @@
 }
 
 [data-theme="dark"] .hero-description {
-    color: var(--text-secondary, #dee2e6);
+    color: var(--text-body, #d1d5db);
 }
 
 [data-theme="dark"] .stat-number {
@@ -543,11 +602,21 @@
 }
 
 [data-theme="dark"] .section-title {
-    color: var(--text-primary, #f8f9fa);
+    color: var(--text-heading, #f9fafb);
 }
 
 [data-theme="dark"] .section-subtitle {
-    color: var(--text-secondary, #dee2e6);
+    color: var(--text-body, #d1d5db);
+}
+
+[data-theme="dark"] .products-scroll-container::-webkit-scrollbar-thumb,
+[data-theme="dark"] .testimonials-grid::-webkit-scrollbar-thumb {
+    background: rgba(184, 187, 106, 0.4);
+}
+
+[data-theme="dark"] .products-scroll-container::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] .testimonials-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 187, 106, 0.6);
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -562,8 +631,12 @@
         font-size: 3rem;
     }
     
-    .testimonials-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .product-card-wrapper {
+        flex: 0 0 280px;
+    }
+    
+    .testimonials-grid > * {
+        flex: 0 0 300px;
     }
 }
 
@@ -613,16 +686,22 @@
         flex: 0 0 260px;
     }
     
-    .testimonials-grid {
-        grid-template-columns: 1fr;
+    .testimonials-grid > * {
+        flex: 0 0 280px;
+    }
+    
+    .newsletter-section {
+        padding: 3rem 1.5rem;
+        margin: 0 0.5rem;
     }
     
     .newsletter-title {
         font-size: 2rem;
     }
     
-    .products-scroll-container {
-        padding-bottom: 10px;
+    .form-group {
+        max-width: 100%;
+        padding: 0 0.5rem;
     }
 }
 
@@ -654,17 +733,41 @@
     .product-card-wrapper {
         flex: 0 0 240px;
     }
+    
+    .testimonials-grid > * {
+        flex: 0 0 260px;
+    }
+    
+    .newsletter-section {
+        padding: 2.5rem 1rem;
+        margin: 0;
+        border-radius: 0;
+    }
+    
+    .newsletter-title {
+        font-size: 1.75rem;
+    }
+    
+    .newsletter-description {
+        font-size: 1rem;
+    }
+    
+    .form-group {
+        padding: 0;
+    }
+    
+    .newsletter-input,
+    .newsletter-submit {
+        font-size: 1rem;
+    }
 }
 
 /* ===== TOUCH INTERACTION ===== */
 @media (hover: none) and (pointer: coarse) {
-    .products-scroll-container {
+    .products-scroll-container,
+    .testimonials-grid {
         -webkit-overflow-scrolling: touch;
         scroll-snap-type: x mandatory;
-    }
-    
-    .product-card-wrapper {
-        scroll-snap-align: center;
     }
 }
 
@@ -678,4 +781,4 @@
     .loading-spinner-small {
         animation: none;
     }
-        }
+    }
