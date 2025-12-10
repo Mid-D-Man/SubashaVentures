@@ -79,14 +79,25 @@ body,
     --dark-text-secondary: #d1d5db;
     --dark-text-muted: #9ca3af;
 
-    /* Text Colors */
-    --text-primary: var(--gray-900);
-    --text-secondary: var(--gray-700);
-    --text-tertiary: var(--gray-600);
-    --text-muted: var(--gray-500);
-    --text-disabled: var(--gray-400);
-    --text-on-primary: var(--white);
-    --text-on-secondary: var(--white);
+    /* ENHANCED TYPOGRAPHY - Light Theme */
+    --text-primary: #111827;           /* Near black for maximum contrast */
+    --text-secondary: #374151;          /* Dark gray for secondary text */
+    --text-tertiary: #6b7280;          /* Medium gray */
+    --text-muted: #9ca3af;             /* Light gray for muted text */
+    --text-disabled: #d1d5db;          /* Very light gray */
+    --text-on-primary: var(--white);   /* White text on primary backgrounds */
+    --text-on-secondary: var(--white); /* White text on secondary backgrounds */
+    
+    /* Context-Specific Text Colors - Light Theme */
+    --text-heading: #0f172a;           /* Extra dark for headings (AAA contrast) */
+    --text-hero-primary: #1a1a1a;      /* Hero section main text */
+    --text-body: #4b5563;              /* Body text (readable, not too dark) */
+    --text-caption: #6b7280;           /* Small text, captions */
+    --text-link: #2563eb;              /* Link color (blue, accessible) */
+    --text-link-hover: #1d4ed8;        /* Link hover state */
+    --text-error: #dc2626;             /* Error messages */
+    --text-success: #16a34a;           /* Success messages */
+    --text-warning: #ca8a04;           /* Warning messages */
 
     /* Border Colors */
     --border-light: var(--gray-200);
@@ -121,28 +132,39 @@ body,
 body.dark-mode,
 [data-theme="dark"] {
     /* Background Colors */
-    --bg-primary: var(--gray-900);
-    --bg-secondary: var(--gray-800);
-    --bg-tertiary: var(--gray-700);
-    --bg-surface: rgba(33, 37, 41, 0.98);
+    --bg-primary: #0f172a;            /* Darker than before for better contrast */
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --bg-surface: rgba(15, 23, 42, 0.98);
     --background-light: #374151;
-    --card-background: #1f2937;
-    --image-background: #374151;
+    --card-background: #1e293b;
+    --image-background: #334155;
 
-    /* Text Colors */
-    --text-primary: var(--white);
-    --text-secondary: var(--gray-300);
-    --text-tertiary: var(--gray-400);
-    --text-muted: var(--gray-500);
-    --text-disabled: var(--gray-600);
-    --text-on-primary: var(--gray-900);
-    --text-on-secondary: var(--gray-900);
+    /* ENHANCED TYPOGRAPHY - Dark Theme */
+    --text-primary: #f8fafc;           /* Almost white for maximum contrast */
+    --text-secondary: #e2e8f0;         /* Light gray for secondary text */
+    --text-tertiary: #cbd5e1;          /* Medium-light gray */
+    --text-muted: #94a3b8;             /* Medium gray for muted text */
+    --text-disabled: #64748b;          /* Darker gray for disabled */
+    --text-on-primary: #0f172a;        /* Dark text on light primary */
+    --text-on-secondary: #0f172a;      /* Dark text on light secondary */
+    
+    /* Context-Specific Text Colors - Dark Theme */
+    --text-heading: #f1f5f9;           /* Near white for headings (AAA contrast) */
+    --text-hero-primary: #ffffff;      /* Pure white for hero */
+    --text-body: #d1d5db;              /* Light gray for body (readable) */
+    --text-caption: #9ca3af;           /* Medium gray for captions */
+    --text-link: #60a5fa;              /* Light blue for links */
+    --text-link-hover: #93c5fd;        /* Lighter blue on hover */
+    --text-error: #f87171;             /* Light red for errors */
+    --text-success: #4ade80;           /* Light green for success */
+    --text-warning: #fbbf24;           /* Light yellow for warnings */
 
     /* Border Colors */
-    --border-light: var(--gray-600);
-    --border-medium: var(--gray-500);
-    --border-dark: var(--gray-400);
-    --border-color: #374151;
+    --border-light: #334155;
+    --border-medium: #475569;
+    --border-dark: #64748b;
+    --border-color: #334155;
     --nav-border: rgba(184, 187, 106, 0.2);
 
     /* Theme Colors - Adjusted for Dark Mode */
@@ -156,14 +178,14 @@ body.dark-mode,
 
     /* Button Colors */
     --btn-primary-bg: var(--primary-light);
-    --btn-primary-text: var(--gray-900);
+    --btn-primary-text: #0f172a;
     --btn-primary-hover: #C8CB7A;
     --btn-secondary-bg: var(--secondary-light);
-    --btn-secondary-text: var(--gray-900);
+    --btn-secondary-text: #0f172a;
     --btn-secondary-hover: #CB7AC8;
 
     /* Navigation Colors */
-    --nav-bg: rgba(33, 37, 41, 0.95);
+    --nav-bg: rgba(15, 23, 42, 0.95);
     --nav-text: var(--text-primary);
 
     /* Footer Colors */
@@ -171,9 +193,9 @@ body.dark-mode,
     --footer-border: rgba(184, 187, 106, 0.2);
 
     /* Shadow Colors for Dark Mode */
-    --shadow-light: rgba(0, 0, 0, 0.3);
-    --shadow-medium: rgba(0, 0, 0, 0.4);
-    --shadow-dark: rgba(0, 0, 0, 0.6);
+    --shadow-light: rgba(0, 0, 0, 0.4);
+    --shadow-medium: rgba(0, 0, 0, 0.5);
+    --shadow-dark: rgba(0, 0, 0, 0.7);
     --shadow-primary: rgba(184, 187, 106, 0.4);
 }
 
@@ -187,6 +209,8 @@ body.dark-mode,
 .text-secondary { color: var(--text-secondary) !important; }
 .text-tertiary { color: var(--text-tertiary) !important; }
 .text-muted { color: var(--text-muted) !important; }
+.text-heading { color: var(--text-heading) !important; }
+.text-body { color: var(--text-body) !important; }
 
 .border-light { border-color: var(--border-light) !important; }
 .border-medium { border-color: var(--border-medium) !important; }
@@ -231,6 +255,34 @@ body.dark-mode,
     border-top: 1px solid var(--footer-border);
 }
 
+/* Typography Base Styles */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-heading);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+p {
+    color: var(--text-body);
+    line-height: 1.6;
+}
+
+a {
+    color: var(--text-link);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: var(--text-link-hover);
+}
+
+small, .caption {
+    color: var(--text-caption);
+    font-size: 0.875rem;
+}
+
 /* Smooth Transitions */
 * {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
@@ -273,3 +325,16 @@ body.dark-mode,
                 box-shadow 0.3s ease,
                 filter 0.3s ease;
 }
+
+/* Accessibility - Ensure text meets WCAG AA standards */
+@media (prefers-contrast: more) {
+    :root {
+        --text-primary: #000000;
+        --text-heading: #000000;
+    }
+    
+    [data-theme="dark"] {
+        --text-primary: #ffffff;
+        --text-heading: #ffffff;
+    }
+    }
