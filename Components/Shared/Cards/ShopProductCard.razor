@@ -25,7 +25,7 @@
         <!-- Badges -->
         @if (Product.IsOnSale && Product.Discount > 0)
         {
-            <div class="product-badge sale">-@Product.Discount%</div>
+            <div class="product-badge sale">@Product.Discount% OFF</div>
         }
         @if (Product.IsFeatured)
         {
