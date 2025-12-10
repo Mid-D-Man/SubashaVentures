@@ -5,146 +5,177 @@
 @using SubashaVentures.Domain.Product
 @layout LandingPageLayout
 
-<div class="landing-page-wrapper">
-    <!-- Hero Section with Product of the Day -->
+<div class="landing-page">
+    <!-- Hero Section -->
     <section class="hero-section">
-        <div class="hero-container">
-            @if (isLoadingPOTD)
-            {
-                <div class="hero-loading">
-                    <div class="loading-spinner"></div>
-                    <p class="loading-text">Loading today's special...</p>
-                </div>
-            }
-            else if (productOfTheDay != null)
-            {
-                <ProductOfTheDayCard 
-                    Product="@productOfTheDay"
-                    OnClick="@HandlePOTDClick"
-                    OnAddToCart="@HandleAddToCart"
-                    OnViewDetails="@HandleViewPOTDDetails" />
-            }
-            else
-            {
-                <div class="hero-fallback">
-                    <div class="hero-content">
-                        <h1 class="hero-title">
-                            <span class="title-line">Style That Speaks</span>
-                            <span class="title-line highlight">Your Language</span>
-                        </h1>
-                        <p class="hero-description">
-                            Discover premium clothing and home goods that reflect your unique personality.
-                        </p>
-                        <div class="hero-actions">
-                            <PrimaryButton
-                                Size="PrimaryButton.ButtonSize.Large"
-                                OnClick="@NavigateToShop"
-                                CssClass="hero-cta-btn">
-                                Shop Now
-                            </PrimaryButton>
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">
+                    <span class="title-static">Style That Speaks</span>
+                    <div class="title-animated">
+                        <div class="flip-container">
+                            <div class="flip-text">
+                                <div><div>Your Language</div></div>
+                                <div><div>Your Story</div></div>
+                                <div><div>Your Vibes</div></div>
+                            </div>
                         </div>
                     </div>
+                </h1>
+                <p class="hero-description">
+                    Discover premium clothing and home goods that reflect your unique personality. 
+                    From trendy fashion to cozy home essentials - find everything you love at SubashaVentures.
+                </p>
+                <div class="hero-actions">
+                    <PrimaryButton Size="PrimaryButton.ButtonSize.Large" 
+                                  OnClick="@NavigateToShop"
+                                  CssClass="cta-primary">
+                        🛍️ Shop Now
+                    </PrimaryButton>
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                                    Size="SecondaryButton.ButtonSize.Large" 
+                                    CssClass="cta-secondary">
+                        📖 Our Story
+                    </SecondaryButton>
                 </div>
-            }
-        </div>
-    </section>
-
-    <!-- Featured Products Section -->
-    <section class="featured-section">
-        <div class="section-container">
-            <div class="section-header">
-                <h2 class="section-title">Featured Products</h2>
-                <p class="section-subtitle">Handpicked items just for you</p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">10K+</span>
+                        <span class="stat-label">Happy Customers</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">5000+</span>
+                        <span class="stat-label">Products</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">50+</span>
+                        <span class="stat-label">Brands</span>
+                    </div>
+                </div>
             </div>
-
-            @if (isLoadingFeatured)
-            {
-                <div class="loading-container">
-                    <div class="loading-spinner"></div>
-                    <p class="loading-text">Loading featured products...</p>
-                </div>
-            }
-            else if (featuredProducts.Any())
-            {
-                <div class="products-grid">
-                    @foreach (var product in featuredProducts)
+            <div class="hero-visual">
+                <div class="hero-image-container">
+                    @if (isLoadingPOTD)
                     {
-                        <FeaturedProductCard 
-                            Product="@product"
-                            OnClick="@(() => HandleProductClick(product))"
-                            OnViewDetails="@(() => HandleViewDetails(product))" />
+                        <div class="hero-image-placeholder">
+                            <div class="loading-spinner-small"></div>
+                            <span>Loading...</span>
+                        </div>
+                    }
+                    else if (productOfTheDay != null)
+                    {
+                        <ProductOfTheDayCard 
+                            Product="@productOfTheDay"
+                            OnClick="@HandlePOTDClick"
+                            OnAddToCart="@HandleAddToCart"
+                            OnViewDetails="@HandleViewPOTDDetails"
+                            CssClass="hero-potd-card" />
+                    }
+                    else
+                    {
+                        <div class="hero-image-placeholder">
+                            👗 Fashion Hub
+                        </div>
                     }
                 </div>
-
-                <div class="section-cta">
-                    <PrimaryButton
-                        Size="PrimaryButton.ButtonSize.Large"
-                        OnClick="@NavigateToShop">
-                        View All Products
-                    </PrimaryButton>
-                </div>
-            }
-            else
-            {
-                <div class="empty-state">
-                    <div class="empty-icon">📦</div>
-                    <h3 class="empty-title">No Products Available</h3>
-                    <p class="empty-text">Check back soon for amazing deals!</p>
-                </div>
-            }
+            </div>
         </div>
     </section>
 
-    <!-- Customer Reviews Section -->
-    <section class="reviews-section">
-        <div class="section-container">
-            <div class="section-header">
-                <h2 class="section-title">What Our Customers Say</h2>
-                <p class="section-subtitle">Real reviews from real customers</p>
+    <!-- Featured Products Section - Horizontal Scroll -->
+    <section class="featured-section">
+        <div class="section-header">
+            <h2 class="section-title">Featured Products</h2>
+            <p class="section-subtitle">Our most popular items this season</p>
+        </div>
+
+        @if (isLoadingFeatured)
+        {
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Loading featured products...</p>
+            </div>
+        }
+        else if (featuredProducts.Any())
+        {
+            <div class="products-scroll-container">
+                <div class="products-horizontal">
+                    @foreach (var product in featuredProducts)
+                    {
+                        <div class="product-card-wrapper">
+                            <FeaturedProductCard 
+                                Product="@product"
+                                OnClick="@(() => HandleProductClick(product))"
+                                OnViewDetails="@(() => HandleViewDetails(product))" />
+                        </div>
+                    }
+                </div>
             </div>
 
-            <div class="reviews-grid">
-                @foreach (var review in sampleReviews)
-                {
-                    <CustomerReviewCard 
-                        Review="@review"
-                        IsHelpful="@false"
-                        OnHelpfulClick="@HandleHelpfulClick"
-                        OnImageClick="@HandleReviewImageClick" />
-                }
+            <div class="section-cta">
+                <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                              OnClick="@NavigateToShop">
+                    View All Products
+                </PrimaryButton>
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📦</div>
+                <h3 class="empty-title">No Products Available</h3>
+                <p class="empty-text">Check back soon for amazing deals!</p>
+            </div>
+        }
     </section>
 
     <!-- Newsletter Section -->
     <section class="newsletter-section">
-        <div class="newsletter-container">
-            <div class="newsletter-content">
-                <div class="newsletter-text">
-                    <h2 class="newsletter-title">Your Style Story Starts Here</h2>
-                    <p class="newsletter-description">
-                        Be the first to shop new arrivals and get insider style tips.
-                    </p>
-                </div>
-                <div class="newsletter-form">
-                    <div class="form-group">
-                        <input type="email" 
-                               placeholder="Enter your email address" 
-                               class="newsletter-input"
-                               @bind="newsletterEmail"
-                               @onkeydown="HandleNewsletterKeyPress" />
-                        <PrimaryButton 
-                            CssClass="newsletter-submit"
-                            OnClick="HandleNewsletterSubmit"
-                            IsDisabled="@string.IsNullOrWhiteSpace(newsletterEmail)">
-                            Subscribe
-                        </PrimaryButton>
-                    </div>
-                    <p class="newsletter-privacy">
-                        We respect your inbox. Unsubscribe anytime.
-                    </p>
-                </div>
+        <div class="newsletter-content">
+            <div class="newsletter-text">
+                <h2 class="newsletter-title">Your Style Story Starts Here</h2>
+                <p class="newsletter-description">
+                    Be the first to shop new arrivals and get insider style tips.
+                    Discover fresh looks that speak your language and the stories behind our most unique pieces.
+                </p>
             </div>
+            <div class="newsletter-form">
+                <div class="form-group">
+                    <input type="email" 
+                           placeholder="Enter your email address" 
+                           class="newsletter-input"
+                           @bind="newsletterEmail"
+                           @onkeydown="HandleNewsletterKeyPress" />
+                    <PrimaryButton 
+                        CssClass="newsletter-submit"
+                        OnClick="HandleNewsletterSubmit"
+                        IsDisabled="@string.IsNullOrWhiteSpace(newsletterEmail)">
+                        Unlock Your Story
+                    </PrimaryButton>
+                </div>
+                <p class="newsletter-privacy">
+                    We respect your inbox. Unsubscribe anytime.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section - Grid Layout -->
+    <section class="testimonials-section">
+        <div class="section-header">
+            <h2 class="section-title">What Our Customers Say</h2>
+            <p class="section-subtitle">Real reviews from real customers</p>
+        </div>
+
+        <div class="testimonials-grid">
+            @foreach (var review in sampleReviews)
+            {
+                <CustomerReviewCard 
+                    Review="@review"
+                    IsHelpful="@false"
+                    OnHelpfulClick="@HandleHelpfulClick"
+                    OnImageClick="@HandleReviewImageClick" />
+            }
         </div>
     </section>
 </div>
