@@ -80,24 +80,40 @@ body,
     --dark-text-muted: #9ca3af;
 
     /* ENHANCED TYPOGRAPHY - Light Theme */
-    --text-primary: #111827;           /* Near black for maximum contrast */
-    --text-secondary: #374151;          /* Dark gray for secondary text */
-    --text-tertiary: #6b7280;          /* Medium gray */
-    --text-muted: #9ca3af;             /* Light gray for muted text */
-    --text-disabled: #d1d5db;          /* Very light gray */
-    --text-on-primary: var(--white);   /* White text on primary backgrounds */
-    --text-on-secondary: var(--white); /* White text on secondary backgrounds */
+    --text-primary: #111827;
+    --text-secondary: #374151;
+    --text-tertiary: #6b7280;
+    --text-muted: #9ca3af;
+    --text-disabled: #d1d5db;
+    --text-on-primary: var(--white);
+    --text-on-secondary: var(--white);
     
     /* Context-Specific Text Colors - Light Theme */
-    --text-heading: #0f172a;           /* Extra dark for headings (AAA contrast) */
-    --text-hero-primary: #1a1a1a;      /* Hero section main text */
-    --text-body: #4b5563;              /* Body text (readable, not too dark) */
-    --text-caption: #6b7280;           /* Small text, captions */
-    --text-link: #2563eb;              /* Link color (blue, accessible) */
-    --text-link-hover: #1d4ed8;        /* Link hover state */
-    --text-error: #dc2626;             /* Error messages */
-    --text-success: #16a34a;           /* Success messages */
-    --text-warning: #ca8a04;           /* Warning messages */
+    --text-heading: #0f172a;
+    --text-hero-primary: #1a1a1a;
+    --text-body: #4b5563;
+    --text-caption: #6b7280;
+    --text-link: #2563eb;
+    --text-link-hover: #1d4ed8;
+    --text-error: #dc2626;
+    --text-success: #16a34a;
+    --text-warning: #ca8a04;
+
+    /* NEW: Context-Based Text Colors */
+    --text-on-light: #111827;              /* Dark text on light backgrounds */
+    --text-on-dark: #ffffff;               /* White text on dark backgrounds */
+    --text-on-image: #ffffff;              /* White text over images */
+    --text-on-image-secondary: #e5e7eb;    /* Light gray text over images */
+    --text-on-gradient: #ffffff;           /* White text on gradients */
+    --text-on-card: #111827;               /* Dark text on card backgrounds */
+    --text-on-overlay: #ffffff;            /* White text on overlays */
+    --text-on-overlay-muted: rgba(255, 255, 255, 0.85); /* Muted white on overlays */
+
+    /* Gradient Overlays for Text Readability */
+    --overlay-gradient-dark: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.85) 100%);
+    --overlay-gradient-darker: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.95) 100%);
+    --overlay-gradient-subtle: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.6) 100%);
+    --overlay-gradient-top: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.7) 100%);
 
     /* Border Colors */
     --border-light: var(--gray-200);
@@ -132,7 +148,7 @@ body,
 body.dark-mode,
 [data-theme="dark"] {
     /* Background Colors */
-    --bg-primary: #0f172a;            /* Darker than before for better contrast */
+    --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
     --bg-tertiary: #334155;
     --bg-surface: rgba(15, 23, 42, 0.98);
@@ -141,24 +157,40 @@ body.dark-mode,
     --image-background: #334155;
 
     /* ENHANCED TYPOGRAPHY - Dark Theme */
-    --text-primary: #f8fafc;           /* Almost white for maximum contrast */
-    --text-secondary: #e2e8f0;         /* Light gray for secondary text */
-    --text-tertiary: #cbd5e1;          /* Medium-light gray */
-    --text-muted: #94a3b8;             /* Medium gray for muted text */
-    --text-disabled: #64748b;          /* Darker gray for disabled */
-    --text-on-primary: #0f172a;        /* Dark text on light primary */
-    --text-on-secondary: #0f172a;      /* Dark text on light secondary */
+    --text-primary: #f8fafc;
+    --text-secondary: #e2e8f0;
+    --text-tertiary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-disabled: #64748b;
+    --text-on-primary: #0f172a;
+    --text-on-secondary: #0f172a;
     
     /* Context-Specific Text Colors - Dark Theme */
-    --text-heading: #f1f5f9;           /* Near white for headings (AAA contrast) */
-    --text-hero-primary: #ffffff;      /* Pure white for hero */
-    --text-body: #d1d5db;              /* Light gray for body (readable) */
-    --text-caption: #9ca3af;           /* Medium gray for captions */
-    --text-link: #60a5fa;              /* Light blue for links */
-    --text-link-hover: #93c5fd;        /* Lighter blue on hover */
-    --text-error: #f87171;             /* Light red for errors */
-    --text-success: #4ade80;           /* Light green for success */
-    --text-warning: #fbbf24;           /* Light yellow for warnings */
+    --text-heading: #f1f5f9;
+    --text-hero-primary: #ffffff;
+    --text-body: #d1d5db;
+    --text-caption: #9ca3af;
+    --text-link: #60a5fa;
+    --text-link-hover: #93c5fd;
+    --text-error: #f87171;
+    --text-success: #4ade80;
+    --text-warning: #fbbf24;
+
+    /* NEW: Context-Based Text Colors - Dark Theme */
+    --text-on-light: #0f172a;              /* Dark text on light backgrounds (same) */
+    --text-on-dark: #f8fafc;               /* Near white text on dark backgrounds */
+    --text-on-image: #ffffff;              /* White text over images */
+    --text-on-image-secondary: #cbd5e1;    /* Light gray text over images */
+    --text-on-gradient: #ffffff;           /* White text on gradients */
+    --text-on-card: #f8fafc;               /* Light text on dark card backgrounds */
+    --text-on-overlay: #ffffff;            /* White text on overlays */
+    --text-on-overlay-muted: rgba(255, 255, 255, 0.9); /* Bright muted white on overlays */
+
+    /* Gradient Overlays for Text Readability - Dark Theme */
+    --overlay-gradient-dark: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.9) 100%);
+    --overlay-gradient-darker: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.98) 100%);
+    --overlay-gradient-subtle: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.75) 100%);
+    --overlay-gradient-top: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.85) 100%);
 
     /* Border Colors */
     --border-light: #334155;
@@ -212,6 +244,20 @@ body.dark-mode,
 .text-heading { color: var(--text-heading) !important; }
 .text-body { color: var(--text-body) !important; }
 
+/* NEW: Context-Based Text Utilities */
+.text-on-light { color: var(--text-on-light) !important; }
+.text-on-dark { color: var(--text-on-dark) !important; }
+.text-on-image { color: var(--text-on-image) !important; }
+.text-on-card { color: var(--text-on-card) !important; }
+.text-on-overlay { color: var(--text-on-overlay) !important; }
+.text-on-overlay-muted { color: var(--text-on-overlay-muted) !important; }
+
+/* Overlay Gradient Utilities */
+.overlay-dark { background: var(--overlay-gradient-dark); }
+.overlay-darker { background: var(--overlay-gradient-darker); }
+.overlay-subtle { background: var(--overlay-gradient-subtle); }
+.overlay-top { background: var(--overlay-gradient-top); }
+
 .border-light { border-color: var(--border-light) !important; }
 .border-medium { border-color: var(--border-medium) !important; }
 .border-dark { border-color: var(--border-dark) !important; }
@@ -241,7 +287,7 @@ body.dark-mode,
 .card {
     background-color: var(--bg-surface);
     border-color: var(--border-light);
-    color: var(--text-primary);
+    color: var(--text-on-card);
 }
 
 .navbar {
@@ -331,10 +377,12 @@ small, .caption {
     :root {
         --text-primary: #000000;
         --text-heading: #000000;
+        --text-on-light: #000000;
     }
     
     [data-theme="dark"] {
         --text-primary: #ffffff;
         --text-heading: #ffffff;
+        --text-on-dark: #ffffff;
     }
     }
