@@ -1,6 +1,5 @@
 .footer-section {
     width: 100%;
-    height: 100%;
     position: relative;
     overflow-y: auto;
     
@@ -19,6 +18,10 @@
     /* Custom scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.5) transparent;
+    
+    /* FIXED: Add proper padding and min-height */
+    padding: 2.5rem 0 1.5rem 0;
+    min-height: 400px;
 }
 
 .footer-section::-webkit-scrollbar {
@@ -37,7 +40,7 @@
 .footer-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 2.5rem 1.5rem 1.5rem;
+    padding: 0 1.5rem;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -429,8 +432,12 @@
 }
 
 @media (max-width: 768px) {
+    .footer-section {
+        padding: 2rem 0 1rem 0;
+    }
+    
     .footer-container {
-        padding: 2rem 1rem 1rem;
+        padding: 0 1rem;
     }
     
     .footer-top {
@@ -484,8 +491,12 @@
 }
 
 @media (max-width: 480px) {
+    .footer-section {
+        padding: 1.5rem 0 1rem 0;
+    }
+    
     .footer-container {
-        padding: 1.5rem 0.75rem 1rem;
+        padding: 0 0.75rem;
     }
     
     .footer-top {
@@ -605,8 +616,8 @@
         display: none;
     }
     
-    .footer-section {
-        background: white;
-        border-top: 1px solid #000;
-    }
+    .footer-section{
+background: white;
+border-top: 1px solid #000;
+}
 }
