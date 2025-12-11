@@ -131,6 +131,19 @@
     opacity: 0.3;
 }
 
+/* ===== GRADIENT OVERLAY FOR TEXT ===== */
+.potd-image-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: var(--overlay-gradient-darker);
+    pointer-events: none;
+    z-index: 1;
+}
+
 /* ===== OVERLAY ===== */
 .potd-overlay {
     position: absolute;
@@ -141,6 +154,7 @@
     padding: 1.25rem;
     opacity: 0;
     transition: opacity 0.3s ease;
+    z-index: 2;
 }
 
 .potd-content:hover .potd-overlay {
@@ -148,33 +162,54 @@
 }
 
 .overlay-content {
-    color: white;
+    color: var(--text-on-overlay);
 }
 
 .overlay-title {
     font-size: 1.25rem;
     font-weight: 700;
     margin: 0 0 0.25rem 0;
+    color: var(--text-on-overlay);
 }
 
 .overlay-subtitle {
     font-size: 0.875rem;
     margin: 0;
-    opacity: 0.9;
+    color: var(--text-on-overlay-muted);
 }
 
-/* ===== DISCOUNT BADGE ===== */
+/* ===== DISCOUNT BADGE - Animated ===== */
 .potd-discount {
     position: absolute;
     top: 10px;
     right: 10px;
-    background: var(--danger-color, #ef4444);
+    background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
     color: white;
     padding: 0.5rem 0.75rem;
     border-radius: 10px;
     text-align: center;
-    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4);
-    z-index: 2;
+    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4), 0 0 20px rgba(255, 68, 68, 0.2);
+    z-index: 3;
+    animation: salePulse 2s ease-in-out infinite, saleGlow 2s ease-in-out infinite;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+@keyframes salePulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.08);
+    }
+}
+
+@keyframes saleGlow {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4), 0 0 20px rgba(255, 68, 68, 0.2);
+    }
+    50% {
+        box-shadow: 0 6px 20px rgba(255, 68, 68, 0.6), 0 0 30px rgba(255, 68, 68, 0.4);
+    }
 }
 
 .discount-value {
@@ -240,6 +275,7 @@
     color: var(--text-muted, #9ca3af);
 }
 
+/* AUTO-SCALING PRODUCT NAME */
 .potd-name {
     font-family: 'Poppins', sans-serif;
     font-size: clamp(1.25rem, 2.5vw, 1.75rem);
@@ -247,6 +283,8 @@
     color: var(--text-primary, #1f2937);
     margin: 0;
     line-height: 1.2;
+    word-break: break-word;
+    hyphens: auto;
 }
 
 .potd-description {
@@ -454,6 +492,14 @@
     background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
 }
 
+[data-theme="dark"] .overlay-title {
+    color: var(--text-on-overlay);
+}
+
+[data-theme="dark"] .overlay-subtitle {
+    color: var(--text-on-overlay-muted);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
     .potd-content {
@@ -491,6 +537,10 @@
     .potd-image-wrapper {
         max-height: 300px;
     }
+
+    .potd-name {
+        font-size: clamp(1.125rem, 3vw, 1.5rem);
+    }
 }
 
 @media (max-width: 480px) {
@@ -510,10 +560,16 @@
 
     .potd-discount {
         padding: 0.4rem 0.625rem;
+        top: 8px;
+        right: 8px;
     }
 
     .discount-value {
         font-size: 1.125rem;
+    }
+
+    .discount-label {
+        font-size: 0.625rem;
     }
 
     .potd-content {
@@ -536,11 +592,12 @@
     .badge-icon,
     .potd-image,
     .potd-overlay,
-    .loading-spinner {
+    .loading-spinner,
+    .potd-discount {
         animation: none;
     }
 
     .potd-content:hover .potd-image {
         transform: none;
     }
-}
+    }
