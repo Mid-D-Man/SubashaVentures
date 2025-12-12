@@ -1,23 +1,19 @@
-
 @inherits LayoutComponentBase
 @inject INavigationService NavService
 @implements IDisposable
 
-
 <div class="shop-layout">
     <!-- Fixed Top Navigation Bar -->
     <header class="shop-header">
-        <ShopNavigation />
+        <ShopNavigation @ref="navigationRef" />
     </header>
-
 
     <!-- Main Shop Content Area -->
     <div class="shop-main">
         <!-- Desktop: Side Filter Panel (Left) -->
         <aside class="shop-sidebar desktop-only">
-            <ShopSidebar />
+            <ShopSidebar @ref="sidebarRef" />
         </aside>
-
 
         <!-- Center: Product Grid/List Area -->
         <main class="shop-content">
@@ -25,39 +21,50 @@
         </main>
     </div>
 
-
     <!-- Mobile: Bottom Navigation Bar -->
     <nav class="shop-bottom-nav mobile-only">
         <ShopBottomNav />
     </nav>
 
-
     <!-- Filter Panel Overlay (Mobile) -->
-    <ShopFilterPanel IsOpen="@isFilterPanelOpen"
-                     IsOpenChanged="@HandleFilterPanelToggle" />
+    <ShopFilterPanel 
+        @ref="filterPanelRef"
+        IsOpen="@isFilterPanelOpen"
+        OnClose="@HandleFilterPanelClose"
+        OnApplyFilters="@HandleApplyFilters" />
 </div>
 
-
 @code {
+    private ShopNavigation? navigationRef;
+    private ShopSidebar? sidebarRef;
+    private ShopFilterPanel? filterPanelRef;
     private bool isFilterPanelOpen = false;
-
 
     protected override void OnInitialized()
     {
-        // Subscribe to any necessary service events
-        // NavService events can be used here if needed
+        NavService.FilterPanelToggleRequested += OnFilterPanelToggleRequested;
     }
 
-
-    private async Task HandleFilterPanelToggle(bool isOpen)
+    private void OnFilterPanelToggleRequested(object? sender, EventArgs e)
     {
-        isFilterPanelOpen = isOpen;
-        await Task.CompletedTask;
+        isFilterPanelOpen = !isFilterPanelOpen;
+        StateHasChanged();
     }
 
+    private void HandleFilterPanelClose()
+    {
+        isFilterPanelOpen = false;
+        StateHasChanged();
+    }
+
+    private void HandleApplyFilters()
+    {
+        isFilterPanelOpen = false;
+        StateHasChanged();
+    }
 
     public void Dispose()
     {
-        // Cleanup subscriptions
+        NavService.FilterPanelToggleRequested -= OnFilterPanelToggleRequested;
     }
 }
