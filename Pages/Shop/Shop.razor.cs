@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Categories;
+using SubashaVentures.Services.Navigation;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -12,6 +13,7 @@ public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private INavigationService NavigationService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<Shop> Logger { get; set; } = default!;
     
@@ -23,11 +25,12 @@ public partial class Shop : ComponentBase, IDisposable
     private List<ProductViewModel> paginatedProducts = new();
     private List<CategoryViewModel> categories = new();
     private HashSet<int> wishlistedProductIds = new();
-    private List<string> activeFilters = new();
+    private List<FilterTag> activeFilters = new();
     private bool isLoading = true;
     private bool isInitialLoad = true;
     private string viewMode = "grid";
     private string sortBy = "relevance";
+    private string searchQuery = "";
     private string? errorMessage;
     private string? currentCategoryId;
     private CategoryViewModel? currentCategory;
@@ -38,24 +41,31 @@ public partial class Shop : ComponentBase, IDisposable
     private int totalPages = 1;
     private int TotalProducts => products.Count;
 
-    // Object pooling for performance
+    // Object pooling
     private MID_ComponentObjectPool<List<ProductViewModel>>? productListPool;
 
     protected override async Task OnInitializedAsync()
     {
         await MID_HelperFunctions.DebugMessageAsync("Shop component initializing", LogLevel.Info);
         
-        // Initialize object pool for product lists
+        // Subscribe to navigation service events
+        NavigationService.SearchQueryChanged += OnSearchQueryChanged;
+        NavigationService.FiltersChanged += OnFiltersChanged;
+        
+        // Initialize object pool
         productListPool = new MID_ComponentObjectPool<List<ProductViewModel>>(
             objectGenerator: () => new List<ProductViewModel>(100),
             resetAction: list => list.Clear(),
             maxPoolSize: 5
         );
         
-        // Load categories first
+        // Get initial search query
+        searchQuery = NavigationService.SearchQuery;
+        
+        // Load categories
         await LoadCategoriesAsync();
         
-        // Then load products
+        // Load products
         await LoadProductsAsync();
     }
 
@@ -74,14 +84,8 @@ public partial class Shop : ComponentBase, IDisposable
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync("Loading categories", LogLevel.Info);
-            
             categories = await CategoryService.GetAllCategoriesAsync();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {categories.Count} categories",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync($"✓ Loaded {categories.Count} categories", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -101,59 +105,26 @@ public partial class Shop : ComponentBase, IDisposable
         {
             await MID_HelperFunctions.DebugMessageAsync("Loading products from service", LogLevel.Info);
             
-            // Load all products from service
             allProducts = await ProductService.GetProductsAsync(0, 1000);
             
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {allProducts.Count} products from service", 
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync($"Loaded {allProducts.Count} products", LogLevel.Info);
 
-            // Filter by category if specified
-            if (!string.IsNullOrEmpty(Category) && Category.ToLower() != "all")
-            {
-                // First try to find category by slug
-                currentCategory = await CategoryService.GetCategoryBySlugAsync(Category);
-                
-                if (currentCategory != null)
-                {
-                    // Filter by category ID
-                    products = allProducts
-                        .Where(p => p.CategoryId == currentCategory.Id)
-                        .ToList();
-                    
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"Filtered to {products.Count} products in category '{currentCategory.Name}'", 
-                        LogLevel.Info
-                    );
-                }
-                else
-                {
-                    // Fallback: try matching by category name (case-insensitive)
-                    products = allProducts
-                        .Where(p => p.Category.Equals(Category, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"Filtered to {products.Count} products by category name '{Category}'", 
-                        LogLevel.Info
-                    );
-                }
-            }
-            else
-            {
-                // Show all products
-                products = new List<ProductViewModel>(allProducts);
-                currentCategory = null;
-            }
-
-            // Apply current sort
+            // Apply category filter
+            await ApplyCategoryFilterAsync();
+            
+            // Apply search filter
+            ApplySearchFilter();
+            
+            // Apply active filters
+            ApplyActiveFilters();
+            
+            // Apply sort
             ApplySort();
             
             // Calculate pagination
             CalculatePagination();
             
-            // Load wishlist (in real app, this would come from a service)
+            // Load wishlist
             await LoadWishlistAsync();
 
             await MID_HelperFunctions.DebugMessageAsync("Products loaded successfully", LogLevel.Info);
@@ -172,11 +143,115 @@ public partial class Shop : ComponentBase, IDisposable
         }
     }
 
-    private async Task LoadWishlistAsync()
+    private async Task ApplyCategoryFilterAsync()
     {
-        // TODO: Load from actual wishlist service
-        await Task.CompletedTask;
-        wishlistedProductIds = new HashSet<int>();
+        if (!string.IsNullOrEmpty(Category) && Category.ToLower() != "all")
+        {
+            currentCategory = await CategoryService.GetCategoryBySlugAsync(Category);
+            
+            if (currentCategory != null)
+            {
+                products = allProducts.Where(p => p.CategoryId == currentCategory.Id).ToList();
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Filtered to {products.Count} products in category '{currentCategory.Name}'", 
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                products = allProducts
+                    .Where(p => p.Category.Equals(Category, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+        }
+        else
+        {
+            products = new List<ProductViewModel>(allProducts);
+            currentCategory = null;
+        }
+    }
+
+    private void ApplySearchFilter()
+    {
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var query = searchQuery.ToLowerInvariant();
+            products = products.Where(p =>
+                p.Name.ToLowerInvariant().Contains(query) ||
+                p.Description.ToLowerInvariant().Contains(query) ||
+                p.Brand.ToLowerInvariant().Contains(query) ||
+                p.Category.ToLowerInvariant().Contains(query) ||
+                p.Tags.Any(t => t.ToLowerInvariant().Contains(query))
+            ).ToList();
+            
+            Logger.LogInformation("Applied search filter: {Query}, Results: {Count}", searchQuery, products.Count);
+        }
+    }
+
+    private void ApplyActiveFilters()
+    {
+        foreach (var filter in activeFilters)
+        {
+            products = filter.FilterType switch
+            {
+                FilterType.PriceRange => ApplyPriceFilter(products, filter),
+                FilterType.Rating => ApplyRatingFilter(products, filter),
+                FilterType.Brand => ApplyBrandFilter(products, filter),
+                FilterType.InStock => products.Where(p => p.IsInStock).ToList(),
+                FilterType.OnSale => products.Where(p => p.IsOnSale).ToList(),
+                _ => products
+            };
+        }
+    }
+
+    private List<ProductViewModel> ApplyPriceFilter(List<ProductViewModel> products, FilterTag filter)
+    {
+        if (filter.MinPrice.HasValue && filter.MaxPrice.HasValue)
+        {
+            return products.Where(p => p.Price >= filter.MinPrice && p.Price <= filter.MaxPrice).ToList();
+        }
+        else if (filter.MinPrice.HasValue)
+        {
+            return products.Where(p => p.Price >= filter.MinPrice).ToList();
+        }
+        else if (filter.MaxPrice.HasValue)
+        {
+            return products.Where(p => p.Price <= filter.MaxPrice).ToList();
+        }
+        return products;
+    }
+
+    private List<ProductViewModel> ApplyRatingFilter(List<ProductViewModel> products, FilterTag filter)
+    {
+        if (filter.MinRating.HasValue)
+        {
+            return products.Where(p => p.Rating >= filter.MinRating).ToList();
+        }
+        return products;
+    }
+
+    private List<ProductViewModel> ApplyBrandFilter(List<ProductViewModel> products, FilterTag filter)
+    {
+        if (!string.IsNullOrEmpty(filter.BrandName))
+        {
+            return products.Where(p => p.Brand.Equals(filter.BrandName, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        return products;
+    }
+
+    private void ApplySort()
+    {
+        products = sortBy switch
+        {
+            "price-low" => products.OrderBy(p => p.Price).ToList(),
+            "price-high" => products.OrderByDescending(p => p.Price).ToList(),
+            "rating" => products.OrderByDescending(p => p.Rating).ThenByDescending(p => p.ReviewCount).ToList(),
+            "newest" => products.OrderByDescending(p => p.CreatedAt).ToList(),
+            "popular" => products.OrderByDescending(p => p.ViewCount).ThenByDescending(p => p.SalesCount).ToList(),
+            "name-asc" => products.OrderBy(p => p.Name).ToList(),
+            "name-desc" => products.OrderByDescending(p => p.Name).ToList(),
+            _ => products
+        };
     }
 
     private void CalculatePagination()
@@ -190,22 +265,38 @@ public partial class Shop : ComponentBase, IDisposable
             .ToList();
     }
 
+    private async Task LoadWishlistAsync()
+    {
+        // TODO: Load from actual wishlist service
+        await Task.CompletedTask;
+        wishlistedProductIds = new HashSet<int>();
+    }
+
     private string GetCategoryDisplayName(string? category)
     {
-        if (string.IsNullOrEmpty(category))
-            return "All Products";
+        if (string.IsNullOrEmpty(category)) return "All Products";
+        if (currentCategory != null) return currentCategory.Name;
         
-        // First check if we have the current category loaded
-        if (currentCategory != null)
-            return currentCategory.Name;
-        
-        // Fallback to matching by slug or name
         var matchedCategory = categories.FirstOrDefault(c => 
             c.Slug.Equals(category, StringComparison.OrdinalIgnoreCase) ||
             c.Name.Equals(category, StringComparison.OrdinalIgnoreCase)
         );
         
         return matchedCategory?.Name ?? category;
+    }
+
+    // Event Handlers
+    private void OnSearchQueryChanged(object? sender, string query)
+    {
+        searchQuery = query;
+        currentPage = 1;
+        _ = LoadProductsAsync();
+    }
+
+    private void OnFiltersChanged(object? sender, EventArgs e)
+    {
+        currentPage = 1;
+        _ = LoadProductsAsync();
     }
 
     private void SetViewMode(string mode)
@@ -224,44 +315,43 @@ public partial class Shop : ComponentBase, IDisposable
         StateHasChanged();
     }
 
-    private void ApplySort()
+    public void AddFilter(FilterTag filter)
     {
-        products = sortBy switch
+        if (!activeFilters.Any(f => f.Id == filter.Id))
         {
-            "price-low" => products.OrderBy(p => p.Price).ToList(),
-            "price-high" => products.OrderByDescending(p => p.Price).ToList(),
-            "rating" => products.OrderByDescending(p => p.Rating).ThenByDescending(p => p.ReviewCount).ToList(),
-            "newest" => products.OrderByDescending(p => p.CreatedAt).ToList(),
-            "popular" => products.OrderByDescending(p => p.ViewCount).ThenByDescending(p => p.SalesCount).ToList(),
-            "name" => products.OrderBy(p => p.Name).ToList(),
-            _ => products // relevance - keep original order
-        };
+            activeFilters.Add(filter);
+            currentPage = 1;
+            _ = LoadProductsAsync();
+        }
     }
 
-    private void RemoveFilter(string filter)
+    private void RemoveFilter(FilterTag filter)
     {
         activeFilters.Remove(filter);
-        // TODO: Apply filter logic
-        StateHasChanged();
+        currentPage = 1;
+        _ = LoadProductsAsync();
     }
 
     private void ClearAllFilters()
     {
         activeFilters.Clear();
-        // TODO: Reset filter logic
-        StateHasChanged();
+        sortBy = "relevance";
+        currentPage = 1;
+        _ = LoadProductsAsync();
     }
 
     private async Task ResetFilters()
     {
         activeFilters.Clear();
         sortBy = "relevance";
+        searchQuery = "";
+        NavigationService.ClearSearchQuery();
         currentPage = 1;
         await LoadProductsAsync();
     }
 
     // Navigation
-    private void NavigateToProduct(ProductViewModel product)
+    private void HandleProductClick(ProductViewModel product)
     {
         NavigationManager.NavigateTo($"/product/{product.Slug}");
     }
@@ -278,14 +368,11 @@ public partial class Shop : ComponentBase, IDisposable
         {
             await MID_HelperFunctions.DebugMessageAsync($"Adding to cart: {product.Name}", LogLevel.Info);
             // TODO: Add to cart service
-            
-            // Show success feedback
             Logger.LogInformation("Added {ProductName} to cart", product.Name);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to cart");
-            Logger.LogError(ex, "Failed to add {ProductId} to cart", product.Id);
         }
     }
 
@@ -296,14 +383,11 @@ public partial class Shop : ComponentBase, IDisposable
             if (wishlistedProductIds.Contains(product.Id))
             {
                 wishlistedProductIds.Remove(product.Id);
-                await MID_HelperFunctions.DebugMessageAsync($"Removed from wishlist: {product.Name}", LogLevel.Info);
             }
             else
             {
                 wishlistedProductIds.Add(product.Id);
-                await MID_HelperFunctions.DebugMessageAsync($"Added to wishlist: {product.Name}", LogLevel.Info);
             }
-            
             StateHasChanged();
         }
         catch (Exception ex)
@@ -351,6 +435,29 @@ public partial class Shop : ComponentBase, IDisposable
 
     public void Dispose()
     {
+        NavigationService.SearchQueryChanged -= OnSearchQueryChanged;
+        NavigationService.FiltersChanged -= OnFiltersChanged;
         productListPool?.Dispose();
     }
+}
+
+// Filter models
+public enum FilterType
+{
+    PriceRange,
+    Rating,
+    Brand,
+    InStock,
+    OnSale
+}
+
+public class FilterTag
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string DisplayText { get; set; } = "";
+    public FilterType FilterType { get; set; }
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public float? MinRating { get; set; }
+    public string? BrandName { get; set; }
 }
