@@ -1,16 +1,31 @@
 using Microsoft.AspNetCore.Components;
+using SubashaVentures.Domain.Product;
+using SubashaVentures.Services.Products;
+using SubashaVentures.Utilities.HelperScripts;
+using SubashaVentures.Utilities.ObjectPooling;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Shop;
 
-public partial class Shop : ComponentBase
+public partial class Shop : ComponentBase, IDisposable
 {
+    [Inject] private IProductService ProductService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private ILogger<Shop> Logger { get; set; } = default!;
+    
     [Parameter] public string? Category { get; set; }
 
+    // State
+    private List<ProductViewModel> allProducts = new();
     private List<ProductViewModel> products = new();
+    private List<ProductViewModel> paginatedProducts = new();
+    private HashSet<int> wishlistedProductIds = new();
     private List<string> activeFilters = new();
     private bool isLoading = true;
+    private bool isInitialLoad = true;
     private string viewMode = "grid";
     private string sortBy = "relevance";
+    private string? errorMessage;
     
     // Pagination
     private int currentPage = 1;
@@ -18,99 +33,141 @@ public partial class Shop : ComponentBase
     private int totalPages = 1;
     private int TotalProducts => products.Count;
 
+    // Object pooling for performance
+    private MID_ComponentObjectPool<List<ProductViewModel>>? productListPool;
+
     protected override async Task OnInitializedAsync()
     {
+        await MID_HelperFunctions.DebugMessageAsync("Shop component initializing", LogLevel.Info);
+        
+        // Initialize object pool for product lists
+        productListPool = new MID_ComponentObjectPool<List<ProductViewModel>>(
+            objectGenerator: () => new List<ProductViewModel>(100),
+            resetAction: list => list.Clear(),
+            maxPoolSize: 5
+        );
+        
         await LoadProducts();
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        // Reload products when category changes
-        await LoadProducts();
+        if (!isInitialLoad && Category != null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync($"Category changed to: {Category}", LogLevel.Info);
+            await LoadProducts();
+        }
+        isInitialLoad = false;
     }
 
     private async Task LoadProducts()
     {
         isLoading = true;
+        errorMessage = null;
         StateHasChanged();
 
-        // Simulate API call
-        await Task.Delay(500);
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync("Loading products from service", LogLevel.Info);
+            
+            // Load all products from service
+            allProducts = await ProductService.GetProductsAsync(0, 1000);
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {allProducts.Count} products from service", 
+                LogLevel.Info
+            );
 
-        // Generate sample products
-        products = GenerateSampleProducts();
-        
-        // Calculate pagination
-        totalPages = (int)Math.Ceiling(products.Count / (double)itemsPerPage);
-        
-        isLoading = false;
-        StateHasChanged();
+            // Filter by category if specified
+            if (!string.IsNullOrEmpty(Category) && Category.ToLower() != "all")
+            {
+                products = allProducts
+                    .Where(p => p.Category.Equals(Category, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Filtered to {products.Count} products in category '{Category}'", 
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                products = new List<ProductViewModel>(allProducts);
+            }
+
+            // Apply current sort
+            ApplySort();
+            
+            // Calculate pagination
+            CalculatePagination();
+            
+            // Load wishlist (in real app, this would come from a service)
+            await LoadWishlist();
+
+            await MID_HelperFunctions.DebugMessageAsync("Products loaded successfully", LogLevel.Info);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading products");
+            Logger.LogError(ex, "Failed to load products");
+            errorMessage = "Failed to load products. Please try again.";
+            products = new List<ProductViewModel>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
-    private List<ProductViewModel> GenerateSampleProducts()
+    private async Task LoadWishlist()
     {
-        var sampleProducts = new List<ProductViewModel>();
-        var random = new Random();
+        // TODO: Load from actual wishlist service
+        // For now, simulate some wishlisted items
+        await Task.CompletedTask;
+        wishlistedProductIds = new HashSet<int>();
+    }
+
+    private void CalculatePagination()
+    {
+        totalPages = (int)Math.Ceiling(products.Count / (double)itemsPerPage);
+        currentPage = Math.Min(currentPage, Math.Max(1, totalPages));
         
-        var productNames = new[]
-        {
-            "Premium Cotton T-Shirt", "Classic Denim Jeans", "Leather Jacket",
-            "Summer Dress", "Casual Sneakers", "Wool Sweater",
-            "Sport Shorts", "Formal Shirt", "Running Shoes",
-            "Winter Coat", "Yoga Pants", "Baseball Cap",
-            "Sunglasses", "Backpack", "Watch",
-            "Belt", "Scarf", "Gloves",
-            "Socks", "Underwear", "Pajamas",
-            "Hoodie", "Tank Top", "Swim Trunks"
-        };
-
-        for (int i = 0; i < 48; i++)
-        {
-            var basePrice = random.Next(20, 200);
-            var isOnSale = random.Next(0, 3) == 0; // 33% chance of being on sale
-            var discount = isOnSale ? random.Next(10, 50) : 0;
-            var price = isOnSale ? basePrice * (100 - discount) / 100m : basePrice;
-
-            sampleProducts.Add(new ProductViewModel
-            {
-                Id = i + 1,
-                Name = productNames[random.Next(productNames.Length)] + $" #{i + 1}",
-                Price = price,
-                OriginalPrice = isOnSale ? basePrice : null,
-                ImageUrl = $"https://via.placeholder.com/300x400?text=Product+{i + 1}",
-                Rating = random.Next(30, 50) / 10f,
-                ReviewCount = random.Next(10, 500),
-                IsOnSale = isOnSale,
-                Discount = discount,
-                Category = Category ?? "all"
-            });
-        }
-
-        return sampleProducts;
+        paginatedProducts = products
+            .Skip((currentPage - 1) * itemsPerPage)
+            .Take(itemsPerPage)
+            .ToList();
     }
 
     private string GetCategoryDisplayName(string category)
     {
-        return category switch
+        return category?.ToLower() switch
         {
             "men" => "Men's Fashion",
             "women" => "Women's Fashion",
             "kids" => "Kids & Baby",
             "home" => "Home & Living",
             "accessories" => "Accessories",
-            _ => "All Products"
+            "electronics" => "Electronics",
+            "sports" => "Sports & Outdoors",
+            _ => category ?? "All Products"
         };
     }
 
     private void SetViewMode(string mode)
     {
         viewMode = mode;
+        StateHasChanged();
     }
 
-    private void HandleSortChange(ChangeEventArgs e)
+    private async Task HandleSortChange(ChangeEventArgs e)
     {
         sortBy = e.Value?.ToString() ?? "relevance";
+        await MID_HelperFunctions.DebugMessageAsync($"Sort changed to: {sortBy}", LogLevel.Info);
+        
         ApplySort();
+        CalculatePagination();
+        StateHasChanged();
     }
 
     private void ApplySort()
@@ -120,39 +177,94 @@ public partial class Shop : ComponentBase
             "price-low" => products.OrderBy(p => p.Price).ToList(),
             "price-high" => products.OrderByDescending(p => p.Price).ToList(),
             "rating" => products.OrderByDescending(p => p.Rating).ToList(),
-            "newest" => products.OrderByDescending(p => p.Id).ToList(),
-            "popular" => products.OrderByDescending(p => p.ReviewCount).ToList(),
-            _ => products
+            "newest" => products.OrderByDescending(p => p.CreatedAt).ToList(),
+            "popular" => products.OrderByDescending(p => p.ViewCount).ToList(),
+            "name" => products.OrderBy(p => p.Name).ToList(),
+            _ => products // relevance - keep original order
         };
-        StateHasChanged();
     }
 
     private void RemoveFilter(string filter)
     {
         activeFilters.Remove(filter);
+        // TODO: Apply filter logic
         StateHasChanged();
     }
 
     private void ClearAllFilters()
     {
         activeFilters.Clear();
+        // TODO: Reset filter logic
         StateHasChanged();
     }
 
-    private void ResetFilters()
+    private async Task ResetFilters()
     {
         activeFilters.Clear();
         sortBy = "relevance";
         currentPage = 1;
-        StateHasChanged();
+        await LoadProducts();
     }
 
-    // Pagination methods
+    // Navigation
+    private void NavigateToProduct(ProductViewModel product)
+    {
+        NavigationManager.NavigateTo($"/product/{product.Id}");
+    }
+
+    private async Task HandleQuickView(ProductViewModel product)
+    {
+        await MID_HelperFunctions.DebugMessageAsync($"Quick view: {product.Name}", LogLevel.Info);
+        // TODO: Open quick view modal
+    }
+
+    private async Task HandleAddToCart(ProductViewModel product)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync($"Adding to cart: {product.Name}", LogLevel.Info);
+            // TODO: Add to cart service
+            
+            // Show success feedback
+            Logger.LogInformation("Added {ProductName} to cart", product.Name);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to cart");
+            Logger.LogError(ex, "Failed to add {ProductId} to cart", product.Id);
+        }
+    }
+
+    private async Task HandleWishlistToggle(ProductViewModel product)
+    {
+        try
+        {
+            if (wishlistedProductIds.Contains(product.Id))
+            {
+                wishlistedProductIds.Remove(product.Id);
+                await MID_HelperFunctions.DebugMessageAsync($"Removed from wishlist: {product.Name}", LogLevel.Info);
+            }
+            else
+            {
+                wishlistedProductIds.Add(product.Id);
+                await MID_HelperFunctions.DebugMessageAsync($"Added to wishlist: {product.Name}", LogLevel.Info);
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling wishlist");
+        }
+    }
+
+    // Pagination
     private void PreviousPage()
     {
         if (currentPage > 1)
         {
             currentPage--;
+            CalculatePagination();
             ScrollToTop();
         }
     }
@@ -162,14 +274,19 @@ public partial class Shop : ComponentBase
         if (currentPage < totalPages)
         {
             currentPage++;
+            CalculatePagination();
             ScrollToTop();
         }
     }
 
     private void GoToPage(int page)
     {
-        currentPage = page;
-        ScrollToTop();
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            CalculatePagination();
+            ScrollToTop();
+        }
     }
 
     private void ScrollToTop()
@@ -178,18 +295,8 @@ public partial class Shop : ComponentBase
         // await JSRuntime.InvokeVoidAsync("window.scrollTo", 0, 0);
     }
 
-    // View Model
-    public class ProductViewModel
+    public void Dispose()
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public decimal? OriginalPrice { get; set; }
-        public string ImageUrl { get; set; } = string.Empty;
-        public float Rating { get; set; }
-        public int ReviewCount { get; set; }
-        public bool IsOnSale { get; set; }
-        public int Discount { get; set; }
-        public string Category { get; set; } = string.Empty;
+        productListPool?.Dispose();
     }
 }
