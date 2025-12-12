@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Fri Dec 12 00:29:29 UTC 2025
+Generated: Fri Dec 12 00:30:58 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: d3929b1e89f871a05bc10e6a987552dcce359e2f
+Commit: 6ef6e22664380aa16d4a9124b22ec95948365bfe
 Branch: master
 ==================================
 
@@ -169,6 +169,7 @@ Program.cs
 Properties/launchSettings.json
 README.md
 Services/Auth/SupabaseAuthStateProvider.cs
+Services/Categories/ICategoryService.cs
 Services/Connectivity/ConnectivityService.cs
 Services/Firebase/FirebaseConfigService.cs
 Services/Firebase/FirestoreService.cs
@@ -292,6 +293,7 @@ Directory Structure:
 ./Properties
 ./Services
 ./  Auth
+./  Categories
 ./  Connectivity
 ./  Firebase
 ./  Navigation
@@ -314,7 +316,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 101 files
+.cs       : 102 files
 .razor    : 53 files
 .csproj   : 1 files
 .sln      : 1 files
