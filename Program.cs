@@ -13,6 +13,7 @@ using SubashaVentures.Services.Connectivity;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Utilities.Logging;
 using SubashaVentures.Utilities.HelperScripts;
+using SubashaVentures.Services.Categories;
 using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.JSInterop;
@@ -93,7 +94,7 @@ builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
-
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 // ==================== APPLICATION SERVICES ====================
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
