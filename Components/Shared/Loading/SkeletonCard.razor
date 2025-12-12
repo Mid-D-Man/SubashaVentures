@@ -1,0 +1,26 @@
+@* Components/Shared/Loading/SkeletonCard.razor *@
+
+<div class="skeleton-card @CssClass">
+    <div class="skeleton-image"></div>
+    
+    <div class="skeleton-content">
+        <div class="skeleton-category"></div>
+        <div class="skeleton-title"></div>
+        <div class="skeleton-title skeleton-title-short"></div>
+        
+        <div class="skeleton-rating">
+            <div class="skeleton-stars"></div>
+            <div class="skeleton-text-sm"></div>
+        </div>
+        
+        <div class="skeleton-price">
+            <div class="skeleton-text-lg"></div>
+        </div>
+        
+        <div class="skeleton-stock"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string CssClass { get; set; } = "";
+}
