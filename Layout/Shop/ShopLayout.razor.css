@@ -1,4 +1,5 @@
-/* ===== SHOP LAYOUT STRUCTURE ===== */
+/* Layout/Shop/ShopLayout.razor.css */
+
 .shop-layout {
     position: fixed;
     top: 0;
@@ -15,7 +16,7 @@
 
 /* ===== SHOP HEADER ===== */
 .shop-header {
-    height: 60px;
+    height: 64px;
     width: 100%;
     position: fixed;
     top: 0;
@@ -33,7 +34,7 @@
 .shop-main {
     flex: 1;
     display: flex;
-    margin-top: 60px;
+    margin-top: 64px;
     overflow: hidden;
     width: 100%;
     position: relative;
@@ -44,11 +45,12 @@
     width: 280px;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     background: rgba(255, 255, 255, 0.95);
     border-right: 1px solid rgba(150, 153, 74, 0.15);
     padding: 1rem;
+    flex-shrink: 0;
     
-    /* Custom scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
 }
@@ -79,7 +81,6 @@
     background: var(--bg-secondary, #f8f9fa);
     padding: 1.5rem;
     
-    /* Custom scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.4) transparent;
 }
@@ -108,7 +109,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px;
+    height: 64px;
     background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -117,7 +118,7 @@
     z-index: 100;
 }
 
-/* ===== RESPONSIVE VISIBILITY ===== */
+/* ===== VISIBILITY CLASSES ===== */
 .desktop-only {
     display: block;
 }
@@ -188,16 +189,15 @@
     
     .shop-main {
         margin-top: 56px;
-        margin-bottom: 60px; /* Space for bottom nav */
+        margin-bottom: 64px;
     }
     
     .shop-sidebar {
-        display: none; /* Hidden on mobile, use filter panel instead */
+        display: none;
     }
     
     .shop-content {
-        padding: 0.75rem;
-        padding-bottom: 80px; /* Extra space for bottom nav */
+        padding: 0.875rem;
     }
     
     .shop-bottom-nav {
@@ -224,11 +224,11 @@
     }
     
     .shop-content {
-        padding: 0.5rem;
+        padding: 0.625rem;
     }
     
     .shop-bottom-nav {
-        height: 56px;
+        height: 60px;
     }
 }
 
@@ -253,10 +253,9 @@
     }
 }
 
-/* High contrast mode */
 @media (prefers-contrast: more) {
     .shop-header,
     .shop-bottom-nav {
         border-width: 2px;
     }
-}
+    }
