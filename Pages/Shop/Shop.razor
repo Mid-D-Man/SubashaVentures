@@ -2,6 +2,7 @@
 @page "/shop/{category}"
 @using SubashaVentures.Layout.Shop
 @using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Components.Shared.Loading
 @layout ShopLayout
 
 <div class="shop-page">
@@ -19,7 +20,7 @@
                 }
             </h1>
             <p class="shop-subtitle">
-                @TotalProducts products found
+                @(isLoading ? "Loading..." : $"{TotalProducts} products found")
             </p>
         </div>
         
@@ -28,29 +29,32 @@
             <div class="view-toggle">
                 <button class="view-btn @(viewMode == "grid" ? "active" : "")" 
                         @onclick='() => SetViewMode("grid")'
-                        title="Grid View">
+                        title="Grid View"
+                        disabled="@isLoading">
                     ⊞
                 </button>
                 <button class="view-btn @(viewMode == "list" ? "active" : "")" 
                         @onclick='() => SetViewMode("list")'
-                        title="List View">
+                        title="List View"
+                        disabled="@isLoading">
                     ☰
                 </button>
             </div>
             
-            <select class="sort-select" @onchange="HandleSortChange">
+            <select class="sort-select" @onchange="HandleSortChange" disabled="@isLoading">
                 <option value="relevance">Sort: Relevance</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
                 <option value="rating">Customer Rating</option>
                 <option value="newest">Newest First</option>
                 <option value="popular">Most Popular</option>
+                <option value="name">Name (A-Z)</option>
             </select>
         </div>
     </div>
 
     <!-- Active Filters -->
-    @if (activeFilters.Count > 0)
+    @if (activeFilters.Count > 0 && !isLoading)
     {
         <div class="active-filters">
             <span class="filters-label">Active Filters:</span>
@@ -69,12 +73,14 @@
         </div>
     }
 
-    <!-- Loading State -->
+    <!-- Loading State with Skeleton Cards -->
     @if (isLoading)
     {
-        <div class="loading-container">
-            <div class="loading-spinner"></div>
-            <p class="loading-text">Loading products...</p>
+        <div class="products-container @viewMode-view">
+            @for (int i = 0; i < itemsPerPage; i++)
+            {
+                <SkeletonCard />
+            }
         </div>
     }
     else if (products.Count == 0)
@@ -93,45 +99,69 @@
     {
         <!-- Products Grid/List -->
         <div class="products-container @viewMode-view">
-            @foreach (var product in products)
+            @foreach (var product in paginatedProducts)
             {
-                <ProductCard 
-                    Name="@product.Name"
-                    Price="@product.Price"
-                    OriginalPrice="@product.OriginalPrice"
-                    ImageUrl="@product.ImageUrl"
-                    Rating="@product.Rating"
-                    ReviewCount="@product.ReviewCount"
-                    IsOnSale="@product.IsOnSale"
-                    Discount="@product.Discount"
+                <ShopProductCard 
+                    Product="@product"
+                    IsWishlisted="@wishlistedProductIds.Contains(product.Id)"
+                    OnClick="@(p => NavigateToProduct(p))"
+                    OnQuickView="@(p => HandleQuickView(p))"
+                    OnAddToCart="@(p => HandleAddToCart(p))"
+                    OnWishlistToggle="@(p => HandleWishlistToggle(p))"
                 />
             }
         </div>
 
         <!-- Pagination -->
-        <div class="pagination-container">
-            <button class="pagination-btn" 
-                    disabled="@(currentPage == 1)"
-                    @onclick="PreviousPage">
-                ← Previous
-            </button>
-            
-            <div class="pagination-pages">
-                @for (int i = 1; i <= totalPages; i++)
-                {
-                    var pageNumber = i;
-                    <button class="page-btn @(currentPage == pageNumber ? "active" : "")"
-                            @onclick="() => GoToPage(pageNumber)">
-                        @pageNumber
-                    </button>
-                }
+        @if (totalPages > 1)
+        {
+            <div class="pagination-container">
+                <button class="pagination-btn" 
+                        disabled="@(currentPage == 1)"
+                        @onclick="PreviousPage">
+                    ← Previous
+                </button>
+                
+                <div class="pagination-pages">
+                    @{
+                        var startPage = Math.Max(1, currentPage - 2);
+                        var endPage = Math.Min(totalPages, currentPage + 2);
+                        
+                        if (startPage > 1)
+                        {
+                            <button class="page-btn" @onclick="() => GoToPage(1)">1</button>
+                            if (startPage > 2)
+                            {
+                                <span class="pagination-ellipsis">...</span>
+                            }
+                        }
+                        
+                        for (int i = startPage; i <= endPage; i++)
+                        {
+                            var pageNumber = i;
+                            <button class="page-btn @(currentPage == pageNumber ? "active" : "")"
+                                    @onclick="() => GoToPage(pageNumber)">
+                                @pageNumber
+                            </button>
+                        }
+                        
+                        if (endPage < totalPages)
+                        {
+                            if (endPage < totalPages - 1)
+                            {
+                                <span class="pagination-ellipsis">...</span>
+                            }
+                            <button class="page-btn" @onclick="() => GoToPage(totalPages)">@totalPages</button>
+                        }
+                    }
+                </div>
+                
+                <button class="pagination-btn" 
+                        disabled="@(currentPage == totalPages)"
+                        @onclick="NextPage">
+                    Next →
+                </button>
             </div>
-            
-            <button class="pagination-btn" 
-                    disabled="@(currentPage == totalPages)"
-                    @onclick="NextPage">
-                Next →
-            </button>
-        </div>
+        }
     }
 </div>
