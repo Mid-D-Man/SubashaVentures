@@ -1,0 +1,84 @@
+@* Components/Shared/Loading/LoadingSpinner.razor *@
+
+<div class="loading-spinner-wrapper @CssClass @SizeClass @VariantClass">
+    @if (ShowOverlay)
+    {
+        <div class="spinner-overlay"></div>
+    }
+    
+    <div class="spinner-container">
+        @if (Variant == SpinnerVariant.Circle)
+        {
+            <div class="spinner-circle"></div>
+        }
+        else if (Variant == SpinnerVariant.Dots)
+        {
+            <div class="spinner-dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        }
+        else if (Variant == SpinnerVariant.Pulse)
+        {
+            <div class="spinner-pulse"></div>
+        }
+        else if (Variant == SpinnerVariant.Ring)
+        {
+            <div class="spinner-ring">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <p class="spinner-message">@Message</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public SpinnerSize Size { get; set; } = SpinnerSize.Medium;
+    [Parameter] public SpinnerVariant Variant { get; set; } = SpinnerVariant.Circle;
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public bool ShowOverlay { get; set; } = false;
+    [Parameter] public string Color { get; set; } = "primary"; // primary, secondary, white
+
+    private string SizeClass => Size switch
+    {
+        SpinnerSize.Small => "spinner-sm",
+        SpinnerSize.Medium => "spinner-md",
+        SpinnerSize.Large => "spinner-lg",
+        SpinnerSize.ExtraLarge => "spinner-xl",
+        _ => "spinner-md"
+    };
+
+    private string VariantClass => Variant switch
+    {
+        SpinnerVariant.Circle => "spinner-circle-variant",
+        SpinnerVariant.Dots => "spinner-dots-variant",
+        SpinnerVariant.Pulse => "spinner-pulse-variant",
+        SpinnerVariant.Ring => "spinner-ring-variant",
+        _ => "spinner-circle-variant"
+    };
+
+    public enum SpinnerSize
+    {
+        Small,
+        Medium,
+        Large,
+        ExtraLarge
+    }
+
+    public enum SpinnerVariant
+    {
+        Circle,
+        Dots,
+        Pulse,
+        Ring
+    }
+}
