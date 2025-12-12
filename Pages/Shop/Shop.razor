@@ -20,35 +20,59 @@
                 }
             </h1>
             <p class="shop-subtitle">
-                @(isLoading ? "Loading..." : $"{TotalProducts} products found")
+                @if (isLoading)
+                {
+                    <span>Loading...</span>
+                }
+                else
+                {
+                    <span>@TotalProducts product@(TotalProducts != 1 ? "s" : "") found</span>
+                    @if (activeFilters.Count > 0)
+                    {
+                        <span class="filter-count"> • @activeFilters.Count filter@(activeFilters.Count != 1 ? "s" : "") active</span>
+                    }
+                }
             </p>
         </div>
         
-        <!-- View Toggle & Sort (Desktop) -->
+        <!-- View Toggle & Sort (Desktop Only) -->
         <div class="shop-controls desktop-only">
             <div class="view-toggle">
                 <button class="view-btn @(viewMode == "grid" ? "active" : "")" 
                         @onclick='() => SetViewMode("grid")'
                         title="Grid View"
                         disabled="@isLoading">
-                    ⊞
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <rect x="2" y="2" width="6" height="6" rx="1"/>
+                        <rect x="12" y="2" width="6" height="6" rx="1"/>
+                        <rect x="2" y="12" width="6" height="6" rx="1"/>
+                        <rect x="12" y="12" width="6" height="6" rx="1"/>
+                    </svg>
                 </button>
                 <button class="view-btn @(viewMode == "list" ? "active" : "")" 
                         @onclick='() => SetViewMode("list")'
                         title="List View"
                         disabled="@isLoading">
-                    ☰
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <rect x="2" y="3" width="16" height="2" rx="1"/>
+                        <rect x="2" y="9" width="16" height="2" rx="1"/>
+                        <rect x="2" y="15" width="16" height="2" rx="1"/>
+                    </svg>
                 </button>
             </div>
             
-            <select class="sort-select" @onchange="HandleSortChange" disabled="@isLoading">
+            <select class="sort-select" 
+                    value="@sortBy" 
+                    @onchange="HandleSortChange" 
+                    disabled="@isLoading">
                 <option value="relevance">Sort: Relevance</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
                 <option value="rating">Customer Rating</option>
                 <option value="newest">Newest First</option>
                 <option value="popular">Most Popular</option>
-                <option value="name">Name (A-Z)</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
             </select>
         </div>
     </div>
@@ -62,8 +86,14 @@
                 @foreach (var filter in activeFilters)
                 {
                     <span class="filter-tag">
-                        @filter
-                        <button class="remove-filter" @onclick="() => RemoveFilter(filter)">✕</button>
+                        @filter.DisplayText
+                        <button class="remove-filter" 
+                                @onclick="() => RemoveFilter(filter)"
+                                title="Remove filter">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                <path d="M10 2L2 10M2 2l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
                     </span>
                 }
             </div>
@@ -73,7 +103,7 @@
         </div>
     }
 
-    <!-- Loading State with Skeleton Cards -->
+    <!-- Loading State -->
     @if (isLoading)
     {
         <div class="products-container @viewMode-view">
@@ -87,12 +117,34 @@
     {
         <!-- Empty State -->
         <div class="empty-state">
-            <div class="empty-icon">📦</div>
+            <div class="empty-icon">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                    <path d="M32 8L8 20V32C8 45.255 17.745 55 32 55C46.255 55 56 45.255 56 32V20L32 8Z" 
+                          stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M32 32V55" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M20 26L32 32L44 26" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
             <h3 class="empty-title">No products found</h3>
-            <p class="empty-text">Try adjusting your filters or search terms</p>
-            <button class="reset-btn" @onclick="ResetFilters">
-                Reset Filters
-            </button>
+            <p class="empty-text">
+                @if (activeFilters.Count > 0 || !string.IsNullOrEmpty(searchQuery))
+                {
+                    <span>Try adjusting your filters or search terms</span>
+                }
+                else
+                {
+                    <span>There are no products available at the moment</span>
+                }
+            </p>
+            @if (activeFilters.Count > 0)
+            {
+                <button class="reset-btn" @onclick="ResetFilters">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 3V1L5 4L8 7V5C10.2091 5 12 6.79086 12 9C12 11.2091 10.2091 13 8 13C5.79086 13 4 11.2091 4 9H2C2 12.3137 4.68629 15 8 15C11.3137 15 14 12.3137 14 9C14 5.68629 11.3137 3 8 3Z"/>
+                    </svg>
+                    Reset Filters
+                </button>
+            }
         </div>
     }
     else
@@ -104,10 +156,10 @@
                 <ShopProductCard 
                     Product="@product"
                     IsWishlisted="@wishlistedProductIds.Contains(product.Id)"
-                    OnClick="@(p => NavigateToProduct(p))"
-                    OnQuickView="@(p => HandleQuickView(p))"
-                    OnAddToCart="@(p => HandleAddToCart(p))"
-                    OnWishlistToggle="@(p => HandleWishlistToggle(p))"
+                    OnClick="@HandleProductClick"
+                    OnQuickView="@HandleQuickView"
+                    OnAddToCart="@HandleAddToCart"
+                    OnWishlistToggle="@HandleWishlistToggle"
                 />
             }
         </div>
@@ -116,10 +168,14 @@
         @if (totalPages > 1)
         {
             <div class="pagination-container">
-                <button class="pagination-btn" 
-                        disabled="@(currentPage == 1)"
-                        @onclick="PreviousPage">
-                    ← Previous
+                <button class="pagination-btn prev-btn" 
+                        disabled="@(currentPage == 1 || isLoading)"
+                        @onclick="PreviousPage"
+                        title="Previous page">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+                    </svg>
+                    <span class="btn-text">Previous</span>
                 </button>
                 
                 <div class="pagination-pages">
@@ -140,7 +196,8 @@
                         {
                             var pageNumber = i;
                             <button class="page-btn @(currentPage == pageNumber ? "active" : "")"
-                                    @onclick="() => GoToPage(pageNumber)">
+                                    @onclick="() => GoToPage(pageNumber)"
+                                    disabled="@isLoading">
                                 @pageNumber
                             </button>
                         }
@@ -156,11 +213,20 @@
                     }
                 </div>
                 
-                <button class="pagination-btn" 
-                        disabled="@(currentPage == totalPages)"
-                        @onclick="NextPage">
-                    Next →
+                <button class="pagination-btn next-btn" 
+                        disabled="@(currentPage == totalPages || isLoading)"
+                        @onclick="NextPage"
+                        title="Next page">
+                    <span class="btn-text">Next</span>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                    </svg>
                 </button>
+            </div>
+            
+            <!-- Page Info (Mobile) -->
+            <div class="page-info mobile-only">
+                Page @currentPage of @totalPages
             </div>
         }
     }
