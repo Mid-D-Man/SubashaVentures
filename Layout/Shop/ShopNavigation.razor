@@ -5,7 +5,23 @@
 <div class="shop-navigation">
     <!-- Left: Brand/Back -->
     <div class="shop-nav-left">
-        <a href="/" class="brand-link">
+        <!-- Mobile: Filter Burger Menu -->
+        <button class="filter-burger-btn mobile-only" 
+                @onclick="ToggleFilterPanel"
+                title="Filters & Sort"
+                aria-label="Toggle filters">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <line x1="4" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round"/>
+                <line x1="4" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round"/>
+                <line x1="4" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="8" cy="6" r="2" fill="currentColor"/>
+                <circle cx="16" cy="12" r="2" fill="currentColor"/>
+                <circle cx="12" cy="18" r="2" fill="currentColor"/>
+            </svg>
+        </button>
+        
+        <!-- Desktop: Brand Logo -->
+        <a href="/" class="brand-link desktop-only">
             <span class="brand-icon">🌟</span>
             <span class="brand-name">SubashaVentures</span>
         </a>
@@ -14,17 +30,22 @@
     <!-- Center: Search Bar -->
     <div class="shop-nav-center">
         <div class="search-bar">
-            <span class="search-icon">🔍</span>
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                <circle cx="9" cy="9" r="6" stroke-width="2"/>
+                <path d="M13.5 13.5L17 17" stroke-width="2" stroke-linecap="round"/>
+            </svg>
             <input type="text"
                    class="search-input"
-                   placeholder="Search products, brands, categories..."
+                   placeholder="Search products..."
                    value="@searchQuery"
                    @oninput="HandleSearchInput"
                    @onkeydown="HandleSearchKeyPress" />
             @if (!string.IsNullOrEmpty(searchQuery))
             {
-                <button class="search-clear" @onclick="ClearSearch" title="Clear">
-                    ✕
+                <button class="search-clear" @onclick="ClearSearch" title="Clear search">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
                 </button>
             }
             <button class="search-button" @onclick="HandleSearch" title="Search">
@@ -36,17 +57,27 @@
     <!-- Right: Actions -->
     <div class="shop-nav-right">
         <!-- Cart Button -->
-        <button class="nav-action-btn cart-btn" title="Shopping Cart">
-            <span class="action-icon">🛒</span>
+        <button class="nav-action-btn cart-btn" 
+                @onclick="NavigateToCart"
+                title="Shopping Cart">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                <circle cx="7" cy="17" r="1.5" stroke-width="1.5"/>
+                <circle cx="15" cy="17" r="1.5" stroke-width="1.5"/>
+                <path d="M1 1h3l2.68 13.39a1.5 1.5 0 001.5 1.11h9.72a1.5 1.5 0 001.5-1.11L20 5H5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             @if (cartItemCount > 0)
             {
                 <span class="badge">@cartItemCount</span>
             }
         </button>
 
-        <!-- Wishlist Button -->
-        <button class="nav-action-btn wishlist-btn" title="Wishlist">
-            <span class="action-icon">❤️</span>
+        <!-- Wishlist Button (Desktop) -->
+        <button class="nav-action-btn wishlist-btn desktop-only" 
+                @onclick="NavigateToWishlist"
+                title="Wishlist">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                <path d="M10 17.5L8.5 16.1C4 12 1 9.3 1 6c0-2.5 1.8-4 4-4 1.4 0 2.7.7 3.5 1.8C9.3 2.7 10.6 2 12 2c2.2 0 4 1.5 4 4 0 3.3-3 6-7.5 10.1L10 17.5z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             @if (wishlistCount > 0)
             {
                 <span class="badge">@wishlistCount</span>
@@ -57,8 +88,12 @@
         <div class="user-menu">
             @if (isLoggedIn)
             {
-                <button class="nav-action-btn user-btn" @onclick="ToggleUserDropdown">
-                    <span class="action-icon">👤</span>
+                <button class="nav-action-btn user-btn" 
+                        @onclick="ToggleUserDropdown"
+                        title="Account">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                        <path d="M10 11c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </button>
                 
                 @if (showUserDropdown)
@@ -70,17 +105,31 @@
                         </div>
                         <div class="dropdown-divider"></div>
                         <a href="/profile" class="dropdown-item">
-                            <span>👤</span> My Profile
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/>
+                            </svg>
+                            My Profile
                         </a>
                         <a href="/orders" class="dropdown-item">
-                            <span>📦</span> My Orders
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M2 3h12v10H2V3zm1 1v8h10V4H3z"/>
+                                <path d="M5 6h6v1H5V6zm0 2h6v1H5V8z"/>
+                            </svg>
+                            My Orders
                         </a>
                         <a href="/settings" class="dropdown-item">
-                            <span>⚙️</span> Settings
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 1a1 1 0 011 1v.5a1 1 0 001 1h.5a1 1 0 011 1 1 1 0 001-1V3a3 3 0 00-3-3H6a3 3 0 00-3 3v.5a1 1 0 001 1A1 1 0 005 3.5V2a1 1 0 011-1h2z"/>
+                                <circle cx="8" cy="10" r="3"/>
+                            </svg>
+                            Settings
                         </a>
                         <div class="dropdown-divider"></div>
                         <button class="dropdown-item logout" @onclick="HandleLogout">
-                            <span>🚪</span> Sign Out
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3m5 4l3 3m0 0l-3 3m3-3H5"/>
+                            </svg>
+                            Sign Out
                         </button>
                     </div>
                 }
@@ -90,13 +139,6 @@
                 <a href="/signin" class="signin-btn">Sign In</a>
             }
         </div>
-
-        <!-- Mobile: Filter Toggle -->
-        <button class="nav-action-btn filter-btn mobile-only" 
-                @onclick="ToggleFilters"
-                title="Filters">
-            <span class="action-icon">⚙️</span>
-        </button>
     </div>
 </div>
 
@@ -144,9 +186,13 @@
     {
         if (!string.IsNullOrWhiteSpace(searchQuery))
         {
-            // Navigate to search results
-            Console.WriteLine($"Searching for: {searchQuery}");
+            NavService.NotifyFiltersChanged();
         }
+    }
+
+    private void ToggleFilterPanel()
+    {
+        NavService.ToggleFilterPanel();
     }
 
     private void ToggleUserDropdown()
@@ -158,15 +204,17 @@
     {
         isLoggedIn = false;
         showUserDropdown = false;
-        userName = "";
-        userEmail = "";
         StateHasChanged();
     }
 
-    private void ToggleFilters()
+    private void NavigateToCart()
     {
-        // This will trigger the mobile filter panel
-        Console.WriteLine("Toggle filters");
+        // Navigate to cart
+    }
+
+    private void NavigateToWishlist()
+    {
+        // Navigate to wishlist
     }
 
     public void Dispose()
