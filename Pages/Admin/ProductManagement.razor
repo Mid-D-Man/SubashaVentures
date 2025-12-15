@@ -476,54 +476,61 @@
             </div>
 
             <!-- Categories & Classification -->
-            <div class="form-section">
-                <h3 class="section-title">Categories & Classification</h3>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Category *</label>
-                        <select class="form-select @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")) ? "has-error" : "")" 
-                                @bind="productForm.CategoryId">
-                            <option value="">Select Category</option>
-                            @foreach (var category in categories)
-                            {
-                                <option value="@category.Id">@category.Name</option>
-                            }
-                        </select>
-                        @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")))
-                        {
-                            <span class="error-message">@validationErrors.GetValueOrDefault("CategoryId")</span>
-                        }
-                    </div>
+<div class="form-section">
+    <h3 class="section-title">Categories & Classification</h3>
+    
+    <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select class="form-select @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")) ? "has-error" : "")" 
+                    @bind="productForm.CategoryId">
+                <option value="">Select Category</option>
+                @foreach (var category in categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+            @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")))
+            {
+                <span class="error-message">@validationErrors.GetValueOrDefault("CategoryId")</span>
+            }
+        </div>
 
-                    <InputField @bind-Value="productForm.Brand"
-                               Label="Brand"
-                               Placeholder="Brand name" />
-                </div>
+        <!-- ✅ BRAND DROPDOWN - Now matches Category -->
+        <div class="form-group">
+            <label class="form-label">Brand</label>
+            <select class="form-select" @bind="productForm.Brand">
+                <option value="">Select Brand (Optional)</option>
+                @foreach (var brand in brands)
+                {
+                    <option value="@brand.Name">@brand.Name</option>
+                }
+            </select>
+            <span class="helper-text">Select a brand or leave empty</span>
+        </div>
+    </div>
 
-                <!-- Tags Input with Live Preview -->
-                <div class="form-section">
-                    <InputField @bind-Value="productForm.TagsInput"
-                                Label="Tags"
-                                Placeholder="summer, cotton, casual, comfortable"
-                                HelperText="Enter tags separated by commas" />
+    <!-- Tags Input with Live Preview -->
+    <div class="form-section">
+        <InputField @bind-Value="productForm.TagsInput"
+                    Label="Tags"
+                    Placeholder="summer, cotton, casual, comfortable"
+                    HelperText="Enter tags separated by commas" />
 
-                    <!-- ✨ LIVE PREVIEW of parsed tags -->
-                    @if (productForm.Tags != null && productForm.Tags.Any())
-                    {
-                    <div class="tag-preview-container">
-                        <span class="tag-preview-label">Preview:</span>
-                        <div class="tag-preview-list">
-                            @foreach (var tag in productForm.Tags)
-                            {
-                            <span class="tag-preview-item">@tag</span>
-                            }
-                        </div>
-                    </div>
-                    }
-                </div>
-
+        @if (productForm.Tags != null && productForm.Tags.Any())
+        {
+        <div class="tag-preview-container">
+            <span class="tag-preview-label">Preview:</span>
+            <div class="tag-preview-list">
+                @foreach (var tag in productForm.Tags)
+                {
+                <span class="tag-preview-item">@tag</span>
+                }
             </div>
+        </div>
+        }
+    </div>
+</div>
 
             <!-- Variants -->
             <div class="form-section">
