@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Categories;
+using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.Navigation;
+using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -13,7 +15,9 @@ public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private IBrandService BrandService { get; set; } = default!;
     [Inject] private INavigationService NavigationService { get; set; } = default!;
+    [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<Shop> Logger { get; set; } = default!;
     
@@ -24,6 +28,7 @@ public partial class Shop : ComponentBase, IDisposable
     private List<ProductViewModel> products = new();
     private List<ProductViewModel> paginatedProducts = new();
     private List<CategoryViewModel> categories = new();
+    private List<string> brands = new();
     private HashSet<int> wishlistedProductIds = new();
     private List<FilterTag> activeFilters = new();
     private bool isLoading = true;
@@ -44,6 +49,11 @@ public partial class Shop : ComponentBase, IDisposable
     // Object pooling
     private MID_ComponentObjectPool<List<ProductViewModel>>? productListPool;
 
+    // Local storage keys
+    private const string FILTERS_KEY = "shop_filters";
+    private const string SORT_KEY = "shop_sort";
+    private const string VIEW_MODE_KEY = "shop_view_mode";
+
     protected override async Task OnInitializedAsync()
     {
         await MID_HelperFunctions.DebugMessageAsync("Shop component initializing", LogLevel.Info);
@@ -62,10 +72,12 @@ public partial class Shop : ComponentBase, IDisposable
         // Get initial search query
         searchQuery = NavigationService.SearchQuery;
         
-        // Load categories
-        await LoadCategoriesAsync();
+        // Load saved preferences
+        await LoadSavedPreferencesAsync();
         
-        // Load products
+        // Load data
+        await LoadCategoriesAsync();
+        await LoadBrandsAsync();
         await LoadProductsAsync();
     }
 
@@ -75,9 +87,43 @@ public partial class Shop : ComponentBase, IDisposable
         {
             await MID_HelperFunctions.DebugMessageAsync($"Category changed to: {Category}", LogLevel.Info);
             currentCategoryId = Category;
+            currentPage = 1;
             await LoadProductsAsync();
         }
         isInitialLoad = false;
+    }
+
+    private async Task LoadSavedPreferencesAsync()
+    {
+        try
+        {
+            sortBy = await LocalStorage.GetItemAsync<string>(SORT_KEY) ?? "relevance";
+            viewMode = await LocalStorage.GetItemAsync<string>(VIEW_MODE_KEY) ?? "grid";
+            
+            var savedFilters = await LocalStorage.GetItemAsync<List<FilterTag>>(FILTERS_KEY);
+            if (savedFilters != null && savedFilters.Any())
+            {
+                activeFilters = savedFilters;
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading saved preferences");
+        }
+    }
+
+    private async Task SavePreferencesAsync()
+    {
+        try
+        {
+            await LocalStorage.SetItemAsync(SORT_KEY, sortBy);
+            await LocalStorage.SetItemAsync(VIEW_MODE_KEY, viewMode);
+            await LocalStorage.SetItemAsync(FILTERS_KEY, activeFilters);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving preferences");
+        }
     }
 
     private async Task LoadCategoriesAsync()
@@ -92,6 +138,22 @@ public partial class Shop : ComponentBase, IDisposable
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
             Logger.LogError(ex, "Failed to load categories");
             categories = new List<CategoryViewModel>();
+        }
+    }
+
+    private async Task LoadBrandsAsync()
+    {
+        try
+        {
+            var brandModels = await BrandService.GetAllBrandsAsync();
+            brands = brandModels.Where(b => b.IsActive).Select(b => b.Name).Distinct().OrderBy(b => b).ToList();
+            await MID_HelperFunctions.DebugMessageAsync($"✓ Loaded {brands.Count} brands", LogLevel.Info);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading brands");
+            Logger.LogError(ex, "Failed to load brands");
+            brands = new List<string>();
         }
     }
 
@@ -302,6 +364,7 @@ public partial class Shop : ComponentBase, IDisposable
     private void SetViewMode(string mode)
     {
         viewMode = mode;
+        _ = SavePreferencesAsync();
         StateHasChanged();
     }
 
@@ -312,6 +375,7 @@ public partial class Shop : ComponentBase, IDisposable
         
         ApplySort();
         CalculatePagination();
+        await SavePreferencesAsync();
         StateHasChanged();
     }
 
@@ -322,6 +386,7 @@ public partial class Shop : ComponentBase, IDisposable
             activeFilters.Add(filter);
             currentPage = 1;
             _ = LoadProductsAsync();
+            _ = SavePreferencesAsync();
         }
     }
 
@@ -330,6 +395,7 @@ public partial class Shop : ComponentBase, IDisposable
         activeFilters.Remove(filter);
         currentPage = 1;
         _ = LoadProductsAsync();
+        _ = SavePreferencesAsync();
     }
 
     private void ClearAllFilters()
@@ -338,6 +404,7 @@ public partial class Shop : ComponentBase, IDisposable
         sortBy = "relevance";
         currentPage = 1;
         _ = LoadProductsAsync();
+        _ = SavePreferencesAsync();
     }
 
     private async Task ResetFilters()
@@ -348,6 +415,7 @@ public partial class Shop : ComponentBase, IDisposable
         NavigationService.ClearSearchQuery();
         currentPage = 1;
         await LoadProductsAsync();
+        await SavePreferencesAsync();
     }
 
     // Navigation
