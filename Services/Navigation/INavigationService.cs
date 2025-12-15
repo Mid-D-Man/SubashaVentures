@@ -71,4 +71,5 @@ public interface INavigationService
     /// Notifies subscribers that filters have changed
     /// </summary>
     void NotifyFiltersChanged();
+    string? GetQueryParameter(string key);
 }
