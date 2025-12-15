@@ -3,15 +3,16 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Brands; // ✅ ADDED
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Models.Firebase; // ✅ ADDED
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Popups;
 using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Domain.Enums;
-using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Services.SupaBase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -20,14 +21,13 @@ namespace SubashaVentures.Pages.Admin;
 
 public partial class ProductManagement : ComponentBase, IAsyncDisposable
 {
-  [Inject] private IProductService ProductService { get; set; } = default!;
+    [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
+    [Inject] private IBrandService BrandService { get; set; } = default!; // ✅ ADDED
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
-    
-    // ✅ FIX: Changed from JSRuntime to IJSRuntime
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     // Object pools
@@ -69,6 +69,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private List<ProductViewModel> filteredProducts = new();
     private List<ProductViewModel> paginatedProducts = new();
     private List<CategoryViewModel> categories = new();
+    private List<BrandModel> brands = new(); // ✅ ADDED
     private List<int> selectedProducts = new();
 
     // Template selection
@@ -120,6 +121,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             await Task.WhenAll(
                 LoadProductsAsync(),
                 LoadCategoriesAsync(),
+                LoadBrandsAsync(), // ✅ ADDED
                 LoadProductOfTheDayAsync()
             );
 
@@ -134,6 +136,26 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             await MID_HelperFunctions.LogExceptionAsync(ex, "ProductManagement initialization");
             ShowErrorNotification("Failed to initialize product management");
             isLoading = false;
+        }
+    }
+
+    // ==================== BRAND LOADING ====================
+    private async Task LoadBrandsAsync()
+    {
+        try
+        {
+            brands = await BrandService.GetAllBrandsAsync();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {brands.Count} brands from Firebase",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading brands");
+            ShowErrorNotification("Failed to load brands");
+            brands = new List<BrandModel>();
         }
     }
 
@@ -321,6 +343,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             StateHasChanged();
         }
     }
+    
     private void ApplyFiltersAndSort()
     {
         using var pooledList = _productListPool?.GetPooled();
@@ -439,6 +462,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         isProductModalOpen = true;
         StateHasChanged();
     }
+    
     private void CloseProductModal()
     {
         isProductModalOpen = false;
@@ -932,8 +956,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-   // Add to ProductManagement.razor.cs
-
 private async Task HandleExport()
 {
     try
@@ -965,10 +987,8 @@ private async Task HandleExport()
 
         var csv = new StringBuilder();
         
-        // Headers
         csv.AppendLine("ID,SKU,Name,Category,Brand,Price,Original Price,Discount %,Stock,Status,Featured,On Sale,Rating,Reviews,Views,Sales,Created At,Updated At");
         
-        // Data rows
         foreach (var item in exportData)
         {
             csv.AppendLine($"{item.ID}," +
@@ -1021,7 +1041,6 @@ private string EscapeCsv(string value)
     if (string.IsNullOrEmpty(value))
         return "";
     
-    // Escape double quotes and wrap in quotes if contains comma or quote
     if (value.Contains("\""))
         value = value.Replace("\"", "\"\"");
     
@@ -1065,7 +1084,6 @@ private string EscapeCsv(string value)
         }
     }
 
-    // Notification helpers
     private void ShowSuccessNotification(string message)
     {
         notificationComponent?.ShowSuccess(message);
@@ -1086,7 +1104,6 @@ private string EscapeCsv(string value)
         notificationComponent?.ShowInfo(message);
     }
 
-    // ✓ UPDATE YOUR MapToFormData METHOD:
     private ProductFormData MapToFormData(ProductViewModel product)
     {
         var form = new ProductFormData
@@ -1109,26 +1126,22 @@ private string EscapeCsv(string value)
             IsActive = product.IsActive
         };
     
-        // 🔴 CRITICAL: Initialize raw inputs after setting lists
         form.InitializeRawInputs();
    
         return form;
     }
 
-    // ONLY showing the CreateProductAsync mapping fix
-
     private CreateProductRequest MapToCreateRequest(ProductFormData form)
     {
         return new CreateProductRequest
         {
-            // Don't set ID - Supabase handles it
             Name = form.Name,
             Description = form.Description,
             LongDescription = form.LongDescription,
             Price = form.Price,
             OriginalPrice = form.OriginalPrice,
             Stock = form.Stock,
-            Sku = form.Sku, // Required
+            Sku = form.Sku,
             CategoryId = form.CategoryId,
             Brand = form.Brand,
             Tags = form.Tags,
@@ -1138,6 +1151,7 @@ private string EscapeCsv(string value)
             IsFeatured = form.IsFeatured
         };
     }
+    
     private UpdateProductRequest MapToUpdateRequest(ProductFormData form)
     {
         return new UpdateProductRequest
@@ -1153,6 +1167,8 @@ private string EscapeCsv(string value)
             Tags = form.Tags,
             Sizes = form.Sizes,
             Colors = form.Colors,
+            ImageUrls = form.ImageUrls, // ✅ FIXED - Now included
+            VideoUrl = form.VideoUrl,    // ✅ FIXED - Now included
             IsFeatured = form.IsFeatured,
             IsActive = form.IsActive
         };
@@ -1196,7 +1212,6 @@ private string EscapeCsv(string value)
         }
     }
 
-    // FIXED: Form data class with "/" separator for tags
    public class ProductFormData
 {
     public int Id { get; set; }
@@ -1213,22 +1228,20 @@ private string EscapeCsv(string value)
     public List<string>? Sizes { get; set; }
     public List<string>? Colors { get; set; }
     public List<string>? ImageUrls { get; set; }
+    public string? VideoUrl { get; set; } // ✅ ADDED
     public bool IsFeatured { get; set; }
     public bool IsActive { get; set; } = true;
     
-    // 🔴 FIX: Use raw string storage for inputs, process only when needed
     private string _tagsRawInput = "";
     private string _sizesRawInput = "";
     private string _colorsRawInput = "";
     
-    // ✓ FIXED: Get/set raw string, process separately
     public string TagsInput
     {
         get => _tagsRawInput;
         set
         {
             _tagsRawInput = value ?? "";
-            // Process into list when value changes
             Tags = ParseCommaSeparated(_tagsRawInput);
         }
     }
@@ -1253,7 +1266,6 @@ private string EscapeCsv(string value)
         }
     }
     
-    // Helper to parse comma-separated values
     private static List<string> ParseCommaSeparated(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -1263,11 +1275,10 @@ private string EscapeCsv(string value)
             .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.Trim())
             .Where(s => !string.IsNullOrEmpty(s))
-            .Distinct() // Remove duplicates
+            .Distinct()
             .ToList();
     }
     
-    // Helper to initialize raw inputs from lists (for editing)
     public void InitializeRawInputs()
     {
         _tagsRawInput = Tags != null && Tags.Any() 
