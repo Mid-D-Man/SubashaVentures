@@ -23,6 +23,16 @@ public interface INavigationService
     event EventHandler<string>? SearchQueryChanged;
     
     /// <summary>
+    /// Event raised when filter panel toggle is requested
+    /// </summary>
+    event EventHandler? FilterPanelToggleRequested;
+    
+    /// <summary>
+    /// Event raised when filters have changed and products need to be reloaded
+    /// </summary>
+    event EventHandler? FiltersChanged;
+    
+    /// <summary>
     /// Opens the side panel
     /// </summary>
     void OpenSidePanel();
@@ -51,4 +61,14 @@ public interface INavigationService
     /// Clears the search query
     /// </summary>
     void ClearSearchQuery();
+    
+    /// <summary>
+    /// Toggles the filter panel (mobile)
+    /// </summary>
+    void ToggleFilterPanel();
+    
+    /// <summary>
+    /// Notifies subscribers that filters have changed
+    /// </summary>
+    void NotifyFiltersChanged();
 }
