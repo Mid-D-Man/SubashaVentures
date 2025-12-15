@@ -1,6 +1,7 @@
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.Brands
 @using SubashaVentures.Domain.Product
+@using ShopPage = SubashaVentures.Pages.Shop.Shop
 @inject ICategoryService CategoryService
 @inject IBrandService BrandService
 @inject ILogger<ShopSidebar> Logger
@@ -163,7 +164,7 @@
 </div>
 
 @code {
-    [CascadingParameter] public Shop? ShopPage { get; set; }
+[CascadingParameter] public ShopPage? ShopPage { get; set; }
     
     private List<CategoryViewModel> categories = new();
     private List<string> allBrands = new();
