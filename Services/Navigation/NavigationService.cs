@@ -1,14 +1,19 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.WebUtilities;
+
 namespace SubashaVentures.Services.Navigation;
 
-/// <summary>
-/// Implementation of navigation service for managing side panel, filter panel, search state, and filters
-/// </summary>
 public class NavigationService : INavigationService
 {
+    private readonly NavigationManager _navigationManager;
     private bool _isSidePanelOpen;
     private string _searchQuery = string.Empty;
     
-    /// <inheritdoc/>
+    public NavigationService(NavigationManager navigationManager)
+    {
+        _navigationManager = navigationManager;
+    }
+    
     public bool IsSidePanelOpen
     {
         get => _isSidePanelOpen;
@@ -22,7 +27,6 @@ public class NavigationService : INavigationService
         }
     }
     
-    /// <inheritdoc/>
     public string SearchQuery
     {
         get => _searchQuery;
@@ -36,63 +40,24 @@ public class NavigationService : INavigationService
         }
     }
     
-    /// <inheritdoc/>
     public event EventHandler<bool>? SidePanelStateChanged;
-    
-    /// <inheritdoc/>
     public event EventHandler<string>? SearchQueryChanged;
-    
-    /// <inheritdoc/>
     public event EventHandler? FilterPanelToggleRequested;
-    
-    /// <inheritdoc/>
     public event EventHandler? FiltersChanged;
     
-    /// <inheritdoc/>
-    public void OpenSidePanel()
-    {
-        IsSidePanelOpen = true;
-    }
+    public void OpenSidePanel() => IsSidePanelOpen = true;
+    public void CloseSidePanel() => IsSidePanelOpen = false;
+    public void ToggleSidePanel() => IsSidePanelOpen = !IsSidePanelOpen;
+    public void SetSidePanelState(bool isOpen) => IsSidePanelOpen = isOpen;
+    public void UpdateSearchQuery(string query) => SearchQuery = query ?? string.Empty;
+    public void ClearSearchQuery() => SearchQuery = string.Empty;
+    public void ToggleFilterPanel() => FilterPanelToggleRequested?.Invoke(this, EventArgs.Empty);
+    public void NotifyFiltersChanged() => FiltersChanged?.Invoke(this, EventArgs.Empty);
     
-    /// <inheritdoc/>
-    public void CloseSidePanel()
+    public string? GetQueryParameter(string key)
     {
-        IsSidePanelOpen = false;
-    }
-    
-    /// <inheritdoc/>
-    public void ToggleSidePanel()
-    {
-        IsSidePanelOpen = !IsSidePanelOpen;
-    }
-    
-    /// <inheritdoc/>
-    public void SetSidePanelState(bool isOpen)
-    {
-        IsSidePanelOpen = isOpen;
-    }
-    
-    /// <inheritdoc/>
-    public void UpdateSearchQuery(string query)
-    {
-        SearchQuery = query ?? string.Empty;
-    }
-    
-    /// <inheritdoc/>
-    public void ClearSearchQuery()
-    {
-        SearchQuery = string.Empty;
-    }
-    
-    /// <inheritdoc/>
-    public void ToggleFilterPanel()
-    {
-        FilterPanelToggleRequested?.Invoke(this, EventArgs.Empty);
-    }
-    
-    /// <inheritdoc/>
-    public void NotifyFiltersChanged()
-    {
-        FiltersChanged?.Invoke(this, EventArgs.Empty);
+        var uri = new Uri(_navigationManager.Uri);
+        var queryParams = QueryHelpers.ParseQuery(uri.Query);
+        return queryParams.TryGetValue(key, out var value) ? value.ToString() : null;
     }
 }
