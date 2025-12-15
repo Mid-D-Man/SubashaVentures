@@ -4,9 +4,9 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.Navigation;
-using SubashaVentures.Services.LocalStorage;
 using SubashaVentures.Domain.Product;
-using SubashaVentures.Services.Categories;
+using Blazored.LocalStorage;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -19,7 +19,7 @@ namespace SubashaVentures.Pages.Shop
         [Inject] private ICategoryService CategoryService { get; set; } = default!;
         [Inject] private IBrandService BrandService { get; set; } = default!;
         [Inject] private INavigationService NavigationService { get; set; } = default!;
-        [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
+        [Inject] private ILocalStorageService LocalStorage { get; set; } = default!;
         [Inject] private NavigationManager Navigation { get; set; } = default!;
         [Inject] private ILogger<Shop> Logger { get; set; } = default!;
 
@@ -27,9 +27,9 @@ namespace SubashaVentures.Pages.Shop
         private const string SORT_KEY = "shop_sort";
         private const string VIEW_MODE_KEY = "shop_view_mode";
 
-        private List<ProductSummary> allProducts = new();
-        private List<ProductSummary> products = new();
-        private List<ProductSummary> paginatedProducts = new();
+        private List<ProductViewModel> allProducts = new();
+        private List<ProductViewModel> products = new();
+        private List<ProductViewModel> paginatedProducts = new();
         private List<CategoryViewModel> categories = new();
         private List<string> brands = new();
         private HashSet<string> wishlistedProductIds = new();
