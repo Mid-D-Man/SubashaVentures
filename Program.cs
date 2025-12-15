@@ -14,6 +14,7 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Utilities.Logging;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Categories;
+using SubashaVentures.Services.Brands;
 using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.JSInterop;
