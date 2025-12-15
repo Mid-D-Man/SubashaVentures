@@ -4,8 +4,8 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.Navigation;
+using SubashaVentures.Services.Storage;
 using SubashaVentures.Domain.Product;
-using Blazored.LocalStorage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,9 +19,11 @@ namespace SubashaVentures.Pages.Shop
         [Inject] private ICategoryService CategoryService { get; set; } = default!;
         [Inject] private IBrandService BrandService { get; set; } = default!;
         [Inject] private INavigationService NavigationService { get; set; } = default!;
-        [Inject] private ILocalStorageService LocalStorage { get; set; } = default!;
+        [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
         [Inject] private NavigationManager Navigation { get; set; } = default!;
         [Inject] private ILogger<Shop> Logger { get; set; } = default!;
+
+        [Parameter] public string? Category { get; set; }
 
         private const string FILTERS_KEY = "shop_filters";
         private const string SORT_KEY = "shop_sort";
@@ -32,16 +34,18 @@ namespace SubashaVentures.Pages.Shop
         private List<ProductViewModel> paginatedProducts = new();
         private List<CategoryViewModel> categories = new();
         private List<string> brands = new();
-        private HashSet<string> wishlistedProductIds = new();
+        private HashSet<int> wishlistedProductIds = new();
         private List<FilterTag> activeFilters = new();
 
         private int currentPage = 1;
         private int itemsPerPage = 24;
         private int totalPages = 1;
-        private bool isGridView = true;
+        private string viewMode = "grid";
         private string sortBy = "relevance";
         private bool isLoading = true;
-        private bool isSidebarOpen = false;
+        private string searchQuery = "";
+
+        private int TotalProducts => products.Count;
 
         protected override async Task OnInitializedAsync()
         {
@@ -52,12 +56,18 @@ namespace SubashaVentures.Pages.Shop
             await LoadDataAsync();
         }
 
+        protected override async Task OnParametersSetAsync()
+        {
+            await LoadProductsAsync();
+        }
+
         private async Task LoadSavedPreferencesAsync()
         {
             try
             {
                 sortBy = await LocalStorage.GetItemAsync<string>(SORT_KEY) ?? "relevance";
-                isGridView = await LocalStorage.GetItemAsync<bool>(VIEW_MODE_KEY);
+                var savedViewMode = await LocalStorage.GetItemAsync<string>(VIEW_MODE_KEY);
+                viewMode = !string.IsNullOrEmpty(savedViewMode) ? savedViewMode : "grid";
             }
             catch (Exception ex)
             {
@@ -99,8 +109,8 @@ namespace SubashaVentures.Pages.Shop
         {
             try
             {
-                var categorySlug = NavigationService.GetQueryParameter("category") ?? "all";
-                var searchQuery = NavigationService.GetQueryParameter("search");
+                var categorySlug = NavigationService.GetQueryParameter("category") ?? Category ?? "all";
+                searchQuery = NavigationService.GetQueryParameter("search") ?? "";
 
                 if (categorySlug == "all")
                 {
@@ -111,7 +121,7 @@ namespace SubashaVentures.Pages.Shop
                     await ApplyCategoryFilterAsync(categorySlug);
                 }
 
-                products = new List<ProductSummary>(allProducts);
+                products = new List<ProductViewModel>(allProducts);
 
                 if (!string.IsNullOrWhiteSpace(searchQuery))
                 {
@@ -125,7 +135,7 @@ namespace SubashaVentures.Pages.Shop
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to load products");
-                products = new List<ProductSummary>();
+                products = new List<ProductViewModel>();
             }
         }
 
@@ -136,7 +146,7 @@ namespace SubashaVentures.Pages.Shop
                 var category = await CategoryService.GetCategoryBySlugAsync(categorySlug);
                 if (category != null)
                 {
-                    allProducts = await ProductService.GetProductsByCategoryAsync(category.CategoryId);
+                    allProducts = await ProductService.GetProductsByCategoryAsync(category.Id);
                 }
                 else
                 {
@@ -148,7 +158,7 @@ namespace SubashaVentures.Pages.Shop
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to apply category filter for {Slug}", categorySlug);
-                allProducts = new List<ProductSummary>();
+                allProducts = new List<ProductViewModel>();
             }
         }
 
@@ -205,7 +215,7 @@ namespace SubashaVentures.Pages.Shop
                         break;
 
                     case FilterType.InStock:
-                        products = products.Where(p => p.InStock).ToList();
+                        products = products.Where(p => p.IsInStock).ToList();
                         break;
 
                     case FilterType.OnSale:
@@ -223,7 +233,7 @@ namespace SubashaVentures.Pages.Shop
                 "price-high" => products.OrderByDescending(p => p.Price).ToList(),
                 "rating" => products.OrderByDescending(p => p.Rating).ThenByDescending(p => p.ReviewCount).ToList(),
                 "newest" => products.OrderByDescending(p => p.CreatedAt).ToList(),
-                "popular" => products.OrderByDescending(p => p.ViewCount).ThenByDescending(p => p.PurchaseCount).ToList(),
+                "popular" => products.OrderByDescending(p => p.ViewCount).ThenByDescending(p => p.SalesCount).ToList(),
                 "name-asc" => products.OrderBy(p => p.Name).ToList(),
                 "name-desc" => products.OrderByDescending(p => p.Name).ToList(),
                 _ => products
@@ -233,7 +243,7 @@ namespace SubashaVentures.Pages.Shop
         private void CalculatePagination()
         {
             totalPages = (int)Math.Ceiling(products.Count / (double)itemsPerPage);
-            currentPage = Math.Max(1, Math.Min(currentPage, totalPages));
+            currentPage = Math.Max(1, Math.Min(currentPage, Math.Max(1, totalPages)));
 
             var skip = (currentPage - 1) * itemsPerPage;
             paginatedProducts = products.Skip(skip).Take(itemsPerPage).ToList();
@@ -252,6 +262,13 @@ namespace SubashaVentures.Pages.Shop
             _ = LoadProductsAsync();
         }
 
+        public void RemoveFilter(FilterTag filter)
+        {
+            activeFilters.Remove(filter);
+            currentPage = 1;
+            _ = LoadProductsAsync();
+        }
+
         public void RemoveFilter(string filterId)
         {
             activeFilters.RemoveAll(f => f.Id == filterId);
@@ -266,6 +283,13 @@ namespace SubashaVentures.Pages.Shop
             _ = LoadProductsAsync();
         }
 
+        private void ResetFilters()
+        {
+            ClearAllFilters();
+            searchQuery = "";
+            NavigationService.ClearSearchQuery();
+        }
+
         private async Task HandleSortChange(ChangeEventArgs e)
         {
             sortBy = e.Value?.ToString() ?? "relevance";
@@ -276,21 +300,41 @@ namespace SubashaVentures.Pages.Shop
             StateHasChanged();
         }
 
-        private async Task ToggleViewMode()
+        private async Task SetViewMode(string mode)
         {
-            isGridView = !isGridView;
-            await LocalStorage.SetItemAsync(VIEW_MODE_KEY, isGridView);
+            viewMode = mode;
+            await LocalStorage.SetItemAsync(VIEW_MODE_KEY, viewMode);
             StateHasChanged();
         }
 
-        private void ToggleSidebar()
+        private void HandleProductClick(ProductViewModel product)
         {
-            isSidebarOpen = !isSidebarOpen;
+            Navigation.NavigateTo($"/product/{product.Slug}");
         }
 
-        private void HandleProductClick(string slug)
+        private void HandleQuickView(ProductViewModel product)
         {
-            Navigation.NavigateTo($"product/{slug}");
+            // TODO: Implement quick view modal
+            Logger.LogInformation("Quick view: {ProductName}", product.Name);
+        }
+
+        private void HandleAddToCart(ProductViewModel product)
+        {
+            // TODO: Implement add to cart
+            Logger.LogInformation("Add to cart: {ProductName}", product.Name);
+        }
+
+        private void HandleWishlistToggle(ProductViewModel product)
+        {
+            if (wishlistedProductIds.Contains(product.Id))
+            {
+                wishlistedProductIds.Remove(product.Id);
+            }
+            else
+            {
+                wishlistedProductIds.Add(product.Id);
+            }
+            StateHasChanged();
         }
 
         private void PreviousPage()
@@ -321,6 +365,13 @@ namespace SubashaVentures.Pages.Shop
                 CalculatePagination();
                 StateHasChanged();
             }
+        }
+
+        private string GetCategoryDisplayName(string slug)
+        {
+            var category = categories.FirstOrDefault(c => 
+                c.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
+            return category?.Name ?? slug;
         }
 
         private async void OnSearchQueryChanged(object? sender, string query)
