@@ -100,7 +100,7 @@ builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
-
+builder.Services.AddScoped<IBrandService, BrandService>();
 // REMOVED: Admin setup service - SECURITY RISK
 
 // ==================== BUILD AND INITIALIZE ====================
