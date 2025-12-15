@@ -1,4 +1,9 @@
 @using SubashaVentures.Pages.Shop
+@using SubashaVentures.Services.Categories
+@using SubashaVentures.Services.Brands
+@inject ICategoryService CategoryService
+@inject IBrandService BrandService
+@inject ILogger<ShopFilterPanel> Logger
 
 <div class="filter-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="filter-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
@@ -14,139 +19,148 @@
 
         <!-- Filter Content (Scrollable) -->
         <div class="filter-panel-content">
-            <!-- Sort Section -->
-            <div class="filter-section">
-                <h4 class="filter-section-title">Sort By</h4>
-                <div class="sort-options">
-                    @foreach (var option in sortOptions)
-                    {
-                        <button class="sort-option @(selectedSort == option.Value ? "active" : "")" 
-                                @onclick="() => SelectSort(option.Value)">
-                            <span class="option-radio"></span>
-                            <span class="option-label">@option.Label</span>
-                        </button>
-                    }
+            @if (isLoading)
+            {
+                <div class="panel-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Loading filters...</span>
                 </div>
-            </div>
-
-            <!-- Price Range Section -->
-            <div class="filter-section">
-                <h4 class="filter-section-title">Price Range</h4>
-                <div class="price-range-chips">
-                    @foreach (var range in priceRanges)
-                    {
-                        <button class="price-chip @(selectedPriceRange == range.Value ? "active" : "")" 
-                                @onclick="() => SelectPriceRange(range.Value)">
-                            @range.Label
-                        </button>
-                    }
-                </div>
-                
-                <!-- Custom Price Range -->
-                <div class="custom-price-range">
-                    <div class="price-inputs">
-                        <input type="number" 
-                               class="price-input" 
-                               placeholder="Min"
-                               min="0"
-                               @bind="customMinPrice" />
-                        <span class="price-separator">-</span>
-                        <input type="number" 
-                               class="price-input" 
-                               placeholder="Max"
-                               min="0"
-                               @bind="customMaxPrice" />
+            }
+            else
+            {
+                <!-- Sort Section -->
+                <div class="filter-section">
+                    <h4 class="filter-section-title">Sort By</h4>
+                    <div class="sort-options">
+                        @foreach (var option in sortOptions)
+                        {
+                            <button class="sort-option @(selectedSort == option.Value ? "active" : "")" 
+                                    @onclick="() => SelectSort(option.Value)">
+                                <span class="option-radio"></span>
+                                <span class="option-label">@option.Label</span>
+                            </button>
+                        }
                     </div>
-                    <button class="apply-custom-price" 
-                            @onclick="ApplyCustomPriceRange"
-                            disabled="@(!IsCustomPriceValid)">
-                        Apply
-                    </button>
                 </div>
-            </div>
 
-            <!-- Rating Filter -->
-            <div class="filter-section">
-                <h4 class="filter-section-title">Customer Rating</h4>
-                <div class="rating-options">
-                    @for (int i = 5; i >= 1; i--)
-                    {
-                        var rating = i;
-                        <button class="rating-option @(selectedRating == rating ? "active" : "")" 
-                                @onclick="() => SelectRating(rating)">
-                            <span class="rating-stars">
-                                @for (int j = 0; j < rating; j++)
-                                {
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                        <path d="M8 1l1.5 4.5h4.5l-3.5 2.5 1.5 4.5L8 10l-3.5 2.5 1.5-4.5-3.5-2.5h4.5z"/>
-                                    </svg>
-                                }
-                                @for (int j = rating; j < 5; j++)
-                                {
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-                                        <path d="M8 1l1.5 4.5h4.5l-3.5 2.5 1.5 4.5L8 10l-3.5 2.5 1.5-4.5-3.5-2.5h4.5z" stroke-width="1"/>
-                                    </svg>
-                                }
-                            </span>
-                            <span class="rating-text">@rating & Up</span>
+                <!-- Price Range Section -->
+                <div class="filter-section">
+                    <h4 class="filter-section-title">Price Range</h4>
+                    <div class="price-range-chips">
+                        @foreach (var range in priceRanges)
+                        {
+                            <button class="price-chip @(selectedPriceRange == range.Value ? "active" : "")" 
+                                    @onclick="() => SelectPriceRange(range.Value)">
+                                @range.Label
+                            </button>
+                        }
+                    </div>
+                    
+                    <!-- Custom Price Range -->
+                    <div class="custom-price-range">
+                        <div class="price-inputs">
+                            <input type="number" 
+                                   class="price-input" 
+                                   placeholder="Min"
+                                   min="0"
+                                   @bind="customMinPrice" />
+                            <span class="price-separator">-</span>
+                            <input type="number" 
+                                   class="price-input" 
+                                   placeholder="Max"
+                                   min="0"
+                                   @bind="customMaxPrice" />
+                        </div>
+                        <button class="apply-custom-price" 
+                                @onclick="ApplyCustomPriceRange"
+                                disabled="@(!IsCustomPriceValid)">
+                            Apply
                         </button>
-                    }
+                    </div>
                 </div>
-            </div>
 
-            <!-- Quick Filters -->
-            <div class="filter-section">
-                <h4 class="filter-section-title">Quick Filters</h4>
-                <div class="quick-filters">
-                    <button class="quick-filter-chip @(inStockOnly ? "active" : "")" 
-                            @onclick="ToggleInStock">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
-                        </svg>
-                        In Stock Only
-                    </button>
-                    <button class="quick-filter-chip @(onSaleOnly ? "active" : "")" 
-                            @onclick="ToggleOnSale">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 1l2 5h5l-4 3 1.5 5L8 11l-4.5 3L5 9 1 6h5z"/>
-                        </svg>
-                        On Sale
-                    </button>
+                <!-- Rating Filter -->
+                <div class="filter-section">
+                    <h4 class="filter-section-title">Customer Rating</h4>
+                    <div class="rating-options">
+                        @for (int i = 5; i >= 1; i--)
+                        {
+                            var rating = i;
+                            <button class="rating-option @(selectedRating == rating ? "active" : "")" 
+                                    @onclick="() => SelectRating(rating)">
+                                <span class="rating-stars">
+                                    @for (int j = 0; j < rating; j++)
+                                    {
+                                        <span class="star filled">⭐</span>
+                                    }
+                                    @for (int j = rating; j < 5; j++)
+                                    {
+                                        <span class="star">☆</span>
+                                    }
+                                </span>
+                                <span class="rating-text">@rating & Up</span>
+                            </button>
+                        }
+                    </div>
                 </div>
-            </div>
 
-            <!-- Brand Filter -->
-            <div class="filter-section">
-                <h4 class="filter-section-title">Brands</h4>
-                <div class="brand-search">
-                    <svg class="brand-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-                        <circle cx="7" cy="7" r="5" stroke-width="2"/>
-                        <path d="M11 11l3 3" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <input type="text" 
-                           class="brand-search-input" 
-                           placeholder="Search brands..." 
-                           @bind="brandSearchQuery" 
-                           @bind:event="oninput" />
-                </div>
-                <div class="brand-list">
-                    @foreach (var brand in FilteredBrands.Take(10))
-                    {
-                        <label class="brand-option">
-                            <input type="checkbox" 
-                                   checked="@selectedBrands.Contains(brand)"
-                                   @onchange="() => ToggleBrand(brand)" />
-                            <span class="brand-name">@brand</span>
-                        </label>
-                    }
-                    @if (FilteredBrands.Count() > 10)
-                    {
-                        <button class="show-more-brands" @onclick="ShowAllBrands">
-                            Show @(FilteredBrands.Count() - 10) more
+                <!-- Quick Filters -->
+                <div class="filter-section">
+                    <h4 class="filter-section-title">Quick Filters</h4>
+                    <div class="quick-filters">
+                        <button class="quick-filter-chip @(inStockOnly ? "active" : "")" 
+                                @onclick="ToggleInStock">
+                            <span class="filter-icon">✓</span>
+                            <span>In Stock Only</span>
                         </button>
-                    }
+                        <button class="quick-filter-chip @(onSaleOnly ? "active" : "")" 
+                                @onclick="ToggleOnSale">
+                            <span class="filter-icon">%</span>
+                            <span>On Sale</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+
+                <!-- Brand Filter -->
+                <div class="filter-section">
+                    <h4 class="filter-section-title">Brands</h4>
+                    <div class="brand-search">
+                        <svg class="brand-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+                            <circle cx="7" cy="7" r="5" stroke-width="2"/>
+                            <path d="M11 11l3 3" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <input type="text" 
+                               class="brand-search-input" 
+                               placeholder="Search brands..." 
+                               @bind="brandSearchQuery" 
+                               @bind:event="oninput" />
+                    </div>
+                    <div class="brand-list">
+                        @if (FilteredBrands.Any())
+                        {
+                            @foreach (var brand in FilteredBrands.Take(10))
+                            {
+                                <label class="brand-option">
+                                    <input type="checkbox" 
+                                           checked="@selectedBrands.Contains(brand)"
+                                           @onchange="() => ToggleBrand(brand)" />
+                                    <span class="brand-name">@brand</span>
+                                </label>
+                            }
+                            @if (FilteredBrands.Count() > 10)
+                            {
+                                <button class="show-more-brands" @onclick="ShowAllBrands">
+                                    Show @(FilteredBrands.Count() - 10) more
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <div class="no-brands">No brands found</div>
+                        }
+                    </div>
+                </div>
+            }
         </div>
 
         <!-- Panel Footer -->
@@ -171,6 +185,10 @@
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnApplyFilters { get; set; }
+    [CascadingParameter] public Shop? ShopPage { get; set; }
+
+    private bool isLoading = true;
+    private List<string> allBrands = new();
 
     // Sort options
     private List<(string Value, string Label)> sortOptions = new()
@@ -195,14 +213,6 @@
         ("50000+", "₦50,000 & Above")
     };
 
-    // Available brands
-    private List<string> allBrands = new()
-    {
-        "Nike", "Adidas", "Puma", "Zara", "H&M", "Uniqlo",
-        "Gap", "Levi's", "Tommy Hilfiger", "Calvin Klein", 
-        "Ralph Lauren", "Gucci", "Prada", "Versace"
-    };
-
     // State
     private string selectedSort = "relevance";
     private string selectedPriceRange = "";
@@ -224,6 +234,40 @@
         string.IsNullOrWhiteSpace(brandSearchQuery)
             ? allBrands
             : allBrands.Where(b => b.Contains(brandSearchQuery, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBrandsAsync();
+    }
+
+    private async Task LoadBrandsAsync()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var brandModels = await BrandService.GetAllBrandsAsync();
+            allBrands = brandModels
+                .Where(b => b.IsActive && b.ProductCount > 0)
+                .Select(b => b.Name)
+                .Distinct()
+                .OrderBy(b => b)
+                .ToList();
+
+            Logger.LogInformation("Loaded {BrandCount} brands for filter panel", allBrands.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load brands");
+            allBrands = new List<string>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
 
     private void HandleOverlayClick()
     {
@@ -247,7 +291,6 @@
     {
         selectedPriceRange = selectedPriceRange == range ? "" : range;
         
-        // Clear custom prices when selecting preset
         if (!string.IsNullOrEmpty(selectedPriceRange))
         {
             customMinPrice = null;
@@ -307,65 +350,58 @@
 
     private async Task ApplyFilters()
     {
-        // Get the Shop page instance and apply filters
-        var shopPage = GetShopPageInstance();
-        
-        if (shopPage != null)
+        if (ShopPage == null) return;
+
+        // Apply price filter
+        if (!string.IsNullOrEmpty(selectedPriceRange))
         {
-            // Apply sort
-            // Note: You'll need to expose a method in Shop.razor.cs to handle this
-            
-            // Apply price filter
-            if (!string.IsNullOrEmpty(selectedPriceRange))
+            var filter = CreatePriceFilter();
+            if (filter != null)
             {
-                var filter = CreatePriceFilter();
-                if (filter != null)
-                {
-                    shopPage.AddFilter(filter);
-                }
+                ShopPage.AddFilter(filter);
             }
-            
-            // Apply rating filter
-            if (selectedRating > 0)
+        }
+        
+        // Apply rating filter
+        if (selectedRating > 0)
+        {
+            ShopPage.AddFilter(new FilterTag
             {
-                shopPage.AddFilter(new FilterTag
-                {
-                    DisplayText = $"{selectedRating}+ Stars",
-                    FilterType = FilterType.Rating,
-                    MinRating = selectedRating
-                });
-            }
-            
-            // Apply stock filter
-            if (inStockOnly)
+                DisplayText = $"{selectedRating}+ Stars",
+                FilterType = FilterType.Rating,
+                MinRating = selectedRating
+            });
+        }
+        
+        // Apply stock filter
+        if (inStockOnly)
+        {
+            ShopPage.AddFilter(new FilterTag
             {
-                shopPage.AddFilter(new FilterTag
-                {
-                    DisplayText = "In Stock",
-                    FilterType = FilterType.InStock
-                });
-            }
-            
-            // Apply sale filter
-            if (onSaleOnly)
+                DisplayText = "In Stock",
+                FilterType = FilterType.InStock
+            });
+        }
+        
+        // Apply sale filter
+        if (onSaleOnly)
+        {
+            ShopPage.AddFilter(new FilterTag
             {
-                shopPage.AddFilter(new FilterTag
-                {
-                    DisplayText = "On Sale",
-                    FilterType = FilterType.OnSale
-                });
-            }
-            
-            // Apply brand filters
-            foreach (var brand in selectedBrands)
+                DisplayText = "On Sale",
+                FilterType = FilterType.OnSale
+            });
+        }
+        
+        // Apply brand filters
+        foreach (var brand in selectedBrands)
+        {
+            ShopPage.AddFilter(new FilterTag
             {
-                shopPage.AddFilter(new FilterTag
-                {
-                    DisplayText = brand,
-                    FilterType = FilterType.Brand,
-                    BrandName = brand
-                });
-            }
+                DisplayText = brand,
+                FilterType = FilterType.Brand,
+                BrandName = brand
+            });
         }
         
         if (OnApplyFilters.HasDelegate)
@@ -404,13 +440,6 @@
             };
         }
         
-        return null;
-    }
-
-    private Shop? GetShopPageInstance()
-    {
-        // This is a placeholder - you'll need to implement proper component communication
-        // One approach: Use a shared service or Blazor's CascadingValue
         return null;
     }
 }
