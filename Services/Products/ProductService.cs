@@ -171,58 +171,83 @@ public class ProductService : IProductService
     }
 }
 
-    public async Task<bool> UpdateProductAsync(int productId, UpdateProductRequest request)
+public async Task<bool> UpdateProductAsync(int productId, UpdateProductRequest request)
+{
+    try
     {
-        try
+        var existingProduct = await _database.GetByIdAsync<ProductModel>(productId);
+
+        if (existingProduct == null)
         {
-            var existingProduct = await _database.GetByIdAsync<ProductModel>(productId);
-
-            if (existingProduct == null)
-            {
-                _logger.LogWarning("Product not found: {ProductId}", productId);
-                return false;
-            }
-
-            // Update only provided fields
-            if (request.Name != null) existingProduct.Name = request.Name;
-            if (request.Description != null) existingProduct.Description = request.Description;
-            if (request.LongDescription != null) existingProduct.LongDescription = request.LongDescription;
-            if (request.Price.HasValue) existingProduct.Price = request.Price.Value;
-            if (request.OriginalPrice.HasValue) existingProduct.OriginalPrice = request.OriginalPrice;
-            if (request.Stock.HasValue) existingProduct.Stock = request.Stock.Value;
-            if (request.CategoryId != null) existingProduct.CategoryId = request.CategoryId;
-            if (request.Brand != null) existingProduct.Brand = request.Brand;
-            if (request.Tags != null) existingProduct.Tags = request.Tags;
-            if (request.Sizes != null) existingProduct.Sizes = request.Sizes;
-            if (request.Colors != null) existingProduct.Colors = request.Colors;
-            if (request.IsFeatured.HasValue) existingProduct.IsFeatured = request.IsFeatured.Value;
-            if (request.IsActive.HasValue) existingProduct.IsActive = request.IsActive.Value;
-
-            existingProduct.UpdatedAt = DateTime.UtcNow;
-            existingProduct.UpdatedBy = "system";
-
-            var result = await _database.UpdateAsync(existingProduct);
-            
-            // Update analytics product name if name changed
-            if (request.Name != null)
-            {
-                var analytics = await GetProductAnalyticsAsync(productId);
-                if (analytics != null)
-                {
-                    analytics.ProductName = request.Name;
-                    analytics.UpdatedAt = DateTime.UtcNow;
-                    await _database.UpdateAsync(analytics);
-                }
-            }
-
-            return result != null && result.Any();
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating product: {productId}");
+            _logger.LogWarning("Product not found: {ProductId}", productId);
             return false;
         }
+
+        // Update only provided fields
+        if (request.Name != null) existingProduct.Name = request.Name;
+        if (request.Description != null) existingProduct.Description = request.Description;
+        if (request.LongDescription != null) existingProduct.LongDescription = request.LongDescription;
+        if (request.Price.HasValue) existingProduct.Price = request.Price.Value;
+        if (request.OriginalPrice.HasValue) existingProduct.OriginalPrice = request.OriginalPrice;
+        if (request.Stock.HasValue) existingProduct.Stock = request.Stock.Value;
+        if (request.CategoryId != null) existingProduct.CategoryId = request.CategoryId;
+        if (request.Brand != null) existingProduct.Brand = request.Brand;
+        if (request.Tags != null) existingProduct.Tags = request.Tags;
+        if (request.Sizes != null) existingProduct.Sizes = request.Sizes;
+        if (request.Colors != null) existingProduct.Colors = request.Colors;
+        
+        // ✅ FIX: Update images and video
+        if (request.ImageUrls != null) existingProduct.Images = request.ImageUrls;
+        if (request.VideoUrl != null) existingProduct.VideoUrl = request.VideoUrl;
+        
+        if (request.IsFeatured.HasValue) existingProduct.IsFeatured = request.IsFeatured.Value;
+        if (request.IsActive.HasValue) existingProduct.IsActive = request.IsActive.Value;
+
+        // Recalculate discount if prices changed
+        if (request.Price.HasValue || request.OriginalPrice.HasValue)
+        {
+            existingProduct.IsOnSale = existingProduct.OriginalPrice.HasValue && 
+                                       existingProduct.OriginalPrice > existingProduct.Price;
+            existingProduct.Discount = CalculateDiscount(existingProduct.Price, existingProduct.OriginalPrice);
+        }
+        
+        // Regenerate slug if name changed
+        if (request.Name != null)
+        {
+            existingProduct.Slug = GenerateSlug(request.Name);
+        }
+
+        existingProduct.UpdatedAt = DateTime.UtcNow;
+        existingProduct.UpdatedBy = "system";
+
+        _logger.LogInformation("Updating product {ProductId}: Images={ImageCount}, Video={HasVideo}",
+            productId,
+            existingProduct.Images?.Count ?? 0,
+            !string.IsNullOrEmpty(existingProduct.VideoUrl));
+
+        var result = await _database.UpdateAsync(existingProduct);
+        
+        // Update analytics product name if name changed
+        if (request.Name != null)
+        {
+            var analytics = await GetProductAnalyticsAsync(productId);
+            if (analytics != null)
+            {
+                analytics.ProductName = request.Name;
+                analytics.UpdatedAt = DateTime.UtcNow;
+                await _database.UpdateAsync(analytics);
+            }
+        }
+
+        return result != null && result.Any();
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating product: {productId}");
+        _logger.LogError(ex, "Failed to update product: {ProductId}", productId);
+        return false;
+    }
+}
 
     public async Task<bool> DeleteProductAsync(int productId)
     {
