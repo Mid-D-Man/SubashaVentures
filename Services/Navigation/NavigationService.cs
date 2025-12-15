@@ -1,7 +1,7 @@
 namespace SubashaVentures.Services.Navigation;
 
 /// <summary>
-/// Implementation of navigation service for managing side panel and search state
+/// Implementation of navigation service for managing side panel, filter panel, search state, and filters
 /// </summary>
 public class NavigationService : INavigationService
 {
@@ -43,6 +43,12 @@ public class NavigationService : INavigationService
     public event EventHandler<string>? SearchQueryChanged;
     
     /// <inheritdoc/>
+    public event EventHandler? FilterPanelToggleRequested;
+    
+    /// <inheritdoc/>
+    public event EventHandler? FiltersChanged;
+    
+    /// <inheritdoc/>
     public void OpenSidePanel()
     {
         IsSidePanelOpen = true;
@@ -76,5 +82,17 @@ public class NavigationService : INavigationService
     public void ClearSearchQuery()
     {
         SearchQuery = string.Empty;
+    }
+    
+    /// <inheritdoc/>
+    public void ToggleFilterPanel()
+    {
+        FilterPanelToggleRequested?.Invoke(this, EventArgs.Empty);
+    }
+    
+    /// <inheritdoc/>
+    public void NotifyFiltersChanged()
+    {
+        FiltersChanged?.Invoke(this, EventArgs.Empty);
     }
 }
