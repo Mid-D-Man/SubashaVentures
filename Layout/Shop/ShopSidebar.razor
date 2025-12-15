@@ -1,9 +1,7 @@
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.Brands
-@using SubashaVentures.Domain.Product
 @using SubashaVentures.Pages.Shop
-@using ShopPage = SubashaVentures.Pages.Shop.Shop
-
+@using static SubashaVentures.Pages.Shop.Shop
 @inject ICategoryService CategoryService
 @inject IBrandService BrandService
 @inject ILogger<ShopSidebar> Logger
@@ -22,15 +20,17 @@
         <div class="filter-section">
             <h3 class="filter-title">Categories</h3>
             <div class="category-list">
-                <a href="/shop?category=all" class="category-item @(selectedCategory == "all" ? "active" : "")">
+                <a href="shop?category=all" class="category-item @(selectedCategory == "all" ? "active" : "")"
+                   @onclick="() => HandleCategoryClick(\"all\")" @onclick:preventDefault>
                     <span class="category-icon">📦</span>
                     <span class="category-name">All Products</span>
                     <span class="category-count">(@totalProducts)</span>
                 </a>
                 @foreach (var category in categories)
                 {
-                    <a href="/shop?category=@category.Slug" 
-                       class="category-item @(selectedCategory == category.Slug ? "active" : "")">
+                    <a href="shop?category=@category.Slug" 
+                       class="category-item @(selectedCategory == category.Slug ? "active" : "")"
+                       @onclick="() => HandleCategoryClick(category.Slug)" @onclick:preventDefault>
                         <span class="category-icon">@(category.IconEmoji ?? "📁")</span>
                         <span class="category-name">@category.Name</span>
                         <span class="category-count">(@category.ProductCount)</span>
@@ -47,12 +47,14 @@
                     <input type="number" 
                            class="price-input" 
                            placeholder="Min" 
-                           @bind="minPrice" />
+                           @bind="minPrice" 
+                           @bind:event="oninput" />
                     <span class="price-separator">-</span>
                     <input type="number" 
                            class="price-input" 
                            placeholder="Max" 
-                           @bind="maxPrice" />
+                           @bind="maxPrice" 
+                           @bind:event="oninput" />
                 </div>
                 <button class="apply-price-btn" 
                         @onclick="ApplyPriceFilter"
@@ -103,38 +105,30 @@
         <!-- Brand Filter -->
         <div class="filter-section">
             <h3 class="filter-title">Brands</h3>
-            <div class="brand-search">
-                <input type="text" 
-                       class="brand-search-input" 
-                       placeholder="Search brands..." 
-                       @bind="brandSearchQuery" 
-                       @bind:event="oninput" />
-            </div>
-            <div class="brand-list">
-                @if (FilteredBrands.Any())
-                {
-                    @foreach (var brand in FilteredBrands.Take(showAllBrands ? FilteredBrands.Count() : 10))
+            <div class="brand-dropdown">
+                <select class="brand-select" 
+                        @onchange="HandleBrandChange"
+                        value="@string.Empty">
+                    <option value="">Select a brand...</option>
+                    @foreach (var brand in allBrands)
                     {
-                        <label class="brand-option">
-                            <input type="checkbox" 
-                                   checked="@selectedBrands.Contains(brand)"
-                                   @onchange="() => ToggleBrand(brand)" />
-                            <span class="brand-name">@brand</span>
-                        </label>
+                        <option value="@brand">@brand</option>
                     }
-                    
-                    @if (FilteredBrands.Count() > 10 && !showAllBrands)
-                    {
-                        <button class="show-more-brands" @onclick="() => showAllBrands = true">
-                            Show @(FilteredBrands.Count() - 10) more
-                        </button>
-                    }
-                }
-                else
-                {
-                    <div class="no-brands">No brands found</div>
-                }
+                </select>
             </div>
+            
+            @if (selectedBrands.Any())
+            {
+                <div class="selected-brands">
+                    @foreach (var brand in selectedBrands)
+                    {
+                        <div class="selected-brand-tag">
+                            <span>@brand</span>
+                            <button class="remove-brand" @onclick="() => RemoveBrand(brand)">×</button>
+                        </div>
+                    }
+                </div>
+            }
         </div>
 
         <!-- Quick Filters -->
@@ -144,13 +138,13 @@
                 <label class="quick-filter-chip @(inStockOnly ? "active" : "")">
                     <input type="checkbox" 
                            checked="@inStockOnly"
-                           @onchange="() => ToggleInStock()" />
+                           @onchange="ToggleInStock" />
                     <span>In Stock Only</span>
                 </label>
                 <label class="quick-filter-chip @(onSaleOnly ? "active" : "")">
                     <input type="checkbox" 
                            checked="@onSaleOnly"
-                           @onchange="() => ToggleOnSale()" />
+                           @onchange="ToggleOnSale" />
                     <span>On Sale</span>
                 </label>
             </div>
@@ -166,7 +160,7 @@
 </div>
 
 @code {
-[CascadingParameter] public ShopPage? ShopPage { get; set; }
+    [CascadingParameter] public SubashaVentures.Pages.Shop.Shop? ShopPage { get; set; }
     
     private List<CategoryViewModel> categories = new();
     private List<string> allBrands = new();
@@ -177,10 +171,8 @@
     private string selectedPriceRange = "";
     private HashSet<int> selectedRatings = new();
     private HashSet<string> selectedBrands = new();
-    private string brandSearchQuery = "";
     private bool inStockOnly = false;
     private bool onSaleOnly = false;
-    private bool showAllBrands = false;
     private int totalProducts = 0;
 
     private List<(string Value, string Label)> priceRanges = new()
@@ -198,11 +190,6 @@
         minPrice.Value >= 0 && 
         maxPrice.Value > minPrice.Value;
 
-    private IEnumerable<string> FilteredBrands =>
-        string.IsNullOrWhiteSpace(brandSearchQuery)
-            ? allBrands
-            : allBrands.Where(b => b.Contains(brandSearchQuery, StringComparison.OrdinalIgnoreCase));
-
     protected override async Task OnInitializedAsync()
     {
         await LoadFiltersAsync();
@@ -215,10 +202,8 @@
 
         try
         {
-            // Load categories
             categories = await CategoryService.GetTopLevelCategoriesAsync();
             
-            // Load brands
             var brandModels = await BrandService.GetAllBrandsAsync();
             allBrands = brandModels
                 .Where(b => b.IsActive && b.ProductCount > 0)
@@ -241,6 +226,45 @@
         }
     }
 
+    private void HandleCategoryClick(string categorySlug)
+    {
+        selectedCategory = categorySlug;
+        // Category filtering is handled by Shop.razor.cs through URL parameters
+    }
+
+    private void HandleBrandChange(ChangeEventArgs e)
+    {
+        var brand = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(brand) && !selectedBrands.Contains(brand))
+        {
+            selectedBrands.Add(brand);
+            AddBrandFilter(brand);
+        }
+    }
+
+    private void AddBrandFilter(string brand)
+    {
+        if (ShopPage == null) return;
+
+        ShopPage.AddFilter(new FilterTag
+        {
+            Id = $"brand-{brand}",
+            DisplayText = brand,
+            FilterType = FilterType.Brand,
+            BrandName = brand
+        });
+    }
+
+    private void RemoveBrand(string brand)
+    {
+        selectedBrands.Remove(brand);
+        
+        if (ShopPage != null)
+        {
+            ShopPage.RemoveFilter($"brand-{brand}");
+        }
+    }
+
     private void ApplyPriceFilter()
     {
         if (!IsValidPriceRange || ShopPage == null) return;
@@ -249,6 +273,7 @@
         
         ShopPage.AddFilter(new FilterTag
         {
+            Id = "price-custom",
             DisplayText = $"₦{minPrice:N0} - ₦{maxPrice:N0}",
             FilterType = FilterType.PriceRange,
             MinPrice = minPrice,
@@ -260,15 +285,15 @@
     {
         if (ShopPage == null) return;
 
-        selectedPriceRange = selectedPriceRange == range ? "" : range;
-        
-        if (string.IsNullOrEmpty(selectedPriceRange))
+        if (selectedPriceRange == range)
         {
-            minPrice = null;
-            maxPrice = null;
+            selectedPriceRange = "";
+            ShopPage.RemoveFilter("price-range");
             return;
         }
 
+        selectedPriceRange = range;
+        
         var parts = range.Split('-');
         if (parts.Length == 2)
         {
@@ -282,6 +307,7 @@
 
         ShopPage.AddFilter(new FilterTag
         {
+            Id = "price-range",
             DisplayText = displayText,
             FilterType = FilterType.PriceRange,
             MinPrice = minPrice,
@@ -296,35 +322,17 @@
         if (selectedRatings.Contains(rating))
         {
             selectedRatings.Remove(rating);
+            ShopPage.RemoveFilter($"rating-{rating}");
         }
         else
         {
             selectedRatings.Add(rating);
             ShopPage.AddFilter(new FilterTag
             {
+                Id = $"rating-{rating}",
                 DisplayText = $"{rating}+ Stars",
                 FilterType = FilterType.Rating,
                 MinRating = rating
-            });
-        }
-    }
-
-    private void ToggleBrand(string brand)
-    {
-        if (ShopPage == null) return;
-
-        if (selectedBrands.Contains(brand))
-        {
-            selectedBrands.Remove(brand);
-        }
-        else
-        {
-            selectedBrands.Add(brand);
-            ShopPage.AddFilter(new FilterTag
-            {
-                DisplayText = brand,
-                FilterType = FilterType.Brand,
-                BrandName = brand
             });
         }
     }
@@ -339,9 +347,14 @@
         {
             ShopPage.AddFilter(new FilterTag
             {
+                Id = "in-stock",
                 DisplayText = "In Stock",
                 FilterType = FilterType.InStock
             });
+        }
+        else
+        {
+            ShopPage.RemoveFilter("in-stock");
         }
     }
 
@@ -355,9 +368,14 @@
         {
             ShopPage.AddFilter(new FilterTag
             {
+                Id = "on-sale",
                 DisplayText = "On Sale",
                 FilterType = FilterType.OnSale
             });
+        }
+        else
+        {
+            ShopPage.RemoveFilter("on-sale");
         }
     }
 
@@ -369,9 +387,9 @@
         selectedPriceRange = "";
         selectedRatings.Clear();
         selectedBrands.Clear();
-        brandSearchQuery = "";
         inStockOnly = false;
         onSaleOnly = false;
-        showAllBrands = false;
+
+        ShopPage?.ClearAllFilters();
     }
 }
