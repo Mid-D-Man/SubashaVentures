@@ -23,7 +23,7 @@ public partial class AdminNavMenu : ComponentBase
             Title = "Main",
             Items = new List<NavigationItem>
             {
-                new() { Id = "dashboard", Label = "Dashboard", Path = "/admin", Icon = "dashboard" }
+                new() { Id = "dashboard", Label = "Dashboard", Path = "admin", Icon = "dashboard" }
             }
         },
         new NavigationSection
@@ -31,10 +31,11 @@ public partial class AdminNavMenu : ComponentBase
             Title = "Management",
             Items = new List<NavigationItem>
             {
-                new() { Id = "users", Label = "User Management", Path = "/admin/users", Icon = "users" },
-                new() { Id = "products", Label = "Product Management", Path = "/admin/products", Icon = "products" },
-                new() { Id = "images", Label = "Image Management", Path = "/admin/images", Icon = "images" },
-                new() { Id = "categories", Label = "Category Management", Path = "/admin/categories", Icon = "category" }
+                new() { Id = "users", Label = "User Management", Path = "admin/users", Icon = "users" },
+                new() { Id = "products", Label = "Product Management", Path = "admin/products", Icon = "products" },
+                new() { Id = "images", Label = "Image Management", Path = "admin/images", Icon = "images" },
+                new() { Id = "categories", Label = "Category Management", Path = "admin/categories", Icon = "category" },
+                new() { Id = "misc", Label = "Misc Management", Path = "admin/misc", Icon = "misc" }
             }
         },
         new NavigationSection
@@ -42,7 +43,7 @@ public partial class AdminNavMenu : ComponentBase
             Title = "Analytics",
             Items = new List<NavigationItem>
             {
-                new() { Id = "statistics", Label = "Statistics", Path = "/admin/statistics", Icon = "analytics" }
+                new() { Id = "statistics", Label = "Statistics", Path = "admin/statistics", Icon = "analytics" }
             }
         },
         new NavigationSection
@@ -50,7 +51,7 @@ public partial class AdminNavMenu : ComponentBase
             Title = "Communication",
             Items = new List<NavigationItem>
             {
-                new() { Id = "messages", Label = "Messages", Path = "/admin/messages", Icon = "messages" }
+                new() { Id = "messages", Label = "Messages", Path = "admin/messages", Icon = "messages" }
             }
         }
     };
@@ -141,16 +142,22 @@ public partial class AdminNavMenu : ComponentBase
 
     private bool IsCurrentPath(string path)
     {
-        var currentPath = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "/");
+        var currentPath = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "");
+        
+        // Remove leading slash if present
+        if (currentPath.StartsWith("/"))
+        {
+            currentPath = currentPath.Substring(1);
+        }
         
         // Exact match for root admin path
-        if (path == "/admin" && currentPath == "/admin")
+        if (path == "admin" && currentPath == "admin")
         {
             return true;
         }
         
         // For other paths, check if it starts with the path (but not root)
-        if (path != "/admin" && currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase))
+        if (path != "admin" && currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -167,6 +174,7 @@ public partial class AdminNavMenu : ComponentBase
             "products" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""16"" height=""16"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M2 7H18M7 2V7M13 2V7"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
             "images" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""3"" width=""16"" height=""14"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><circle cx=""7"" cy=""8"" r=""1.5"" fill=""currentColor""/><path d=""M2 13L6 9L10 13L14 9L18 13"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
             "category" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""5"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""9"" y=""2"" width=""9"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""2"" y=""9"" width=""9"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""13"" y=""9"" width=""5"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
+            "misc" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><circle cx=""10"" cy=""10"" r=""1.5"" fill=""currentColor""/><circle cx=""10"" cy=""4"" r=""1.5"" fill=""currentColor""/><circle cx=""10"" cy=""16"" r=""1.5"" fill=""currentColor""/></svg>",
             "analytics" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M3 17V10M10 17V3M17 17V7"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
             "messages" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M2 6L10 11L18 6"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/><rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
             _ => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><circle cx=""10"" cy=""10"" r=""8"" stroke=""currentColor"" stroke-width=""1.5""/></svg>"
