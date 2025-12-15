@@ -1,4 +1,4 @@
-/* ===== PRODUCT OF THE DAY CARD - COMPACT VERSION ===== */
+/* ===== PRODUCT OF THE DAY CARD - MOBILE FIRST ===== */
 .potd-card {
     background: linear-gradient(135deg, 
         rgba(150, 153, 74, 0.05) 0%, 
@@ -7,12 +7,13 @@
     border: 2px solid var(--primary-color, #96994A);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(150, 153, 74, 0.12);
+    box-shadow: 0 4px 16px rgba(150, 153, 74, 0.12);
     position: relative;
     max-width: 1200px;
     margin: 0 auto;
 }
 
+/* Simple top border - NO shimmer animation */
 .potd-card::before {
     content: '';
     position: absolute;
@@ -20,17 +21,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, 
-        var(--primary-color, #96994A) 0%, 
-        var(--secondary-color, #9A4A96) 50%,
-        var(--primary-color, #96994A) 100%);
-    background-size: 200% 100%;
-    animation: shimmer 3s linear infinite;
-}
-
-@keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    background: var(--primary-color, #96994A);
 }
 
 /* ===== HEADER ===== */
@@ -38,7 +29,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.25rem;
+    padding: 1rem;
     background: rgba(150, 153, 74, 0.1);
     border-bottom: 1px solid rgba(150, 153, 74, 0.2);
     flex-wrap: wrap;
@@ -54,18 +45,12 @@
     padding: 0.375rem 0.875rem;
     border-radius: 20px;
     font-weight: 700;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     box-shadow: 0 2px 8px rgba(150, 153, 74, 0.3);
 }
 
 .badge-icon {
-    font-size: 1rem;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+    font-size: 0.875rem;
 }
 
 .potd-timer {
@@ -75,7 +60,7 @@
     padding: 0.375rem 0.875rem;
     background: rgba(255, 255, 255, 0.8);
     border-radius: 10px;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-primary, #1f2937);
     font-family: 'Courier New', monospace;
@@ -87,7 +72,7 @@
     height: 14px;
 }
 
-/* ===== CONTENT - COMPACT LAYOUT ===== */
+/* ===== CONTENT - TWO COLUMN LAYOUT ===== */
 .potd-content {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -96,7 +81,7 @@
     cursor: pointer;
 }
 
-/* ===== IMAGE WRAPPER - SMALLER ===== */
+/* ===== IMAGE SECTION ===== */
 .potd-image-wrapper {
     position: relative;
     aspect-ratio: 1 / 1;
@@ -104,13 +89,14 @@
     overflow: hidden;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     max-height: 400px;
+    background: var(--gray-100, #f3f4f6);
 }
 
 .potd-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.4s ease;
+    transition: transform 0.3s ease;
 }
 
 .potd-content:hover .potd-image {
@@ -123,23 +109,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
 }
 
 .placeholder-icon {
-    font-size: 3rem;
+    font-size: 2.5rem;
     opacity: 0.3;
 }
 
-/* ===== GRADIENT OVERLAY FOR TEXT ===== */
+/* Simple bottom gradient */
 .potd-image-wrapper::after {
     content: '';
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 50%;
-    background: var(--overlay-gradient-darker);
+    height: 40%;
+    background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.6) 100%);
     pointer-events: none;
     z-index: 1;
 }
@@ -162,77 +147,56 @@
 }
 
 .overlay-content {
-    color: var(--text-on-overlay);
+    color: white;
 }
 
 .overlay-title {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 700;
     margin: 0 0 0.25rem 0;
-    color: var(--text-on-overlay);
 }
 
 .overlay-subtitle {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     margin: 0;
-    color: var(--text-on-overlay-muted);
+    opacity: 0.9;
 }
 
-/* ===== DISCOUNT BADGE - Animated ===== */
+/* ===== DISCOUNT BADGE - NO PULSING ===== */
 .potd-discount {
     position: absolute;
     top: 10px;
     right: 10px;
     background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
     color: white;
-    padding: 0.5rem 0.75rem;
-    border-radius: 10px;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4), 0 0 20px rgba(255, 68, 68, 0.2);
+    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
     z-index: 3;
-    animation: salePulse 2s ease-in-out infinite, saleGlow 2s ease-in-out infinite;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-}
-
-@keyframes salePulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.08);
-    }
-}
-
-@keyframes saleGlow {
-    0%, 100% {
-        box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4), 0 0 20px rgba(255, 68, 68, 0.2);
-    }
-    50% {
-        box-shadow: 0 6px 20px rgba(255, 68, 68, 0.6), 0 0 30px rgba(255, 68, 68, 0.4);
-    }
 }
 
 .discount-value {
     display: block;
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 800;
     line-height: 1;
 }
 
 .discount-label {
     display: block;
-    font-size: 0.6875rem;
+    font-size: 0.625rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 0.2rem;
 }
 
-/* ===== INFO SECTION - COMPACT ===== */
+/* ===== INFO SECTION ===== */
 .potd-info {
     display: flex;
     flex-direction: column;
-    gap: 0.875rem;
+    gap: 0.75rem;
 }
 
 .potd-meta {
@@ -244,11 +208,11 @@
 }
 
 .potd-category {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     color: var(--primary-color, #96994A);
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.5px;
 }
 
 .potd-rating {
@@ -257,38 +221,36 @@
     gap: 0.375rem;
     background: rgba(150, 153, 74, 0.1);
     padding: 0.3rem 0.625rem;
-    border-radius: 10px;
+    border-radius: 8px;
+    line-height: 1;
 }
 
 .rating-icon {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
 }
 
 .rating-value {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-primary, #1f2937);
 }
 
 .rating-count {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     color: var(--text-muted, #9ca3af);
 }
 
-/* AUTO-SCALING PRODUCT NAME */
 .potd-name {
     font-family: 'Poppins', sans-serif;
-    font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+    font-size: 1.5rem;
     font-weight: 800;
     color: var(--text-primary, #1f2937);
     margin: 0;
     line-height: 1.2;
-    word-break: break-word;
-    hyphens: auto;
 }
 
 .potd-description {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     line-height: 1.6;
     color: var(--text-secondary, #6b7280);
     margin: 0;
@@ -310,7 +272,7 @@
     background: rgba(150, 153, 74, 0.1);
     color: var(--text-primary, #1f2937);
     border-radius: 6px;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
@@ -324,7 +286,7 @@
     color: var(--danger-color, #ef4444);
 }
 
-/* ===== PRICE SECTION - COMPACT ===== */
+/* ===== PRICE SECTION ===== */
 .potd-price-section {
     display: flex;
     flex-direction: column;
@@ -340,20 +302,19 @@
     align-items: center;
     gap: 0.625rem;
     flex-wrap: wrap;
+    line-height: 1;
 }
 
 .potd-current-price {
-    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-size: 1.75rem;
     font-weight: 900;
     color: var(--primary-color, #96994A);
-    line-height: 1;
 }
 
 .potd-original-price {
-    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    font-size: 1.125rem;
     color: var(--text-muted, #9ca3af);
     text-decoration: line-through;
-    line-height: 1;
 }
 
 .savings-badge {
@@ -362,15 +323,15 @@
     background: var(--success-color, #10b981);
     color: white;
     border-radius: 6px;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 700;
     width: fit-content;
 }
 
-/* ===== ACTIONS - COMPACT ===== */
+/* ===== ACTIONS ===== */
 .potd-actions {
     display: flex;
-    gap: 0.875rem;
+    gap: 0.75rem;
     margin-top: auto;
 }
 
@@ -406,26 +367,26 @@
 }
 
 .loading-text {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     color: var(--text-secondary, #6b7280);
     margin: 0;
 }
 
 .empty-icon {
-    font-size: 3rem;
+    font-size: 2.5rem;
     margin-bottom: 0.875rem;
     opacity: 0.3;
 }
 
 .empty-title {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 700;
     color: var(--text-primary, #1f2937);
     margin: 0 0 0.5rem 0;
 }
 
 .empty-text {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     color: var(--text-secondary, #6b7280);
     margin: 0;
 }
@@ -488,41 +449,31 @@
     color: var(--text-primary, #f9fafb);
 }
 
-[data-theme="dark"] .potd-placeholder {
-    background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+[data-theme="dark"] .potd-placeholder,
+[data-theme="dark"] .potd-image-wrapper {
+    background: var(--gray-700, #374151);
 }
 
-[data-theme="dark"] .overlay-title {
-    color: var(--text-on-overlay);
-}
+/* ===== MOBILE FIRST RESPONSIVE ===== */
 
-[data-theme="dark"] .overlay-subtitle {
-    color: var(--text-on-overlay-muted);
-}
+/* Base: Mobile (up to 575px) */
+@media (max-width: 575px) {
+    .potd-header {
+        padding: 0.75rem;
+    }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 1024px) {
     .potd-content {
         grid-template-columns: 1fr;
-        gap: 1.25rem;
+        gap: 1rem;
+        padding: 1rem;
     }
 
     .potd-name {
-        font-size: 1.5rem;
+        font-size: 1.125rem;
     }
 
-    .potd-image-wrapper {
-        max-height: 350px;
-    }
-}
-
-@media (max-width: 768px) {
-    .potd-header {
-        padding: 0.875rem 1rem;
-    }
-
-    .potd-content {
-        padding: 1.25rem;
+    .potd-current-price {
+        font-size: 1.375rem;
     }
 
     .potd-actions {
@@ -535,49 +486,100 @@
     }
 
     .potd-image-wrapper {
-        max-height: 300px;
-    }
-
-    .potd-name {
-        font-size: clamp(1.125rem, 3vw, 1.5rem);
-    }
-}
-
-@media (max-width: 480px) {
-    .potd-badge {
-        font-size: 0.8125rem;
-        padding: 0.3rem 0.625rem;
-    }
-
-    .badge-icon {
-        font-size: 0.875rem;
-    }
-
-    .potd-timer {
-        font-size: 0.75rem;
-        padding: 0.3rem 0.625rem;
+        max-height: 250px;
     }
 
     .potd-discount {
-        padding: 0.4rem 0.625rem;
+        padding: 0.35rem 0.625rem;
         top: 8px;
         right: 8px;
     }
 
     .discount-value {
-        font-size: 1.125rem;
+        font-size: 1rem;
     }
 
     .discount-label {
-        font-size: 0.625rem;
+        font-size: 0.5625rem;
     }
 
+    .potd-badge {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.625rem;
+    }
+
+    .badge-icon {
+        font-size: 0.75rem;
+    }
+
+    .potd-timer {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.625rem;
+    }
+}
+
+/* Landscape phones (576px - 767px) */
+@media (min-width: 576px) and (max-width: 767px) {
     .potd-content {
-        padding: 1rem;
+        grid-template-columns: 1fr;
+        gap: 1.125rem;
+        padding: 1.125rem;
+    }
+
+    .potd-name {
+        font-size: 1.25rem;
+    }
+
+    .potd-current-price {
+        font-size: 1.5rem;
     }
 
     .potd-image-wrapper {
-        max-height: 250px;
+        max-height: 300px;
+    }
+
+    .potd-actions {
+        flex-direction: column;
+    }
+}
+
+/* Tablets (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+    .potd-content {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+        padding: 1.25rem;
+    }
+
+    .potd-name {
+        font-size: 1.375rem;
+    }
+
+    .potd-current-price {
+        font-size: 1.625rem;
+    }
+
+    .potd-image-wrapper {
+        max-height: 350px;
+    }
+}
+
+/* Desktop (992px+) */
+@media (min-width: 992px) {
+    .potd-content {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .potd-name {
+        font-size: 1.5rem;
+    }
+
+    .potd-current-price {
+        font-size: 1.75rem;
+    }
+
+    .potd-image-wrapper {
+        max-height: 400px;
     }
 }
 
@@ -592,8 +594,7 @@
     .badge-icon,
     .potd-image,
     .potd-overlay,
-    .loading-spinner,
-    .potd-discount {
+    .loading-spinner {
         animation: none;
     }
 
