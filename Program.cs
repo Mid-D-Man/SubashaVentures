@@ -1,5 +1,4 @@
-
-// Program.cs - SECURITY FIXED
+// Program.cs - UPDATED
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -26,26 +25,22 @@ using SubashaVentures.Services.Users;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
-
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// ==================== HTTP CLIENT ====================
 builder.Services.AddScoped(sp => new HttpClient 
 {  
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress),
     Timeout = TimeSpan.FromSeconds(30)
 });
 
-// ==================== LOGGING ====================
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
 builder.Logging.AddFilter("SubashaVentures", LogLevel.Debug);
 
 builder.Services.AddSingleton<IMid_Logger, Mid_Logger>();
 
-// ==================== BLAZORED SERVICES ====================
 builder.Services.AddBlazoredLocalStorage(config =>
 {
     config.JsonSerializerOptions.WriteIndented = false;
@@ -53,11 +48,9 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ==================== AUTHENTICATION & AUTHORIZATION ====================
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 
-// ==================== CORE SERVICES ====================
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();
 builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
@@ -65,11 +58,9 @@ builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageS
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
 
-// ==================== FIREBASE SERVICES ====================
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
-// ==================== SUPABASE CLIENT ====================
 var supabaseUrl = builder.Configuration["Supabase:Url"];
 var supabaseKey = builder.Configuration["Supabase:AnonKey"];
 
@@ -91,24 +82,19 @@ else
     throw new InvalidOperationException("Supabase URL and AnonKey must be configured");
 }
 
-// ==================== SUPABASE SERVICES ====================
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-// ==================== APPLICATION SERVICES ====================
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
-// REMOVED: Admin setup service - SECURITY RISK
 
-// ==================== BUILD AND INITIALIZE ====================
 var host = builder.Build();
 
-// ==================== INITIALIZE MID_LOGGER ====================
 try
 {
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
@@ -125,7 +111,6 @@ catch (Exception ex)
     Console.WriteLine($"❌ Failed to initialize logging: {ex.Message}");
 }
 
-// ==================== INITIALIZE FIREBASE ====================
 try
 {
     var firebaseConfig = host.Services.GetRequiredService<IFirebaseConfigService>();
@@ -140,7 +125,6 @@ catch (Exception ex)
     logger.LogError(ex, "❌ Failed to initialize Firebase");
 }
 
-// ==================== INITIALIZE SUPABASE CLIENT ====================
 try
 {
     var supabaseClient = host.Services.GetRequiredService<Supabase.Client>();
@@ -160,5 +144,4 @@ catch (Exception ex)
     logger.LogError(ex, "❌ Failed to initialize Supabase client");
 }
 
-// ==================== RUN APPLICATION ====================
 await host.RunAsync();
