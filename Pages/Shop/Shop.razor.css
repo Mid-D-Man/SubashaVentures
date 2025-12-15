@@ -2,9 +2,11 @@
 
 .shop-page {
     width: 100%;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    overflow-x: hidden;
 }
 
 /* ===== SHOP HEADER ===== */
@@ -25,7 +27,7 @@
 
 .shop-title {
     font-family: 'Poppins', sans-serif;
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 4vw, 2rem);
     font-weight: 700;
     color: var(--text-primary, #1f2937);
     margin: 0 0 0.5rem 0;
@@ -33,7 +35,7 @@
 }
 
 .shop-subtitle {
-    font-size: 0.95rem;
+    font-size: clamp(0.875rem, 2vw, 0.95rem);
     color: var(--text-secondary, #6b7280);
     margin: 0;
     display: flex;
@@ -99,13 +101,13 @@
     color: var(--text-primary, #1f2937);
     border: 1px solid var(--border-light, #e5e7eb);
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 500;
     cursor: pointer;
     outline: none;
     transition: all 0.2s ease;
     font-family: inherit;
-    min-width: 200px;
+    min-width: 180px;
 }
 
 .sort-select:hover:not(:disabled) {
@@ -130,7 +132,7 @@
 }
 
 .filters-label {
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 600;
     color: var(--text-primary, #1f2937);
 }
@@ -151,7 +153,7 @@
     color: var(--text-primary, #1f2937);
     border: 1px solid var(--border-medium, #d1d5db);
     border-radius: 20px;
-    font-size: 0.875rem;
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
     font-weight: 500;
 }
 
@@ -168,6 +170,7 @@
     cursor: pointer;
     transition: all 0.2s ease;
     padding: 0;
+    flex-shrink: 0;
 }
 
 .remove-filter:hover {
@@ -181,7 +184,7 @@
     color: var(--primary-color, #96994A);
     border: 1px solid var(--primary-color, #96994A);
     border-radius: 20px;
-    font-size: 0.875rem;
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -199,7 +202,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 4rem 2rem;
+    padding: clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem);
     text-align: center;
     background: var(--bg-surface, white);
     border-radius: 12px;
@@ -213,14 +216,14 @@
 
 .empty-title {
     font-family: 'Poppins', sans-serif;
-    font-size: 1.5rem;
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
     font-weight: 600;
     color: var(--text-primary, #1f2937);
     margin: 0 0 0.75rem 0;
 }
 
 .empty-text {
-    font-size: 1rem;
+    font-size: clamp(0.875rem, 2vw, 1rem);
     color: var(--text-secondary, #6b7280);
     margin: 0 0 1.5rem 0;
 }
@@ -234,7 +237,7 @@
     color: white;
     border: none;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: clamp(0.875rem, 2vw, 0.95rem);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -250,10 +253,11 @@
 .products-container {
     display: grid;
     gap: 1.5rem;
+    width: 100%;
 }
 
 .products-container.grid-view {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
 }
 
 .products-container.list-view {
@@ -279,7 +283,7 @@
     color: var(--text-primary, #1f2937);
     border: 1px solid var(--border-light, #e5e7eb);
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -301,6 +305,8 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .pagination-ellipsis {
@@ -318,7 +324,7 @@
     color: var(--text-primary, #1f2937);
     border: 1px solid var(--border-light, #e5e7eb);
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -346,16 +352,17 @@
     text-align: center;
     padding: 1rem 0;
     color: var(--text-secondary, #6b7280);
-    font-size: 0.875rem;
+    font-size: clamp(0.8rem, 2vw, 0.875rem);
 }
 
-/* ===== RESPONSIVE ===== */
+/* ===== TABLET (768px - 1024px) ===== */
 @media (max-width: 1024px) {
     .products-container.grid-view {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
     }
 }
 
+/* ===== MOBILE (max-width: 768px) ===== */
 @media (max-width: 768px) {
     .shop-page {
         gap: 1rem;
@@ -367,12 +374,8 @@
         align-items: flex-start;
     }
 
-    .shop-title {
-        font-size: 1.5rem;
-    }
-
     .shop-controls {
-        display: none; /* Hidden on mobile, use top burger menu instead */
+        display: none;
     }
 
     .products-container.grid-view {
@@ -382,11 +385,6 @@
 
     .active-filters {
         padding: 0.875rem;
-    }
-
-    .filter-tag {
-        padding: 0.4rem 0.75rem;
-        font-size: 0.8125rem;
     }
 
     .pagination-container {
@@ -412,9 +410,10 @@
     }
 }
 
+/* ===== SMALL MOBILE (max-width: 480px) ===== */
 @media (max-width: 480px) {
-    .shop-title {
-        font-size: 1.25rem;
+    .shop-page {
+        gap: 0.875rem;
     }
 
     .products-container.grid-view {
@@ -428,16 +427,16 @@
     .page-btn {
         min-width: 36px;
         height: 36px;
-        font-size: 0.85rem;
     }
 
     .pagination-ellipsis {
-        display: none; /* Hide ellipsis on very small screens */
+        display: none;
     }
 
     .active-filters {
         flex-direction: column;
         align-items: flex-start;
+        padding: 0.75rem;
     }
 
     .filter-tags {
@@ -515,4 +514,4 @@
     .pagination-btn:hover {
         transform: none;
     }
-    }
+                     }
