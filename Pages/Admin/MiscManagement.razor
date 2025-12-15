@@ -1,0 +1,253 @@
+@page "/admin/misc"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Notifications
+@layout AdminLayout
+
+<div class="misc-management">
+    <!-- Header -->
+    <div class="mm-header">
+        <div class="mm-header-left">
+            <h1 class="mm-title">Miscellaneous Management</h1>
+            <p class="mm-subtitle">Manage brands and other miscellaneous items</p>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="mm-tabs">
+        <button class="tab-btn @(activeTab == "brands" ? "active" : "")" 
+                @onclick='() => SetActiveTab("brands")'>
+            🏷️ Brands
+        </button>
+        <!-- Add more tabs here as needed -->
+    </div>
+
+    <!-- Brands Tab Content -->
+    @if (activeTab == "brands")
+    {
+        <div class="tab-content">
+            <!-- Stats -->
+            <div class="mm-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">🏷️</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Brands</span>
+                        <span class="stat-value">@brands.Count</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Active</span>
+                        <span class="stat-value">@brands.Count(b => b.IsActive)</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">⭐</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Featured</span>
+                        <span class="stat-value">@brands.Count(b => b.IsFeatured)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="mm-actions">
+                <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                              Size="PrimaryButton.ButtonSize.Medium"
+                              Icon="+"
+                              OnClick="OpenAddBrandModal">
+                    Add Brand
+                </PrimaryButton>
+            </div>
+
+            <!-- Brands Table -->
+            @if (isLoading)
+            {
+                <div class="mm-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading brands...</p>
+                </div>
+            }
+            else if (!brands.Any())
+            {
+                <div class="mm-empty">
+                    <div class="empty-icon">🏷️</div>
+                    <h3>No brands yet</h3>
+                    <p>Create your first brand</p>
+                    <PrimaryButton OnClick="OpenAddBrandModal">
+                        Add Brand
+                    </PrimaryButton>
+                </div>
+            }
+            else
+            {
+                <div class="mm-table-container">
+                    <table class="mm-table">
+                        <thead>
+                            <tr>
+                                <th>Brand</th>
+                                <th>Products</th>
+                                <th>Status</th>
+                                <th>Featured</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var brand in brands.OrderBy(b => b.DisplayOrder))
+                            {
+                                <tr class="@(brand.IsActive ? "" : "inactive")">
+                                    <td>
+                                        <div class="brand-cell">
+                                            @if (!string.IsNullOrEmpty(brand.LogoUrl))
+                                            {
+                                                <img src="@brand.LogoUrl" alt="@brand.Name" class="brand-logo" />
+                                            }
+                                            <div class="brand-info">
+                                                <span class="brand-name">@brand.Name</span>
+                                                @if (!string.IsNullOrEmpty(brand.Description))
+                                                {
+                                                    <span class="brand-desc">@brand.Description</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="product-count">@brand.ProductCount</span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge @(brand.IsActive ? "active" : "inactive")">
+                                            @(brand.IsActive ? "Active" : "Inactive")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (brand.IsFeatured)
+                                        {
+                                            <span class="featured-badge">⭐ Featured</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="date-text">@brand.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                    </td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="action-btn edit" 
+                                                    @onclick="@(() => OpenEditBrandModal(brand))"
+                                                    title="Edit">
+                                                ✏️
+                                            </button>
+                                            <button class="action-btn delete" 
+                                                    @onclick="@(() => HandleDeleteBrand(brand))"
+                                                    disabled="@(brand.ProductCount > 0)"
+                                                    title="@(brand.ProductCount > 0 ? "Cannot delete - has products" : "Delete")">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Brand Modal -->
+<DynamicModal @ref="brandModal"
+              Title="@(isEditMode ? "Edit Brand" : "Add Brand")"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isBrandModalOpen"
+              ShowFooter="false"
+              OnClose="CloseBrandModal">
+    <BodyContent>
+        <div class="brand-form">
+            <InputField @bind-Value="editingBrand.Name"
+                       Label="Brand Name"
+                       Placeholder="e.g., Nike, Adidas"
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
+                       ErrorMessage="@validationErrors.GetValueOrDefault("Name")"
+                       CssClass="form-field" />
+
+            <div class="form-field">
+                <label class="input-label">Description</label>
+                <textarea class="input-control textarea"
+                         @bind="editingBrand.Description"
+                         placeholder="Brief description of the brand"
+                         rows="3"></textarea>
+            </div>
+
+            <InputField @bind-Value="editingBrand.LogoUrl"
+                       Label="Logo URL"
+                       Placeholder="https://example.com/logo.png"
+                       CssClass="form-field" />
+
+            <InputField @bind-Value="editingBrand.WebsiteUrl"
+                       Label="Website URL"
+                       Placeholder="https://example.com"
+                       CssClass="form-field" />
+
+            <div class="form-field">
+                <label class="input-label">Display Order</label>
+                <input type="number"
+                       class="input-control"
+                       @bind="editingBrand.DisplayOrder"
+                       placeholder="0"
+                       min="0" />
+            </div>
+
+            <div class="toggle-group">
+                <label class="toggle-switch">
+                    <input type="checkbox" @bind="editingBrand.IsFeatured" />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Featured Brand</span>
+                </label>
+
+                <label class="toggle-switch">
+                    <input type="checkbox" @bind="editingBrand.IsActive" />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Active</span>
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <SecondaryButton OnClick="CloseBrandModal"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                IsDisabled="@isSaving"
+                                Size="SecondaryButton.ButtonSize.Medium">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="SaveBrand"
+                              IsLoading="@isSaving"
+                              IsDisabled="@isSaving"
+                              Size="PrimaryButton.ButtonSize.Medium">
+                    @(isEditMode ? "Update" : "Create") Brand
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Delete Confirmation -->
+<ConfirmationPopup @ref="confirmationPopup"
+                   IsOpen="@isConfirmationOpen"
+                   Title="Delete Brand?"
+                   Message="@($"Are you sure you want to delete \"{brandToDelete?.Name}\"?")"
+                   WarningText="This action cannot be undone."
+                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                   ConfirmButtonText="Delete"
+                   CancelButtonText="Cancel"
+                   IsProcessing="@isDeleting"
+                   OnConfirm="ConfirmDeleteBrand"
+                   OnCancel="CancelDeleteBrand" />
+
+<NotificationComponent @ref="notificationComponent" 
+                      Position="NotificationPosition.TopRight"
+                      AutoDismissTime="5000" />
