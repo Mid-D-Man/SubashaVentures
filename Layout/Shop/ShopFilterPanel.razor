@@ -1,7 +1,7 @@
 @using SubashaVentures.Pages.Shop
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.Brands
-@using SubashaVentures.Pages.Shop
+@using SubashaVentures.Components.Shared.Forms
 @using static SubashaVentures.Pages.Shop.Shop
 @inject ICategoryService CategoryService
 @inject IBrandService BrandService
@@ -37,7 +37,7 @@
                         @foreach (var option in sortOptions)
                         {
                             <button class="sort-option @(selectedSort == option.Value ? "active" : "")" 
-                                    @onclick="() => SelectSort(option.Value)">
+                                    @onclick="@(() => SelectSort(option.Value))">
                                 <span class="option-radio"></span>
                                 <span class="option-label">@option.Label</span>
                             </button>
@@ -52,7 +52,7 @@
                         @foreach (var range in priceRanges)
                         {
                             <button class="price-chip @(selectedPriceRange == range.Value ? "active" : "")" 
-                                    @onclick="() => SelectPriceRange(range.Value)">
+                                    @onclick="@(() => SelectPriceRange(range.Value))">
                                 @range.Label
                             </button>
                         }
@@ -61,17 +61,17 @@
                     <!-- Custom Price Range -->
                     <div class="custom-price-range">
                         <div class="price-inputs">
-                            <input type="number" 
-                                   class="price-input" 
-                                   placeholder="Min"
-                                   min="0"
-                                   @bind="customMinPrice" />
+                            <InputField Type="number"
+                                       Placeholder="Min"
+                                       Value="@(customMinPrice?.ToString() ?? "")"
+                                       ValueChanged="@((string val) => HandleCustomMinPriceChange(val))"
+                                       Size="InputField.InputSize.Small" />
                             <span class="price-separator">-</span>
-                            <input type="number" 
-                                   class="price-input" 
-                                   placeholder="Max"
-                                   min="0"
-                                   @bind="customMaxPrice" />
+                            <InputField Type="number"
+                                       Placeholder="Max"
+                                       Value="@(customMaxPrice?.ToString() ?? "")"
+                                       ValueChanged="@((string val) => HandleCustomMaxPriceChange(val))"
+                                       Size="InputField.InputSize.Small" />
                         </div>
                         <button class="apply-custom-price" 
                                 @onclick="ApplyCustomPriceRange"
@@ -89,7 +89,7 @@
                         {
                             var rating = i;
                             <button class="rating-option @(selectedRating == rating ? "active" : "")" 
-                                    @onclick="() => SelectRating(rating)">
+                                    @onclick="@(() => SelectRating(rating))">
                                 <span class="rating-stars">
                                     @for (int j = 0; j < rating; j++)
                                     {
@@ -131,11 +131,11 @@
                             <circle cx="7" cy="7" r="5" stroke-width="2"/>
                             <path d="M11 11l3 3" stroke-width="2" stroke-linecap="round"/>
                         </svg>
-                        <input type="text" 
-                               class="brand-search-input" 
-                               placeholder="Search brands..." 
-                               @bind="brandSearchQuery" 
-                               @bind:event="oninput" />
+                        <InputField Placeholder="Search brands..."
+                                   Value="@brandSearchQuery"
+                                   ValueChanged="@((string val) => brandSearchQuery = val)"
+                                   Size="InputField.InputSize.Small"
+                                   CssClass="brand-search-field" />
                     </div>
                     <div class="brand-list">
                         @if (FilteredBrands.Any())
@@ -145,7 +145,7 @@
                                 <label class="brand-option">
                                     <input type="checkbox" 
                                            checked="@selectedBrands.Contains(brand)"
-                                           @onchange="() => ToggleBrand(brand)" />
+                                           @onchange="@(() => ToggleBrand(brand))" />
                                     <span class="brand-name">@brand</span>
                                 </label>
                             }
@@ -192,7 +192,6 @@
     private bool isLoading = true;
     private List<string> allBrands = new();
 
-    // Sort options
     private List<(string Value, string Label)> sortOptions = new()
     {
         ("relevance", "Relevance"),
@@ -205,7 +204,6 @@
         ("name-desc", "Name (Z-A)")
     };
 
-    // Price ranges
     private List<(string Value, string Label)> priceRanges = new()
     {
         ("0-5000", "Under ₦5,000"),
@@ -215,7 +213,6 @@
         ("50000+", "₦50,000 & Above")
     };
 
-    // State
     private string selectedSort = "relevance";
     private string selectedPriceRange = "";
     private decimal? customMinPrice = null;
@@ -269,6 +266,16 @@
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private void HandleCustomMinPriceChange(string value)
+    {
+        customMinPrice = decimal.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private void HandleCustomMaxPriceChange(string value)
+    {
+        customMaxPrice = decimal.TryParse(value, out var parsed) ? parsed : null;
     }
 
     private void HandleOverlayClick()
@@ -354,7 +361,6 @@
     {
         if (ShopPage == null) return;
 
-        // Apply price filter
         if (!string.IsNullOrEmpty(selectedPriceRange))
         {
             var filter = CreatePriceFilter();
@@ -364,7 +370,6 @@
             }
         }
         
-        // Apply rating filter
         if (selectedRating > 0)
         {
             ShopPage.AddFilter(new FilterTag
@@ -375,7 +380,6 @@
             });
         }
         
-        // Apply stock filter
         if (inStockOnly)
         {
             ShopPage.AddFilter(new FilterTag
@@ -385,7 +389,6 @@
             });
         }
         
-        // Apply sale filter
         if (onSaleOnly)
         {
             ShopPage.AddFilter(new FilterTag
@@ -395,7 +398,6 @@
             });
         }
         
-        // Apply brand filters
         foreach (var brand in selectedBrands)
         {
             ShopPage.AddFilter(new FilterTag
