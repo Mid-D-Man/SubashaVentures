@@ -61,6 +61,8 @@ public class UpdateProductRequest
     public List<string>? Tags { get; set; }
     public List<string>? Sizes { get; set; }
     public List<string>? Colors { get; set; }
+    public List<string>? ImageUrls { get; set; } // ✅ ADDED
+    public string? VideoUrl { get; set; } // ✅ ADDED
     public bool? IsFeatured { get; set; }
     public bool? IsActive { get; set; }
 }
