@@ -1,69 +1,45 @@
-@* ShopBottomNav.razor - Mobile bottom navigation *@
+@inject NavigationManager NavigationManager
 
-<div class="shop-bottom-navigation">
-    <button class="bottom-nav-item @(activeTab == "home" ? "active" : "")" 
-            @onclick='() => NavigateToTab("home")'>
+<div class="shop-bottom-nav">
+    <button class="bottom-nav-btn @(IsActive("/shop") ? "active" : "")" 
+            @onclick='() => NavigateTo("/shop")'>
         <span class="nav-icon">🏠</span>
-        <span class="nav-label">Home</span>
+        <span class="nav-label">Shop</span>
     </button>
 
-    <button class="bottom-nav-item @(activeTab == "categories" ? "active" : "")" 
-            @onclick='() => NavigateToTab("categories")'>
-        <span class="nav-icon">📦</span>
+    <button class="bottom-nav-btn @(IsActive("/categories") ? "active" : "")" 
+            @onclick='() => NavigateTo("/categories")'>
+        <span class="nav-icon">📂</span>
         <span class="nav-label">Categories</span>
     </button>
 
-    <button class="bottom-nav-item @(activeTab == "deals" ? "active" : "")" 
-            @onclick='() => NavigateToTab("deals")'>
-        <span class="nav-icon">🔥</span>
-        <span class="nav-label">Deals</span>
-    </button>
-
-    <button class="bottom-nav-item cart-nav @(activeTab == "cart" ? "active" : "")" 
-            @onclick='() => NavigateToTab("cart")'>
-        <span class="nav-icon">
-            🛒
-            @if (cartCount > 0)
-            {
-                <span class="nav-badge">@cartCount</span>
-            }
-        </span>
+    <button class="bottom-nav-btn @(IsActive("/cart") ? "active" : "")" 
+            @onclick='() => NavigateTo("/cart")'>
+        <span class="nav-icon">🛒</span>
         <span class="nav-label">Cart</span>
+        @if (CartItemCount > 0)
+        {
+            <span class="cart-badge">@CartItemCount</span>
+        }
     </button>
 
-    <button class="bottom-nav-item @(activeTab == "account" ? "active" : "")" 
-            @onclick='() => NavigateToTab("account")'>
+    <button class="bottom-nav-btn @(IsActive("/profile") ? "active" : "")" 
+            @onclick='() => NavigateTo("/profile")'>
         <span class="nav-icon">👤</span>
-        <span class="nav-label">Account</span>
+        <span class="nav-label">Profile</span>
     </button>
 </div>
 
 @code {
-    private string activeTab = "home";
-    private int cartCount = 3;
+    [Parameter] public int CartItemCount { get; set; } = 0;
 
-    private void NavigateToTab(string tab)
+    private void NavigateTo(string path)
     {
-        activeTab = tab;
-        
-        // Navigate to appropriate page
-        switch (tab)
-        {
-            case "home":
-                Console.WriteLine("Navigate to: /");
-                break;
-            case "categories":
-                Console.WriteLine("Navigate to: /shop/categories");
-                break;
-            case "deals":
-                Console.WriteLine("Navigate to: /shop/deals");
-                break;
-            case "cart":
-                Console.WriteLine("Navigate to: /cart");
-                break;
-            case "account":
-                Console.WriteLine("Navigate to: /account");
-                break;
-        }
+        NavigationManager.NavigateTo(path);
+    }
+
+    private bool IsActive(string path)
+    {
+        return NavigationManager.Uri.Contains(path);
     }
 }
