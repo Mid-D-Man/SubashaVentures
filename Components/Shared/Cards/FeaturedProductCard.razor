@@ -1,7 +1,9 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
 
-<div class="featured-product-card @CssClass" @onclick="HandleCardClick">
+<div class="featured-card @CssClass" @onclick="HandleCardClick">
+    
+    <!-- Image Section (70%) -->
     <div class="featured-image-wrapper">
         @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
         {
@@ -14,48 +16,59 @@
             </div>
         }
         
-        @if (Product.IsOnSale && Product.Discount > 0)
-        {
-            <div class="featured-badge">
-                <span class="badge-text">Save @Product.Discount%</span>
-            </div>
-        }
-    </div>
-    
-    <div class="featured-info">
-        <div class="featured-header">
-            <p class="featured-category">@Product.Category</p>
-            @if (Product.Rating > 0)
+        <!-- Featured Glow Effect -->
+        <div class="featured-glow"></div>
+        
+        <!-- Badges -->
+        <div class="featured-badges">
+            <span class="badge badge-featured-special">⭐ Featured</span>
+            @if (Product.IsOnSale && Product.Discount > 0)
             {
-                <div class="featured-rating">
-                    <span class="rating-icon">⭐</span>
-                    <span class="rating-value">@Product.Rating.ToString("F1")</span>
-                </div>
+                <span class="badge badge-sale">-@Product.Discount%</span>
             }
         </div>
         
+        <!-- Wishlist Button -->
+        <button class="wishlist-btn @(isInWishlist ? "active" : "")" 
+                @onclick="HandleWishlistToggle" 
+                @onclick:stopPropagation="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="@(isInWishlist ? "currentColor" : "none")" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+        </button>
+    </div>
+    
+    <!-- Info Section (30%) -->
+    <div class="featured-info">
+        <p class="featured-category">@Product.Category</p>
         <h3 class="featured-name">@Product.Name</h3>
         
-        @if (!string.IsNullOrEmpty(Product.Description))
+        @if (Product.Rating > 0)
         {
-            <p class="featured-description">@Product.Description</p>
+            <div class="featured-rating">
+                <div class="rating-stars">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
+                    }
+                </div>
+                <span class="rating-text">(@Product.ReviewCount)</span>
+            </div>
         }
         
-        <div class="featured-footer">
-            <div class="featured-price">
-                @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
-                {
-                    <span class="featured-original-price">@Product.DisplayOriginalPrice</span>
-                }
-                <span class="featured-current-price">@Product.DisplayPrice</span>
-            </div>
-            
-            <PrimaryButton Size="PrimaryButton.ButtonSize.Small" 
-                          OnClick="HandleViewDetails"
-                          CssClass="featured-view-btn">
-                View Details
-            </PrimaryButton>
+        <div class="featured-price">
+            @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+            {
+                <span class="original-price">@Product.DisplayOriginalPrice</span>
+            }
+            <span class="current-price">@Product.DisplayPrice</span>
         </div>
+        
+        <PrimaryButton Size="PrimaryButton.ButtonSize.Small"
+                      OnClick="HandleViewDetails"
+                      CssClass="featured-view-btn">
+            View Details
+        </PrimaryButton>
     </div>
 </div>
 
@@ -64,6 +77,8 @@
     [Parameter] public string CssClass { get; set; } = "";
     [Parameter] public EventCallback<ProductViewModel> OnClick { get; set; }
     [Parameter] public EventCallback<ProductViewModel> OnViewDetails { get; set; }
+
+    private bool isInWishlist = false;
 
     private async Task HandleCardClick()
     {
@@ -79,5 +94,10 @@
         {
             await OnViewDetails.InvokeAsync(Product);
         }
+    }
+
+    private void HandleWishlistToggle(MouseEventArgs e)
+    {
+        isInWishlist = !isInWishlist;
     }
 }
