@@ -1,206 +1,380 @@
 using Microsoft.AspNetCore.Components;
+using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Categories;
-using SubashaVentures.Services.Navigation;
-using SubashaVentures.Domain.Product;
-using static SubashaVentures.Layout.Shop.ShopFilterPanel;
+using SubashaVentures.Services.Brands;
+using SubashaVentures.Layout.Shop;
+using SubashaVentures.Utilities.HelperScripts;
+using SubashaVentures.Utilities.ObjectPooling;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Shop;
 
 public partial class Shop : ComponentBase, IDisposable
 {
-    [Inject] private IProductService ProductService { get; set; } = default!;
-    [Inject] private ICategoryService CategoryService { get; set; } = default!;
-    [Inject] private INavigationService NavigationService { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
-    [Inject] private ILogger<Shop> Logger { get; set; } = default!;
+    #region Injected Services
+    
+    [Inject] private IProductService ProductService { get; set; } = null!;
+    [Inject] private ICategoryService CategoryService { get; set; } = null!;
+    [Inject] private IBrandService BrandService { get; set; } = null!;
+    
+    #endregion
 
-    [Parameter] public string? Category { get; set; }
+    #region State Properties
+    
+    private List<ProductViewModel> AllProducts { get; set; } = new();
+    private List<ProductViewModel> FilteredProducts { get; set; } = new();
+    private List<ProductViewModel> CurrentPageProducts { get; set; } = new();
+    
+    private bool IsLoading { get; set; } = true;
+    private bool HasError { get; set; }
+    private string ErrorMessage { get; set; } = "";
+    
+    #endregion
 
-    private List<ProductViewModel> allProducts = new();
-    private List<ProductViewModel> products = new();
-    private List<ProductViewModel> paginatedProducts = new();
-    private List<string> activeFilters = new();
+    #region Filter State
+    
+    private List<string> SelectedCategories { get; set; } = new();
+    private List<string> SelectedBrands { get; set; } = new();
+    private int MinRating { get; set; } = 0;
+    private int[] PriceRange { get; set; } = new[] { 0, 500 };
+    private bool OnSale { get; set; }
+    private bool FreeShipping { get; set; }
+    private string SearchQuery { get; set; } = "";
+    private string SelectedSort { get; set; } = "default";
+    
+    #endregion
 
-    private FilterState? currentFilters;
-    private string searchQuery = "";
-    private bool isLoading = true;
+    #region Pagination State
+    
+    private int CurrentPage { get; set; } = 1;
+    private int ItemsPerPage { get; set; } = 12;
+    private int TotalPages => (int)Math.Ceiling((double)FilteredProducts.Count / ItemsPerPage);
+    
+    #endregion
 
-    private int currentPage = 1;
-    private const int itemsPerPage = 24;
-    private int totalPages = 1;
+    #region Object Pool
+    
+    private MID_ComponentObjectPool<List<ProductViewModel>>? _productListPool;
+    
+    #endregion
 
-    private string PageTitle => string.IsNullOrEmpty(Category) ? "All Products" : Category;
-    private int TotalProducts => products.Count;
+    #region Lifecycle Methods
 
     protected override async Task OnInitializedAsync()
     {
-        NavigationService.SearchQueryChanged += OnSearchChanged;
+        await MID_HelperFunctions.DebugMessageAsync("Shop page initializing", LogLevel.Info);
+        
+        // Initialize object pool
+        _productListPool = new MID_ComponentObjectPool<List<ProductViewModel>>(
+            () => new List<ProductViewModel>(100),
+            list => list.Clear(),
+            maxPoolSize: 5
+        );
+
         await LoadProducts();
     }
 
-    protected override async Task OnParametersSetAsync()
-    {
-        await LoadProducts();
-    }
+    #endregion
+
+    #region Data Loading
 
     private async Task LoadProducts()
     {
-        isLoading = true;
+        IsLoading = true;
+        HasError = false;
         StateHasChanged();
 
         try
         {
-            if (string.IsNullOrEmpty(Category))
+            await MID_HelperFunctions.DebugMessageAsync("Loading all products", LogLevel.Info);
+
+            // Load products from service
+            AllProducts = await ProductService.GetAllProductsAsync();
+
+            if (AllProducts == null || !AllProducts.Any())
             {
-                allProducts = await ProductService.GetAllProductsAsync();
+                await MID_HelperFunctions.DebugMessageAsync("No products found", LogLevel.Warning);
+                AllProducts = new List<ProductViewModel>();
             }
             else
             {
-                var categoryModel = await CategoryService.GetCategoryBySlugAsync(Category);
-                if (categoryModel != null)
-                {
-                    allProducts = await ProductService.GetProductsByCategoryAsync(categoryModel.Id);
-                }
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Loaded {AllProducts.Count} products successfully", 
+                    LogLevel.Info
+                );
             }
 
+            // Apply filters and update display
             ApplyFilters();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to load products");
-            allProducts = new();
+            HasError = true;
+            ErrorMessage = "Unable to load products. Please try again.";
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading products");
         }
         finally
         {
-            isLoading = false;
+            IsLoading = false;
             StateHasChanged();
         }
     }
 
+    #endregion
+
+    #region Filter Handling
+
+    public async Task HandleFiltersChange(ShopFilterPanel.FilterState filters)
+    {
+        await MID_HelperFunctions.DebugMessageAsync("Applying filters", LogLevel.Info);
+
+        SelectedCategories = filters.Categories;
+        SelectedBrands = filters.Brands;
+        MinRating = filters.MinRating;
+        PriceRange = filters.PriceRange;
+        OnSale = filters.OnSale;
+        FreeShipping = filters.FreeShipping;
+
+        ApplyFilters();
+    }
+
+    public async Task HandleSearchChange(string query)
+    {
+        await MID_HelperFunctions.DebugMessageAsync($"Search query: {query}", LogLevel.Info);
+        SearchQuery = query;
+        ApplyFilters();
+    }
+
     private void ApplyFilters()
     {
-        products = new List<ProductViewModel>(allProducts);
-        activeFilters.Clear();
+        using var pooledList = _productListPool?.GetPooled();
+        var filtered = pooledList?.Object ?? new List<ProductViewModel>();
 
-        // Search
-        searchQuery = NavigationService.SearchQuery;
-        if (!string.IsNullOrWhiteSpace(searchQuery))
+        // Start with all products
+        filtered.AddRange(AllProducts);
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(SearchQuery))
         {
-            products = products.Where(p =>
-                p.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
-                (p.Description?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Brand?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false)
+            filtered = filtered.Where(p => 
+                p.Name.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
+                (p.Description?.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Brand?.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ?? false)
             ).ToList();
-            activeFilters.Add($"Search: {searchQuery}");
         }
 
-        // Filter State
-        if (currentFilters != null)
+        // Apply category filter
+        if (SelectedCategories.Any())
         {
-            if (currentFilters.Categories.Any())
-            {
-                products = products.Where(p => currentFilters.Categories.Contains(p.CategoryId)).ToList();
-                activeFilters.Add($"Categories: {currentFilters.Categories.Count}");
-            }
-
-            if (currentFilters.Brands.Any())
-            {
-                products = products.Where(p => currentFilters.Brands.Contains(p.Brand)).ToList();
-                activeFilters.Add($"Brands: {currentFilters.Brands.Count}");
-            }
-
-            if (currentFilters.MinPrice.HasValue)
-            {
-                products = products.Where(p => p.Price >= currentFilters.MinPrice.Value).ToList();
-                activeFilters.Add($"Min: ₦{currentFilters.MinPrice:N0}");
-            }
-
-            if (currentFilters.MaxPrice.HasValue)
-            {
-                products = products.Where(p => p.Price <= currentFilters.MaxPrice.Value).ToList();
-                activeFilters.Add($"Max: ₦{currentFilters.MaxPrice:N0}");
-            }
-
-            if (currentFilters.InStockOnly)
-            {
-                products = products.Where(p => p.Stock > 0).ToList();
-                activeFilters.Add("In Stock");
-            }
-
-            if (currentFilters.OnSaleOnly)
-            {
-                products = products.Where(p => p.IsOnSale).ToList();
-                activeFilters.Add("On Sale");
-            }
+            filtered = filtered.Where(p => 
+                SelectedCategories.Contains(p.Category)
+            ).ToList();
         }
 
-        CalculatePagination();
-    }
-
-    private void CalculatePagination()
-    {
-        totalPages = (int)Math.Ceiling(products.Count / (double)itemsPerPage);
-        currentPage = Math.Max(1, Math.Min(currentPage, totalPages));
-
-        var skip = (currentPage - 1) * itemsPerPage;
-        paginatedProducts = products.Skip(skip).Take(itemsPerPage).ToList();
-    }
-
-    public void HandleFiltersApplied(FilterState filters)
-    {
-        currentFilters = filters;
-        currentPage = 1;
-        ApplyFilters();
-    }
-
-    private void RemoveFilter(string filter)
-    {
-        // Implement specific filter removal logic
-        currentPage = 1;
-        ApplyFilters();
-    }
-
-    private void ClearAllFilters()
-    {
-        currentFilters = null;
-        NavigationService.ClearSearchQuery();
-        currentPage = 1;
-        ApplyFilters();
-    }
-
-    private void PreviousPage()
-    {
-        if (currentPage > 1)
+        // Apply brand filter
+        if (SelectedBrands.Any())
         {
-            currentPage--;
-            CalculatePagination();
+            filtered = filtered.Where(p => 
+                SelectedBrands.Contains(p.Brand)
+            ).ToList();
         }
+
+        // Apply rating filter
+        if (MinRating > 0)
+        {
+            filtered = filtered.Where(p => p.Rating >= MinRating).ToList();
+        }
+
+        // Apply price range filter
+        filtered = filtered.Where(p => 
+            p.Price >= PriceRange[0] && p.Price <= PriceRange[1]
+        ).ToList();
+
+        // Apply on sale filter
+        if (OnSale)
+        {
+            filtered = filtered.Where(p => p.IsOnSale).ToList();
+        }
+
+        // Apply free shipping filter (assuming products with price > 50 qualify)
+        if (FreeShipping)
+        {
+            filtered = filtered.Where(p => p.Price >= 50).ToList();
+        }
+
+        FilteredProducts = filtered.ToList();
+
+        // Apply sorting
+        ApplySorting();
+
+        // Reset to page 1
+        CurrentPage = 1;
+        UpdateCurrentPageProducts();
+    }
+
+    private async Task ResetFilters()
+    {
+        await MID_HelperFunctions.DebugMessageAsync("Resetting filters", LogLevel.Info);
+
+        SelectedCategories.Clear();
+        SelectedBrands.Clear();
+        MinRating = 0;
+        PriceRange = new[] { 0, 500 };
+        OnSale = false;
+        FreeShipping = false;
+        SearchQuery = "";
+        SelectedSort = "default";
+
+        ApplyFilters();
+    }
+
+    #endregion
+
+    #region Sorting
+
+    private void ApplySorting()
+    {
+        FilteredProducts = SelectedSort switch
+        {
+            "price-asc" => FilteredProducts.OrderBy(p => p.Price).ToList(),
+            "price-desc" => FilteredProducts.OrderByDescending(p => p.Price).ToList(),
+            "rating-desc" => FilteredProducts.OrderByDescending(p => p.Rating).ToList(),
+            "name-asc" => FilteredProducts.OrderBy(p => p.Name).ToList(),
+            "newest" => FilteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
+            _ => FilteredProducts
+        };
+
+        UpdateCurrentPageProducts();
+    }
+
+    #endregion
+
+    #region Pagination
+
+    private void UpdateCurrentPageProducts()
+    {
+        var skip = (CurrentPage - 1) * ItemsPerPage;
+        CurrentPageProducts = FilteredProducts
+            .Skip(skip)
+            .Take(ItemsPerPage)
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private void GoToPage(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+
+        CurrentPage = page;
+        UpdateCurrentPageProducts();
+        ScrollToTop();
     }
 
     private void NextPage()
     {
-        if (currentPage < totalPages)
+        if (CurrentPage < TotalPages)
         {
-            currentPage++;
-            CalculatePagination();
+            GoToPage(CurrentPage + 1);
         }
     }
 
-    private void NavigateToProduct(string slug)
+    private void PreviousPage()
     {
-        Navigation.NavigateTo($"/product/{slug}");
+        if (CurrentPage > 1)
+        {
+            GoToPage(CurrentPage - 1);
+        }
     }
 
-    private async void OnSearchChanged(object? sender, string query)
+    private List<int> GetVisiblePages()
     {
-        currentPage = 1;
-        ApplyFilters();
-        await InvokeAsync(StateHasChanged);
+        var pages = new List<int>();
+        var maxVisible = 7;
+
+        if (TotalPages <= maxVisible)
+        {
+            // Show all pages
+            for (int i = 1; i <= TotalPages; i++)
+            {
+                pages.Add(i);
+            }
+        }
+        else if (CurrentPage <= 4)
+        {
+            // Show first 7 pages
+            for (int i = 1; i <= 7; i++)
+            {
+                pages.Add(i);
+            }
+        }
+        else if (CurrentPage >= TotalPages - 3)
+        {
+            // Show last 7 pages
+            for (int i = TotalPages - 6; i <= TotalPages; i++)
+            {
+                pages.Add(i);
+            }
+        }
+        else
+        {
+            // Show pages around current page
+            for (int i = CurrentPage - 3; i <= CurrentPage + 3; i++)
+            {
+                pages.Add(i);
+            }
+        }
+
+        return pages;
     }
+
+    private string GetResultsRange()
+    {
+        var start = (CurrentPage - 1) * ItemsPerPage + 1;
+        var end = Math.Min(CurrentPage * ItemsPerPage, FilteredProducts.Count);
+        return $"{start}-{end}";
+    }
+
+    #endregion
+
+    #region Event Handlers
+
+    private async Task HandleAddToCart(int productId)
+    {
+        await MID_HelperFunctions.DebugMessageAsync($"Add to cart: Product ID {productId}", LogLevel.Info);
+        // TODO: Implement cart functionality
+    }
+
+    private async Task HandleToggleFavorite(int productId)
+    {
+        await MID_HelperFunctions.DebugMessageAsync($"Toggle favorite: Product ID {productId}", LogLevel.Info);
+        // TODO: Implement wishlist functionality
+    }
+
+    private void ToggleMobileFilters()
+    {
+        // This will be handled by ShopLayout
+        // Access parent layout if needed
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private void ScrollToTop()
+    {
+        // Scroll to top of page (can be implemented via JS interop if needed)
+    }
+
+    #endregion
+
+    #region IDisposable
 
     public void Dispose()
     {
-        NavigationService.SearchQueryChanged -= OnSearchChanged;
+        _productListPool?.Dispose();
     }
+
+    #endregion
 }
