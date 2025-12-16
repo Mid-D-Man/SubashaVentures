@@ -574,11 +574,12 @@
     border-bottom: 2px solid var(--border-light);
 }
 
-/* ✅ UPDATED: Increased gap for better spacing */
+/* ✅ UPDATED: Increased column gap for better horizontal spacing */
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem; /* ✅ CHANGED from 1.5rem to 2rem for more space */
+    column-gap: 2.5rem; /* ✅ Horizontal spacing between Price/OriginalPrice and Stock/SKU */
+    row-gap: 1.5rem; /* Vertical spacing between rows */
     margin-bottom: 0.5rem;
 }
 
