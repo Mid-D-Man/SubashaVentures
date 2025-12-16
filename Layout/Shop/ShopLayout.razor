@@ -1,70 +1,12 @@
 @inherits LayoutComponentBase
-@inject INavigationService NavService
-@implements IDisposable
 
 <div class="shop-layout">
-    <!-- Fixed Top Navigation Bar -->
-    <header class="shop-header">
-        <ShopNavigation @ref="navigationRef" />
-    </header>
-
-    <!-- Main Shop Content Area -->
-    <div class="shop-main">
-        <!-- Desktop: Side Filter Panel (Left) -->
-        <aside class="shop-sidebar desktop-only">
-            <ShopSidebar @ref="sidebarRef" />
-        </aside>
-
-        <!-- Center: Product Grid/List Area -->
-        <main class="shop-content">
-            @Body
-        </main>
-    </div>
-
-    <!-- Mobile: Bottom Navigation Bar -->
-    <nav class="shop-bottom-nav mobile-only">
-        <ShopBottomNav />
-    </nav>
-
-    <!-- Filter Panel Overlay (Mobile) -->
-    <ShopFilterPanel 
-        @ref="filterPanelRef"
-        IsOpen="@isFilterPanelOpen"
-        OnClose="@HandleFilterPanelClose"
-        OnApplyFilters="@HandleApplyFilters" />
+    @Body
 </div>
 
-@code {
-    private ShopNavigation? navigationRef;
-    private ShopSidebar? sidebarRef;
-    private ShopFilterPanel? filterPanelRef;
-    private bool isFilterPanelOpen = false;
-
-    protected override void OnInitialized()
-    {
-        NavService.FilterPanelToggleRequested += OnFilterPanelToggleRequested;
+<style>
+    .shop-layout {
+        min-height: 100vh;
+        background: #f5f5f5;
     }
-
-    private void OnFilterPanelToggleRequested(object? sender, EventArgs e)
-    {
-        isFilterPanelOpen = !isFilterPanelOpen;
-        StateHasChanged();
-    }
-
-    private void HandleFilterPanelClose()
-    {
-        isFilterPanelOpen = false;
-        StateHasChanged();
-    }
-
-    private void HandleApplyFilters()
-    {
-        isFilterPanelOpen = false;
-        StateHasChanged();
-    }
-
-    public void Dispose()
-    {
-        NavService.FilterPanelToggleRequested -= OnFilterPanelToggleRequested;
-    }
-}
+</style>
