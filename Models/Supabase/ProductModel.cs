@@ -1,5 +1,6 @@
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
+using System.Text.Json.Serialization;
 
 namespace SubashaVentures.Models.Supabase;
 
@@ -12,6 +13,7 @@ public class ProductModel : BaseModel
     // AUTO-INCREMENT PRIMARY KEY - Supabase handles this
     [PrimaryKey("id", false)] // false = not client-generated
     [Column("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] // ✅ CRITICAL FIX: Don't send 0 to database
     public int Id { get; set; }
     
     [Column("name")]
