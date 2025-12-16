@@ -12,21 +12,18 @@ namespace SubashaVentures.Services.SupaBase
     public class SupabaseDatabaseService : ISupabaseDatabaseService
     {
         private readonly Client _client;
-        private readonly AuthenticationStateProvider _authStateProvider;
         private readonly IBlazorAppLocalStorageService _localStorage;
         private readonly ILogger<SupabaseDatabaseService> _logger;
         private bool _initialized = false;
 
         public SupabaseDatabaseService(
             Client client,
-            // REMOVED: AuthenticationStateProvider authStateProvider,
             IBlazorAppLocalStorageService localStorage,
             ILogger<SupabaseDatabaseService> logger)
         {
             _logger = logger;
             _logger.LogInformation("------------------- DATABASE SERVICE CONSTRUCTOR -------------------");
             _client = client;
-            // REMOVED: _authStateProvider = authStateProvider;
             _localStorage = localStorage;
         }
 
@@ -38,16 +35,16 @@ namespace SubashaVentures.Services.SupaBase
                 {
                     await _client.InitializeAsync();
                     _initialized = true;
-                    _logger.LogInformation("Supabase client initialized successfully");
+                    _logger.LogInformation("✓ Supabase client initialized successfully");
                 }
                 catch (Realtime.Exceptions.RealtimeException ex) when (ex.InnerException is System.PlatformNotSupportedException)
                 {
-                    _logger.LogWarning("Realtime features disabled due to WebAssembly platform limitations: {Message}", ex.Message);
+                    _logger.LogWarning("⚠ Realtime features disabled due to WebAssembly platform limitations: {Message}", ex.Message);
                     _initialized = true;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to initialize Supabase client");
+                    _logger.LogError(ex, "❌ Failed to initialize Supabase client");
                     throw;
                 }
             }
@@ -65,7 +62,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving all items of type {ModelType}", typeof(TModel).Name);
+                _logger.LogError(ex, "❌ Error retrieving all items of type {ModelType}", typeof(TModel).Name);
                 return new List<TModel>();
             }
         }
@@ -83,7 +80,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving {ModelType} by ID: {Id}", typeof(TModel).Name, id);
+                _logger.LogError(ex, "❌ Error retrieving {ModelType} by ID: {Id}", typeof(TModel).Name, id);
                 return null;
             }
         }
@@ -94,39 +91,64 @@ namespace SubashaVentures.Services.SupaBase
     
             try
             {
-                // 🔍 DEBUG: Log the item before insertion
                 var itemType = typeof(TModel).Name;
                 _logger.LogInformation("=== INSERT DEBUG START ===");
-                _logger.LogInformation("Inserting {ModelType}", itemType);
+                _logger.LogInformation("📝 Attempting to insert {ModelType}", itemType);
         
-                // Check if item has Id property
+                // Check if item has Id property and log its value
                 var idProperty = typeof(TModel).GetProperty("Id");
                 if (idProperty != null)
                 {
                     var idValue = idProperty.GetValue(item);
-                    _logger.LogInformation("ID Property Value: {IdValue} (Type: {IdType})", 
+                    _logger.LogInformation("🔑 ID Property Value: {IdValue} (Type: {IdType})", 
                         idValue ?? "NULL", 
                         idValue?.GetType().Name ?? "NULL");
+                    
+                    // ✅ CRITICAL: Warn if ID is set to non-default value
+                    if (idValue != null && !idValue.Equals(0))
+                    {
+                        _logger.LogWarning("⚠️ WARNING: ID is set to {IdValue}. For auto-increment fields, this should be 0 or not set!", idValue);
+                    }
                 }
         
-                // Serialize to see what's being sent
+                // Serialize to see what's being sent (for debugging)
                 var json = Newtonsoft.Json.JsonConvert.SerializeObject(item, 
                     new Newtonsoft.Json.JsonSerializerSettings 
                     { 
                         NullValueHandling = Newtonsoft.Json.NullValueHandling.Include,
-                        Formatting = Newtonsoft.Json.Formatting.Indented
+                        Formatting = Newtonsoft.Json.Formatting.Indented,
+                        DefaultValueHandling = Newtonsoft.Json.DefaultValueHandling.Ignore // ✅ Ignore default values
                     });
-                _logger.LogInformation("Serialized JSON:\n{Json}", json);
+                _logger.LogInformation("📄 Serialized JSON:\n{Json}", json);
                 _logger.LogInformation("=== INSERT DEBUG END ===");
         
                 var response = await _client.From<TModel>().Insert(item);
-                _logger.LogInformation("Successfully inserted {ModelType}", itemType);
+                _logger.LogInformation("✅ Successfully inserted {ModelType} with ID: {Id}", 
+                    itemType, 
+                    idProperty?.GetValue(response.Models.FirstOrDefault()) ?? "UNKNOWN");
         
                 return response.Models;
             }
+            catch (Supabase.Postgrest.Exceptions.PostgrestException pgEx)
+            {
+                _logger.LogError("❌ PostgreSQL Error inserting {ModelType}: Code={Code}, Message={Message}, Details={Details}",
+                    typeof(TModel).Name,
+                    pgEx.Message.Contains("code") ? "Constraint Violation" : "Unknown",
+                    pgEx.Message,
+                    pgEx.StackTrace);
+                
+                // ✅ ENHANCED ERROR MESSAGE for duplicate key
+                if (pgEx.Message.Contains("23505") || pgEx.Message.Contains("duplicate key"))
+                {
+                    _logger.LogError("💡 HINT: This is likely due to the ID field being sent with a value (probably 0). " +
+                                   "Ensure the ID property has [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] attribute.");
+                }
+                
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error inserting {ModelType}", typeof(TModel).Name);
+                _logger.LogError(ex, "❌ Error inserting {ModelType}", typeof(TModel).Name);
                 throw;
             }
         }
@@ -138,12 +160,12 @@ namespace SubashaVentures.Services.SupaBase
             try
             {
                 var response = await _client.From<TModel>().Update(item);
-                _logger.LogInformation("Successfully updated {ModelType}", typeof(TModel).Name);
+                _logger.LogInformation("✅ Successfully updated {ModelType}", typeof(TModel).Name);
                 return response.Models;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating {ModelType}", typeof(TModel).Name);
+                _logger.LogError(ex, "❌ Error updating {ModelType}", typeof(TModel).Name);
                 throw;
             }
         }
@@ -155,12 +177,12 @@ namespace SubashaVentures.Services.SupaBase
             try
             {
                 var response = await _client.From<TModel>().Delete(item);
-                _logger.LogInformation("Successfully deleted {ModelType}", typeof(TModel).Name);
+                _logger.LogInformation("✅ Successfully deleted {ModelType}", typeof(TModel).Name);
                 return response.Models;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting {ModelType}", typeof(TModel).Name);
+                _logger.LogError(ex, "❌ Error deleting {ModelType}", typeof(TModel).Name);
                 throw;
             }
         }
@@ -176,7 +198,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error soft deleting {ModelType}", typeof(TModel).Name);
+                _logger.LogError(ex, "❌ Error soft deleting {ModelType}", typeof(TModel).Name);
                 throw;
             }
         }
@@ -197,13 +219,13 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (JsonException jsonEx)
             {
-                _logger.LogError(jsonEx, "JSON deserialization error for {ModelType}. Column: {Column}, Value: {Value}", 
+                _logger.LogError(jsonEx, "❌ JSON deserialization error for {ModelType}. Column: {Column}, Value: {Value}", 
                     typeof(TModel).Name, columnName, value);
                 return new List<TModel>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Database query error for {ModelType}. Column: {Column}, Value: {Value}", 
+                _logger.LogError(ex, "❌ Database query error for {ModelType}. Column: {Column}, Value: {Value}", 
                     typeof(TModel).Name, columnName, value);
                 return new List<TModel>();
             }
@@ -219,7 +241,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error executing RPC function: {FunctionName}", functionName);
+                _logger.LogError(ex, "❌ Error executing RPC function: {FunctionName}", functionName);
                 throw;
             }
         }
@@ -252,7 +274,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to log security violation for user {UserId}", userId);
+                _logger.LogError(ex, "❌ Failed to log security violation for user {UserId}", userId);
                 return false;
             }
         }
@@ -268,7 +290,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve security violations");
+                _logger.LogError(ex, "❌ Failed to retrieve security violations");
                 return new List<SecurityViolationLog>();
             }
         }
@@ -286,7 +308,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to clean expired security violations");
+                _logger.LogError(ex, "❌ Failed to clean expired security violations");
                 return false;
             }
         }
@@ -314,7 +336,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send message to admin for user {UserId}", userId);
+                _logger.LogError(ex, "❌ Failed to send message to admin for user {UserId}", userId);
                 return false;
             }
         }
@@ -330,7 +352,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve admin messages");
+                _logger.LogError(ex, "❌ Failed to retrieve admin messages");
                 return new List<MessageToSuperiorAdmin>();
             }
         }
@@ -348,7 +370,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to clean expired admin messages");
+                _logger.LogError(ex, "❌ Failed to clean expired admin messages");
                 return false;
             }
         }
@@ -380,7 +402,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send notification from {SenderId} to {ReceiverId}", 
+                _logger.LogError(ex, "❌ Failed to send notification from {SenderId} to {ReceiverId}", 
                     senderUserId, receiverUserId);
                 return false;
             }
@@ -399,7 +421,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve notifications for user {UserId}", userId);
+                _logger.LogError(ex, "❌ Failed to retrieve notifications for user {UserId}", userId);
                 return new List<UserNotificationMessage>();
             }
         }
@@ -417,7 +439,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to mark notification {Id} as read", notificationId);
+                _logger.LogError(ex, "❌ Failed to mark notification {Id} as read", notificationId);
                 return false;
             }
         }
@@ -435,7 +457,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to clean expired notifications");
+                _logger.LogError(ex, "❌ Failed to clean expired notifications");
                 return false;
             }
         }
@@ -454,7 +476,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to backup {DataType} locally", dataType);
+                _logger.LogError(ex, "❌ Failed to backup {DataType} locally", dataType);
             }
         }
 
@@ -478,7 +500,7 @@ namespace SubashaVentures.Services.SupaBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve local backups for {DataType}", dataType);
+                _logger.LogError(ex, "❌ Failed to retrieve local backups for {DataType}", dataType);
             }
             
             return backups;
