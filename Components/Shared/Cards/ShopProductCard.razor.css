@@ -2,16 +2,14 @@
 .product-card {
     display: flex;
     flex-direction: column;
+    width: 100%;
+    height: 100%;
     background: var(--bg-surface, #ffffff);
     border-radius: 16px;
     overflow: hidden;
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    
-    /* FIXED ASPECT RATIO - All cards same size */
-    aspect-ratio: 3 / 4;
-    height: auto;
 }
 
 .product-card:hover {
