@@ -1,35 +1,55 @@
 @using SubashaVentures.Domain.Product
+@using SubashaVentures.Services.Navigation
+@inject INavigationService NavigationService
 
-<div class="product-card @CssClass" @onclick="HandleCardClick" @onclick:stopPropagation>
-    @* IMAGE SECTION - 70% *@
-    <div class="card-image-section">
-        @if (IsLoading)
+<div class="shop-product-card @(Product.IsFeatured ? "featured" : "")"
+     @onclick="HandleCardClick"
+     @onclick:stopPropagation="false">
+    
+    @* Product Image *@
+    <div class="product-image-container">
+        <img src="@GetPrimaryImage()" 
+             alt="@Product.Name" 
+             class="product-image"
+             loading="lazy" />
+        
+        @* Featured Badge *@
+        @if (Product.IsFeatured)
         {
-            <div class="image-skeleton"></div>
+            <div class="badge badge-featured">Featured</div>
         }
-        else
+        
+        @* Sale Badge *@
+        @if (Product.IsOnSale && Product.Discount > 0)
         {
-            <img src="@Product.PrimaryImageUrl" 
-                 alt="@Product.Name"
-                 loading="lazy"
-                 class="product-image" />
+            <div class="badge badge-sale">@Product.Discount% OFF</div>
         }
     </div>
 
-    @* INFO SECTION - 30% (DARK BACKGROUND like Nike) *@
-    <div class="card-info-section">
-        @* Category *@
-        <div class="product-category">@Product.Category?.ToUpper()</div>
+    @* Product Details *@
+    <div class="product-details">
+        
+        @* Category & Brand *@
+        <div class="product-meta">
+            <span class="category">@Product.Category.ToUpper()</span>
+            @if (!string.IsNullOrEmpty(Product.Brand))
+            {
+                <span class="separator">•</span>
+                <span class="brand">@Product.Brand</span>
+            }
+        </div>
 
-        @* Product Name & Price Row *@
-        <div class="name-price-row">
-            <h3 class="product-name">@Product.Name</h3>
-            <div class="product-price">
+        @* Product Name & Price *@
+        <div class="product-header">
+            <h3 class="product-name" title="@Product.Name">
+                @Product.Name
+            </h3>
+            <div class="product-pricing">
+                <span class="current-price">@Product.DisplayPrice</span>
                 @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
                 {
-                    <span class="original-price">₦@Product.OriginalPrice.Value.ToString("N0")</span>
+                    <span class="original-price">@Product.DisplayOriginalPrice</span>
                 }
-                <span class="current-price">₦@Product.Price.ToString("N0")</span>
             </div>
         </div>
 
@@ -37,79 +57,79 @@
         @if (Product.Rating > 0)
         {
             <div class="product-rating">
-                @for (int i = 1; i <= 5; i++)
-                {
-                    <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
-                }
-                @if (Product.ReviewCount > 0)
-                {
-                    <span class="review-count">(@Product.ReviewCount)</span>
-                }
+                <div class="stars">
+                    @for (int i = 0; i < 5; i++)
+                    {
+                        int starIndex = i;
+                        <span class="star @(starIndex < Math.Floor(Product.Rating) ? "filled" : "")">
+                            ★
+                        </span>
+                    }
+                </div>
+                <span class="rating-text">
+                    @Product.DisplayRating (@Product.ReviewCount)
+                </span>
             </div>
         }
 
-        @* Badges Row *@
-        @if (Product.IsOnSale || Product.IsFeatured)
-        {
-            <div class="badges-row">
-                @if (Product.IsOnSale && Product.DiscountPercentage > 0)
-                {
-                    <span class="badge sale-badge">-@Product.DiscountPercentage%</span>
-                }
-                @if (Product.IsFeatured)
-                {
-                    <span class="badge featured-badge">★ FEATURED</span>
-                }
-            </div>
-        }
-
-        @* Action Buttons Row *@
-        <div class="action-buttons-row">
-            <button class="add-to-cart-btn" 
-                    @onclick="HandleAddToCart" 
-                    @onclick:stopPropagation
-                    disabled="@(Product.Stock == 0)">
-                @if (Product.Stock == 0)
-                {
-                    <text>OUT OF STOCK</text>
-                }
-                else
+        @* Action Buttons *@
+        <div class="product-actions">
+            <button class="btn-add-cart @(Product.IsInStock ? "" : "disabled")"
+                    @onclick="HandleAddToCart"
+                    @onclick:stopPropagation="true"
+                    disabled="@(!Product.IsInStock)">
+                @if (Product.IsInStock)
                 {
                     <text>ADD TO CART</text>
                 }
+                else
+                {
+                    <text>OUT OF STOCK</text>
+                }
             </button>
             
-            <button class="wishlist-btn @(IsWishlisted ? "active" : "")"
-                    @onclick="HandleWishlistToggle"
-                    @onclick:stopPropagation
-                    title="@(IsWishlisted ? "Remove from wishlist" : "Add to wishlist")">
-                <span class="heart-icon">@(IsWishlisted ? "❤️" : "🤍")</span>
+            <button class="btn-favorite @(IsFavorite ? "active" : "")"
+                    @onclick="HandleToggleFavorite"
+                    @onclick:stopPropagation="true"
+                    title="@(IsFavorite ? "Remove from favorites" : "Add to favorites")">
+                <span class="heart-icon">@(IsFavorite ? "♥" : "♡")</span>
             </button>
         </div>
     </div>
 </div>
 
 @code {
-    [Parameter] public ProductViewModel Product { get; set; } = default!;
-    [Parameter] public string CssClass { get; set; } = "";
-    [Parameter] public bool IsLoading { get; set; }
-    [Parameter] public bool IsWishlisted { get; set; }
-    [Parameter] public EventCallback OnClick { get; set; }
-    [Parameter] public EventCallback OnAddToCart { get; set; }
-    [Parameter] public EventCallback OnWishlistToggle { get; set; }
+    [Parameter] public ProductViewModel Product { get; set; } = null!;
+    [Parameter] public EventCallback<int> OnAddToCart { get; set; }
+    [Parameter] public EventCallback<int> OnToggleFavorite { get; set; }
 
-    private async Task HandleCardClick()
+    private bool IsFavorite { get; set; }
+
+    private string GetPrimaryImage()
     {
-        await OnClick.InvokeAsync();
+        return Product.Images?.FirstOrDefault() ?? "/diverse-products-still-life.png";
     }
 
-    private async Task HandleAddToCart()
+    private void HandleCardClick()
     {
-        await OnAddToCart.InvokeAsync();
+        NavigationService.NavigateTo($"/shop/{Product.Slug}");
     }
 
-    private async Task HandleWishlistToggle()
+    private async Task HandleAddToCart(MouseEventArgs e)
     {
-        await OnWishlistToggle.InvokeAsync();
+        if (OnAddToCart.HasDelegate && Product.IsInStock)
+        {
+            await OnAddToCart.InvokeAsync(Product.Id);
+        }
+    }
+
+    private async Task HandleToggleFavorite(MouseEventArgs e)
+    {
+        IsFavorite = !IsFavorite;
+        
+        if (OnToggleFavorite.HasDelegate)
+        {
+            await OnToggleFavorite.InvokeAsync(Product.Id);
+        }
     }
 }
