@@ -1,97 +1,68 @@
 @using SubashaVentures.Components.Shared.Forms
-@inject INavigationService NavService
+@using SubashaVentures.Components.Shared.Buttons
+@inject NavigationManager NavigationManager
 
 <div class="shop-navigation">
-    <div class="nav-left">
-        <button class="filter-btn" @onclick="ToggleFilters" aria-label="Open filters">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M3 4h14M3 10h14M3 16h14"/>
-            </svg>
-        </button>
+    <div class="nav-container">
         
-        <a href="/" class="brand-logo desktop-only">
-            <span class="logo-icon">🌟</span>
-            <span class="logo-text">SubashaVentures</span>
-        </a>
-    </div>
-
-    <div class="nav-center">
-        <div class="search-wrapper">
-            <InputField 
-                Type="text"
-                Placeholder="Search products..."
-                Value="@searchQuery"
-                ValueChanged="@HandleSearchChange"
-                PrefixIcon="🔍"
-                ShowClearButton="true"
-                CssClass="search-field" />
+        @* Logo - Desktop *@
+        <div class="nav-logo desktop-logo">
+            <BrandLogo />
         </div>
-    </div>
 
-    <div class="nav-right">
-        <button class="icon-btn" @onclick="NavigateToWishlist" title="Wishlist">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                <path d="M10 17.5L8.5 16.1C4 12 1 9.3 1 6c0-2.5 1.8-4 4-4 1.4 0 2.7.7 3.5 1.8C9.3 2.7 10.6 2 12 2c2.2 0 4 1.5 4 4 0 3.3-3 6-7.5 10.1L10 17.5z" stroke-width="2"/>
-            </svg>
-            @if (wishlistCount > 0)
+        @* Logo - Mobile *@
+        <div class="nav-logo mobile-logo">
+            <BrandLogo />
+        </div>
+
+        @* Search Bar *@
+        <div class="nav-search">
+            <InputField 
+                @bind-Value="SearchQuery"
+                Placeholder="Search products..."
+                PrefixIcon="🔍"
+                CssClass="search-input"
+                @bind-Value:event="oninput"
+                OnBlur="HandleSearch" />
+        </div>
+
+        @* Cart Button *@
+        <button class="nav-icon-btn cart-btn" @onclick="NavigateToCart" title="Shopping Cart">
+            <span class="icon">🛒</span>
+            @if (CartItemCount > 0)
             {
-                <span class="badge">@wishlistCount</span>
+                <span class="cart-badge">@CartItemCount</span>
             }
         </button>
 
-        <button class="icon-btn" @onclick="NavigateToCart" title="Cart">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                <circle cx="7" cy="17" r="1.5" stroke-width="1.5"/>
-                <circle cx="15" cy="17" r="1.5" stroke-width="1.5"/>
-                <path d="M1 1h3l2.68 13.39a1.5 1.5 0 001.5 1.11h9.72a1.5 1.5 0 001.5-1.11L20 5H5" stroke-width="1.5"/>
-            </svg>
-            @if (cartCount > 0)
-            {
-                <span class="badge">@cartCount</span>
-            }
+        @* User/Profile Button *@
+        <button class="nav-icon-btn user-btn" @onclick="NavigateToProfile" title="User Profile">
+            <span class="icon">👤</span>
         </button>
     </div>
 </div>
 
 @code {
-    private string searchQuery = "";
-    private int cartCount = 0;
-    private int wishlistCount = 0;
+    [Parameter] public int CartItemCount { get; set; } = 0;
+    [Parameter] public EventCallback<string> OnSearchChange { get; set; }
 
-    protected override void OnInitialized()
-    {
-        searchQuery = NavService.SearchQuery;
-        NavService.SearchQueryChanged += OnSearchQueryChanged;
-    }
+    private string SearchQuery { get; set; } = "";
 
-    private void OnSearchQueryChanged(object? sender, string query)
+    private async Task HandleSearch()
     {
-        searchQuery = query;
-        StateHasChanged();
-    }
-
-    private void HandleSearchChange(string value)
-    {
-        NavService.UpdateSearchQuery(value);
-    }
-
-    private void ToggleFilters()
-    {
-        NavService.ToggleFilterPanel();
+        if (OnSearchChange.HasDelegate)
+        {
+            await OnSearchChange.InvokeAsync(SearchQuery);
+        }
     }
 
     private void NavigateToCart()
     {
-        // TODO: Navigate to cart
+        NavigationManager.NavigateTo("/cart");
     }
 
-    private void NavigateToWishlist()
+    private void NavigateToProfile()
     {
-        // TODO: Navigate to wishlist
-    }
-
-    public void Dispose()
-    {
-        NavService.SearchQueryChanged -= OnSearchQueryChanged;
+        NavigationManager.NavigateTo("/profile");
     }
 }
