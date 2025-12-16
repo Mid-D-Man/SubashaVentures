@@ -1,61 +1,166 @@
+/* ===== SHOP LAYOUT ===== */
 .shop-layout {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background: var(--bg-secondary);
-}
-
-.shop-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border-light);
-    z-index: 100;
-}
-
-.shop-content {
-    margin-top: 64px;
-    padding: 1.5rem;
-    max-width: 1400px;
     width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    min-height: calc(100vh - 64px);
+    max-width: 100vw;
+    overflow-x: hidden;
+    background: var(--bg-primary);
 }
 
-.shop-bottom-nav {
+/* ===== SHOP CONTENT (Main Grid) ===== */
+.shop-content {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* ===== FILTER SIDEBAR ===== */
+.filter-sidebar {
+    display: none;
+    flex-shrink: 0;
+}
+
+/* ===== MAIN SHOP AREA ===== */
+.shop-main {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding: 16px 12px;
+    overflow-x: hidden;
+}
+
+/* ===== MOBILE FILTER OVERLAY ===== */
+.mobile-filter-backdrop {
     display: none;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: var(--bg-surface);
-    border-top: 1px solid var(--border-light);
-    z-index: 100;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 999;
 }
 
+/* ===== RESPONSIVE ===== */
+
+/* Mobile (≤768px) */
 @media (max-width: 768px) {
-    .shop-header {
-        height: 56px;
+    .shop-main {
+        padding: 12px;
+        padding-bottom: 80px; /* Space for bottom navigation */
     }
-    
-    .shop-content {
-        margin-top: 56px;
-        margin-bottom: 64px;
-        padding: 1rem;
+
+    /* Mobile filter as overlay */
+    .filter-sidebar.mobile-open {
+        display: block;
     }
-    
-    .shop-bottom-nav.mobile-only {
-        display: flex;
+
+    .filter-sidebar.mobile-open .mobile-filter-backdrop {
+        display: block;
+    }
+
+    .filter-sidebar.mobile-open .mobile-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 80%;
+        max-width: 320px;
+        z-index: 1000;
+        transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
     }
 }
 
-[data-theme="dark"] .shop-header,
-[data-theme="dark"] .shop-bottom-nav {
-    background: var(--bg-surface);
-    border-color: var(--border-dark);
-        }
+/* Tablets (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .shop-content {
+        position: relative;
+    }
+
+    .filter-sidebar {
+        display: block;
+        width: 280px;
+        border-right: 1px solid var(--border-light);
+    }
+
+    .shop-main {
+        padding: 20px 16px;
+    }
+}
+
+/* Desktop (≥1024px) */
+@media (min-width: 1024px) {
+    .shop-content {
+        max-width: 1920px;
+        margin: 0 auto;
+    }
+
+    .filter-sidebar {
+        display: block;
+        width: 320px;
+        padding: 24px 0 24px 24px;
+    }
+
+    .shop-main {
+        padding: 24px;
+    }
+}
+
+/* Extra Large Desktop (≥1440px) */
+@media (min-width: 1440px) {
+    .filter-sidebar {
+        width: 360px;
+        padding: 32px 0 32px 32px;
+    }
+
+    .shop-main {
+        padding: 32px;
+    }
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .shop-layout {
+    background: var(--bg-primary);
+}
+
+[data-theme="dark"] .filter-sidebar {
+    border-right-color: var(--border-dark);
+}
+
+[data-theme="dark"] .mobile-filter-backdrop {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* ===== ACCESSIBILITY ===== */
+.mobile-filter-backdrop:focus {
+    outline: none;
+}
+
+/* Prevent body scroll when mobile filter is open */
+body:has(.filter-sidebar.mobile-open) {
+    overflow: hidden;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+    .mobile-filter-backdrop {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+    .filter-sidebar,
+    .mobile-filter-backdrop {
+        display: none;
+    }
+
+    .shop-main {
+        padding: 0;
+    }
+    }
