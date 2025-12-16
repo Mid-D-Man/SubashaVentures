@@ -2,6 +2,7 @@ using SubashaVentures.Services.Storage;
 using SubashaVentures.Models.Supabase;
 using Microsoft.AspNetCore.Components.Authorization;
 using Newtonsoft.Json;
+using Supabase.Postgrest.Exceptions;
 using Supabase.Postgrest.Models;
 using static Supabase.Postgrest.Constants;
 using Client = Supabase.Client;
@@ -130,7 +131,7 @@ namespace SubashaVentures.Services.SupaBase
         
                 return response.Models;
             }
-            catch (Supabase.Postgrest.Exceptions.PostgrestException pgEx)
+            catch (PostgrestException pgEx)
             {
                 _logger.LogError("❌ PostgreSQL Error inserting {ModelType}: Code={Code}, Message={Message}, Details={Details}",
                     typeof(TModel).Name,
