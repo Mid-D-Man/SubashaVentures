@@ -7,6 +7,7 @@ using static Supabase.Postgrest.Constants;
 using Client = Supabase.Client;
 using Realtime = Supabase.Realtime;
 
+
 namespace SubashaVentures.Services.SupaBase
 {
     public class SupabaseDatabaseService : ISupabaseDatabaseService
