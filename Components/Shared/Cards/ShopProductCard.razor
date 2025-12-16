@@ -1,128 +1,115 @@
-@using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
 
-<div class="shop-card @CssClass @(IsLoading ? "loading" : "")" 
-     @onclick="HandleCardClick"
-     @onmouseenter="() => IsHovered = true"
-     @onmouseleave="() => IsHovered = false">
-    
-    <!-- Image Section (70%) -->
-    <div class="card-image-wrapper">
-        @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
+<div class="product-card @CssClass" @onclick="HandleCardClick" @onclick:stopPropagation>
+    @* IMAGE SECTION - 70% *@
+    <div class="card-image-section">
+        @if (IsLoading)
         {
-            <img src="@Product.Images.First()" 
-                 alt="@Product.Name" 
-                 class="card-image" 
-                 loading="lazy" />
+            <div class="image-skeleton"></div>
         }
         else
         {
-            <div class="card-placeholder">
-                <span class="placeholder-icon">📦</span>
-            </div>
-        }
-        
-        <!-- Badges (Top Left) -->
-        <div class="card-badges">
-            @if (Product.IsOnSale && Product.Discount > 0)
-            {
-                <span class="badge badge-sale">-@Product.Discount%</span>
-            }
-            @if (Product.IsFeatured)
-            {
-                <span class="badge badge-featured">⭐ Featured</span>
-            }
-        </div>
-        
-        <!-- Wishlist Button (Top Right) -->
-        <button class="wishlist-btn @(IsWishlisted ? "active" : "")" 
-                @onclick="HandleWishlistToggle" 
-                @onclick:stopPropagation="true" 
-                title="@(IsWishlisted ? "Remove from Wishlist" : "Add to Wishlist")">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="@(IsWishlisted ? "currentColor" : "none")" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-        </button>
-        
-        <!-- Out of Stock Overlay -->
-        @if (!Product.IsInStock)
-        {
-            <div class="out-of-stock-overlay">
-                <span>Out of Stock</span>
-            </div>
+            <img src="@Product.PrimaryImageUrl" 
+                 alt="@Product.Name"
+                 loading="lazy"
+                 class="product-image" />
         }
     </div>
-    
-    <!-- Info Section (30%) -->
-    <div class="card-info">
-        <p class="card-category">@Product.Category</p>
-        <h3 class="card-name" title="@Product.Name">@Product.Name</h3>
-        
-        <!-- Rating -->
+
+    @* INFO SECTION - 30% (DARK BACKGROUND like Nike) *@
+    <div class="card-info-section">
+        @* Category *@
+        <div class="product-category">@Product.Category?.ToUpper()</div>
+
+        @* Product Name & Price Row *@
+        <div class="name-price-row">
+            <h3 class="product-name">@Product.Name</h3>
+            <div class="product-price">
+                @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+                {
+                    <span class="original-price">₦@Product.OriginalPrice.Value.ToString("N0")</span>
+                }
+                <span class="current-price">₦@Product.Price.ToString("N0")</span>
+            </div>
+        </div>
+
+        @* Rating *@
         @if (Product.Rating > 0)
         {
-            <div class="card-rating">
-                <div class="rating-stars">
-                    @for (int i = 1; i <= 5; i++)
-                    {
-                        <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
-                    }
-                </div>
-                <span class="rating-text">(@Product.ReviewCount)</span>
+            <div class="product-rating">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
+                }
+                @if (Product.ReviewCount > 0)
+                {
+                    <span class="review-count">(@Product.ReviewCount)</span>
+                }
             </div>
         }
-        
-        <!-- Price -->
-        <div class="card-price">
-            @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
-            {
-                <span class="original-price">@Product.DisplayOriginalPrice</span>
-            }
-            <span class="current-price">@Product.DisplayPrice</span>
+
+        @* Badges Row *@
+        @if (Product.IsOnSale || Product.IsFeatured)
+        {
+            <div class="badges-row">
+                @if (Product.IsOnSale && Product.DiscountPercentage > 0)
+                {
+                    <span class="badge sale-badge">-@Product.DiscountPercentage%</span>
+                }
+                @if (Product.IsFeatured)
+                {
+                    <span class="badge featured-badge">★ FEATURED</span>
+                }
+            </div>
+        }
+
+        @* Action Buttons Row *@
+        <div class="action-buttons-row">
+            <button class="add-to-cart-btn" 
+                    @onclick="HandleAddToCart" 
+                    @onclick:stopPropagation
+                    disabled="@(Product.Stock == 0)">
+                @if (Product.Stock == 0)
+                {
+                    <text>OUT OF STOCK</text>
+                }
+                else
+                {
+                    <text>ADD TO CART</text>
+                }
+            </button>
+            
+            <button class="wishlist-btn @(IsWishlisted ? "active" : "")"
+                    @onclick="HandleWishlistToggle"
+                    @onclick:stopPropagation
+                    title="@(IsWishlisted ? "Remove from wishlist" : "Add to wishlist")">
+                <span class="heart-icon">@(IsWishlisted ? "❤️" : "🤍")</span>
+            </button>
         </div>
-        
-        <!-- Add to Cart Button -->
-        <PrimaryButton Size="PrimaryButton.ButtonSize.Small"
-                      OnClick="HandleAddToCart"
-                      IsDisabled="@(!Product.IsInStock)"
-                      CssClass="add-to-cart-btn">
-            @(Product.IsInStock ? "Add to Cart" : "Out of Stock")
-        </PrimaryButton>
     </div>
 </div>
 
 @code {
-    [Parameter] public ProductViewModel Product { get; set; } = new();
+    [Parameter] public ProductViewModel Product { get; set; } = default!;
     [Parameter] public string CssClass { get; set; } = "";
     [Parameter] public bool IsLoading { get; set; }
     [Parameter] public bool IsWishlisted { get; set; }
-    [Parameter] public EventCallback<ProductViewModel> OnClick { get; set; }
-    [Parameter] public EventCallback<ProductViewModel> OnAddToCart { get; set; }
-    [Parameter] public EventCallback<ProductViewModel> OnWishlistToggle { get; set; }
-
-    private bool IsHovered { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback OnAddToCart { get; set; }
+    [Parameter] public EventCallback OnWishlistToggle { get; set; }
 
     private async Task HandleCardClick()
     {
-        if (OnClick.HasDelegate)
-        {
-            await OnClick.InvokeAsync(Product);
-        }
+        await OnClick.InvokeAsync();
     }
 
-    private async Task HandleAddToCart(MouseEventArgs e)
+    private async Task HandleAddToCart()
     {
-        if (OnAddToCart.HasDelegate && Product.IsInStock)
-        {
-            await OnAddToCart.InvokeAsync(Product);
-        }
+        await OnAddToCart.InvokeAsync();
     }
 
-    private async Task HandleWishlistToggle(MouseEventArgs e)
+    private async Task HandleWishlistToggle()
     {
-        if (OnWishlistToggle.HasDelegate)
-        {
-            await OnWishlistToggle.InvokeAsync(Product);
-        }
+        await OnWishlistToggle.InvokeAsync();
     }
 }
