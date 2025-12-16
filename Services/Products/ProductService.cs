@@ -1,6 +1,7 @@
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
