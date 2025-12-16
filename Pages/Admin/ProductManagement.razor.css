@@ -574,10 +574,11 @@
     border-bottom: 2px solid var(--border-light);
 }
 
+/* ✅ UPDATED: Increased gap for better spacing */
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
+    gap: 2rem; /* ✅ CHANGED from 1.5rem to 2rem for more space */
     margin-bottom: 0.5rem;
 }
 
@@ -1166,6 +1167,7 @@
         justify-content: space-between;
     }
 
+    /* ✅ RESPONSIVE: Stack form fields on mobile */
     .form-row {
         grid-template-columns: 1fr;
         gap: 1.25rem;
