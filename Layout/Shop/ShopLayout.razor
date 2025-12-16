@@ -1,12 +1,41 @@
 @inherits LayoutComponentBase
+@inject INavigationService NavService
+@implements IDisposable
 
 <div class="shop-layout">
-    @Body
+    <header class="shop-header">
+        <ShopNavigation />
+    </header>
+
+    <main class="shop-content">
+        @Body
+    </main>
+
+    <nav class="shop-bottom-nav mobile-only">
+        <ShopBottomNav />
+    </nav>
+
+    <ShopFilterPanel 
+        IsOpen="@isFilterPanelOpen"
+        OnClose="@(() => isFilterPanelOpen = false)" />
 </div>
 
-<style>
-    .shop-layout {
-        min-height: 100vh;
-        background: #f5f5f5;
+@code {
+    private bool isFilterPanelOpen = false;
+
+    protected override void OnInitialized()
+    {
+        NavService.FilterPanelToggleRequested += OnFilterToggle;
     }
-</style>
+
+    private void OnFilterToggle(object? sender, EventArgs e)
+    {
+        isFilterPanelOpen = !isFilterPanelOpen;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavService.FilterPanelToggleRequested -= OnFilterToggle;
+    }
+}
