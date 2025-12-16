@@ -1,71 +1,125 @@
 @page "/shop"
-@page "/shop/{category}"
-@using SubashaVentures.Layout.Shop
 @using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Domain.Product
 @layout ShopLayout
 
+<PageTitle>Shop - Subasha Ventures</PageTitle>
+
 <div class="shop-page">
-    <div class="shop-header-section">
-        <h1>@PageTitle</h1>
-        <p class="subtitle">@TotalProducts products found</p>
+    
+    @* Mobile Filter Toggle & Sort *@
+    <div class="shop-controls">
+        <SecondaryButton 
+            Variant="SecondaryButton.ButtonVariant.Outline"
+            Size="SecondaryButton.ButtonSize.Medium"
+            OnClick="ToggleMobileFilters"
+            Icon="🔍"
+            CssClass="btn-mobile-filter">
+            Show Filters
+        </SecondaryButton>
+        
+        <div class="sort-dropdown">
+            <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySorting">
+                <option value="default">Sort By</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="rating-desc">Rating: High to Low</option>
+                <option value="name-asc">Name: A-Z</option>
+                <option value="newest">Newest First</option>
+            </select>
+        </div>
     </div>
 
-    @if (activeFilters.Any())
+    @* Results Count *@
+    @if (!IsLoading && FilteredProducts.Any())
     {
-        <div class="active-filters">
-            @foreach (var filter in activeFilters)
-            {
-                <span class="filter-tag">
-                    @filter
-                    <button @onclick="@(() => RemoveFilter(filter))">×</button>
-                </span>
-            }
-            <button class="clear-all" @onclick="ClearAllFilters">Clear All</button>
+        <div class="results-info">
+            <p class="results-text">
+                Showing @GetResultsRange() of @FilteredProducts.Count products
+            </p>
         </div>
     }
 
-    @if (isLoading)
+    @* Loading State *@
+    @if (IsLoading)
     {
-        <div class="loading-grid">
+        <div class="product-grid">
             @for (int i = 0; i < 12; i++)
             {
-                <div class="skeleton-card"></div>
+                <SkeletonCard />
             }
         </div>
     }
-    else if (!products.Any())
+    @* Error State *@
+    else if (HasError)
     {
-        <div class="empty-state">
-            <h3>No products found</h3>
-            <p>Try adjusting your filters</p>
+        <div class="error-state">
+            <div class="error-icon">⚠️</div>
+            <h3 class="error-title">Failed to Load Products</h3>
+            <p class="error-message">@ErrorMessage</p>
+            <PrimaryButton 
+                OnClick="LoadProducts" 
+                CssClass="btn-retry">
+                Try Again
+            </PrimaryButton>
         </div>
     }
+    @* Empty State *@
+    else if (!FilteredProducts.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <h3 class="empty-title">No Products Found</h3>
+            <p class="empty-message">
+                Try adjusting your filters or search query.
+            </p>
+            <SecondaryButton 
+                Variant="SecondaryButton.ButtonVariant.Outline"
+                OnClick="ResetFilters" 
+                CssClass="btn-reset-filters">
+                Reset Filters
+            </SecondaryButton>
+        </div>
+    }
+    @* Product Grid *@
     else
     {
-        <div class="products-grid">
-            @foreach (var product in paginatedProducts)
+        <div class="product-grid">
+            @foreach (var product in CurrentPageProducts)
             {
                 <ShopProductCard 
                     Product="@product"
-                    OnClick="@(() => NavigateToProduct(product.Slug))" />
+                    OnAddToCart="HandleAddToCart"
+                    OnToggleFavorite="HandleToggleFavorite" />
             }
         </div>
 
-        @if (totalPages > 1)
+        @* Pagination *@
+        @if (TotalPages > 1)
         {
             <div class="pagination">
-                <button class="page-btn" 
-                        disabled="@(currentPage == 1)"
-                        @onclick="PreviousPage">
-                    Previous
+                <button class="pagination-btn pagination-prev" 
+                        @onclick="PreviousPage"
+                        disabled="@(CurrentPage == 1)">
+                    <span class="pagination-icon">←</span>
                 </button>
-                
-                <span class="page-info">Page @currentPage of @totalPages</span>
-                
-                <button class="page-btn" 
-                        disabled="@(currentPage == totalPages)"
-                        @onclick="NextPage">
-                    Next
+
+                <div class="pagination-pages">
+                    @foreach (var page in GetVisiblePages())
+                    {
+                        <button class="pagination-btn pagination-page @(page == CurrentPage ? "active" : "")"
+                                @onclick="@(() => GoToPage(page))">
+                            @page
+                        </button>
+                    }
+                </div>
+
+                <button class="pagination-btn pagination-next" 
+                        @onclick="NextPage"
+                        disabled="@(CurrentPage == TotalPages)">
+                    <span class="pagination-icon">→</span>
                 </button>
             </div>
         }
