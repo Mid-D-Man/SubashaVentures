@@ -81,10 +81,10 @@
     cursor: pointer;
 }
 
-/* ===== IMAGE SECTION ===== */
+/* ===== IMAGE SECTION - MAINTAIN ASPECT ===== */
 .potd-image-wrapper {
     position: relative;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 1 / 1; /* Keep square */
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
