@@ -6,6 +6,7 @@
     background: var(--bg-primary);
 }
 
+
 /* ===== LOADING & ERROR STATES ===== */
 .loading-container,
 .error-container {
