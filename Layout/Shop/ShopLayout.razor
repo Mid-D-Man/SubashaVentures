@@ -1,41 +1,65 @@
+@using SubashaVentures.Components.Shared.Loading
 @inherits LayoutComponentBase
-@inject INavigationService NavService
-@implements IDisposable
 
 <div class="shop-layout">
-    <header class="shop-header">
-        <ShopNavigation />
-    </header>
+    
+    @* Top Navigation *@
+    <ShopNavigation 
+        CartItemCount="@CartItemCount"
+        OnSearchChange="HandleSearchChange" />
 
-    <main class="shop-content">
-        @Body
-    </main>
+    @* Main Content Area *@
+    <div class="shop-content">
+        
+        @* Filter Panel - Desktop Sidebar / Mobile Overlay *@
+        <aside class="filter-sidebar @(ShowMobileFilters ? "mobile-open" : "")">
+            @if (ShowMobileFilters)
+            {
+                <div class="mobile-filter-backdrop" @onclick="CloseMobileFilters"></div>
+            }
+            <ShopFilterPanel 
+                CssClass="@(ShowMobileFilters ? "mobile-panel" : "")"
+                OnFiltersChange="HandleFiltersChange" />
+        </aside>
 
-    <nav class="shop-bottom-nav mobile-only">
-        <ShopBottomNav />
-    </nav>
+        @* Main Shop Area *@
+        <main class="shop-main">
+            @Body
+        </main>
+    </div>
 
-    <ShopFilterPanel 
-        IsOpen="@isFilterPanelOpen"
-        OnClose="@(() => isFilterPanelOpen = false)" />
+    @* Footer *@
+    <ShopFooter />
+
+    @* Bottom Navigation - Mobile Only *@
+    <ShopBottomNav CartItemCount="@CartItemCount" />
 </div>
 
 @code {
-    private bool isFilterPanelOpen = false;
+    [Parameter] public int CartItemCount { get; set; } = 0;
+    
+    private bool ShowMobileFilters { get; set; } = false;
 
-    protected override void OnInitialized()
+    private void HandleSearchChange(string query)
     {
-        NavService.FilterPanelToggleRequested += OnFilterToggle;
+        // Search logic will be handled by the page component
+        // This is just a pass-through
     }
 
-    private void OnFilterToggle(object? sender, EventArgs e)
+    private void HandleFiltersChange(ShopFilterPanel.FilterState filters)
     {
-        isFilterPanelOpen = !isFilterPanelOpen;
-        StateHasChanged();
+        // Filter logic will be handled by the page component
+        // This is just a pass-through
+        CloseMobileFilters();
     }
 
-    public void Dispose()
+    public void ToggleMobileFilters()
     {
-        NavService.FilterPanelToggleRequested -= OnFilterToggle;
+        ShowMobileFilters = !ShowMobileFilters;
+    }
+
+    private void CloseMobileFilters()
+    {
+        ShowMobileFilters = false;
     }
 }
