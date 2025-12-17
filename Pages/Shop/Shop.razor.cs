@@ -103,7 +103,7 @@ public partial class Shop : ComponentBase
     public void HandleSearchChange(string query)
     {
         SearchQuery = query ?? "";
-        await MID_HelperFunctions.DebugMessageAsync($"Search query: {SearchQuery}", LogLevel.Info);
+        _ = MID_HelperFunctions.DebugMessageAsync($"Search query: {SearchQuery}", LogLevel.Info);
         ApplyFilters();
     }
 
@@ -165,7 +165,7 @@ public partial class Shop : ComponentBase
             FilteredProducts = FilteredProducts.Where(p => p.Price >= 50000).ToList();
         }
 
-        await MID_HelperFunctions.DebugMessageAsync(
+        _ = MID_HelperFunctions.DebugMessageAsync(
             $"After filters: {FilteredProducts.Count} products",
             LogLevel.Info
         );
