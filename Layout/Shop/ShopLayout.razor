@@ -1,67 +1,73 @@
 @inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
 
-<div class="shop-layout">
-    @* Top Navigation *@
+<div class="shop-layout-wrapper">
+    @* Top Navigation - Fixed *@
     <ShopNavigation 
         CartItemCount="@CartItemCount"
         OnSearchChange="@HandleSearchChange" />
 
-    @* Filter Panel Overlay *@
-    @if (ShowFilters)
+    @* Main Shop Container *@
+    <div class="shop-container">
+        
+        @* Desktop Filter Sidebar (Left - 30%) *@
+        <aside class="shop-sidebar desktop-only">
+            <ShopFilterPanel 
+                OnFiltersChange="@HandleFiltersChange"
+                OnClose="@(() => {})" />
+        </aside>
+
+        @* Main Shop Content (Right - 70%) *@
+        <main class="shop-content">
+            @Body
+        </main>
+    </div>
+
+    @* Mobile Filter Drawer Overlay *@
+    @if (ShowMobileFilters)
     {
-        <div class="filter-overlay" @onclick="CloseFilters">
-            <div class="filter-panel-container" @onclick:stopPropagation="true">
-                <div class="filter-header">
+        <div class="mobile-filter-overlay" @onclick="CloseMobileFilters">
+            <div class="mobile-filter-drawer" @onclick:stopPropagation="true">
+                <div class="mobile-filter-header">
                     <h2 class="filter-title">Filters</h2>
-                    <button class="filter-close-btn" @onclick="CloseFilters">
+                    <button class="filter-close-btn" @onclick="CloseMobileFilters">
                         <span class="close-icon">✕</span>
                     </button>
                 </div>
                 <ShopFilterPanel 
                     OnFiltersChange="@HandleFiltersChange"
-                    OnClose="@CloseFilters" />
+                    OnClose="@CloseMobileFilters" />
             </div>
         </div>
     }
-
-    @* Main Content *@
-    <main class="shop-main">
-        @Body
-    </main>
-
-    @* Footer *@
-    <ShopFooter />
 </div>
 
 @code {
     [Parameter] public int CartItemCount { get; set; } = 0;
     
-    private bool ShowFilters { get; set; }
+    private bool ShowMobileFilters { get; set; }
     private string SearchQuery { get; set; } = "";
 
-    public void OpenFilters()
+    public void OpenMobileFilters()
     {
-        ShowFilters = true;
+        ShowMobileFilters = true;
         StateHasChanged();
     }
 
-    public void CloseFilters()
+    public void CloseMobileFilters()
     {
-        ShowFilters = false;
+        ShowMobileFilters = false;
         StateHasChanged();
     }
 
     private void HandleSearchChange(string query)
     {
         SearchQuery = query;
-        // Notify parent/shop page through event or service
         NavigationManager.NavigateTo($"/shop?search={Uri.EscapeDataString(query)}");
     }
 
     private void HandleFiltersChange(ShopFilterPanel.FilterState filters)
     {
-        // This will be called by child components
         StateHasChanged();
     }
 }
