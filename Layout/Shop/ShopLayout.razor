@@ -46,7 +46,6 @@
     [Parameter] public int CartItemCount { get; set; } = 0;
     
     private bool ShowMobileFilters { get; set; }
-    private string SearchQuery { get; set; } = "";
 
     public void OpenMobileFilters()
     {
@@ -62,12 +61,19 @@
 
     private void HandleSearchChange(string query)
     {
-        SearchQuery = query;
-        NavigationManager.NavigateTo($"/shop?search={Uri.EscapeDataString(query)}");
+        // Find the Shop page and call its search handler
+        if (Body.Target is Pages.Shop.Shop shopPage)
+        {
+            shopPage.HandleSearchChange(query);
+        }
     }
 
-    private void HandleFiltersChange(ShopFilterPanel.FilterState filters)
+    private void HandleFiltersChange(Layout.Shop.ShopFilterPanel.FilterState filters)
     {
-        StateHasChanged();
+        // Find the Shop page and call its filter handler
+        if (Body.Target is Pages.Shop.Shop shopPage)
+        {
+            shopPage.HandleFiltersChange(filters);
+        }
     }
 }
