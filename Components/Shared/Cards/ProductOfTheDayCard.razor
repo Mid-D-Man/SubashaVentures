@@ -23,13 +23,6 @@
                 @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
                 {
                     <img src="@Product.Images.First()" alt="@Product.Name" class="potd-image" loading="eager" />
-                    
-                    <div class="potd-overlay">
-                        <div class="overlay-content">
-                            <h3 class="overlay-title">Today's Special</h3>
-                            <p class="overlay-subtitle">Limited Time Offer</p>
-                        </div>
-                    </div>
                 }
                 else
                 {
@@ -66,21 +59,6 @@
                 {
                     <p class="potd-description">@Product.Description</p>
                 }
-
-                <div class="potd-features">
-                    @if (Product.IsFeatured)
-                    {
-                        <span class="feature-tag">✓ Featured</span>
-                    }
-                    @if (Product.Stock > 0 && Product.Stock <= 10)
-                    {
-                        <span class="feature-tag stock-alert">⚠ Only @Product.Stock left</span>
-                    }
-                    @if (Product.IsOnSale)
-                    {
-                        <span class="feature-tag sale">🔥 On Sale</span>
-                    }
-                </div>
 
                 <div class="potd-price-section">
                     <div class="price-wrapper">
@@ -182,15 +160,6 @@
         if (Product != null && OnViewDetails.HasDelegate)
         {
             await OnViewDetails.InvokeAsync(Product);
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            // Start timer update loop
-            StateHasChanged();
         }
     }
 }
