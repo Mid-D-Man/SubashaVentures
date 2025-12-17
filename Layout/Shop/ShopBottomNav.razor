@@ -1,45 +1,57 @@
-@inject NavigationManager NavigationManager
+<footer class="shop-footer">
+    <div class="footer-container">
+        <div class="footer-grid">
+            
+            @* About Store *@
+            <div class="footer-column">
+                <h3 class="footer-heading">About Our Store</h3>
+                <p class="footer-text">
+                    We offer premium quality footwear from the world's leading brands. 
+                    Shop with confidence and enjoy fast shipping on all orders.
+                </p>
+            </div>
 
-<div class="shop-bottom-nav">
-    <button class="bottom-nav-btn @(IsActive("/shop") ? "active" : "")" 
-            @onclick='() => NavigateTo("/shop")'>
-        <span class="nav-icon">🏠</span>
-        <span class="nav-label">Shop</span>
-    </button>
+            @* Customer Service *@
+            <div class="footer-column">
+                <h3 class="footer-heading">Customer Service</h3>
+                <ul class="footer-links">
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="#">Shipping Information</a></li>
+                    <li><a href="#">Returns & Exchanges</a></li>
+                    <li><a href="#">Size Guide</a></li>
+                </ul>
+            </div>
 
-    <button class="bottom-nav-btn @(IsActive("/categories") ? "active" : "")" 
-            @onclick='() => NavigateTo("/categories")'>
-        <span class="nav-icon">📂</span>
-        <span class="nav-label">Categories</span>
-    </button>
+            @* Quick Links *@
+            <div class="footer-column">
+                <h3 class="footer-heading">Quick Links</h3>
+                <ul class="footer-links">
+                    <li><a href="#">My Account</a></li>
+                    <li><a href="#">Order Tracking</a></li>
+                    <li><a href="#">Wishlist</a></li>
+                    <li><a href="#">FAQs</a></li>
+                </ul>
+            </div>
 
-    <button class="bottom-nav-btn @(IsActive("/cart") ? "active" : "")" 
-            @onclick='() => NavigateTo("/cart")'>
-        <span class="nav-icon">🛒</span>
-        <span class="nav-label">Cart</span>
-        @if (CartItemCount > 0)
-        {
-            <span class="cart-badge">@CartItemCount</span>
-        }
-    </button>
+            @* Newsletter *@
+            <div class="footer-column">
+                <h3 class="footer-heading">Stay Connected</h3>
+                <p class="footer-text">
+                    Subscribe to our newsletter for exclusive deals and new arrivals.
+                </p>
+                <div class="newsletter-form">
+                    <input 
+                        type="email" 
+                        placeholder="Your email" 
+                        class="newsletter-input" />
+                    <button class="newsletter-btn">Subscribe</button>
+                </div>
+            </div>
+        </div>
 
-    <button class="bottom-nav-btn @(IsActive("/profile") ? "active" : "")" 
-            @onclick='() => NavigateTo("/profile")'>
-        <span class="nav-icon">👤</span>
-        <span class="nav-label">Profile</span>
-    </button>
-</div>
-
-@code {
-    [Parameter] public int CartItemCount { get; set; } = 0;
-
-    private void NavigateTo(string path)
-    {
-        NavigationManager.NavigateTo(path);
-    }
-
-    private bool IsActive(string path)
-    {
-        return NavigationManager.Uri.Contains(path);
-    }
-}
+        @* Bottom Bar *@
+        <div class="footer-bottom">
+            <p class="copyright">© 2025 Subasha Ventures. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
