@@ -1,4 +1,4 @@
-/* ===== FEATURED PRODUCT CARD - NIKE STYLE WITH SPECIAL EFFECTS ===== */
+/* ===== FEATURED PRODUCT CARD - NIKE STYLE ===== */
 .featured-product-card {
     display: flex;
     flex-direction: column;
@@ -13,20 +13,13 @@
     height: auto;
 }
 
-/* Animated gradient border for featured cards */
 .featured-product-card::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: 16px;
     padding: 2px;
-    background: linear-gradient(
-        135deg, 
-        var(--primary-color, #96994A), 
-        #B8BB6A, 
-        #FFD700,
-        var(--primary-color, #96994A)
-    );
+    background: linear-gradient(135deg, var(--primary-color, #96994A), #B8BB6A, #FFD700, var(--primary-color, #96994A));
     background-size: 300% 300%;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -50,7 +43,6 @@
     box-shadow: 0 12px 32px rgba(150, 153, 74, 0.35);
 }
 
-/* ===== IMAGE SECTION - 70% ===== */
 .featured-product-card .card-image-section {
     flex: 0 0 70%;
     background: #f5f5f5;
@@ -72,7 +64,6 @@
     transform: scale(1.1);
 }
 
-/* Radial glow overlay on hover */
 .featured-product-card .card-image-section::after {
     content: '';
     position: absolute;
@@ -107,7 +98,6 @@
     100% { background-position: -200% 0; }
 }
 
-/* ===== BADGES ===== */
 .featured-product-card .badges-row {
     position: absolute;
     top: 12px;
@@ -150,7 +140,6 @@
     color: white;
 }
 
-/* ===== WISHLIST BUTTON ===== */
 .featured-product-card .wishlist-btn {
     position: absolute;
     top: 12px;
@@ -184,7 +173,6 @@
     line-height: 1;
 }
 
-/* ===== INFO SECTION - 30% (DARK BACKGROUND) ===== */
 .featured-product-card .card-info-section {
     flex: 0 0 30%;
     background: #1a1d29;
@@ -197,7 +185,6 @@
     overflow: hidden;
 }
 
-/* Subtle gradient overlay for depth */
 .featured-product-card .card-info-section::before {
     content: '';
     position: absolute;
@@ -214,7 +201,6 @@
     opacity: 1;
 }
 
-/* ===== CATEGORY ===== */
 .featured-product-card .product-category {
     font-size: 0.75rem;
     font-weight: 600;
@@ -224,7 +210,6 @@
     line-height: 1;
 }
 
-/* ===== NAME & PRICE ROW ===== */
 .featured-product-card .name-price-row {
     display: flex;
     justify-content: space-between;
@@ -266,7 +251,6 @@
     color: var(--primary-color, #96994A);
 }
 
-/* ===== RATING ===== */
 .featured-product-card .product-rating {
     display: flex;
     align-items: center;
@@ -292,7 +276,6 @@
     color: #999;
 }
 
-/* ===== ACTION BUTTONS ===== */
 .featured-product-card .action-buttons-row {
     display: flex;
     gap: 8px;
@@ -339,7 +322,6 @@
     box-shadow: 0 4px 12px rgba(150, 153, 74, 0.4);
 }
 
-/* ===== DARK THEME ===== */
 [data-theme="dark"] .featured-product-card {
     background: var(--bg-surface, #2d3238);
 }
@@ -360,7 +342,6 @@
     color: #B8BB6A;
 }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .featured-product-card {
         border-radius: 12px;
@@ -439,7 +420,6 @@
     }
 }
 
-/* ===== ACCESSIBILITY ===== */
 .featured-product-card .view-details-btn:focus-visible,
 .featured-product-card .wishlist-btn:focus-visible {
     outline: 2px solid var(--primary-color, #96994A);
@@ -463,4 +443,4 @@
     .featured-product-card:hover .product-image {
         transform: none;
     }
-}
+        }
