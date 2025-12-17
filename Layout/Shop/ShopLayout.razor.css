@@ -1,19 +1,69 @@
-/* ===== SHOP LAYOUT ===== */
-.shop-layout {
+/* ===== SHOP LAYOUT WRAPPER ===== */
+.shop-layout-wrapper {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     background: var(--bg-primary);
 }
 
-/* ===== FILTER OVERLAY ===== */
-.filter-overlay {
+/* ===== SHOP CONTAINER (Left Sidebar + Right Content) ===== */
+.shop-container {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    margin-top: 60px; /* Space for fixed navigation */
+}
+
+/* ===== DESKTOP FILTER SIDEBAR (Left - 30%) ===== */
+.shop-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    height: calc(100vh - 60px);
+    position: sticky;
+    top: 60px;
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-light);
+}
+
+/* Custom scrollbar for sidebar */
+.shop-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.shop-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shop-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(150, 153, 74, 0.3);
+    border-radius: 3px;
+}
+
+.shop-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 153, 74, 0.5);
+}
+
+/* ===== MAIN SHOP CONTENT (Right - 70%) ===== */
+.shop-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Prevents flex item from overflowing */
+    overflow-x: hidden;
+}
+
+/* ===== MOBILE FILTER DRAWER ===== */
+.mobile-filter-overlay {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: 2000;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
     animation: fadeIn 0.2s ease;
+    display: none; /* Hidden on desktop */
 }
 
 @keyframes fadeIn {
@@ -21,17 +71,19 @@
     to { opacity: 1; }
 }
 
-.filter-panel-container {
+.mobile-filter-drawer {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
     width: 85%;
-    max-width: 400px;
+    max-width: 380px;
     background: var(--bg-surface);
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
     overflow-y: auto;
     animation: slideIn 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 @keyframes slideIn {
@@ -39,7 +91,7 @@
     to { transform: translateX(0); }
 }
 
-.filter-header {
+.mobile-filter-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -80,42 +132,82 @@
     color: var(--text-primary);
 }
 
-/* ===== MAIN CONTENT ===== */
-.shop-main {
-    flex: 1;
-    width: 100%;
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 16px 12px;
-}
-
 /* ===== RESPONSIVE ===== */
-@media (min-width: 768px) {
-    .shop-main {
-        padding: 24px 20px;
+
+/* Mobile (≤768px) - Show mobile drawer, hide desktop sidebar */
+@media (max-width: 768px) {
+    .shop-container {
+        margin-top: 56px; /* Smaller nav on mobile */
     }
 
-    .filter-panel-container {
-        width: 400px;
+    .desktop-only {
+        display: none !important;
+    }
+
+    .mobile-filter-overlay {
+        display: flex;
+    }
+
+    .shop-content {
+        width: 100%;
     }
 }
 
+/* Tablet (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .shop-sidebar {
+        width: 280px;
+    }
+}
+
+/* Desktop (≥1024px) - Show sidebar, hide mobile drawer */
 @media (min-width: 1024px) {
-    .shop-main {
-        padding: 32px 24px;
+    .mobile-filter-overlay {
+        display: none !important;
+    }
+
+    .shop-sidebar {
+        display: block;
     }
 }
 
 /* ===== DARK THEME ===== */
-[data-theme="dark"] .filter-panel-container {
+[data-theme="dark"] .shop-sidebar {
+    background: var(--bg-surface);
+    border-right-color: var(--border-dark);
+}
+
+[data-theme="dark"] .mobile-filter-drawer {
     background: var(--bg-surface);
 }
 
-[data-theme="dark"] .filter-header {
+[data-theme="dark"] .mobile-filter-header {
     background: var(--bg-surface);
     border-bottom-color: var(--border-dark);
 }
 
 [data-theme="dark"] .filter-close-btn:hover {
     background: rgba(255, 255, 255, 0.05);
-        }
+}
+
+[data-theme="dark"] .shop-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(184, 187, 106, 0.3);
+}
+
+[data-theme="dark"] .shop-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 187, 106, 0.5);
+}
+
+/* ===== ACCESSIBILITY ===== */
+.filter-close-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+    .mobile-filter-overlay,
+    .mobile-filter-drawer {
+        animation: none;
+    }
+    }
