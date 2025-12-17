@@ -5,124 +5,126 @@
 @using SubashaVentures.Domain.Product
 @using SubashaVentures.Layout.Shop
 @layout ShopLayout
-@inject NavigationManager NavigationManager
 
+<PageTitle>Shop - Subasha Ventures</PageTitle>
 
-<div class="shop-page">
-    
-    @* Top Controls Section (10% height) *@
-    <div class="shop-top-section">
-        <div class="shop-controls">
-            <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
-                <span class="filter-icon">🔍</span>
-                <span class="filter-text">Filters</span>
-            </button>
-            
-            <div class="sort-wrapper">
-                <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySorting">
-                    <option value="default">Sort By</option>
-                    <option value="price-asc">Price: Low to High</option>
-                    <option value="price-desc">Price: High to Low</option>
-                    <option value="rating-desc">Rating: High to Low</option>
-                    <option value="name-asc">Name: A-Z</option>
-                    <option value="newest">Newest First</option>
-                </select>
-            </div>
-        </div>
-
-        @if (!IsLoading && FilteredProducts.Any())
-        {
-            <div class="results-info">
-                <p class="results-text">
-                    Showing @GetResultsRange() of @FilteredProducts.Count products
-                </p>
-            </div>
-        }
-    </div>
-
-    @* Middle Content Section (70% height) - Products Grid + Pagination *@
-    <div class="shop-middle-section">
-        @if (IsLoading)
-        {
-            <div class="product-grid">
-                @for (int i = 0; i < 12; i++)
-                {
-                    <SkeletonCard />
-                }
-            </div>
-        }
-        else if (HasError)
-        {
-            <div class="error-state">
-                <div class="error-icon">⚠️</div>
-                <h3 class="error-title">Failed to Load Products</h3>
-                <p class="error-message">@ErrorMessage</p>
-                <PrimaryButton 
-                    OnClick="LoadProducts" 
-                    CssClass="btn-retry">
-                    Try Again
-                </PrimaryButton>
-            </div>
-        }
-        else if (!FilteredProducts.Any())
-        {
-            <div class="empty-state">
-                <div class="empty-icon">🔍</div>
-                <h3 class="empty-title">No Products Found</h3>
-                <p class="empty-message">
-                    Try adjusting your filters or search query.
-                </p>
-                <SecondaryButton 
-                    Variant="SecondaryButton.ButtonVariant.Outline"
-                    OnClick="ResetFilters" 
-                    CssClass="btn-reset">
-                    Reset Filters
-                </SecondaryButton>
-            </div>
-        }
-        else
-        {
-            <div class="product-grid">
-                @foreach (var product in CurrentPageProducts)
-                {
-                    <ShopProductCard 
-                        Product="@product"
-                        OnAddToCart="HandleAddToCart"
-                        OnToggleFavorite="HandleToggleFavorite" />
-                }
+<CascadingValue Value="this">
+    <div class="shop-page">
+        
+        @* Top Controls Section (10% height) *@
+        <div class="shop-top-section">
+            <div class="shop-controls">
+                <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
+                    <span class="filter-icon">🔍</span>
+                    <span class="filter-text">Filters</span>
+                </button>
+                
+                <div class="sort-wrapper">
+                    <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySorting">
+                        <option value="default">Sort By</option>
+                        <option value="price-asc">Price: Low to High</option>
+                        <option value="price-desc">Price: High to Low</option>
+                        <option value="rating-desc">Rating: High to Low</option>
+                        <option value="name-asc">Name: A-Z</option>
+                        <option value="newest">Newest First</option>
+                    </select>
+                </div>
             </div>
 
-            @if (TotalPages > 1)
+            @if (!IsLoading && FilteredProducts.Any())
             {
-                <div class="pagination">
-                    <button class="pagination-btn" 
-                            @onclick="PreviousPage"
-                            disabled="@(CurrentPage == 1)">
-                        <span class="pagination-icon">←</span>
-                    </button>
-
-                    <div class="pagination-pages">
-                        @foreach (var pageNum in GetVisiblePages())
-                        {
-                            <button class="pagination-btn @(pageNum == CurrentPage ? "active" : "")"
-                                    @onclick="@(() => GoToPage(pageNum))">
-                                @pageNum
-                            </button>
-                        }
-                    </div>
-
-                    <button class="pagination-btn" 
-                            @onclick="NextPage"
-                            disabled="@(CurrentPage == TotalPages)">
-                        <span class="pagination-icon">→</span>
-                    </button>
+                <div class="results-info">
+                    <p class="results-text">
+                        Showing @GetResultsRange() of @FilteredProducts.Count products
+                    </p>
                 </div>
             }
-        }
-    </div>
+        </div>
 
-    @* Bottom Footer Section (20% height) *@
-    <div class="shop-bottom-section">
-        <ShopFooter />
+        @* Middle Content Section (70% height) - Products Grid + Pagination *@
+        <div class="shop-middle-section">
+            @if (IsLoading)
+            {
+                <div class="product-grid">
+                    @for (int i = 0; i < 12; i++)
+                    {
+                        <SkeletonCard />
+                    }
+                </div>
+            }
+            else if (HasError)
+            {
+                <div class="error-state">
+                    <div class="error-icon">⚠️</div>
+                    <h3 class="error-title">Failed to Load Products</h3>
+                    <p class="error-message">@ErrorMessage</p>
+                    <PrimaryButton 
+                        OnClick="LoadProducts" 
+                        CssClass="btn-retry">
+                        Try Again
+                    </PrimaryButton>
+                </div>
+            }
+            else if (!FilteredProducts.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h3 class="empty-title">No Products Found</h3>
+                    <p class="empty-message">
+                        Try adjusting your filters or search query.
+                    </p>
+                    <SecondaryButton 
+                        Variant="SecondaryButton.ButtonVariant.Outline"
+                        OnClick="ResetFilters" 
+                        CssClass="btn-reset">
+                        Reset Filters
+                    </SecondaryButton>
+                </div>
+            }
+            else
+            {
+                <div class="product-grid">
+                    @foreach (var product in CurrentPageProducts)
+                    {
+                        <ShopProductCard 
+                            Product="@product"
+                            OnAddToCart="HandleAddToCart"
+                            OnToggleFavorite="HandleToggleFavorite" />
+                    }
+                </div>
+
+                @if (TotalPages > 1)
+                {
+                    <div class="pagination">
+                        <button class="pagination-btn" 
+                                @onclick="PreviousPage"
+                                disabled="@(CurrentPage == 1)">
+                            <span class="pagination-icon">←</span>
+                        </button>
+
+                        <div class="pagination-pages">
+                            @foreach (var pageNum in GetVisiblePages())
+                            {
+                                <button class="pagination-btn @(pageNum == CurrentPage ? "active" : "")"
+                                        @onclick="@(() => GoToPage(pageNum))">
+                                    @pageNum
+                                </button>
+                            }
+                        </div>
+
+                        <button class="pagination-btn" 
+                                @onclick="NextPage"
+                                disabled="@(CurrentPage == TotalPages)">
+                            <span class="pagination-icon">→</span>
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+
+        @* Bottom Footer Section (20% height) *@
+        <div class="shop-bottom-section">
+            <ShopFooter />
+        </div>
     </div>
-</div>
+</CascadingValue>
