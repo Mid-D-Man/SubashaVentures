@@ -24,14 +24,71 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Featured card styling */
+/* ===== FEATURED CARD WITH GLOW EFFECT ===== */
 .shop-product-card.featured {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 15px rgba(150, 153, 74, 0.4);
+    border: 2px solid var(--primary-color);
+    box-shadow: 
+        0 0 20px rgba(150, 153, 74, 0.4),
+        0 0 40px rgba(150, 153, 74, 0.2),
+        0 4px 12px rgba(0, 0, 0, 0.1);
+    animation: featuredGlow 3s ease-in-out infinite;
+}
+
+@keyframes featuredGlow {
+    0%, 100% {
+        box-shadow: 
+            0 0 20px rgba(150, 153, 74, 0.4),
+            0 0 40px rgba(150, 153, 74, 0.2),
+            0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    50% {
+        box-shadow: 
+            0 0 30px rgba(150, 153, 74, 0.6),
+            0 0 60px rgba(150, 153, 74, 0.3),
+            0 6px 16px rgba(0, 0, 0, 0.15);
+    }
 }
 
 .shop-product-card.featured:hover {
-    box-shadow: 0 8px 32px rgba(150, 153, 74, 0.5);
+    box-shadow: 
+        0 0 35px rgba(150, 153, 74, 0.7),
+        0 0 70px rgba(150, 153, 74, 0.4),
+        0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark theme featured glow */
+[data-theme="dark"] .shop-product-card.featured {
+    border-color: var(--primary-light);
+    box-shadow: 
+        0 0 20px rgba(184, 187, 106, 0.5),
+        0 0 40px rgba(184, 187, 106, 0.25),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes featuredGlowDark {
+    0%, 100% {
+        box-shadow: 
+            0 0 20px rgba(184, 187, 106, 0.5),
+            0 0 40px rgba(184, 187, 106, 0.25),
+            0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+        box-shadow: 
+            0 0 30px rgba(184, 187, 106, 0.7),
+            0 0 60px rgba(184, 187, 106, 0.35),
+            0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+}
+
+[data-theme="dark"] .shop-product-card.featured {
+    animation: featuredGlowDark 3s ease-in-out infinite;
+}
+
+[data-theme="dark"] .shop-product-card.featured:hover {
+    box-shadow: 
+        0 0 35px rgba(184, 187, 106, 0.8),
+        0 0 70px rgba(184, 187, 106, 0.5),
+        0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 /* ===== PRODUCT IMAGE CONTAINER ===== */
@@ -55,26 +112,32 @@
 }
 
 /* ===== BADGES ===== */
-.badge {
+.product-badges {
     position: absolute;
-    top: 8px;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    z-index: 2;
+}
+
+.badge {
     padding: 4px 12px;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     border-radius: 6px;
-    z-index: 2;
     letter-spacing: 0.5px;
 }
 
 .badge-featured {
-    left: 8px;
     background: #3b82f6;
     color: white;
 }
 
 .badge-sale {
-    right: 8px;
     background: #ef4444;
     color: white;
 }
@@ -304,15 +367,6 @@
     .badge {
         padding: 2px 8px;
         font-size: 0.625rem;
-        top: 6px;
-    }
-
-    .badge-featured {
-        left: 6px;
-    }
-
-    .badge-sale {
-        right: 6px;
     }
 }
 
@@ -393,19 +447,10 @@
     .badge {
         padding: 6px 14px;
         font-size: 0.875rem;
-        top: 12px;
-    }
-
-    .badge-featured {
-        left: 12px;
-    }
-
-    .badge-sale {
-        right: 12px;
     }
 }
 
-/* Dark theme adjustments */
+/* ===== DARK THEME ===== */
 [data-theme="dark"] .shop-product-card {
     background: var(--bg-surface);
     border-color: var(--border-dark);
@@ -419,13 +464,15 @@
     background: #1a1d29;
 }
 
-/* Reduced motion */
+/* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
     .shop-product-card,
     .product-image,
     .btn-add-cart,
-    .btn-favorite {
+    .btn-favorite,
+    .shop-product-card.featured {
         transition: none;
+        animation: none;
     }
 
     .shop-product-card:hover .product-image {
@@ -433,7 +480,7 @@
     }
 }
 
-/* Focus styles for accessibility */
+/* ===== ACCESSIBILITY ===== */
 .shop-product-card:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
@@ -443,4 +490,4 @@
 .btn-favorite:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
-    }
+                            }
