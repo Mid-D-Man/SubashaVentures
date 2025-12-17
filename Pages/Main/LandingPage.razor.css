@@ -14,8 +14,6 @@
     display: flex;
     align-items: center;
     position: relative;
-    
-    /* Gradient background with slime green theme */
     background: linear-gradient(135deg,
         rgba(150, 153, 74, 0.1) 0%,
         rgba(184, 187, 106, 0.15) 25%,
@@ -23,12 +21,8 @@
         rgba(184, 187, 106, 0.1) 75%,
         rgba(150, 153, 74, 0.08) 100%
     );
-    
-    /* Animated background */
     background-size: 400% 400%;
     animation: heroGradient 15s ease infinite;
-    
-    /* Glassmorphism overlay */
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
     padding: 2rem 1rem;
@@ -36,12 +30,8 @@
 }
 
 @keyframes heroGradient {
-    0%, 100% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
 }
 
 .hero-content {
@@ -60,7 +50,6 @@
     gap: 1.5rem;
 }
 
-/* ===== IMPROVED ANIMATED TITLE ===== */
 .hero-title {
     font-family: 'Poppins', sans-serif;
     font-size: 3.5rem;
@@ -240,7 +229,6 @@
     to { transform: rotate(360deg); }
 }
 
-/* POTD Card in Hero - Compact styling */
 .hero-potd-card {
     border-radius: 20px;
     max-height: 100%;
@@ -267,65 +255,41 @@
     margin: 0;
 }
 
-/* ===== FEATURED PRODUCTS - HORIZONTAL SCROLL WITH MANUAL CONTROL ===== */
+/* ===== FEATURED PRODUCTS - PURE CSS AUTO-SCROLL ===== */
 .featured-section {
     padding: 4rem 0;
     overflow: hidden;
 }
 
-.products-scroll-container {
-    overflow-x: auto;
-    overflow-y: hidden;
+.scroll-wrapper {
+    overflow: hidden;
     position: relative;
     width: 100%;
-    cursor: grab;
-    user-select: none;
-    padding-bottom: 10px;
-    scroll-behavior: smooth;
-    
-    /* Smooth scrolling with snap */
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    
-    /* Custom scrollbar */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(150, 153, 74, 0.4) rgba(150, 153, 74, 0.1);
 }
 
-.products-scroll-container::-webkit-scrollbar {
-    height: 8px;
-}
-
-.products-scroll-container::-webkit-scrollbar-track {
-    background: rgba(150, 153, 74, 0.1);
-    border-radius: 10px;
-}
-
-.products-scroll-container::-webkit-scrollbar-thumb {
-    background: rgba(150, 153, 74, 0.4);
-    border-radius: 10px;
-    transition: background 0.3s ease;
-}
-
-.products-scroll-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(150, 153, 74, 0.6);
-}
-
-.products-scroll-container:active {
-    cursor: grabbing;
-}
-
-.products-horizontal {
+.scroll-content {
     display: flex;
     gap: 2rem;
-    padding: 0 2rem;
-    width: fit-content;
+    animation: autoScroll 40s linear infinite;
+    width: max-content;
+}
+
+.scroll-wrapper:hover .scroll-content {
+    animation-play-state: paused;
+}
+
+@keyframes autoScroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
 }
 
 .product-card-wrapper {
     flex: 0 0 320px;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
+    width: 320px;
 }
 
 .section-cta {
@@ -396,15 +360,12 @@
     border: 1px solid rgba(150, 153, 74, 0.3);
     overflow: hidden;
     position: relative;
-    
-    /* Background */
     background:
         linear-gradient(135deg, rgba(150, 153, 74, 0.85) 0%, rgba(122, 125, 58, 0.9) 100%),
         url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"><rect fill="%2396994A" width="1200" height="400"/><text x="50%25" y="50%25" font-size="48" fill="white" opacity="0.3" text-anchor="middle" dominant-baseline="middle">Fashion Background</text></svg>');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
 
@@ -513,62 +474,32 @@
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== TESTIMONIALS SECTION - HORIZONTAL SCROLL ===== */
+/* ===== TESTIMONIALS SECTION - PURE CSS AUTO-SCROLL ===== */
 .testimonials-section {
     padding: 4rem 0;
     overflow: hidden;
 }
 
-.testimonials-grid {
-    overflow-x: auto;
-    overflow-y: hidden;
+.testimonials-scroll-wrapper {
+    overflow: hidden;
     position: relative;
     width: 100%;
-    cursor: grab;
-    user-select: none;
-    padding-bottom: 10px;
-    scroll-behavior: smooth;
-    
-    /* Smooth scrolling with snap */
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    
+}
+
+.testimonials-scroll-content {
     display: flex;
     gap: 2rem;
-    padding: 0 2rem;
-    
-    /* Custom scrollbar */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(150, 153, 74, 0.4) rgba(150, 153, 74, 0.1);
+    animation: autoScroll 50s linear infinite;
+    width: max-content;
 }
 
-.testimonials-grid::-webkit-scrollbar {
-    height: 8px;
+.testimonials-scroll-wrapper:hover .testimonials-scroll-content {
+    animation-play-state: paused;
 }
 
-.testimonials-grid::-webkit-scrollbar-track {
-    background: rgba(150, 153, 74, 0.1);
-    border-radius: 10px;
-}
-
-.testimonials-grid::-webkit-scrollbar-thumb {
-    background: rgba(150, 153, 74, 0.4);
-    border-radius: 10px;
-    transition: background 0.3s ease;
-}
-
-.testimonials-grid::-webkit-scrollbar-thumb:hover {
-    background: rgba(150, 153, 74, 0.6);
-}
-
-.testimonials-grid:active {
-    cursor: grabbing;
-}
-
-.testimonials-grid > * {
+.testimonials-scroll-content > * {
     flex: 0 0 340px;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
+    width: 340px;
 }
 
 /* ===== DARK THEME ===== */
@@ -609,16 +540,6 @@
     color: var(--text-body, #d1d5db);
 }
 
-[data-theme="dark"] .products-scroll-container::-webkit-scrollbar-thumb,
-[data-theme="dark"] .testimonials-grid::-webkit-scrollbar-thumb {
-    background: rgba(184, 187, 106, 0.4);
-}
-
-[data-theme="dark"] .products-scroll-container::-webkit-scrollbar-thumb:hover,
-[data-theme="dark"] .testimonials-grid::-webkit-scrollbar-thumb:hover {
-    background: rgba(184, 187, 106, 0.6);
-}
-
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 1024px) {
     .hero-content {
@@ -633,10 +554,12 @@
     
     .product-card-wrapper {
         flex: 0 0 280px;
+        width: 280px;
     }
     
-    .testimonials-grid > * {
+    .testimonials-scroll-content > * {
         flex: 0 0 300px;
+        width: 300px;
     }
 }
 
@@ -684,10 +607,12 @@
     
     .product-card-wrapper {
         flex: 0 0 260px;
+        width: 260px;
     }
     
-    .testimonials-grid > * {
+    .testimonials-scroll-content > * {
         flex: 0 0 280px;
+        width: 280px;
     }
     
     .newsletter-section {
@@ -732,10 +657,12 @@
     
     .product-card-wrapper {
         flex: 0 0 240px;
+        width: 240px;
     }
     
-    .testimonials-grid > * {
+    .testimonials-scroll-content > * {
         flex: 0 0 260px;
+        width: 260px;
     }
     
     .newsletter-section {
@@ -762,23 +689,15 @@
     }
 }
 
-/* ===== TOUCH INTERACTION ===== */
-@media (hover: none) and (pointer: coarse) {
-    .products-scroll-container,
-    .testimonials-grid {
-        -webkit-overflow-scrolling: touch;
-        scroll-snap-type: x mandatory;
-    }
-}
-
-/* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
     .flip-text,
     .flip-text > div > div,
     .cta-primary,
     .hero-section,
     .loading-spinner,
-    .loading-spinner-small {
+    .loading-spinner-small,
+    .scroll-content,
+    .testimonials-scroll-content {
         animation: none;
     }
-    }
+}
