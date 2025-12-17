@@ -1,62 +1,51 @@
-@inject NavigationManager NavigationManager
+@using SubashaVentures.Components.Shared.Forms
 
 <nav class="shop-navigation">
-    <div class="nav-container">
-        @* Logo *@
-        <a href="/" class="nav-logo">
-            <span class="logo-text">SubashaVentures</span>
-        </a>
-
-        @* Search Bar *@
-        <div class="nav-search">
-            <span class="search-icon">🔍</span>
-            <input 
-                type="search" 
-                placeholder="Search products..." 
-                class="search-input"
-                @bind-value="searchQuery"
-                @bind-value:event="oninput"
-                @onchange="HandleSearchChange" />
+    <div class="nav-content">
+        <div class="nav-left">
+            <a href="/" class="brand-logo">
+                <span class="logo-icon">👟</span>
+                <span class="logo-text">Subasha</span>
+            </a>
         </div>
 
-        @* Actions *@
-        <div class="nav-actions">
-            <button class="nav-btn" @onclick="NavigateToCart" title="Cart">
-                <span class="nav-icon">🛒</span>
+        <div class="nav-center">
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <InputField 
+                    Type="text"
+                    Placeholder="Search products..."
+                    @bind-Value="SearchQuery"
+                    @bind-Value:after="OnSearchChanged"
+                    Size="InputField.InputSize.Large"
+                    CssClass="search-input-field" />
+            </div>
+        </div>
+
+        <div class="nav-right">
+            <a href="/cart" class="nav-btn cart-btn">
+                <span class="cart-icon">🛒</span>
                 @if (CartItemCount > 0)
                 {
                     <span class="cart-badge">@CartItemCount</span>
                 }
-            </button>
-            
-            <button class="nav-btn" @onclick="NavigateToAccount" title="Account">
-                <span class="nav-icon">👤</span>
-            </button>
+            </a>
+
+            <a href="/account" class="nav-btn account-btn">
+                <span class="account-icon">👤</span>
+            </a>
         </div>
     </div>
 </nav>
 
 @code {
+    [CascadingParameter] public Pages.Shop.Shop? ShopPage { get; set; }
     [Parameter] public int CartItemCount { get; set; }
-    [Parameter] public EventCallback<string> OnSearchChange { get; set; }
+    
+    private string SearchQuery { get; set; } = "";
 
-    private string searchQuery = "";
-
-    private async Task HandleSearchChange()
+    private void OnSearchChanged()
     {
-        if (OnSearchChange.HasDelegate)
-        {
-            await OnSearchChange.InvokeAsync(searchQuery);
-        }
-    }
-
-    private void NavigateToCart()
-    {
-        NavigationManager.NavigateTo("/cart");
-    }
-
-    private void NavigateToAccount()
-    {
-        NavigationManager.NavigateTo("/account");
+        ShopPage?.HandleSearchChange(SearchQuery);
     }
 }
