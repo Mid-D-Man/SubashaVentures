@@ -1,196 +1,126 @@
 @using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Services.Categories
+@using SubashaVentures.Services.Brands
+@inject ICategoryService CategoryService
+@inject IBrandService BrandService
 
 <div class="filter-panel">
-    @* Categories *@
-    <div class="filter-section">
-        <h3 class="section-title">Categories</h3>
-        <div class="filter-options">
-            @foreach (var category in Categories)
-            {
+    @if (IsLoading)
+    {
+        <div class="filter-loading">
+            <p>Loading filters...</p>
+        </div>
+    }
+    else
+    {
+        @* Categories *@
+        <div class="filter-section">
+            <h3 class="section-title">Categories</h3>
+            <div class="filter-options">
+                @foreach (var category in Categories)
+                {
+                    <label class="filter-option">
+                        <input 
+                            type="checkbox" 
+                            checked="@SelectedCategories.Contains(category)"
+                            @onchange="@(() => ToggleCategory(category))" />
+                        <span class="option-label">@category</span>
+                    </label>
+                }
+            </div>
+        </div>
+
+        @* Brands *@
+        <div class="filter-section">
+            <h3 class="section-title">Brands</h3>
+            <div class="filter-options">
+                @foreach (var brand in Brands)
+                {
+                    <label class="filter-option">
+                        <input 
+                            type="checkbox" 
+                            checked="@SelectedBrands.Contains(brand)"
+                            @onchange="@(() => ToggleBrand(brand))" />
+                        <span class="option-label">@brand</span>
+                    </label>
+                }
+            </div>
+        </div>
+
+        @* Rating *@
+        <div class="filter-section">
+            <h3 class="section-title">Minimum Rating</h3>
+            <div class="rating-options">
+                @for (int rating = 4; rating >= 1; rating--)
+                {
+                    int currentRating = rating;
+                    <button 
+                        class="rating-btn @(MinRating == currentRating ? "active" : "")"
+                        @onclick="@(() => MinRating = currentRating)">
+                        @for (int i = 0; i < 5; i++)
+                        {
+                            <span class="star @(i < currentRating ? "filled" : "")">★</span>
+                        }
+                        <span class="rating-text">& Up</span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* Price Range *@
+        <div class="filter-section">
+            <h3 class="section-title">Price Range</h3>
+            <div class="price-inputs-wrapper">
+                <InputField 
+                    Type="number"
+                    Placeholder="Min"
+                    @bind-Value="MinPriceText"
+                    Size="InputField.InputSize.Medium"
+                    CssClass="price-input-field" />
+                
+                <span class="price-separator">-</span>
+                
+                <InputField 
+                    Type="number"
+                    Placeholder="Max"
+                    @bind-Value="MaxPriceText"
+                    Size="InputField.InputSize.Medium"
+                    CssClass="price-input-field" />
+            </div>
+        </div>
+
+        @* Other Filters *@
+        <div class="filter-section">
+            <h3 class="section-title">Other</h3>
+            <div class="filter-options">
                 <label class="filter-option">
-                    <input 
-                        type="checkbox" 
-                        checked="@SelectedCategories.Contains(category)"
-                        @onchange="@(() => ToggleCategory(category))" />
-                    <span class="option-label">@category</span>
+                    <input type="checkbox" @bind="OnSale" />
+                    <span class="option-label">On Sale</span>
                 </label>
-            }
-        </div>
-    </div>
-
-    @* Brands *@
-    <div class="filter-section">
-        <h3 class="section-title">Brands</h3>
-        <div class="filter-options">
-            @foreach (var brand in Brands)
-            {
                 <label class="filter-option">
-                    <input 
-                        type="checkbox" 
-                        checked="@SelectedBrands.Contains(brand)"
-                        @onchange="@(() => ToggleBrand(brand))" />
-                    <span class="option-label">@brand</span>
+                    <input type="checkbox" @bind="FreeShipping" />
+                    <span class="option-label">Free Shipping</span>
                 </label>
-            }
+            </div>
         </div>
-    </div>
 
-    @* Price Range *@
-    <div class="filter-section">
-        <h3 class="section-title">Price Range</h3>
-        <div class="price-inputs">
-            <input 
-                type="number" 
-                placeholder="Min" 
-                @bind="MinPrice"
-                class="price-input" />
-            <span class="price-separator">-</span>
-            <input 
-                type="number" 
-                placeholder="Max" 
-                @bind="MaxPrice"
-                class="price-input" />
+        @* Action Buttons *@
+        <div class="filter-actions">
+            <PrimaryButton 
+                Size="PrimaryButton.ButtonSize.Large"
+                OnClick="ApplyFilters"
+                CssClass="apply-btn">
+                Apply Filters
+            </PrimaryButton>
+            
+            <SecondaryButton 
+                Size="SecondaryButton.ButtonSize.Large"
+                Variant="SecondaryButton.ButtonVariant.Outline"
+                OnClick="ResetFilters"
+                CssClass="reset-btn">
+                Reset All
+            </SecondaryButton>
         </div>
-    </div>
-
-    @* Rating *@
-    <div class="filter-section">
-        <h3 class="section-title">Minimum Rating</h3>
-        <div class="rating-options">
-            @for (int rating = 4; rating >= 1; rating--)
-            {
-                int currentRating = rating;
-                <button 
-                    class="rating-btn @(MinRating == currentRating ? "active" : "")"
-                    @onclick="@(() => MinRating = currentRating)">
-                    @for (int i = 0; i < 5; i++)
-                    {
-                        <span class="star @(i < currentRating ? "filled" : "")">★</span>
-                    }
-                    <span class="rating-text">& Up</span>
-                </button>
-            }
-        </div>
-    </div>
-
-    @* Other Filters *@
-    <div class="filter-section">
-        <h3 class="section-title">Other</h3>
-        <div class="filter-options">
-            <label class="filter-option">
-                <input type="checkbox" @bind="OnSale" />
-                <span class="option-label">On Sale</span>
-            </label>
-            <label class="filter-option">
-                <input type="checkbox" @bind="FreeShipping" />
-                <span class="option-label">Free Shipping</span>
-            </label>
-        </div>
-    </div>
-
-    @* Action Buttons *@
-    <div class="filter-actions">
-        <PrimaryButton 
-            Size="PrimaryButton.ButtonSize.Large"
-            OnClick="ApplyFilters"
-            CssClass="apply-btn">
-            Apply Filters
-        </PrimaryButton>
-        
-        <SecondaryButton 
-            Size="SecondaryButton.ButtonSize.Large"
-            Variant="SecondaryButton.ButtonVariant.Outline"
-            OnClick="ResetFilters"
-            CssClass="reset-btn">
-            Reset All
-        </SecondaryButton>
-    </div>
+    }
 </div>
-
-@code {
-    [Parameter] public EventCallback<FilterState> OnFiltersChange { get; set; }
-    [Parameter] public EventCallback OnClose { get; set; }
-
-    private List<string> Categories = new() 
-    { 
-        "Women Shoes", "Men Shoes", "Lifestyle", "Skateboarding", "Running", "Sports" 
-    };
-    
-    private List<string> Brands = new() 
-    { 
-        "Nike", "Adidas", "Puma", "New Balance", "Converse", "Vans", "Reebok" 
-    };
-
-    private List<string> SelectedCategories = new();
-    private List<string> SelectedBrands = new();
-    private int MinPrice = 0;
-    private int MaxPrice = 500;
-    private int MinRating = 0;
-    private bool OnSale = false;
-    private bool FreeShipping = false;
-
-    private void ToggleCategory(string category)
-    {
-        if (SelectedCategories.Contains(category))
-            SelectedCategories.Remove(category);
-        else
-            SelectedCategories.Add(category);
-    }
-
-    private void ToggleBrand(string brand)
-    {
-        if (SelectedBrands.Contains(brand))
-            SelectedBrands.Remove(brand);
-        else
-            SelectedBrands.Add(brand);
-    }
-
-    private async Task ApplyFilters()
-    {
-        var filters = new FilterState
-        {
-            Categories = SelectedCategories,
-            Brands = SelectedBrands,
-            MinRating = MinRating,
-            PriceRange = new[] { MinPrice, MaxPrice },
-            OnSale = OnSale,
-            FreeShipping = FreeShipping
-        };
-
-        await OnFiltersChange.InvokeAsync(filters);
-        await OnClose.InvokeAsync();
-    }
-
-    private async Task ResetFilters()
-    {
-        SelectedCategories.Clear();
-        SelectedBrands.Clear();
-        MinPrice = 0;
-        MaxPrice = 500;
-        MinRating = 0;
-        OnSale = false;
-        FreeShipping = false;
-
-        var filters = new FilterState
-        {
-            Categories = new List<string>(),
-            Brands = new List<string>(),
-            MinRating = 0,
-            PriceRange = new[] { 0, 500 },
-            OnSale = false,
-            FreeShipping = false
-        };
-
-        await OnFiltersChange.InvokeAsync(filters);
-    }
-
-    public class FilterState
-    {
-        public List<string> Categories { get; set; } = new();
-        public List<string> Brands { get; set; } = new();
-        public int MinRating { get; set; }
-        public int[] PriceRange { get; set; } = new[] { 0, 500 };
-        public bool OnSale { get; set; }
-        public bool FreeShipping { get; set; }
-    }
-}
