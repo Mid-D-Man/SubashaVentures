@@ -1,19 +1,19 @@
-/* ===== PRODUCT OF THE DAY CARD - MOBILE FIRST ===== */
+/* ===== PRODUCT OF THE DAY CARD - ENHANCED ===== */
 .potd-card {
     background: linear-gradient(135deg, 
         rgba(150, 153, 74, 0.05) 0%, 
         rgba(184, 187, 106, 0.08) 50%,
         rgba(150, 153, 74, 0.05) 100%);
     border: 2px solid var(--primary-color, #96994A);
-    border-radius: 16px;
+    border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(150, 153, 74, 0.12);
+    box-shadow: 0 8px 32px rgba(150, 153, 74, 0.2);
     position: relative;
-    max-width: 1200px;
+    max-width: 500px;
     margin: 0 auto;
 }
 
-/* Simple top border - NO shimmer animation */
+/* Animated top border */
 .potd-card::before {
     content: '';
     position: absolute;
@@ -21,7 +21,19 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: var(--primary-color, #96994A);
+    background: linear-gradient(90deg, 
+        var(--primary-color, #96994A),
+        #B8BB6A,
+        #FFD700,
+        var(--primary-color, #96994A)
+    );
+    background-size: 200% 100%;
+    animation: shimmerBorder 2s linear infinite;
+}
+
+@keyframes shimmerBorder {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 /* ===== HEADER ===== */
@@ -42,53 +54,67 @@
     gap: 0.5rem;
     background: var(--primary-color, #96994A);
     color: white;
-    padding: 0.375rem 0.875rem;
-    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    border-radius: 24px;
     font-weight: 700;
-    font-size: 0.8125rem;
-    box-shadow: 0 2px 8px rgba(150, 153, 74, 0.3);
+    font-size: 0.875rem;
+    box-shadow: 0 4px 12px rgba(150, 153, 74, 0.4);
+    animation: badgeGlow 2s ease-in-out infinite;
+}
+
+@keyframes badgeGlow {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(150, 153, 74, 0.4);
+    }
+    50% {
+        box-shadow: 0 6px 20px rgba(150, 153, 74, 0.6);
+    }
 }
 
 .badge-icon {
-    font-size: 0.875rem;
+    font-size: 1rem;
+    animation: rotate 3s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .potd-timer {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.375rem 0.875rem;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 10px;
-    font-size: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary, #1f2937);
     font-family: 'Courier New', monospace;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .potd-timer svg {
     color: var(--primary-color, #96994A);
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
 }
 
-/* ===== CONTENT - TWO COLUMN LAYOUT ===== */
+/* ===== CONTENT ===== */
 .potd-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     cursor: pointer;
 }
 
-/* ===== IMAGE SECTION - MAINTAIN ASPECT ===== */
+/* ===== IMAGE SECTION ===== */
 .potd-image-wrapper {
     position: relative;
-    aspect-ratio: 1 / 1; /* Keep square */
-    border-radius: 12px;
+    aspect-ratio: 1 / 1;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    max-height: 400px;
     background: var(--gray-100, #f3f4f6);
 }
 
@@ -96,11 +122,11 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    transition: transform 0.5s ease;
 }
 
 .potd-content:hover .potd-image {
-    transform: scale(1.05);
+    transform: scale(1.08);
 }
 
 .potd-placeholder {
@@ -109,94 +135,53 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    background: linear-gradient(135deg, var(--primary-color, #96994A), #B8BB6A);
 }
 
 .placeholder-icon {
-    font-size: 2.5rem;
-    opacity: 0.3;
-}
-
-/* Simple bottom gradient */
-.potd-image-wrapper::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 40%;
-    background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.6) 100%);
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* ===== OVERLAY ===== */
-.potd-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
-    display: flex;
-    align-items: flex-end;
-    padding: 1.25rem;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 2;
-}
-
-.potd-content:hover .potd-overlay {
-    opacity: 1;
-}
-
-.overlay-content {
+    font-size: 4rem;
+    opacity: 0.5;
     color: white;
 }
 
-.overlay-title {
-    font-size: 1.125rem;
-    font-weight: 700;
-    margin: 0 0 0.25rem 0;
-}
-
-.overlay-subtitle {
-    font-size: 0.8125rem;
-    margin: 0;
-    opacity: 0.9;
-}
-
-/* ===== DISCOUNT BADGE - NO PULSING ===== */
+/* ===== DISCOUNT BADGE ===== */
 .potd-discount {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 16px;
+    right: 16px;
     background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
     color: white;
-    padding: 0.4rem 0.75rem;
-    border-radius: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+    box-shadow: 0 4px 16px rgba(255, 68, 68, 0.4);
     z-index: 3;
 }
 
 .discount-value {
     display: block;
-    font-size: 1.125rem;
+    font-size: 1.5rem;
     font-weight: 800;
     line-height: 1;
 }
 
 .discount-label {
     display: block;
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-top: 0.2rem;
+    margin-top: 0.25rem;
 }
 
-/* ===== INFO SECTION ===== */
+/* ===== INFO SECTION (DARK BACKGROUND) ===== */
 .potd-info {
+    background: #1a1d29;
+    padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
+    color: white;
 }
 
 .potd-meta {
@@ -208,7 +193,7 @@
 }
 
 .potd-category {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     text-transform: uppercase;
     color: var(--primary-color, #96994A);
     font-weight: 700;
@@ -218,41 +203,41 @@
 .potd-rating {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-    background: rgba(150, 153, 74, 0.1);
-    padding: 0.3rem 0.625rem;
+    gap: 0.5rem;
+    background: rgba(150, 153, 74, 0.15);
+    padding: 0.375rem 0.75rem;
     border-radius: 8px;
     line-height: 1;
 }
 
 .rating-icon {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
 }
 
 .rating-value {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 700;
-    color: var(--text-primary, #1f2937);
+    color: white;
 }
 
 .rating-count {
-    font-size: 0.75rem;
-    color: var(--text-muted, #9ca3af);
+    font-size: 0.8125rem;
+    color: #999;
 }
 
 .potd-name {
     font-family: 'Poppins', sans-serif;
     font-size: 1.5rem;
     font-weight: 800;
-    color: var(--text-primary, #1f2937);
+    color: white;
     margin: 0;
     line-height: 1.2;
 }
 
 .potd-description {
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.6;
-    color: var(--text-secondary, #6b7280);
+    color: #d1d5db;
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -260,70 +245,44 @@
     overflow: hidden;
 }
 
-/* ===== FEATURES ===== */
-.potd-features {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.feature-tag {
-    padding: 0.3rem 0.625rem;
-    background: rgba(150, 153, 74, 0.1);
-    color: var(--text-primary, #1f2937);
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.feature-tag.stock-alert {
-    background: rgba(245, 158, 11, 0.1);
-    color: var(--warning-color, #f59e0b);
-}
-
-.feature-tag.sale {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--danger-color, #ef4444);
-}
-
 /* ===== PRICE SECTION ===== */
 .potd-price-section {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.875rem;
-    background: rgba(150, 153, 74, 0.05);
-    border-radius: 10px;
-    border: 1px solid rgba(150, 153, 74, 0.2);
+    gap: 0.75rem;
+    padding: 1rem;
+    background: rgba(150, 153, 74, 0.1);
+    border-radius: 12px;
+    border: 1px solid rgba(150, 153, 74, 0.3);
 }
 
 .price-wrapper {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: 0.75rem;
     flex-wrap: wrap;
     line-height: 1;
 }
 
 .potd-current-price {
-    font-size: 1.75rem;
+    font-size: 2rem;
     font-weight: 900;
     color: var(--primary-color, #96994A);
 }
 
 .potd-original-price {
-    font-size: 1.125rem;
-    color: var(--text-muted, #9ca3af);
+    font-size: 1.25rem;
+    color: #6b7280;
     text-decoration: line-through;
 }
 
 .savings-badge {
     display: inline-block;
-    padding: 0.3rem 0.625rem;
+    padding: 0.375rem 0.75rem;
     background: var(--success-color, #10b981);
     color: white;
-    border-radius: 6px;
-    font-size: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
     font-weight: 700;
     width: fit-content;
 }
@@ -332,7 +291,7 @@
 .potd-actions {
     display: flex;
     gap: 0.75rem;
-    margin-top: auto;
+    margin-top: 0.5rem;
 }
 
 .potd-add-cart-btn,
@@ -353,13 +312,13 @@
 }
 
 .loading-spinner {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border: 4px solid rgba(150, 153, 74, 0.2);
     border-top-color: var(--primary-color, #96994A);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 @keyframes spin {
@@ -367,27 +326,28 @@
 }
 
 .loading-text {
-    font-size: 0.875rem;
-    color: var(--text-secondary, #6b7280);
+    font-size: 1rem;
+    color: var(--text-body, #6b7280);
+    font-weight: 500;
     margin: 0;
 }
 
 .empty-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.875rem;
+    font-size: 3rem;
+    margin-bottom: 1rem;
     opacity: 0.3;
 }
 
 .empty-title {
-    font-size: 1.125rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    color: var(--text-primary, #1f2937);
+    color: var(--text-heading, #1f2937);
     margin: 0 0 0.5rem 0;
 }
 
 .empty-text {
-    font-size: 0.875rem;
-    color: var(--text-secondary, #6b7280);
+    font-size: 0.9375rem;
+    color: var(--text-body, #6b7280);
     margin: 0;
 }
 
@@ -419,12 +379,8 @@
     color: var(--primary-color, #B8BB6A);
 }
 
-[data-theme="dark"] .potd-name {
-    color: var(--text-primary, #f9fafb);
-}
-
-[data-theme="dark"] .potd-description {
-    color: var(--text-secondary, #d1d5db);
+[data-theme="dark"] .potd-info {
+    background: #111827;
 }
 
 [data-theme="dark"] .potd-current-price {
@@ -435,37 +391,46 @@
     background: rgba(184, 187, 106, 0.15);
 }
 
-[data-theme="dark"] .rating-value {
-    color: var(--text-primary, #f9fafb);
-}
-
 [data-theme="dark"] .potd-price-section {
-    background: rgba(184, 187, 106, 0.05);
-    border-color: rgba(184, 187, 106, 0.2);
+    background: rgba(184, 187, 106, 0.1);
+    border-color: rgba(184, 187, 106, 0.3);
 }
 
-[data-theme="dark"] .feature-tag {
-    background: rgba(184, 187, 106, 0.15);
-    color: var(--text-primary, #f9fafb);
+[data-theme="dark"] .potd-placeholder {
+    background: linear-gradient(135deg, var(--primary-color, #B8BB6A), #C8CB7A);
 }
 
-[data-theme="dark"] .potd-placeholder,
-[data-theme="dark"] .potd-image-wrapper {
-    background: var(--gray-700, #374151);
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .potd-header {
+        padding: 0.875rem;
+    }
+
+    .potd-name {
+        font-size: 1.25rem;
+    }
+
+    .potd-current-price {
+        font-size: 1.5rem;
+    }
+
+    .potd-info {
+        padding: 1.25rem;
+    }
 }
 
-/* ===== MOBILE FIRST RESPONSIVE ===== */
-
-/* Base: Mobile (up to 575px) */
-@media (max-width: 575px) {
+@media (max-width: 480px) {
     .potd-header {
         padding: 0.75rem;
     }
 
-    .potd-content {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-        padding: 1rem;
+    .potd-badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+    }
+
+    .badge-icon {
+        font-size: 0.875rem;
     }
 
     .potd-name {
@@ -480,125 +445,21 @@
         flex-direction: column;
     }
 
-    .potd-add-cart-btn,
-    .potd-view-btn {
-        width: 100%;
+    .potd-info {
+        padding: 1rem;
     }
-
-    .potd-image-wrapper {
-        max-height: 250px;
-    }
-
-    .potd-discount {
-        padding: 0.35rem 0.625rem;
-        top: 8px;
-        right: 8px;
-    }
-
-    .discount-value {
-        font-size: 1rem;
-    }
-
-    .discount-label {
-        font-size: 0.5625rem;
-    }
-
-    .potd-badge {
-        font-size: 0.75rem;
-        padding: 0.3rem 0.625rem;
-    }
-
-    .badge-icon {
-        font-size: 0.75rem;
-    }
-
-    .potd-timer {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.625rem;
-    }
-}
-
-/* Landscape phones (576px - 767px) */
-@media (min-width: 576px) and (max-width: 767px) {
-    .potd-content {
-        grid-template-columns: 1fr;
-        gap: 1.125rem;
-        padding: 1.125rem;
-    }
-
-    .potd-name {
-        font-size: 1.25rem;
-    }
-
-    .potd-current-price {
-        font-size: 1.5rem;
-    }
-
-    .potd-image-wrapper {
-        max-height: 300px;
-    }
-
-    .potd-actions {
-        flex-direction: column;
-    }
-}
-
-/* Tablets (768px - 991px) */
-@media (min-width: 768px) and (max-width: 991px) {
-    .potd-content {
-        grid-template-columns: 1fr;
-        gap: 1.25rem;
-        padding: 1.25rem;
-    }
-
-    .potd-name {
-        font-size: 1.375rem;
-    }
-
-    .potd-current-price {
-        font-size: 1.625rem;
-    }
-
-    .potd-image-wrapper {
-        max-height: 350px;
-    }
-}
-
-/* Desktop (992px+) */
-@media (min-width: 992px) {
-    .potd-content {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .potd-name {
-        font-size: 1.5rem;
-    }
-
-    .potd-current-price {
-        font-size: 1.75rem;
-    }
-
-    .potd-image-wrapper {
-        max-height: 400px;
-    }
-}
-
-/* ===== ACCESSIBILITY ===== */
-.potd-card:focus-within {
-    outline: 2px solid var(--primary-color, #96994A);
-    outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .potd-card::before,
     .badge-icon,
     .potd-image,
-    .potd-overlay,
-    .loading-spinner {
+    .loading-spinner,
+    .potd-badge {
         animation: none;
     }
 
     .potd-content:hover .potd-image {
         transform: none;
     }
-    }
+}
