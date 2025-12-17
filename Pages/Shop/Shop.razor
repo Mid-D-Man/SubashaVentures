@@ -108,11 +108,11 @@
                 </button>
 
                 <div class="pagination-pages">
-                    @foreach (var page in GetVisiblePages())
+                    @foreach (var pageNum in GetVisiblePages())
                     {
-                        <button class="pagination-btn pagination-page @(page == CurrentPage ? "active" : "")"
-                                @onclick="@(() => GoToPage(page))">
-                            @page
+                        <button class="pagination-btn pagination-page @(pageNum == CurrentPage ? "active" : "")"
+                                @onclick="@(() => GoToPage(pageNum))">
+                            @pageNum
                         </button>
                     }
                 </div>
