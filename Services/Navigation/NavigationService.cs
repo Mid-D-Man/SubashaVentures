@@ -60,4 +60,14 @@ public class NavigationService : INavigationService
         var queryParams = QueryHelpers.ParseQuery(uri.Query);
         return queryParams.TryGetValue(key, out var value) ? value.ToString() : null;
     }
+    
+    public void NavigateTo(string uri)
+    {
+        _navigationManager.NavigateTo(uri);
+    }
+    
+    public void NavigateTo(string uri, bool forceLoad)
+    {
+        _navigationManager.NavigateTo(uri, forceLoad);
+    }
 }
