@@ -1,29 +1,27 @@
 @using SubashaVentures.Domain.Product
-@using SubashaVentures.Services.Navigation
-@inject INavigationService NavigationService
+@inject NavigationManager NavigationManager
 
-<div class="shop-product-card @(Product.IsFeatured ? "featured" : "")"
-     @onclick="HandleCardClick"
-     @onclick:stopPropagation="false">
+<div class="shop-product-card @(Product.IsFeatured ? "featured" : "")" @onclick="HandleCardClick">
     
-    @* Product Image *@
+    @* Image Section *@
     <div class="product-image-container">
-        <img src="@GetPrimaryImage()" 
+        <img src="@GetImageUrl()" 
              alt="@Product.Name" 
-             class="product-image"
-             loading="lazy" />
+             class="product-image" 
+             loading="lazy"
+             onerror="this.src='/diverse-products-still-life.png'" />
         
-        @* Featured Badge *@
-        @if (Product.IsFeatured)
-        {
-            <div class="badge badge-featured">Featured</div>
-        }
-        
-        @* Sale Badge *@
-        @if (Product.IsOnSale && Product.Discount > 0)
-        {
-            <div class="badge badge-sale">@Product.Discount% OFF</div>
-        }
+        @* Badges *@
+        <div class="product-badges">
+            @if (Product.IsFeatured)
+            {
+                <span class="badge badge-featured">Featured</span>
+            }
+            @if (Product.IsOnSale && Product.Discount > 0)
+            {
+                <span class="badge badge-sale">-@Product.Discount%</span>
+            }
+        </div>
     </div>
 
     @* Product Details *@
@@ -39,7 +37,7 @@
             }
         </div>
 
-        @* Product Name & Price *@
+        @* Name & Price *@
         <div class="product-header">
             <h3 class="product-name" title="@Product.Name">
                 @Product.Name
@@ -61,9 +59,7 @@
                     @for (int i = 0; i < 5; i++)
                     {
                         int starIndex = i;
-                        <span class="star @(starIndex < Math.Floor(Product.Rating) ? "filled" : "")">
-                            ★
-                        </span>
+                        <span class="star @(starIndex < Math.Floor(Product.Rating) ? "filled" : "")">★</span>
                     }
                 </div>
                 <span class="rating-text">
@@ -78,14 +74,7 @@
                     @onclick="HandleAddToCart"
                     @onclick:stopPropagation="true"
                     disabled="@(!Product.IsInStock)">
-                @if (Product.IsInStock)
-                {
-                    <text>ADD TO CART</text>
-                }
-                else
-                {
-                    <text>OUT OF STOCK</text>
-                }
+                @(Product.IsInStock ? "ADD TO CART" : "OUT OF STOCK")
             </button>
             
             <button class="btn-favorite @(IsFavorite ? "active" : "")"
@@ -105,14 +94,25 @@
 
     private bool IsFavorite { get; set; }
 
-    private string GetPrimaryImage()
+    private string GetImageUrl()
     {
-        return Product.Images?.FirstOrDefault() ?? "/diverse-products-still-life.png";
+        // Return first image or placeholder
+        if (Product?.Images != null && Product.Images.Any())
+        {
+            var firstImage = Product.Images.First();
+            if (!string.IsNullOrWhiteSpace(firstImage))
+            {
+                return firstImage;
+            }
+        }
+        
+        return "/diverse-products-still-life.png";
     }
 
     private void HandleCardClick()
     {
-        NavigationService.NavigateTo($"/shop/{Product.Slug}");
+        // Navigate to product detail page - /product/{slug} NOT /shop/{slug}
+        NavigationManager.NavigateTo($"/product/{Product.Slug}");
     }
 
     private async Task HandleAddToCart(MouseEventArgs e)
