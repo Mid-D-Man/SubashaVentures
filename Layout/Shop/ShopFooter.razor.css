@@ -1,0 +1,144 @@
+/* ===== SHOP FOOTER ===== */
+.shop-footer {
+    width: 100%;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-light);
+    margin-top: auto;
+}
+
+.footer-container {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 48px 20px 24px;
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+.footer-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.footer-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.footer-text {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.footer-links a {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.footer-links a:hover {
+    color: var(--primary-color);
+}
+
+/* Newsletter */
+.newsletter-form {
+    display: flex;
+    gap: 8px;
+}
+
+.newsletter-input {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    outline: none;
+}
+
+.newsletter-input:focus {
+    border-color: var(--primary-color);
+}
+
+.newsletter-btn {
+    padding: 10px 16px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    background: var(--primary-color);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.newsletter-btn:hover {
+    background: var(--primary-dark);
+}
+
+/* Bottom Bar */
+.footer-bottom {
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+}
+
+.copyright {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (min-width: 768px) {
+    .footer-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 40px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .footer-container {
+        padding: 64px 32px 32px;
+    }
+
+    .footer-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 48px;
+    }
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .shop-footer {
+    background: var(--bg-surface);
+    border-top-color: var(--border-dark);
+}
+
+[data-theme="dark"] .newsletter-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-dark);
+}
+
+[data-theme="dark"] .footer-bottom {
+    border-top-color: var(--border-dark);
+    }
