@@ -71,5 +71,19 @@ public interface INavigationService
     /// Notifies subscribers that filters have changed
     /// </summary>
     void NotifyFiltersChanged();
+    
+    /// <summary>
+    /// Gets a query parameter from the current URL
+    /// </summary>
     string? GetQueryParameter(string key);
+    
+    /// <summary>
+    /// Navigates to the specified URI
+    /// </summary>
+    void NavigateTo(string uri);
+    
+    /// <summary>
+    /// Navigates to the specified URI with force load option
+    /// </summary>
+    void NavigateTo(string uri, bool forceLoad);
 }
