@@ -10,7 +10,6 @@ namespace SubashaVentures.Pages.Shop;
 public partial class Shop : ComponentBase
 {
     [Inject] private IProductService ProductService { get; set; } = null!;
-    [CascadingParameter] public ShopLayout? Layout { get; set; }
 
     private List<ProductViewModel> AllProducts { get; set; } = new();
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
@@ -36,18 +35,12 @@ public partial class Shop : ComponentBase
     private int ItemsPerPage { get; set; } = 12;
     private int TotalPages => (int)Math.Ceiling((double)FilteredProducts.Count / ItemsPerPage);
 
+    // Mobile filter state
+    private bool ShowMobileFilters { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadProducts();
-        
-        // Check for search query in URL
-        var uri = new Uri(NavigationManager.Uri);
-        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query)
-            .TryGetValue("search", out var searchValue))
-        {
-            SearchQuery = searchValue.ToString();
-            ApplyFilters();
-        }
     }
 
     private async Task LoadProducts()
@@ -82,9 +75,10 @@ public partial class Shop : ComponentBase
         }
     }
 
-    public async Task HandleFiltersChange(ShopFilterPanel.FilterState filters)
+    // PUBLIC METHOD - Called from ShopFilterPanel
+    public void HandleFiltersChange(ShopFilterPanel.FilterState filters)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
+        _ = MID_HelperFunctions.DebugMessageAsync(
             $"Filters changed: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
             LogLevel.Info
         );
@@ -100,6 +94,7 @@ public partial class Shop : ComponentBase
         ApplyFilters();
     }
 
+    // PUBLIC METHOD - Called from ShopNavigation
     public void HandleSearchChange(string query)
     {
         SearchQuery = query ?? "";
@@ -159,7 +154,7 @@ public partial class Shop : ComponentBase
             FilteredProducts = FilteredProducts.Where(p => p.IsOnSale).ToList();
         }
 
-        // Free shipping filter (assuming products over 50k get free shipping)
+        // Free shipping filter
         if (ActiveFreeShipping)
         {
             FilteredProducts = FilteredProducts.Where(p => p.Price >= 50000).ToList();
@@ -266,8 +261,20 @@ public partial class Shop : ComponentBase
         ApplyFilters();
     }
 
-    private void OpenMobileFilters()
+    // PUBLIC METHOD - Opens mobile filter drawer
+    public void OpenMobileFilters()
     {
-        Layout?.OpenMobileFilters();
+        ShowMobileFilters = true;
+        StateHasChanged();
     }
+
+    // PUBLIC METHOD - Closes mobile filter drawer
+    public void CloseMobileFilters()
+    {
+        ShowMobileFilters = false;
+        StateHasChanged();
+    }
+
+    // PUBLIC PROPERTY - For checking mobile filter state
+    public bool IsMobileFiltersOpen => ShowMobileFilters;
 }
