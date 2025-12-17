@@ -1,58 +1,52 @@
-@using SubashaVentures.Components.Shared.Forms
-@using SubashaVentures.Components.Shared.Buttons
 @inject NavigationManager NavigationManager
 
-<div class="shop-navigation">
+<nav class="shop-navigation">
     <div class="nav-container">
-        
-        @* Logo - Desktop *@
-        <div class="nav-logo desktop-logo">
-            <BrandLogo />
-        </div>
-
-        @* Logo - Mobile *@
-        <div class="nav-logo mobile-logo">
-            <BrandLogo />
-        </div>
+        @* Logo *@
+        <a href="/" class="nav-logo">
+            <span class="logo-text">SubashaVentures</span>
+        </a>
 
         @* Search Bar *@
         <div class="nav-search">
-            <InputField 
-                @bind-Value="SearchQuery"
-                Placeholder="Search products..."
-                PrefixIcon="🔍"
-                CssClass="search-input"
-                @bind-Value:event="oninput"
-                OnBlur="HandleSearch" />
+            <span class="search-icon">🔍</span>
+            <input 
+                type="search" 
+                placeholder="Search products..." 
+                class="search-input"
+                @bind-value="searchQuery"
+                @bind-value:event="oninput"
+                @onchange="HandleSearchChange" />
         </div>
 
-        @* Cart Button *@
-        <button class="nav-icon-btn cart-btn" @onclick="NavigateToCart" title="Shopping Cart">
-            <span class="icon">🛒</span>
-            @if (CartItemCount > 0)
-            {
-                <span class="cart-badge">@CartItemCount</span>
-            }
-        </button>
-
-        @* User/Profile Button *@
-        <button class="nav-icon-btn user-btn" @onclick="NavigateToProfile" title="User Profile">
-            <span class="icon">👤</span>
-        </button>
+        @* Actions *@
+        <div class="nav-actions">
+            <button class="nav-btn" @onclick="NavigateToCart" title="Cart">
+                <span class="nav-icon">🛒</span>
+                @if (CartItemCount > 0)
+                {
+                    <span class="cart-badge">@CartItemCount</span>
+                }
+            </button>
+            
+            <button class="nav-btn" @onclick="NavigateToAccount" title="Account">
+                <span class="nav-icon">👤</span>
+            </button>
+        </div>
     </div>
-</div>
+</nav>
 
 @code {
-    [Parameter] public int CartItemCount { get; set; } = 0;
+    [Parameter] public int CartItemCount { get; set; }
     [Parameter] public EventCallback<string> OnSearchChange { get; set; }
 
-    private string SearchQuery { get; set; } = "";
+    private string searchQuery = "";
 
-    private async Task HandleSearch()
+    private async Task HandleSearchChange()
     {
         if (OnSearchChange.HasDelegate)
         {
-            await OnSearchChange.InvokeAsync(SearchQuery);
+            await OnSearchChange.InvokeAsync(searchQuery);
         }
     }
 
@@ -61,8 +55,8 @@
         NavigationManager.NavigateTo("/cart");
     }
 
-    private void NavigateToProfile()
+    private void NavigateToAccount()
     {
-        NavigationManager.NavigateTo("/profile");
+        NavigationManager.NavigateTo("/account");
     }
 }
