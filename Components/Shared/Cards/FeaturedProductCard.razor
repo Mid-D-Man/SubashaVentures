@@ -1,74 +1,83 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
 
-<div class="featured-card @CssClass" @onclick="HandleCardClick">
+<div class="featured-product-card @CssClass" @onclick="HandleCardClick">
     
-    <!-- Image Section (70%) -->
-    <div class="featured-image-wrapper">
+    @* Image Section *@
+    <div class="card-image-section">
         @if (!string.IsNullOrEmpty(Product.Images?.FirstOrDefault()))
         {
-            <img src="@Product.Images.First()" alt="@Product.Name" class="featured-image" loading="lazy" />
+            <img src="@Product.Images.First()" 
+                 alt="@Product.Name" 
+                 class="product-image" 
+                 loading="lazy" />
         }
         else
         {
-            <div class="featured-placeholder">
+            <div class="image-skeleton">
                 <span class="placeholder-icon">✨</span>
             </div>
         }
         
-        <!-- Featured Glow Effect -->
-        <div class="featured-glow"></div>
-        
-        <!-- Badges -->
-        <div class="featured-badges">
-            <span class="badge badge-featured-special">⭐ Featured</span>
+        @* Badges *@
+        <div class="badges-row">
+            <span class="badge featured-badge">⭐ Featured</span>
             @if (Product.IsOnSale && Product.Discount > 0)
             {
-                <span class="badge badge-sale">-@Product.Discount%</span>
+                <span class="badge sale-badge">-@Product.Discount%</span>
             }
         </div>
         
-        <!-- Wishlist Button -->
+        @* Wishlist Button *@
         <button class="wishlist-btn @(isInWishlist ? "active" : "")" 
                 @onclick="HandleWishlistToggle" 
-                @onclick:stopPropagation="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="@(isInWishlist ? "currentColor" : "none")" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
+                @onclick:stopPropagation="true"
+                title="@(isInWishlist ? "Remove from wishlist" : "Add to wishlist")">
+            <span class="heart-icon">@(isInWishlist ? "♥" : "♡")</span>
         </button>
     </div>
     
-    <!-- Info Section (30%) -->
-    <div class="featured-info">
-        <p class="featured-category">@Product.Category</p>
-        <h3 class="featured-name">@Product.Name</h3>
+    @* Info Section (Dark Background) *@
+    <div class="card-info-section">
+        @* Category *@
+        <p class="product-category">@Product.Category.ToUpper()</p>
         
+        @* Name & Price Row *@
+        <div class="name-price-row">
+            <h3 class="product-name" title="@Product.Name">
+                @Product.Name
+            </h3>
+            <div class="product-price">
+                @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
+                {
+                    <span class="original-price">@Product.DisplayOriginalPrice</span>
+                }
+                <span class="current-price">@Product.DisplayPrice</span>
+            </div>
+        </div>
+        
+        @* Rating *@
         @if (Product.Rating > 0)
         {
-            <div class="featured-rating">
+            <div class="product-rating">
                 <div class="rating-stars">
                     @for (int i = 1; i <= 5; i++)
                     {
                         <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
                     }
                 </div>
-                <span class="rating-text">(@Product.ReviewCount)</span>
+                <span class="review-count">(@Product.ReviewCount)</span>
             </div>
         }
         
-        <div class="featured-price">
-            @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
-            {
-                <span class="original-price">@Product.DisplayOriginalPrice</span>
-            }
-            <span class="current-price">@Product.DisplayPrice</span>
+        @* Action Buttons *@
+        <div class="action-buttons-row">
+            <button class="view-details-btn" 
+                    @onclick="HandleViewDetails" 
+                    @onclick:stopPropagation="true">
+                View Details
+            </button>
         </div>
-        
-        <PrimaryButton Size="PrimaryButton.ButtonSize.Small"
-                      OnClick="HandleViewDetails"
-                      CssClass="featured-view-btn">
-            View Details
-        </PrimaryButton>
     </div>
 </div>
 
