@@ -1,4 +1,3 @@
-
 @page "/"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Cards
@@ -83,7 +82,7 @@
         </div>
     </section>
 
-    <!-- Featured Products Section - Horizontal Scroll -->
+    <!-- Featured Products Section - AUTO-SCROLL -->
     <section class="featured-section">
         <div class="section-header">
             <h2 class="section-title">Featured Products</h2>
@@ -99,8 +98,18 @@
         }
         else if (featuredProducts.Any())
         {
-            <div class="products-scroll-container">
-                <div class="products-horizontal">
+            <div class="scroll-wrapper">
+                <div class="scroll-content">
+                    @foreach (var product in featuredProducts)
+                    {
+                        <div class="product-card-wrapper">
+                            <FeaturedProductCard 
+                                Product="@product"
+                                OnClick="@(() => HandleProductClick(product))"
+                                OnViewDetails="@(() => HandleViewDetails(product))" />
+                        </div>
+                    }
+                    @* DUPLICATE for seamless loop *@
                     @foreach (var product in featuredProducts)
                     {
                         <div class="product-card-wrapper">
@@ -161,22 +170,33 @@
         </div>
     </section>
 
-    <!-- Testimonials Section - Grid Layout -->
+    <!-- Testimonials Section -->
     <section class="testimonials-section">
         <div class="section-header">
             <h2 class="section-title">What Our Customers Say</h2>
             <p class="section-subtitle">Real reviews from real customers</p>
         </div>
 
-        <div class="testimonials-grid">
-            @foreach (var review in sampleReviews)
-            {
-                <CustomerReviewCard 
-                    Review="@review"
-                    IsHelpful="@false"
-                    OnHelpfulClick="@HandleHelpfulClick"
-                    OnImageClick="@HandleReviewImageClick" />
-            }
+        <div class="testimonials-scroll-wrapper">
+            <div class="testimonials-scroll-content">
+                @foreach (var review in sampleReviews)
+                {
+                    <CustomerReviewCard 
+                        Review="@review"
+                        IsHelpful="@false"
+                        OnHelpfulClick="@HandleHelpfulClick"
+                        OnImageClick="@HandleReviewImageClick" />
+                }
+                @* DUPLICATE for seamless loop *@
+                @foreach (var review in sampleReviews)
+                {
+                    <CustomerReviewCard 
+                        Review="@review"
+                        IsHelpful="@false"
+                        OnHelpfulClick="@HandleHelpfulClick"
+                        OnImageClick="@HandleReviewImageClick" />
+                }
+            </div>
         </div>
     </section>
 </div>
