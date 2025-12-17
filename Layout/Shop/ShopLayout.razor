@@ -1,65 +1,67 @@
-@using SubashaVentures.Components.Shared.Loading
 @inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
 
 <div class="shop-layout">
-    
     @* Top Navigation *@
     <ShopNavigation 
         CartItemCount="@CartItemCount"
-        OnSearchChange="HandleSearchChange" />
+        OnSearchChange="@HandleSearchChange" />
 
-    @* Main Content Area *@
-    <div class="shop-content">
-        
-        @* Filter Panel - Desktop Sidebar / Mobile Overlay *@
-        <aside class="filter-sidebar @(ShowMobileFilters ? "mobile-open" : "")">
-            @if (ShowMobileFilters)
-            {
-                <div class="mobile-filter-backdrop" @onclick="CloseMobileFilters"></div>
-            }
-            <ShopFilterPanel 
-                CssClass="@(ShowMobileFilters ? "mobile-panel" : "")"
-                OnFiltersChange="HandleFiltersChange" />
-        </aside>
+    @* Filter Panel Overlay *@
+    @if (ShowFilters)
+    {
+        <div class="filter-overlay" @onclick="CloseFilters">
+            <div class="filter-panel-container" @onclick:stopPropagation="true">
+                <div class="filter-header">
+                    <h2 class="filter-title">Filters</h2>
+                    <button class="filter-close-btn" @onclick="CloseFilters">
+                        <span class="close-icon">✕</span>
+                    </button>
+                </div>
+                <ShopFilterPanel 
+                    OnFiltersChange="@HandleFiltersChange"
+                    OnClose="@CloseFilters" />
+            </div>
+        </div>
+    }
 
-        @* Main Shop Area *@
-        <main class="shop-main">
-            @Body
-        </main>
-    </div>
+    @* Main Content *@
+    <main class="shop-main">
+        @Body
+    </main>
 
     @* Footer *@
     <ShopFooter />
-
-    @* Bottom Navigation - Mobile Only *@
-    <ShopBottomNav CartItemCount="@CartItemCount" />
 </div>
 
 @code {
     [Parameter] public int CartItemCount { get; set; } = 0;
     
-    private bool ShowMobileFilters { get; set; } = false;
+    private bool ShowFilters { get; set; }
+    private string SearchQuery { get; set; } = "";
+
+    public void OpenFilters()
+    {
+        ShowFilters = true;
+        StateHasChanged();
+    }
+
+    public void CloseFilters()
+    {
+        ShowFilters = false;
+        StateHasChanged();
+    }
 
     private void HandleSearchChange(string query)
     {
-        // Search logic will be handled by the page component
-        // This is just a pass-through
+        SearchQuery = query;
+        // Notify parent/shop page through event or service
+        NavigationManager.NavigateTo($"/shop?search={Uri.EscapeDataString(query)}");
     }
 
     private void HandleFiltersChange(ShopFilterPanel.FilterState filters)
     {
-        // Filter logic will be handled by the page component
-        // This is just a pass-through
-        CloseMobileFilters();
-    }
-
-    public void ToggleMobileFilters()
-    {
-        ShowMobileFilters = !ShowMobileFilters;
-    }
-
-    private void CloseMobileFilters()
-    {
-        ShowMobileFilters = false;
+        // This will be called by child components
+        StateHasChanged();
     }
 }
