@@ -8,9 +8,7 @@ namespace SubashaVentures.Layout.Shop;
 
 public partial class ShopFilterPanel : ComponentBase
 {
-    [Parameter] public EventCallback<FilterState> OnFiltersChange { get; set; }
-    [Parameter] public EventCallback OnClose { get; set; }
-
+    [CascadingParameter] public Pages.Shop.Shop? ShopPage { get; set; }
     [Inject] private ICategoryService CategoryService { get; set; } = null!;
     [Inject] private IBrandService BrandService { get; set; } = null!;
 
@@ -123,8 +121,10 @@ public partial class ShopFilterPanel : ComponentBase
         StateHasChanged();
     }
 
-    private async Task ApplyFilters()
+    private void ApplyFilters()
     {
+        if (ShopPage == null) return;
+
         var minPrice = 0m;
         var maxPrice = 1000000m;
 
@@ -145,17 +145,22 @@ public partial class ShopFilterPanel : ComponentBase
             FreeShipping = FreeShipping
         };
 
-        await MID_HelperFunctions.DebugMessageAsync(
+        _ = MID_HelperFunctions.DebugMessageAsync(
             $"Applying filters: {SelectedCategories.Count} categories, {SelectedBrands.Count} brands",
             LogLevel.Info
         );
 
-        await OnFiltersChange.InvokeAsync(filters);
-        await OnClose.InvokeAsync();
+        // Directly invoke Shop page method
+        ShopPage.HandleFiltersChange(filters);
+        
+        // Close mobile drawer if open
+        ShopPage.CloseMobileFilters();
     }
 
-    private async Task ResetFilters()
+    private void ResetFilters()
     {
+        if (ShopPage == null) return;
+
         SelectedCategories.Clear();
         SelectedBrands.Clear();
         MinPriceText = "";
@@ -175,7 +180,7 @@ public partial class ShopFilterPanel : ComponentBase
             FreeShipping = false
         };
 
-        await OnFiltersChange.InvokeAsync(filters);
+        ShopPage.HandleFiltersChange(filters);
         StateHasChanged();
     }
 
