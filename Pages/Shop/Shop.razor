@@ -5,23 +5,24 @@
 @using SubashaVentures.Domain.Product
 @using SubashaVentures.Layout.Shop
 @layout ShopLayout
+@inject NavigationManager NavigationManager
 
 <PageTitle>Shop - Subasha Ventures</PageTitle>
 
 <div class="shop-page">
     
-    @* Mobile Filter Toggle & Sort *@
+    @* Controls Bar *@
     <div class="shop-controls">
         <SecondaryButton 
             Variant="SecondaryButton.ButtonVariant.Outline"
             Size="SecondaryButton.ButtonSize.Medium"
-            OnClick="ToggleMobileFilters"
+            OnClick="OpenFilters"
             Icon="🔍"
-            CssClass="btn-mobile-filter">
-            Show Filters
+            CssClass="btn-filters">
+            Filters
         </SecondaryButton>
         
-        <div class="sort-dropdown">
+        <div class="sort-wrapper">
             <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySorting">
                 <option value="default">Sort By</option>
                 <option value="price-asc">Price: Low to High</option>
@@ -79,7 +80,7 @@
             <SecondaryButton 
                 Variant="SecondaryButton.ButtonVariant.Outline"
                 OnClick="ResetFilters" 
-                CssClass="btn-reset-filters">
+                CssClass="btn-reset">
                 Reset Filters
             </SecondaryButton>
         </div>
@@ -101,7 +102,7 @@
         @if (TotalPages > 1)
         {
             <div class="pagination">
-                <button class="pagination-btn pagination-prev" 
+                <button class="pagination-btn" 
                         @onclick="PreviousPage"
                         disabled="@(CurrentPage == 1)">
                     <span class="pagination-icon">←</span>
@@ -110,14 +111,14 @@
                 <div class="pagination-pages">
                     @foreach (var pageNum in GetVisiblePages())
                     {
-                        <button class="pagination-btn pagination-page @(pageNum == CurrentPage ? "active" : "")"
+                        <button class="pagination-btn @(pageNum == CurrentPage ? "active" : "")"
                                 @onclick="@(() => GoToPage(pageNum))">
                             @pageNum
                         </button>
                     }
                 </div>
 
-                <button class="pagination-btn pagination-next" 
+                <button class="pagination-btn" 
                         @onclick="NextPage"
                         disabled="@(CurrentPage == TotalPages)">
                     <span class="pagination-icon">→</span>
@@ -126,3 +127,12 @@
         }
     }
 </div>
+
+@code {
+    [CascadingParameter] public ShopLayout? Layout { get; set; }
+
+    private void OpenFilters()
+    {
+        Layout?.OpenFilters();
+    }
+}
