@@ -3,18 +3,14 @@
 
 <div class="shop-layout-wrapper">
     @* Top Navigation - Fixed *@
-    <ShopNavigation 
-        CartItemCount="@CartItemCount"
-        OnSearchChange="@HandleSearchChange" />
+    <ShopNavigation CartItemCount="@CartItemCount" />
 
     @* Main Shop Container *@
     <div class="shop-container">
         
         @* Desktop Filter Sidebar (Left - 30%) *@
         <aside class="shop-sidebar desktop-only">
-            <ShopFilterPanel 
-                OnFiltersChange="@HandleFiltersChange"
-                OnClose="@(() => {})" />
+            <ShopFilterPanel />
         </aside>
 
         @* Main Shop Content (Right - 70%) *@
@@ -23,57 +19,9 @@
         </main>
     </div>
 
-    @* Mobile Filter Drawer Overlay *@
-    @if (ShowMobileFilters)
-    {
-        <div class="mobile-filter-overlay" @onclick="CloseMobileFilters">
-            <div class="mobile-filter-drawer" @onclick:stopPropagation="true">
-                <div class="mobile-filter-header">
-                    <h2 class="filter-title">Filters</h2>
-                    <button class="filter-close-btn" @onclick="CloseMobileFilters">
-                        <span class="close-icon">✕</span>
-                    </button>
-                </div>
-                <ShopFilterPanel 
-                    OnFiltersChange="@HandleFiltersChange"
-                    OnClose="@CloseMobileFilters" />
-            </div>
-        </div>
-    }
+    @* Mobile Filter Drawer Overlay - Rendered by Shop page *@
 </div>
 
 @code {
     [Parameter] public int CartItemCount { get; set; } = 0;
-    
-    private bool ShowMobileFilters { get; set; }
-
-    public void OpenMobileFilters()
-    {
-        ShowMobileFilters = true;
-        StateHasChanged();
-    }
-
-    public void CloseMobileFilters()
-    {
-        ShowMobileFilters = false;
-        StateHasChanged();
-    }
-
-    private void HandleSearchChange(string query)
-    {
-        // Find the Shop page and call its search handler
-        if (Body.Target is Pages.Shop.Shop shopPage)
-        {
-            shopPage.HandleSearchChange(query);
-        }
-    }
-
-    private void HandleFiltersChange(Layout.Shop.ShopFilterPanel.FilterState filters)
-    {
-        // Find the Shop page and call its filter handler
-        if (Body.Target is Pages.Shop.Shop shopPage)
-        {
-            shopPage.HandleFiltersChange(filters);
-        }
-    }
 }
