@@ -1,4 +1,4 @@
-@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
 
 <nav class="shop-top-nav">
     <div class="nav-container">
@@ -9,15 +9,17 @@
             <span class="logo-text">Subasha</span>
         </a>
 
-        @* Search Bar *@
+        @* Search Bar - Using InputField Component *@
         <div class="search-container">
-            <span class="search-icon">🔍</span>
-            <input 
-                type="text" 
-                class="search-input"
-                placeholder="Search products..."
-                value="@SearchQuery"
-                @oninput="HandleSearchInput" />
+            <InputField 
+                Type="text"
+                Placeholder="Search products..."
+                Value="@SearchQuery"
+                ValueChanged="@HandleSearchChange"
+                PrefixIcon="🔍"
+                ShowClearButton="true"
+                Size="InputField.InputSize.Medium"
+                CssClass="shop-search-input" />
         </div>
 
         @* Right Actions *@
@@ -40,14 +42,14 @@
 </nav>
 
 @code {
-    [CascadingParameter] public Pages.Shop.Shop? ShopPage { get; set; }
+    [Parameter] public EventCallback<string> OnSearchChanged { get; set; }
     [Parameter] public int CartItemCount { get; set; }
     
     private string SearchQuery { get; set; } = "";
 
-    private void HandleSearchInput(ChangeEventArgs e)
+    private async Task HandleSearchChange(string value)
     {
-        SearchQuery = e.Value?.ToString() ?? "";
-        ShopPage?.HandleSearchChange(SearchQuery);
+        SearchQuery = value;
+        await OnSearchChanged.InvokeAsync(value);
     }
 }
