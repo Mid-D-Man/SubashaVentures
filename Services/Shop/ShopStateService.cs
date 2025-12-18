@@ -1,6 +1,6 @@
 // Services/Shop/ShopStateService.cs
 using SubashaVentures.Layout.Shop;
-
+using SubashaVentures.Domain.Shop:
 namespace SubashaVentures.Services.Shop;
 
 public class ShopStateService
