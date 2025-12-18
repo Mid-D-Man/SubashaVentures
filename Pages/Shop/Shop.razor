@@ -2,6 +2,7 @@
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Layout.Shop
 @layout ShopLayout
 
 <CascadingValue Value="this">
@@ -87,11 +88,11 @@
                             ←
                         </button>
                         <div class="page-numbers">
-                            @foreach (var page in GetVisiblePages())
+                            @foreach (var pageNum in GetVisiblePages())
                             {
-                                <button class="page-btn @(page == CurrentPage ? "active" : "")"
-                                        @onclick="@(() => GoToPage(page))">
-                                    @page
+                                <button class="page-btn @(pageNum == CurrentPage ? "active" : "")"
+                                        @onclick="@(() => GoToPage(pageNum))">
+                                    @pageNum
                                 </button>
                             }
                         </div>
