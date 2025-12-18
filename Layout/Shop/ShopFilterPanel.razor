@@ -1,8 +1,6 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 
-
-
 <div class="filter-panel">
     @if (IsLoading)
     {
@@ -73,8 +71,9 @@
                 <InputField 
                     Type="number"
                     Placeholder="Min"
-                    @bind-Value="MinPriceText"
-                    Size="InputField.InputSize.Medium"
+                    Value="@MinPriceText"
+                    ValueChanged="@(value => MinPriceText = value)"
+                    Size="InputField.InputSize.Small"
                     CssClass="price-input-field" />
                 
                 <span class="price-separator">-</span>
@@ -82,8 +81,9 @@
                 <InputField 
                     Type="number"
                     Placeholder="Max"
-                    @bind-Value="MaxPriceText"
-                    Size="InputField.InputSize.Medium"
+                    Value="@MaxPriceText"
+                    ValueChanged="@(value => MaxPriceText = value)"
+                    Size="InputField.InputSize.Small"
                     CssClass="price-input-field" />
             </div>
         </div>
