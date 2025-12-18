@@ -53,7 +53,18 @@ public partial class Shop : ComponentBase
 
         try
         {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Loading all products for shop page",
+                LogLevel.Info
+            );
+
             AllProducts = await ProductService.GetAllProductsAsync();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {AllProducts.Count} products",
+                LogLevel.Info
+            );
+
             ApplyFilters();
         }
         catch (Exception ex)
@@ -69,9 +80,14 @@ public partial class Shop : ComponentBase
         }
     }
 
-    // PUBLIC - Called from ShopFilterPanel
-    public void HandleFiltersChange(ShopFilterPanel.FilterState filters)
+    // FIXED: Changed to async Task and matching parameter type
+    public async Task HandleFiltersChanged(FilterState filters)
     {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Filters changed: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
+            LogLevel.Info
+        );
+
         ActiveCategories = filters.Categories;
         ActiveBrands = filters.Brands;
         ActiveMinRating = filters.MinRating;
@@ -85,9 +101,14 @@ public partial class Shop : ComponentBase
         CloseMobileFilters();
     }
 
-    // PUBLIC - Called from ShopTop
-    public void HandleSearchChange(string query)
+    // FIXED: Changed to async Task
+    public async Task HandleSearchChanged(string query)
     {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Search query: '{query}'",
+            LogLevel.Info
+        );
+
         SearchQuery = query ?? "";
         CurrentPage = 1;
         ApplyFilters();
@@ -95,37 +116,42 @@ public partial class Shop : ComponentBase
 
     private void ApplyFilters()
     {
-        FilteredProducts = AllProducts.Where(p => p.IsActive).ToList();
+        // Start with all active products
+        FilteredProducts = AllProducts
+            .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
+            .ToList();
 
-        // Search
+        // Apply search filter
         if (!string.IsNullOrWhiteSpace(SearchQuery))
         {
-            var query = SearchQuery.ToLower();
+            var query = SearchQuery.ToLower().Trim();
             FilteredProducts = FilteredProducts.Where(p =>
-                p.Name.ToLower().Contains(query) ||
-                p.Description.ToLower().Contains(query) ||
-                p.Brand.ToLower().Contains(query) ||
-                p.Category.ToLower().Contains(query)
+                (p.Name?.ToLower().Contains(query) ?? false) ||
+                (p.Description?.ToLower().Contains(query) ?? false) ||
+                (p.Brand?.ToLower().Contains(query) ?? false) ||
+                (p.Category?.ToLower().Contains(query) ?? false)
             ).ToList();
         }
 
-        // Categories
+        // Apply category filter
         if (ActiveCategories.Any())
         {
             FilteredProducts = FilteredProducts
-                .Where(p => ActiveCategories.Contains(p.Category))
+                .Where(p => !string.IsNullOrEmpty(p.Category) && 
+                           ActiveCategories.Contains(p.Category))
                 .ToList();
         }
 
-        // Brands
+        // Apply brand filter
         if (ActiveBrands.Any())
         {
             FilteredProducts = FilteredProducts
-                .Where(p => ActiveBrands.Contains(p.Brand))
+                .Where(p => !string.IsNullOrEmpty(p.Brand) && 
+                           ActiveBrands.Contains(p.Brand))
                 .ToList();
         }
 
-        // Rating
+        // Apply rating filter
         if (ActiveMinRating > 0)
         {
             FilteredProducts = FilteredProducts
@@ -133,25 +159,34 @@ public partial class Shop : ComponentBase
                 .ToList();
         }
 
-        // Price
+        // Apply price filter
         FilteredProducts = FilteredProducts
             .Where(p => p.Price >= ActiveMinPrice && p.Price <= ActiveMaxPrice)
             .ToList();
 
-        // On Sale
+        // Apply sale filter
         if (ActiveOnSale)
         {
-            FilteredProducts = FilteredProducts.Where(p => p.IsOnSale).ToList();
+            FilteredProducts = FilteredProducts
+                .Where(p => p.IsOnSale)
+                .ToList();
         }
 
-        // Free Shipping
+        // Apply free shipping filter
         if (ActiveFreeShipping)
         {
-            FilteredProducts = FilteredProducts.Where(p => p.Price >= 50000).ToList();
+            FilteredProducts = FilteredProducts
+                .Where(p => p.Price >= 50000)
+                .ToList();
         }
 
+        // Apply sorting
         ApplySorting();
+        
+        // Update pagination
         UpdateCurrentPageProducts();
+        
+        StateHasChanged();
     }
 
     private void ApplySorting()
@@ -167,10 +202,27 @@ public partial class Shop : ComponentBase
         };
     }
 
+    // FIXED: This is called when sort changes
+    private async Task ApplySortAndUpdate()
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Sort changed to: {SelectedSort}",
+            LogLevel.Info
+        );
+        
+        ApplySorting();
+        UpdateCurrentPageProducts();
+        StateHasChanged();
+    }
+
     private void UpdateCurrentPageProducts()
     {
         var skip = (CurrentPage - 1) * ItemsPerPage;
-        CurrentPageProducts = FilteredProducts.Skip(skip).Take(ItemsPerPage).ToList();
+        CurrentPageProducts = FilteredProducts
+            .Skip(skip)
+            .Take(ItemsPerPage)
+            .ToList();
+        
         StateHasChanged();
     }
 
@@ -208,6 +260,8 @@ public partial class Shop : ComponentBase
 
     private string GetResultsRange()
     {
+        if (!FilteredProducts.Any()) return "0";
+        
         var start = (CurrentPage - 1) * ItemsPerPage + 1;
         var end = Math.Min(CurrentPage * ItemsPerPage, FilteredProducts.Count);
         return $"{start}-{end}";
@@ -223,7 +277,7 @@ public partial class Shop : ComponentBase
         await MID_HelperFunctions.DebugMessageAsync($"Toggle favorite: {productId}", LogLevel.Info);
     }
 
-    private void ResetFilters()
+    private async Task ResetFilters()
     {
         SearchQuery = "";
         ActiveCategories.Clear();
@@ -235,10 +289,12 @@ public partial class Shop : ComponentBase
         ActiveFreeShipping = false;
         SelectedSort = "default";
         CurrentPage = 1;
+        
         ApplyFilters();
+        StateHasChanged();
     }
 
-    // PUBLIC - Mobile filter controls
+    // Mobile filter controls
     public void OpenMobileFilters()
     {
         ShowMobileFilters = true;
