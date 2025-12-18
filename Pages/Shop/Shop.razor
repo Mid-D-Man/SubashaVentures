@@ -2,45 +2,43 @@
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Domain.Product
-@using SubashaVentures.Layout.Shop
 @layout ShopLayout
 
 <CascadingValue Value="this">
     <div class="shop-page">
         
-        @* Top Controls Section (10% height) *@
-        <div class="shop-top-section">
-            <div class="shop-controls">
-                <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
-                    <span class="filter-icon">🔍</span>
-                    <span class="filter-text">Filters</span>
-                </button>
-                
-                <div class="sort-wrapper">
-                    <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySorting">
-                        <option value="default">Sort By</option>
-                        <option value="price-asc">Price: Low to High</option>
-                        <option value="price-desc">Price: High to Low</option>
-                        <option value="rating-desc">Rating: High to Low</option>
-                        <option value="name-asc">Name: A-Z</option>
-                        <option value="newest">Newest First</option>
-                    </select>
-                </div>
+        @* Top Controls *@
+        <div class="shop-controls">
+            
+            @* Mobile Filter Button *@
+            <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
+                <span class="filter-icon">🔍</span>
+                <span>Filters</span>
+            </button>
+            
+            @* Sort Dropdown *@
+            <div class="sort-wrapper">
+                <select class="sort-select" @bind="SelectedSort" @bind:after="ApplyFilters">
+                    <option value="default">Sort By</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                    <option value="rating-desc">Rating: High to Low</option>
+                    <option value="name-asc">Name: A-Z</option>
+                    <option value="newest">Newest First</option>
+                </select>
             </div>
-
-            @if (!IsLoading && FilteredProducts.Any())
-            {
-                <div class="results-info">
-                    <p class="results-text">
-                        Showing @GetResultsRange() of @FilteredProducts.Count products
-                    </p>
-                </div>
-            }
         </div>
 
-        @* Middle Content Section (70% height) - Products Grid + Pagination *@
-        <div class="shop-middle-section">
+        @* Results Info *@
+        @if (!IsLoading && FilteredProducts.Any())
+        {
+            <div class="results-info">
+                <p>Showing @GetResultsRange() of @FilteredProducts.Count products</p>
+            </div>
+        }
+
+        @* Products Grid *@
+        <div class="shop-content">
             @if (IsLoading)
             {
                 <div class="product-grid">
@@ -54,27 +52,18 @@
             {
                 <div class="error-state">
                     <div class="error-icon">⚠️</div>
-                    <h3 class="error-title">Failed to Load Products</h3>
-                    <p class="error-message">@ErrorMessage</p>
-                    <PrimaryButton 
-                        OnClick="LoadProducts" 
-                        CssClass="btn-retry">
-                        Try Again
-                    </PrimaryButton>
+                    <h3>Failed to Load Products</h3>
+                    <p>@ErrorMessage</p>
+                    <PrimaryButton OnClick="LoadProducts">Try Again</PrimaryButton>
                 </div>
             }
             else if (!FilteredProducts.Any())
             {
                 <div class="empty-state">
                     <div class="empty-icon">🔍</div>
-                    <h3 class="empty-title">No Products Found</h3>
-                    <p class="empty-message">
-                        Try adjusting your filters or search query.
-                    </p>
-                    <SecondaryButton 
-                        Variant="SecondaryButton.ButtonVariant.Outline"
-                        OnClick="ResetFilters" 
-                        CssClass="btn-reset">
+                    <h3>No Products Found</h3>
+                    <p>Try adjusting your filters or search query.</p>
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="ResetFilters">
                         Reset Filters
                     </SecondaryButton>
                 </div>
@@ -94,48 +83,38 @@
                 @if (TotalPages > 1)
                 {
                     <div class="pagination">
-                        <button class="pagination-btn" 
-                                @onclick="PreviousPage"
-                                disabled="@(CurrentPage == 1)">
-                            <span class="pagination-icon">←</span>
+                        <button class="page-btn" @onclick="PreviousPage" disabled="@(CurrentPage == 1)">
+                            ←
                         </button>
-
-                        <div class="pagination-pages">
-                            @foreach (var pageNum in GetVisiblePages())
+                        <div class="page-numbers">
+                            @foreach (var page in GetVisiblePages())
                             {
-                                <button class="pagination-btn @(pageNum == CurrentPage ? "active" : "")"
-                                        @onclick="@(() => GoToPage(pageNum))">
-                                    @pageNum
+                                <button class="page-btn @(page == CurrentPage ? "active" : "")"
+                                        @onclick="@(() => GoToPage(page))">
+                                    @page
                                 </button>
                             }
                         </div>
-
-                        <button class="pagination-btn" 
-                                @onclick="NextPage"
-                                disabled="@(CurrentPage == TotalPages)">
-                            <span class="pagination-icon">→</span>
+                        <button class="page-btn" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">
+                            →
                         </button>
                     </div>
                 }
             }
         </div>
 
-        @* Bottom Footer Section (20% height) *@
-        <div class="shop-bottom-section">
-            <ShopFooter />
-        </div>
+        @* Footer *@
+        <ShopFooter />
     </div>
 
-    @* Mobile Filter Drawer Overlay *@
+    @* Mobile Filter Overlay *@
     @if (ShowMobileFilters)
     {
         <div class="mobile-filter-overlay" @onclick="CloseMobileFilters">
             <div class="mobile-filter-drawer" @onclick:stopPropagation="true">
-                <div class="mobile-filter-header">
-                    <h2 class="filter-title">Filters</h2>
-                    <button class="filter-close-btn" @onclick="CloseMobileFilters">
-                        <span class="close-icon">✕</span>
-                    </button>
+                <div class="filter-header">
+                    <h2>Filters</h2>
+                    <button class="close-btn" @onclick="CloseMobileFilters">✕</button>
                 </div>
                 <ShopFilterPanel />
             </div>
