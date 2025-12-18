@@ -5,11 +5,23 @@
     
     @* Image Section *@
     <div class="product-image-container">
-        <img src="@GetImageUrl()" 
-             alt="@Product.Name" 
-             class="product-image" 
-             loading="lazy"
-             onerror="this.src='/diverse-products-still-life.png'" />
+        @if (HasValidImage)
+        {
+            <img src="@GetImageUrl()" 
+                 alt="@Product.Name" 
+                 class="product-image" 
+                 loading="lazy"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+            <div class="product-image-placeholder" style="display: none;">
+                <span class="placeholder-emoji">📦</span>
+            </div>
+        }
+        else
+        {
+            <div class="product-image-placeholder">
+                <span class="placeholder-emoji">📦</span>
+            </div>
+        }
         
         @* Badges *@
         <div class="product-badges">
@@ -93,10 +105,12 @@
     [Parameter] public EventCallback<int> OnToggleFavorite { get; set; }
 
     private bool IsFavorite { get; set; }
+    private bool HasValidImage => Product?.Images != null && 
+                                   Product.Images.Any() && 
+                                   !string.IsNullOrWhiteSpace(Product.Images.First());
 
     private string GetImageUrl()
     {
-        // Return first image or placeholder
         if (Product?.Images != null && Product.Images.Any())
         {
             var firstImage = Product.Images.First();
@@ -106,12 +120,11 @@
             }
         }
         
-        return "/diverse-products-still-life.png";
+        return string.Empty;
     }
 
     private void HandleCardClick()
     {
-        // Navigate to product detail page - product/{slug} NOT /shop/{slug}
         NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
