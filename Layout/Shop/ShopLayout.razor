@@ -2,15 +2,15 @@
 @inject NavigationManager NavigationManager
 
 <div class="shop-layout-wrapper">
-    @* Top Navigation - Fixed *@
-    <ShopTop CartItemCount="@CartItemCount" />
+    @* Top Navigation - FIXED: Wire up search *@
+    <ShopTop CartItemCount="@CartItemCount" OnSearchChanged="HandleSearchFromNav" />
 
     @* Main Shop Container *@
     <div class="shop-container">
         
         @* Desktop Filter Sidebar (Left - 30%) *@
         <aside class="shop-sidebar desktop-only">
-            <ShopFilterPanel />
+            <ShopFilterPanel OnFiltersChanged="HandleFiltersFromSidebar" />
         </aside>
 
         @* Main Shop Content (Right - 70%) *@
@@ -18,10 +18,27 @@
             @Body
         </main>
     </div>
-
-    @* Mobile Filter Drawer Overlay - Rendered by Shop page *@
 </div>
 
 @code {
     [Parameter] public int CartItemCount { get; set; } = 0;
+
+    // FIXED: These methods pass events to child Shop page
+    private async Task HandleSearchFromNav(string query)
+    {
+        // This will be picked up by the Shop page
+        if (Body is SubashaVentures.Pages.Shop.Shop shopPage)
+        {
+            await shopPage.HandleSearchChanged(query);
+        }
+    }
+
+    private async Task HandleFiltersFromSidebar(FilterState filters)
+    {
+        // This will be picked up by the Shop page
+        if (Body is SubashaVentures.Pages.Shop.Shop shopPage)
+        {
+            await shopPage.HandleFiltersChanged(filters);
+        }
+    }
 }
