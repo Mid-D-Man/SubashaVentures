@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Thu Dec 18 13:02:51 UTC 2025
+Generated: Thu Dec 18 13:18:00 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: a3e8c93aa76992e4af4bf89fc13bdd41e121c080
+Commit: 102e3db0806fff00f76dc164c068e54760c438c9
 Branch: master
 ==================================
 
@@ -188,6 +188,7 @@ Services/Products/IProductOfTheDayService.cs
 Services/Products/IProductService.cs
 Services/Products/ProductOfTheDayService.cs
 Services/Products/ProductService.cs
+Services/Shop/ShopStateService.cs
 Services/Statistics/IStatisticsService.cs
 Services/Statistics/StatisticsService.cs
 Services/Storage/BlazorAppLocalStorageService.cs
@@ -305,6 +306,7 @@ Directory Structure:
 ./  Firebase
 ./  Navigation
 ./  Products
+./  Shop
 ./  Statistics
 ./  Storage
 ./  Supabase
@@ -323,7 +325,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 108 files
+.cs       : 109 files
 .razor    : 53 files
 .csproj   : 1 files
 .sln      : 1 files
