@@ -5,120 +5,120 @@
 @using SubashaVentures.Layout.Shop
 @layout ShopLayout
 
-<CascadingValue Value="this">
-    <div class="shop-page">
+<div class="shop-page">
+    
+    @* Top Controls *@
+    <div class="shop-controls">
         
-        @* Top Controls *@
-        <div class="shop-controls">
-            
-            @* Mobile Filter Button *@
-            <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
-                <span class="filter-icon">🔍</span>
-                <span>Filters</span>
-            </button>
-            
-            @* Sort Dropdown *@
-            <div class="sort-wrapper">
-                <select class="sort-select" @bind="SelectedSort" @bind:after="ApplyFilters">
-                    <option value="default">Sort By</option>
-                    <option value="price-asc">Price: Low to High</option>
-                    <option value="price-desc">Price: High to Low</option>
-                    <option value="rating-desc">Rating: High to Low</option>
-                    <option value="name-asc">Name: A-Z</option>
-                    <option value="newest">Newest First</option>
-                </select>
-            </div>
+        @* Mobile Filter Button *@
+        <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
+            <span class="filter-icon">🔍</span>
+            <span>Filters</span>
+        </button>
+        
+        @* Sort Dropdown *@
+        <div class="sort-wrapper">
+            <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySortAndUpdate">
+                <option value="default">Sort By</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="rating-desc">Rating: High to Low</option>
+                <option value="name-asc">Name: A-Z</option>
+                <option value="newest">Newest First</option>
+            </select>
         </div>
-
-        @* Results Info *@
-        @if (!IsLoading && FilteredProducts.Any())
-        {
-            <div class="results-info">
-                <p>Showing @GetResultsRange() of @FilteredProducts.Count products</p>
-            </div>
-        }
-
-        @* Products Grid *@
-        <div class="shop-content">
-            @if (IsLoading)
-            {
-                <div class="product-grid">
-                    @for (int i = 0; i < 12; i++)
-                    {
-                        <SkeletonCard />
-                    }
-                </div>
-            }
-            else if (HasError)
-            {
-                <div class="error-state">
-                    <div class="error-icon">⚠️</div>
-                    <h3>Failed to Load Products</h3>
-                    <p>@ErrorMessage</p>
-                    <PrimaryButton OnClick="LoadProducts">Try Again</PrimaryButton>
-                </div>
-            }
-            else if (!FilteredProducts.Any())
-            {
-                <div class="empty-state">
-                    <div class="empty-icon">🔍</div>
-                    <h3>No Products Found</h3>
-                    <p>Try adjusting your filters or search query.</p>
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="ResetFilters">
-                        Reset Filters
-                    </SecondaryButton>
-                </div>
-            }
-            else
-            {
-                <div class="product-grid">
-                    @foreach (var product in CurrentPageProducts)
-                    {
-                        <ShopProductCard 
-                            Product="@product"
-                            OnAddToCart="HandleAddToCart"
-                            OnToggleFavorite="HandleToggleFavorite" />
-                    }
-                </div>
-
-                @if (TotalPages > 1)
-                {
-                    <div class="pagination">
-                        <button class="page-btn" @onclick="PreviousPage" disabled="@(CurrentPage == 1)">
-                            ←
-                        </button>
-                        <div class="page-numbers">
-                            @foreach (var pageNum in GetVisiblePages())
-                            {
-                                <button class="page-btn @(pageNum == CurrentPage ? "active" : "")"
-                                        @onclick="@(() => GoToPage(pageNum))">
-                                    @pageNum
-                                </button>
-                            }
-                        </div>
-                        <button class="page-btn" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">
-                            →
-                        </button>
-                    </div>
-                }
-            }
-        </div>
-
-        @* Footer *@
-        <ShopFooter />
     </div>
 
-    @* Mobile Filter Overlay *@
-    @if (ShowMobileFilters)
+    @* Results Info *@
+    @if (!IsLoading && FilteredProducts.Any())
     {
-        <div class="mobile-filter-overlay" @onclick="CloseMobileFilters">
-            <div class="mobile-filter-drawer" @onclick:stopPropagation="true">
-                <div class="filter-header">
-                    <h2>Filters</h2>
-                    <button class="close-btn" @onclick="CloseMobileFilters">✕</button>
-                </div>
-                <ShopFilterPanel />
-            </div>
+        <div class="results-info">
+            <p>Showing @GetResultsRange() of @FilteredProducts.Count products</p>
         </div>
     }
-</CascadingValue>
+
+    @* Products Grid *@
+    <div class="shop-products-section">
+        @if (IsLoading)
+        {
+            <div class="product-grid">
+                @for (int i = 0; i < 12; i++)
+                {
+                    <SkeletonCard />
+                }
+            </div>
+        }
+        else if (HasError)
+        {
+            <div class="error-state">
+                <div class="error-icon">⚠️</div>
+                <h3>Failed to Load Products</h3>
+                <p>@ErrorMessage</p>
+                <PrimaryButton OnClick="LoadProducts">Try Again</PrimaryButton>
+            </div>
+        }
+        else if (!FilteredProducts.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">🔍</div>
+                <h3>No Products Found</h3>
+                <p>Try adjusting your filters or search query.</p>
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="ResetFilters">
+                    Reset Filters
+                </SecondaryButton>
+            </div>
+        }
+        else
+        {
+            <div class="product-grid">
+                @foreach (var product in CurrentPageProducts)
+                {
+                    <ShopProductCard 
+                        Product="@product"
+                        OnAddToCart="HandleAddToCart"
+                        OnToggleFavorite="HandleToggleFavorite" />
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="pagination">
+                    <button class="page-btn" @onclick="PreviousPage" disabled="@(CurrentPage == 1)">
+                        ←
+                    </button>
+                    <div class="page-numbers">
+                        @foreach (var pageNum in GetVisiblePages())
+                        {
+                            <button class="page-btn @(pageNum == CurrentPage ? "active" : "")"
+                                    @onclick="@(() => GoToPage(pageNum))">
+                                @pageNum
+                            </button>
+                        }
+                    </div>
+                    <button class="page-btn" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">
+                        →
+                    </button>
+                </div>
+            }
+        }
+    </div>
+
+    @* Footer *@
+    <ShopFooter />
+</div>
+
+@* Mobile Filter Overlay *@
+@if (ShowMobileFilters)
+{
+    <div class="mobile-filter-overlay" @onclick="CloseMobileFilters">
+        <div class="mobile-filter-drawer" @onclick:stopPropagation="true">
+            <div class="mobile-filter-header">
+                <h2 class="filter-title">Filters</h2>
+                <button class="filter-close-btn" @onclick="CloseMobileFilters">
+                    <span class="close-icon">✕</span>
+                </button>
+            </div>
+            <ShopFilterPanel OnFiltersChanged="HandleFiltersChanged" />
+        </div>
+    </div>
+}
