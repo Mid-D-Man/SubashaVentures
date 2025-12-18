@@ -1,8 +1,9 @@
 @inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
+@inject ShopStateService ShopState
 
 <div class="shop-layout-wrapper">
-    @* Top Navigation - FIXED: Wire up search *@
+    @* Top Navigation - Uses ShopStateService *@
     <ShopTop CartItemCount="@CartItemCount" OnSearchChanged="HandleSearchFromNav" />
 
     @* Main Shop Container *@
@@ -23,22 +24,14 @@
 @code {
     [Parameter] public int CartItemCount { get; set; } = 0;
 
-    // FIXED: These methods pass events to child Shop page
+    // FIXED: Use the state service to broadcast events
     private async Task HandleSearchFromNav(string query)
     {
-        // This will be picked up by the Shop page
-        if (Body is SubashaVentures.Pages.Shop.Shop shopPage)
-        {
-            await shopPage.HandleSearchChanged(query);
-        }
+        await ShopState.NotifySearchChanged(query);
     }
 
     private async Task HandleFiltersFromSidebar(FilterState filters)
     {
-        // This will be picked up by the Shop page
-        if (Body is SubashaVentures.Pages.Shop.Shop shopPage)
-        {
-            await shopPage.HandleFiltersChanged(filters);
-        }
+        await ShopState.NotifyFiltersChanged(filters);
     }
 }
