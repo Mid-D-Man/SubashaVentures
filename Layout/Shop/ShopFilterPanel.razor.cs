@@ -144,7 +144,10 @@ public partial class ShopFilterPanel : ComponentBase
             LogLevel.Info
         );
 
-        await OnFiltersChanged.InvokeAsync(filters);
+        if (OnFiltersChanged.HasDelegate)
+        {
+            await OnFiltersChanged.InvokeAsync(filters);
+        }
     }
 
     private async Task ResetFilters()
@@ -168,18 +171,23 @@ public partial class ShopFilterPanel : ComponentBase
             FreeShipping = false
         };
 
-        await OnFiltersChanged.InvokeAsync(filters);
+        if (OnFiltersChanged.HasDelegate)
+        {
+            await OnFiltersChanged.InvokeAsync(filters);
+        }
+        
         StateHasChanged();
     }
+}
 
-    public class FilterState
-    {
-        public List<string> Categories { get; set; } = new();
-        public List<string> Brands { get; set; } = new();
-        public int MinRating { get; set; }
-        public decimal MinPrice { get; set; }
-        public decimal MaxPrice { get; set; }
-        public bool OnSale { get; set; }
-        public bool FreeShipping { get; set; }
-    }
+// MOVED TO SHARED LOCATION
+public class FilterState
+{
+    public List<string> Categories { get; set; } = new();
+    public List<string> Brands { get; set; } = new();
+    public int MinRating { get; set; }
+    public decimal MinPrice { get; set; }
+    public decimal MaxPrice { get; set; }
+    public bool OnSale { get; set; }
+    public bool FreeShipping { get; set; }
 }
