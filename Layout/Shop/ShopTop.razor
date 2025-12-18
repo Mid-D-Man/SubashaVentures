@@ -1,38 +1,39 @@
-@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Buttons
 
-<nav class="shop-navigation">
-    <div class="nav-content">
-        <div class="nav-left">
-            <a href="/" class="brand-logo">
-                <span class="logo-icon">👟</span>
-                <span class="logo-text">Subasha</span>
-            </a>
+<nav class="shop-top-nav">
+    <div class="nav-container">
+        
+        @* Logo *@
+        <a href="/" class="nav-logo">
+            <span class="logo-icon">👟</span>
+            <span class="logo-text">Subasha</span>
+        </a>
+
+        @* Search Bar *@
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input 
+                type="text" 
+                class="search-input"
+                placeholder="Search products..."
+                value="@SearchQuery"
+                @oninput="HandleSearchInput" />
         </div>
 
-        <div class="nav-center">
-            <div class="search-wrapper">
-                <span class="search-icon">🔍</span>
-                <InputField 
-                    Type="text"
-                    Placeholder="Search products..."
-                    @bind-Value="SearchQuery"
-                    @bind-Value:after="OnSearchChanged"
-                    Size="InputField.InputSize.Large"
-                    CssClass="search-input-field" />
-            </div>
-        </div>
-
-        <div class="nav-right">
-            <a href="/cart" class="nav-btn cart-btn">
-                <span class="cart-icon">🛒</span>
+        @* Right Actions *@
+        <div class="nav-actions">
+            @* Cart *@
+            <a href="/cart" class="nav-btn">
+                <span class="btn-icon">🛒</span>
                 @if (CartItemCount > 0)
                 {
                     <span class="cart-badge">@CartItemCount</span>
                 }
             </a>
 
-            <a href="/account" class="nav-btn account-btn">
-                <span class="account-icon">👤</span>
+            @* Profile *@
+            <a href="/account" class="nav-btn">
+                <span class="btn-icon">👤</span>
             </a>
         </div>
     </div>
@@ -44,8 +45,9 @@
     
     private string SearchQuery { get; set; } = "";
 
-    private void OnSearchChanged()
+    private void HandleSearchInput(ChangeEventArgs e)
     {
+        SearchQuery = e.Value?.ToString() ?? "";
         ShopPage?.HandleSearchChange(SearchQuery);
     }
 }
