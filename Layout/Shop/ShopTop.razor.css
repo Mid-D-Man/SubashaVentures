@@ -45,34 +45,14 @@
     max-width: 600px;
 }
 
-.search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 1rem;
-    pointer-events: none;
+/* Override InputField styles for shop search */
+.search-container ::deep .input-field {
+    margin: 0;
 }
 
-.search-input {
-    width: 100%;
-    padding: 10px 12px 10px 40px;
-    font-size: 0.9375rem;
-    color: var(--text-primary);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    outline: none;
-    transition: all 0.2s ease;
-}
-
-.search-input::placeholder {
-    color: var(--text-muted);
-}
-
-.search-input:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
+.search-container ::deep .input-control {
+    border-radius: 24px;
+    padding-left: 40px;
 }
 
 /* Nav Actions */
@@ -134,9 +114,8 @@
         font-size: 1rem;
     }
 
-    .search-input {
-        font-size: 0.875rem;
-        padding: 8px 10px 8px 36px;
+    .search-container {
+        max-width: 100%;
     }
 
     .nav-btn {
@@ -153,11 +132,6 @@
 [data-theme="dark"] .shop-top-nav {
     background: var(--bg-surface);
     border-bottom-color: var(--border-dark);
-}
-
-[data-theme="dark"] .search-input {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: var(--border-dark);
 }
 
 [data-theme="dark"] .nav-btn:hover {
