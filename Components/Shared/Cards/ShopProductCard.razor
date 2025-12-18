@@ -111,8 +111,8 @@
 
     private void HandleCardClick()
     {
-        // Navigate to product detail page - /product/{slug} NOT /shop/{slug}
-        NavigationManager.NavigateTo($"/product/{Product.Slug}");
+        // Navigate to product detail page - product/{slug} NOT /shop/{slug}
+        NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
     private async Task HandleAddToCart(MouseEventArgs e)
