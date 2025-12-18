@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using SubashaVentures.Domain.Shop; // Use shared FilterState
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Utilities.HelperScripts;
@@ -180,14 +181,4 @@ public partial class ShopFilterPanel : ComponentBase
     }
 }
 
-// MOVED TO SHARED LOCATION
-public class FilterState
-{
-    public List<string> Categories { get; set; } = new();
-    public List<string> Brands { get; set; } = new();
-    public int MinRating { get; set; }
-    public decimal MinPrice { get; set; }
-    public decimal MaxPrice { get; set; }
-    public bool OnSale { get; set; }
-    public bool FreeShipping { get; set; }
-}
+// REMOVED: FilterState class moved to Domain/Shop/FilterState.cs
