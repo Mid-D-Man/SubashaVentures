@@ -9,13 +9,13 @@
             <span class="logo-text">Subasha</span>
         </a>
 
-        @* Search Bar - Using InputField Component *@
+        @* Search Bar - FIXED BINDING *@
         <div class="search-container">
             <InputField 
                 Type="text"
                 Placeholder="Search products..."
                 Value="@SearchQuery"
-                ValueChanged="@HandleSearchChange"
+                ValueChanged="HandleSearchInput"
                 PrefixIcon="🔍"
                 ShowClearButton="true"
                 Size="InputField.InputSize.Medium"
@@ -47,9 +47,14 @@
     
     private string SearchQuery { get; set; } = "";
 
-    private async Task HandleSearchChange(string value)
+    // FIXED: Properly handle search input
+    private async Task HandleSearchInput(string value)
     {
-        SearchQuery = value;
-        await OnSearchChanged.InvokeAsync(value);
+        SearchQuery = value ?? "";
+        
+        if (OnSearchChanged.HasDelegate)
+        {
+            await OnSearchChanged.InvokeAsync(SearchQuery);
+        }
     }
 }
