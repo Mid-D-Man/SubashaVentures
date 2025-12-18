@@ -1,15 +1,17 @@
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
+using SubashaVentures.Services.Shop;
 using SubashaVentures.Layout.Shop;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Shop;
 
-public partial class Shop : ComponentBase
+public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = null!;
+    [Inject] private ShopStateService ShopState { get; set; } = null!;
 
     private List<ProductViewModel> AllProducts { get; set; } = new();
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
@@ -42,6 +44,10 @@ public partial class Shop : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        // Subscribe to shop state events
+        ShopState.OnSearchChanged += HandleSearchChanged;
+        ShopState.OnFiltersChanged += HandleFiltersChanged;
+        
         await LoadProducts();
     }
 
@@ -80,8 +86,8 @@ public partial class Shop : ComponentBase
         }
     }
 
-    // FIXED: Changed to async Task and matching parameter type
-    public async Task HandleFiltersChanged(FilterState filters)
+    // FIXED: Changed to private async Task (event handler)
+    private async Task HandleFiltersChanged(FilterState filters)
     {
         await MID_HelperFunctions.DebugMessageAsync(
             $"Filters changed: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
@@ -101,8 +107,8 @@ public partial class Shop : ComponentBase
         CloseMobileFilters();
     }
 
-    // FIXED: Changed to async Task
-    public async Task HandleSearchChanged(string query)
+    // FIXED: Changed to private async Task (event handler)
+    private async Task HandleSearchChanged(string query)
     {
         await MID_HelperFunctions.DebugMessageAsync(
             $"Search query: '{query}'",
@@ -202,7 +208,6 @@ public partial class Shop : ComponentBase
         };
     }
 
-    // FIXED: This is called when sort changes
     private async Task ApplySortAndUpdate()
     {
         await MID_HelperFunctions.DebugMessageAsync(
@@ -305,5 +310,12 @@ public partial class Shop : ComponentBase
     {
         ShowMobileFilters = false;
         StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe from events to prevent memory leaks
+        ShopState.OnSearchChanged -= HandleSearchChanged;
+        ShopState.OnFiltersChanged -= HandleFiltersChanged;
     }
 }
