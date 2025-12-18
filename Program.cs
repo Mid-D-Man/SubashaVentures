@@ -92,6 +92,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
 
 var host = builder.Build();
 
