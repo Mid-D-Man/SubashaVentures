@@ -4,15 +4,19 @@
     flex-direction: column;
     min-height: calc(100vh - 60px);
     width: 100%;
+    max-width: 100%;
     padding: 80px 20px 20px;
+    overflow-x: hidden;
 }
 
-/* Controls */
+/* Controls - FIXED OVERFLOW */
 .shop-controls {
     display: flex;
     align-items: center;
     gap: 12px;
     margin-bottom: 16px;
+    width: 100%;
+    max-width: 100%;
 }
 
 .btn-mobile-filters {
@@ -28,6 +32,7 @@
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .btn-mobile-filters:hover {
@@ -44,8 +49,11 @@
     }
 }
 
+/* FIXED: Sort wrapper takes remaining space but doesn't overflow */
 .sort-wrapper {
     flex: 1;
+    min-width: 0;
+    max-width: 300px;
 }
 
 .sort-select {
@@ -57,6 +65,7 @@
     border: 1px solid var(--border-light);
     border-radius: 8px;
     cursor: pointer;
+    box-sizing: border-box;
 }
 
 .sort-select:focus {
@@ -76,8 +85,10 @@
 }
 
 /* Product Grid */
-.shop-content {
+.shop-products-section {
     flex: 1;
+    width: 100%;
+    max-width: 100%;
 }
 
 .product-grid {
@@ -85,6 +96,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
     margin-bottom: 32px;
+    width: 100%;
 }
 
 @media (min-width: 1024px) {
@@ -141,6 +153,7 @@
     justify-content: center;
     gap: 8px;
     padding: 24px 0;
+    width: 100%;
 }
 
 .page-btn {
@@ -201,7 +214,7 @@
     to { transform: translateX(0); }
 }
 
-.filter-header {
+.mobile-filter-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -209,13 +222,13 @@
     border-bottom: 1px solid var(--border-light);
 }
 
-.filter-header h2 {
+.filter-title {
     font-size: 1.25rem;
     font-weight: 700;
     margin: 0;
 }
 
-.close-btn {
+.filter-close-btn {
     width: 32px;
     height: 32px;
     display: flex;
@@ -229,8 +242,31 @@
     transition: background 0.2s ease;
 }
 
-.close-btn:hover {
+.filter-close-btn:hover {
     background: var(--gray-100);
+}
+
+.close-icon {
+    color: var(--text-primary);
+}
+
+/* MOBILE RESPONSIVE FIXES */
+@media (max-width: 768px) {
+    .shop-page {
+        padding: 70px 12px 12px;
+    }
+
+    .shop-controls {
+        gap: 8px;
+    }
+
+    .sort-wrapper {
+        max-width: none;
+    }
+
+    .mobile-filter-overlay {
+        display: flex !important;
+    }
 }
 
 @media (min-width: 1024px) {
