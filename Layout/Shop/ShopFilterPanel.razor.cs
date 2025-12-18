@@ -8,7 +8,7 @@ namespace SubashaVentures.Layout.Shop;
 
 public partial class ShopFilterPanel : ComponentBase
 {
-    [CascadingParameter] public Pages.Shop.Shop? ShopPage { get; set; }
+    [Parameter] public EventCallback<FilterState> OnFiltersChanged { get; set; }
     [Inject] private ICategoryService CategoryService { get; set; } = null!;
     [Inject] private IBrandService BrandService { get; set; } = null!;
 
@@ -39,21 +39,18 @@ public partial class ShopFilterPanel : ComponentBase
 
         try
         {
-            // Load categories
             var categories = await CategoryService.GetAllCategoriesAsync();
             Categories = categories
                 .Select(c => c.Name)
                 .OrderBy(n => n)
                 .ToList();
 
-            // Load brands
             var brands = await BrandService.GetAllBrandsAsync();
             Brands = brands
                 .Select(b => b.Name)
                 .OrderBy(n => n)
                 .ToList();
 
-            // Fallback if services return empty
             if (!Categories.Any())
             {
                 Categories = new List<string> 
@@ -81,7 +78,6 @@ public partial class ShopFilterPanel : ComponentBase
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading filter options");
             
-            // Fallback
             Categories = new List<string> 
             { 
                 "Women Shoes", "Men Shoes", "Lifestyle", 
@@ -121,10 +117,8 @@ public partial class ShopFilterPanel : ComponentBase
         StateHasChanged();
     }
 
-    private void ApplyFilters()
+    private async Task ApplyFilters()
     {
-        if (ShopPage == null) return;
-
         var minPrice = 0m;
         var maxPrice = 1000000m;
 
@@ -145,22 +139,16 @@ public partial class ShopFilterPanel : ComponentBase
             FreeShipping = FreeShipping
         };
 
-        _ = MID_HelperFunctions.DebugMessageAsync(
+        await MID_HelperFunctions.DebugMessageAsync(
             $"Applying filters: {SelectedCategories.Count} categories, {SelectedBrands.Count} brands",
             LogLevel.Info
         );
 
-        // Directly invoke Shop page method
-        ShopPage.HandleFiltersChange(filters);
-        
-        // Close mobile drawer if open
-        ShopPage.CloseMobileFilters();
+        await OnFiltersChanged.InvokeAsync(filters);
     }
 
-    private void ResetFilters()
+    private async Task ResetFilters()
     {
-        if (ShopPage == null) return;
-
         SelectedCategories.Clear();
         SelectedBrands.Clear();
         MinPriceText = "";
@@ -180,7 +168,7 @@ public partial class ShopFilterPanel : ComponentBase
             FreeShipping = false
         };
 
-        ShopPage.HandleFiltersChange(filters);
+        await OnFiltersChanged.InvokeAsync(filters);
         StateHasChanged();
     }
 
