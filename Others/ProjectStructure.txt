@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Wed Dec 17 21:01:24 UTC 2025
+Generated: Thu Dec 18 02:36:32 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: a4ef2770f65a51cee9f17979522322c54c30afee
+Commit: c84658329a3b04badbbb5dfdb3f5d2c2366ddd4d
 Branch: master
 ==================================
 
@@ -96,8 +96,8 @@ Layout/Shop/ShopFooter.razor
 Layout/Shop/ShopFooter.razor.css
 Layout/Shop/ShopLayout.razor
 Layout/Shop/ShopLayout.razor.css
-Layout/Shop/ShopNavigation.razor
-Layout/Shop/ShopNavigation.razor.css
+Layout/Shop/ShopTop.razor
+Layout/Shop/ShopTop.razor.css
 MainLayout.razor
 Models/Firebase/BrandModel.cs
 Models/Firebase/CategoryModel.cs
