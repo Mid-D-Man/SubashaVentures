@@ -20,6 +20,7 @@ using Blazored.Toast;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.SupaBase;
 using Microsoft.AspNetCore.Components.Authorization;
+using SubashaVentures.Services.Auth;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using Supabase;
