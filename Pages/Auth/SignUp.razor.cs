@@ -1,9 +1,11 @@
-// Pages/Auth/SignUp.razor.cs - UPDATED with OAuth
+// Pages/Auth/SignUp.razor.cs - FIXED OAuth for Blazor WASM
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
+using Supabase.Gotrue;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;
@@ -14,6 +16,7 @@ public partial class SignUp : ComponentBase
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<SignUp> Logger { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     // Form fields
     private string firstName = "";
@@ -134,7 +137,7 @@ public partial class SignUp : ComponentBase
         }
     }
 
-    // ==================== OAUTH SIGN UP ====================
+    // ==================== GOOGLE OAUTH SIGN UP (FIXED FOR BLAZOR WASM) ====================
 
     private async Task HandleGoogleSignUp()
     {
@@ -146,82 +149,30 @@ public partial class SignUp : ComponentBase
             StateHasChanged();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Google OAuth sign up",
+                "Initiating Google OAuth sign up (Blazor WASM)",
                 LogLevel.Info
             );
             
+            // Call the service which will handle the OAuth redirect
             var success = await AuthService.SignInWithGoogleAsync();
             
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Google OAuth redirect initiated",
-                    LogLevel.Info
-                );
-
-                // The browser will redirect to Google
-                // When user returns, they'll be authenticated
-                successMessage = "Redirecting to Google...";
-            }
-            else
+            if (!success)
             {
                 generalError = "Failed to connect to Google. Please try again.";
                 Logger.LogError("Google OAuth initiation failed");
+                isLoading = false;
+                StateHasChanged();
             }
+            
+            // Note: If successful, the browser will redirect to Google
+            // and we won't reach here. The loading state will persist
+            // until the redirect completes.
         }
         catch (Exception ex)
         {
             generalError = "Failed to sign up with Google. Please try again.";
             await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth sign up");
             Logger.LogError(ex, "Google sign up error");
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task HandleFacebookSignUp()
-    {
-        try
-        {
-            isLoading = true;
-            ClearErrors();
-            successMessage = "";
-            StateHasChanged();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Facebook OAuth sign up",
-                LogLevel.Info
-            );
-            
-            var success = await AuthService.SignInWithFacebookAsync();
-            
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Facebook OAuth redirect initiated",
-                    LogLevel.Info
-                );
-
-                // The browser will redirect to Facebook
-                successMessage = "Redirecting to Facebook...";
-            }
-            else
-            {
-                generalError = "Failed to connect to Facebook. Please try again.";
-                Logger.LogError("Facebook OAuth initiation failed");
-            }
-        }
-        catch (Exception ex)
-        {
-            generalError = "Failed to sign up with Facebook. Please try again.";
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Facebook OAuth sign up");
-            Logger.LogError(ex, "Facebook sign up error");
-        }
-        finally
-        {
             isLoading = false;
             StateHasChanged();
         }
