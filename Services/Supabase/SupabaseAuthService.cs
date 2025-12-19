@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - UPDATED with OAuth
+// Services/Supabase/SupabaseAuthService.cs - UPDATED (removed Facebook, fixed OAuth)
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -215,7 +215,9 @@ public class SupabaseAuthService : ISupabaseAuthService
                 ErrorCode = "UNEXPECTED_ERROR"
             };
         }
-    }// ==================== OAUTH AUTHENTICATION ====================
+    }
+
+    // ==================== OAUTH AUTHENTICATION ====================
 
     public async Task<bool> SignInWithGoogleAsync()
     {
@@ -226,58 +228,44 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // Get the redirect URL from Supabase
-            var options = new SignInOptions
-            {
-                RedirectTo = GetRedirectUrl()
-            };
+            // Get redirect URL from JavaScript
+            var redirectUrl = await _jsRuntime.InvokeAsync<string>("supabaseOAuth.getRedirectUrl");
 
-            // This will redirect the browser to Google's OAuth page
-            await _client.Auth.SignIn(Constants.Provider.Google, options);
-            
             await MID_HelperFunctions.DebugMessageAsync(
-                "✓ Google OAuth redirect initiated",
+                $"Redirect URL: {redirectUrl}",
                 LogLevel.Info
             );
 
-            return true;
+            // Get OAuth URL from Supabase
+            var options = new SignInOptions
+            {
+                RedirectTo = redirectUrl
+            };
+
+            // Start OAuth flow - this returns the URL we need to redirect to
+            var response = await _client.Auth.SignIn(Constants.Provider.Google, options);
+            
+            if (response != null && !string.IsNullOrEmpty(response.ToString()))
+            {
+                // The SignIn method with provider should redirect automatically,
+                // but in WASM we need to manually handle the redirect
+                // The browser will redirect to Google, then back to our app
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ Google OAuth initiated successfully",
+                    LogLevel.Info
+                );
+
+                return true;
+            }
+
+            _logger.LogWarning("Google OAuth returned null or empty response");
+            return false;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth sign in");
             _logger.LogError(ex, "Failed to initiate Google sign in");
-            return false;
-        }
-    }
-
-    public async Task<bool> SignInWithFacebookAsync()
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Facebook OAuth sign in",
-                LogLevel.Info
-            );
-
-            var options = new SignInOptions
-            {
-                RedirectTo = GetRedirectUrl()
-            };
-
-            // This will redirect the browser to Facebook's OAuth page
-            await _client.Auth.SignIn(Constants.Provider.Facebook, options);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✓ Facebook OAuth redirect initiated",
-                LogLevel.Info
-            );
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Facebook OAuth sign in");
-            _logger.LogError(ex, "Failed to initiate Facebook sign in");
             return false;
         }
     }
@@ -504,7 +492,9 @@ public class SupabaseAuthService : ISupabaseAuthService
             _logger.LogError(ex, "Error retrieving session info");
             return null;
         }
-    }// ==================== EMAIL VERIFICATION ====================
+    }
+
+    // ==================== EMAIL VERIFICATION ====================
 
     public async Task<bool> VerifyEmailAsync(string token)
     {
@@ -520,10 +510,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 "Verifying email with token",
                 LogLevel.Info
             );
-
-            // Supabase handles email verification via magic link
-            // The token is processed automatically when user clicks the link
-            // This method is here for future custom verification logic if needed
 
             await MID_HelperFunctions.DebugMessageAsync(
                 "✓ Email verification processed",
@@ -555,14 +541,9 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // Supabase doesn't have a built-in resend verification method
-            // We need to use the password reset flow as a workaround
-            // Or implement custom email verification logic
-
-            // For now, we'll send a magic link which acts as verification
             var options = new SignInOptions
             {
-                RedirectTo = GetRedirectUrl()
+                RedirectTo = await _jsRuntime.InvokeAsync<string>("supabaseOAuth.getRedirectUrl")
             };
 
             await _client.Auth.SignIn(email, options);
@@ -584,9 +565,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== PRIVATE HELPER METHODS ====================
 
-    /// <summary>
-    /// Store session information in local storage
-    /// </summary>
     private async Task StoreSessionAsync(Session session)
     {
         try
@@ -607,9 +585,6 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
     }
 
-    /// <summary>
-    /// Map Supabase Session to our SessionInfo model
-    /// </summary>
     private SupabaseSessionInfo MapToSessionInfo(Session session)
     {
         return new SupabaseSessionInfo
@@ -622,9 +597,6 @@ public class SupabaseAuthService : ISupabaseAuthService
         };
     }
 
-    /// <summary>
-    /// Get user profile from local storage
-    /// </summary>
     private async Task<UserModel?> GetUserProfileAsync(string userId)
     {
         try
@@ -637,27 +609,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             await MID_HelperFunctions.LogExceptionAsync(ex, "Get user profile");
             _logger.LogWarning(ex, "Failed to retrieve user profile");
             return null;
-        }
-    }
-
-    /// <summary>
-    /// Get redirect URL for OAuth callbacks
-    /// </summary>
-    private string GetRedirectUrl()
-    {
-        try
-        {
-            // Get current URL from JS interop
-            var currentUrl = _jsRuntime.InvokeAsync<string>("eval", "window.location.origin").GetAwaiter().GetResult();
-            
-            // Return to home page after OAuth
-            return $"{currentUrl}/";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to get redirect URL, using default");
-            // Fallback to default
-            return "https://localhost:5001/";
         }
     }
 }
