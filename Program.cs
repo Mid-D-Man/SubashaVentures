@@ -51,6 +51,29 @@ builder.Services.AddBlazoredToast();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 
+// ============================================================================
+// Custom Claims Factory for Role-Based Authorization
+// ============================================================================
+builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
+
+// ============================================================================
+// Authorization Policies for Role-Based Access Control
+// ============================================================================
+builder.Services.AddAuthorizationCore(options =>
+{
+    // Admin-only access (superior_admin role)
+    options.AddPolicy("SuperiorAdminOnly", policy =>
+        policy.RequireRole("superior_admin"));
+    
+    // Any authenticated user
+    options.AddPolicy("AuthenticatedUser", policy =>
+        policy.RequireAuthenticatedUser());
+    
+    // Either admin or user (any authenticated role)
+    options.AddPolicy("AnyRole", policy =>
+        policy.RequireRole("superior_admin", "user"));
+});
+
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();
 builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
