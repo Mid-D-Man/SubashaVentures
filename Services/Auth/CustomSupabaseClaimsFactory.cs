@@ -8,6 +8,7 @@ using Client = Supabase.Client;
 
 namespace SubashaVentures.Services.Auth;
 
+
 /// <summary>
 /// Custom claims factory to process user roles from Supabase for authorization
 /// Similar to AirCode's CustomAccountFactory for Auth0
