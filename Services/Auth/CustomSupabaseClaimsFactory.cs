@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
+using Supabase.Gotrue;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Client = Supabase.Client;
 
@@ -29,7 +30,7 @@ public class CustomSupabaseClaimsFactory
     /// <summary>
     /// Create ClaimsPrincipal with user roles from database
     /// </summary>
-    public async Task<ClaimsPrincipal> CreateUserPrincipalAsync(Supabase.Gotrue.User user)
+    public async Task<ClaimsPrincipal> CreateUserPrincipalAsync(User user)
     {
         try
         {
