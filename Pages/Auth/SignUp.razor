@@ -29,18 +29,14 @@
             </div>
         }
 
-        <!-- Social Sign Up (OAuth) -->
-        <div class="social-buttons">
-            <button type="button" class="social-btn google" @onclick="HandleGoogleSignUp">
-                <span class="social-icon">G</span>
-                <span class="social-text">Continue with Google</span>
-            </button>
-            
-            <button type="button" class="social-btn facebook" @onclick="HandleFacebookSignUp">
-                <span class="social-icon">f</span>
-                <span class="social-text">Continue with Facebook</span>
-            </button>
-        </div>
+        <!-- Google Sign Up -->
+        <button type="button" 
+                class="social-btn google" 
+                @onclick="HandleGoogleSignUp"
+                disabled="@isLoading">
+            <span class="social-icon">G</span>
+            <span class="social-text">Continue with Google</span>
+        </button>
 
         <!-- Divider -->
         <div class="divider">
