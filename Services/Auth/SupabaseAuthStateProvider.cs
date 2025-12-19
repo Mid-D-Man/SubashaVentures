@@ -1,4 +1,4 @@
-// Services/Auth/SupabaseAuthStateProvider.cs - UPDATED with custom claims factory
+// Services/Auth/SupabaseAuthStateProvider.cs - FIXED SYNTAX ERROR
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using SubashaVentures.Services.Auth;
@@ -28,71 +28,74 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
         _claimsFactory = claimsFactory;
     }
 
-    public override async TaskAuthenticationState> GetAuthenticationStateAsync()
-{
-try
-{
-var user = _supabaseClient.Auth.CurrentUser;if (user == null)
+    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+    {
+        try
         {
+            var user = _supabaseClient.Auth.CurrentUser;
+
+            if (user == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No authenticated user found",
+                    LogLevel.Info
+                );
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            }
+
+            // Use claims factory to create principal with roles
+            var principal = await _claimsFactory.CreateUserPrincipalAsync(user);
+
             await MID_HelperFunctions.DebugMessageAsync(
-                "No authenticated user found",
+                $"✓ User authenticated: {user.Email}",
                 LogLevel.Info
             );
+
+            return new AuthenticationState(principal);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authentication state");
+            _logger.LogError(ex, "Failed to get authentication state");
             return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
         }
-
-        // Use claims factory to create principal with roles
-        var principal = await _claimsFactory.CreateUserPrincipalAsync(user);
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✓ User authenticated: {user.Email}",
-            LogLevel.Info
-        );
-
-        return new AuthenticationState(principal);
     }
-    catch (Exception ex)
+
+    /// <summary>
+    /// Notify that authentication state has changed
+    /// Call this after login/logout
+    /// </summary>
+    public void NotifyAuthenticationStateChanged()
     {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authentication state");
-        _logger.LogError(ex, "Failed to get authentication state");
-        return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+        NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+    }
+
+    /// <summary>
+    /// Check if current user has a specific role
+    /// </summary>
+    public async Task<bool> HasRoleAsync(string role)
+    {
+        var authState = await GetAuthenticationStateAsync();
+        return authState.User.IsInRole(role);
+    }
+
+    /// <summary>
+    /// Check if current user is superior admin
+    /// </summary>
+    public async Task<bool> IsSuperiorAdminAsync()
+    {
+        return await HasRoleAsync("superior_admin");
+    }
+
+    /// <summary>
+    /// Get all roles for current user
+    /// </summary>
+    public async Task<List<string>> GetCurrentUserRolesAsync()
+    {
+        var authState = await GetAuthenticationStateAsync();
+        return authState.User.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToList();
     }
 }
-
-/// <summary>
-/// Notify that authentication state has changed
-/// Call this after login/logout
-/// </summary>
-public void NotifyAuthenticationStateChanged()
-{
-    NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-}
-
-/// <summary>
-/// Check if current user has a specific role
-/// </summary>
-public async Task<bool> HasRoleAsync(string role)
-{
-    var authState = await GetAuthenticationStateAsync();
-    return authState.User.IsInRole(role);
-}
-
-/// <summary>
-/// Check if current user is superior admin
-/// </summary>
-public async Task<bool> IsSuperiorAdminAsync()
-{
-    return await HasRoleAsync("superior_admin");
-}
-
-/// <summary>
-/// Get all roles for current user
-/// </summary>
-public async Task<List<string>> GetCurrentUserRolesAsync()
-{
-    var authState = await GetAuthenticationStateAsync();
-    return authState.User.Claims
-        .Where(c => c.Type == ClaimTypes.Role)
-        .Select(c => c.Value)
-        .ToList();
-}}
