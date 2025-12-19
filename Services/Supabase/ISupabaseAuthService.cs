@@ -1,7 +1,6 @@
-// Services/Supabase/ISupabaseAuthService.cs - UPDATED with OAuth
+// Services/Supabase/ISupabaseAuthService.cs - UPDATED (removed Facebook)
 using SubashaVentures.Models.Supabase;
 using Supabase.Gotrue;
-using Supabase.Gotrue.Interfaces;
 
 namespace SubashaVentures.Services.Supabase;
 
@@ -24,11 +23,6 @@ public interface ISupabaseAuthService
     /// Sign in with Google OAuth
     /// </summary>
     Task<bool> SignInWithGoogleAsync();
-    
-    /// <summary>
-    /// Sign in with Facebook OAuth (if enabled)
-    /// </summary>
-    Task<bool> SignInWithFacebookAsync();
     
     /// <summary>
     /// Sign out current user
@@ -75,9 +69,7 @@ public interface ISupabaseAuthService
     /// </summary>
     Task<bool> VerifyEmailAsync(string token);
     
-
-
-     /// <summary>
+    /// <summary>
     /// Resend verification email
     /// </summary>
     Task<bool> ResendVerificationEmailAsync(string email);
