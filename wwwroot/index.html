@@ -1,10 +1,11 @@
-<!DOCTYPE html>.   
+<!DOCTYPE html>
 <html lang="en">
 <head> 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>SubashaVentures</title>
-    <base href="/" />
+    <!-- FIXED: Changed from "/" to "/SubashaVentures/" for GitHub Pages -->
+    <base href="/SubashaVentures/" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="css/colors.css" rel="stylesheet" />
     <link href="css/responsive.css" rel="stylesheet" />
@@ -22,7 +23,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
 
     <!-- stats charts -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -50,10 +51,10 @@
 <script src="js/adminHelpers.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/imageCacheHelper.js"></script>
-       <script src="js/supabaseOAuth.js"></script>
+<script src="js/supabaseOAuth.js"></script>
 <script src="_framework/blazor.webassembly.js"></script>
 <script>
-    navigator.serviceWorker.register('/service-worker.js');
+    navigator.serviceWorker.register('/SubashaVentures/service-worker.js');
 </script>
 </body>
 </html>
