@@ -1,8 +1,9 @@
-// Domain/User/UserProfileViewModel.cs - UPDATED FOR SUPABASE AUTH
+// Domain/User/UserProfileViewModel.cs - UPDATED FOR ROLES
 namespace SubashaVentures.Domain.User;
 
 /// <summary>
 /// View model for user profile information - matches Supabase Auth + extended profile
+/// Updated: Added Roles property for role-based authorization
 /// </summary>
 public class UserProfileViewModel
 {
@@ -51,7 +52,16 @@ public class UserProfileViewModel
     public DateTime? UpdatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
     
+    // ==================== NEW: ROLES ====================
+    
+    /// <summary>
+    /// User roles from public.user_roles table
+    /// Examples: "user", "superior_admin"
+    /// </summary>
+    public List<string> Roles { get; set; } = new();
+    
     // ==================== COMPUTED PROPERTIES ====================
+    
     public string FullName => $"{FirstName} {LastName}".Trim();
     public string DisplayName => string.IsNullOrEmpty(FullName) ? Email : FullName;
     public string Initials => $"{FirstName.FirstOrDefault()}{LastName.FirstOrDefault()}".ToUpper();
@@ -61,4 +71,56 @@ public class UserProfileViewModel
     public string MemberSince => CreatedAt.ToString("MMMM yyyy");
     public string DisplayTotalSpent => $"₦{TotalSpent:N0}";
     public string DisplayLoyaltyPoints => LoyaltyPoints.ToString("N0");
+    
+    // ==================== NEW: ROLE-BASED PROPERTIES ====================
+    
+    /// <summary>
+    /// Check if user is superior admin
+    /// </summary>
+    public bool IsSuperiorAdmin => Roles.Contains("superior_admin", StringComparer.OrdinalIgnoreCase);
+    
+    /// <summary>
+    /// Check if user is regular user
+    /// </summary>
+    public bool IsRegularUser => Roles.Contains("user", StringComparer.OrdinalIgnoreCase) || Roles.Count == 0;
+    
+    /// <summary>
+    /// Get roles as display string (e.g., "user, superior_admin")
+    /// </summary>
+    public string RoleDisplay => Roles.Any() ? string.Join(", ", Roles) : "user";
+    
+    /// <summary>
+    /// Check if user has a specific role
+    /// </summary>
+    public bool HasRole(string role) => Roles.Contains(role, StringComparer.OrdinalIgnoreCase);
+    
+    /// <summary>
+    /// Get all role badges for UI display
+    /// </summary>
+    public List<RoleBadge> RoleBadges => Roles.Select(role => new RoleBadge
+    {
+        Role = role,
+        DisplayName = role switch
+        {
+            "superior_admin" => "Superior Admin",
+            "user" => "User",
+            _ => role
+        },
+        BadgeClass = role switch
+        {
+            "superior_admin" => "badge-danger",
+            "user" => "badge-info",
+            _ => "badge-secondary"
+        }
+    }).ToList();
+}
+
+/// <summary>
+/// Role badge for UI display
+/// </summary>
+public class RoleBadge
+{
+    public string Role { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string BadgeClass { get; set; } = "badge-secondary";
 }
