@@ -1,4 +1,4 @@
-// Program.cs - UPDATED
+// Program.cs - UPDATED WITH PERMISSION SERVICE
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Authorization;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -56,6 +57,11 @@ builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvide
 // Custom Claims Factory for Role-Based Authorization
 // ============================================================================
 builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
+
+// ============================================================================
+// ✅ NEW: Permission Service for Authentication & Authorization Checks
+// ============================================================================
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 // ============================================================================
 // Authorization Policies for Role-Based Access Control
