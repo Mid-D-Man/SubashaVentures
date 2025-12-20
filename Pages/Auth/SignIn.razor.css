@@ -1,4 +1,4 @@
-/* Pages/Auth/SignIn.razor.css - FIXED */
+/* Pages/Auth/SignIn.razor.css - UPDATED WITH INFO BANNER */
 
 .signin-page {
     width: 100%;
@@ -31,7 +31,8 @@
 }
 
 .success-banner,
-.error-banner {
+.error-banner,
+.info-banner {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -50,8 +51,15 @@
     border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+/* ✅ NEW: Info banner for return URL notice */
+.info-banner {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
 .success-icon,
-.error-icon {
+.error-icon,
+.info-icon {
     font-size: 1.2rem;
     flex-shrink: 0;
 }
@@ -64,6 +72,10 @@
     color: var(--danger-color, #ef4444);
 }
 
+.info-icon {
+    color: var(--info-color, #3b82f6);
+}
+
 .success-text {
     font-size: 0.9rem;
     color: #059669;
@@ -73,6 +85,12 @@
 .error-text {
     font-size: 0.9rem;
     color: #dc2626;
+    font-weight: 500;
+}
+
+.info-text {
+    font-size: 0.9rem;
+    color: #1d4ed8;
     font-weight: 500;
 }
 
@@ -255,6 +273,16 @@
 
 [data-theme="dark"] .error-text {
     color: #f87171;
+}
+
+/* ✅ NEW: Dark theme info banner */
+[data-theme="dark"] .info-banner {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .info-text {
+    color: #60a5fa;
 }
 
 [data-theme="dark"] .divider-line {
