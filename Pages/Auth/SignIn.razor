@@ -29,6 +29,15 @@
             </div>
         }
 
+        <!-- Return URL Notice -->
+        @if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            <div class="info-banner">
+                <span class="info-icon">ℹ</span>
+                <span class="info-text">Please sign in to continue</span>
+            </div>
+        }
+
         <!-- Google Sign In -->
         <button type="button" 
                 class="social-btn google" 
