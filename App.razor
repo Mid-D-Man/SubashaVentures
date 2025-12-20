@@ -4,6 +4,7 @@
 @inject ISupabaseAuthService AuthService
 @inject NavigationManager Navigation
 @inject ILogger<App> Logger
+@inject IJSRuntime JSRuntime
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly">
@@ -44,20 +45,26 @@
         {
             var uri = new Uri(Navigation.Uri);
             
-            // Check if this is an OAuth callback (Supabase adds #access_token to URL)
-            if (uri.Fragment.Contains("access_token") || uri.Fragment.Contains("error"))
+            Logger.LogInformation("=== OAuth Callback Check ===");
+            Logger.LogInformation("Current URI: {Uri}", uri.ToString());
+            Logger.LogInformation("Fragment: {Fragment}", uri.Fragment);
+            
+            // Check if this is an OAuth callback (Supabase adds #access_token or #error to URL)
+            if (!string.IsNullOrEmpty(uri.Fragment) && 
+                (uri.Fragment.Contains("access_token") || uri.Fragment.Contains("error")))
             {
-                Logger.LogInformation("OAuth callback detected in URL fragment");
+                Logger.LogInformation("✅ OAuth callback detected in URL fragment");
                 
-                // Wait a moment for Supabase to process the callback
-                await Task.Delay(1000);
+                // Wait for Supabase to process the callback
+                // Increased delay for GitHub Pages (slower than localhost)
+                await Task.Delay(1500);
                 
                 // Check if user is authenticated
                 var isAuthenticated = await AuthService.IsAuthenticatedAsync();
                 
                 if (isAuthenticated)
                 {
-                    Logger.LogInformation("✓ OAuth authentication successful");
+                    Logger.LogInformation("✅ OAuth authentication successful");
                     
                     // Notify authentication state changed
                     if (AuthStateProvider is SupabaseAuthStateProvider provider)
@@ -65,20 +72,133 @@
                         provider.NotifyAuthenticationStateChanged();
                     }
                     
+                    // Get base path for redirect
+                    var basePath = await GetBasePath();
+                    
                     // Redirect to home (remove fragment from URL)
-                    Navigation.NavigateTo("/", forceLoad: true);
+                    Logger.LogInformation("Redirecting to: {BasePath}", basePath);
+                    Navigation.NavigateTo(basePath, forceLoad: true);
                 }
                 else if (uri.Fragment.Contains("error"))
                 {
-                    Logger.LogWarning("OAuth authentication failed");
+                    // Extract error message
+                    var errorMsg = ExtractErrorFromFragment(uri.Fragment);
+                    Logger.LogWarning("❌ OAuth authentication failed: {Error}", errorMsg);
+                    
                     // Redirect to sign in with error
-                    Navigation.NavigateTo("/signin", forceLoad: true);
+                    var basePath = await GetBasePath();
+                    Navigation.NavigateTo($"{basePath}signin?error={Uri.EscapeDataString(errorMsg)}", forceLoad: true);
                 }
+                else
+                {
+                    Logger.LogWarning("⚠️ OAuth callback received but user not authenticated after delay");
+                    
+                    // Try one more time after a longer delay
+                    Logger.LogInformation("Retrying authentication check...");
+                    await Task.Delay(1000);
+                    isAuthenticated = await AuthService.IsAuthenticatedAsync();
+                    
+                    if (isAuthenticated)
+                    {
+                        Logger.LogInformation("✅ OAuth authentication successful on retry");
+                        
+                        if (AuthStateProvider is SupabaseAuthStateProvider provider)
+                        {
+                            provider.NotifyAuthenticationStateChanged();
+                        }
+                        
+                        var basePath = await GetBasePath();
+                        Navigation.NavigateTo(basePath, forceLoad: true);
+                    }
+                    else
+                    {
+                        // Still not authenticated - redirect to sign in
+                        Logger.LogError("❌ OAuth callback failed - user not authenticated after retries");
+                        var basePath = await GetBasePath();
+                        Navigation.NavigateTo($"{basePath}signin", forceLoad: true);
+                    }
+                }
+            }
+            else
+            {
+                Logger.LogInformation("No OAuth callback detected - normal page load");
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error handling OAuth callback");
+            Logger.LogError(ex, "❌ Error handling OAuth callback");
+        }
+    }
+    
+    /// <summary>
+    /// Get base path for navigation (handles GitHub Pages deployment)
+    /// Uses JavaScript to get the actual base path from the page
+    /// </summary>
+    private async Task<string> GetBasePath()
+    {
+        try
+        {
+            // Get base path from JavaScript helper
+            var basePath = await JSRuntime.InvokeAsync<string>("eval", 
+                "window.supabaseOAuth ? window.supabaseOAuth.getBasePath() : ''");
+            
+            if (!string.IsNullOrEmpty(basePath))
+            {
+                Logger.LogInformation("Base path from JS: {BasePath}", basePath);
+                return basePath + "/";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not get base path from JavaScript");
+        }
+        
+        // Fallback: extract from Navigation.BaseUri
+        var uri = new Uri(Navigation.BaseUri);
+        
+        // For GitHub Pages: https://mid-d-man.github.io/SubashaVentures/
+        // Path will be /SubashaVentures/
+        if (uri.AbsolutePath != "/" && uri.AbsolutePath.Length > 1)
+        {
+            Logger.LogInformation("Base path from BaseUri: {BasePath}", uri.AbsolutePath);
+            return uri.AbsolutePath;
+        }
+        
+        // For localhost or root deployment
+        Logger.LogInformation("Using root base path: /");
+        return "/";
+    }
+    
+    /// <summary>
+    /// Extract error message from OAuth callback fragment
+    /// </summary>
+    private string ExtractErrorFromFragment(string fragment)
+    {
+        try
+        {
+            // Fragment format: #error=error_code&error_description=Error+Message
+            var parts = fragment.TrimStart('#').Split('&');
+            
+            foreach (var part in parts)
+            {
+                if (part.StartsWith("error_description="))
+                {
+                    var errorDesc = part.Substring("error_description=".Length);
+                    return Uri.UnescapeDataString(errorDesc.Replace('+', ' '));
+                }
+                
+                if (part.StartsWith("error="))
+                {
+                    return part.Substring("error=".Length);
+                }
+            }
+            
+            return "Authentication failed";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not parse error from fragment");
+            return "Authentication failed";
         }
     }
 }
