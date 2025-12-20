@@ -1,11 +1,13 @@
-@* App.razor - UPDATED WITH OAUTH CALLBACK HANDLING *@
+@* App.razor - FINAL WITH JAVASCRIPT EVENT LISTENERS *@
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Supabase
 @using SubashaVentures.Services.Storage
+@implements IDisposable
 @inject ISupabaseAuthService AuthService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @inject IBlazorAppLocalStorageService LocalStorage
+@inject IJSRuntime JSRuntime
 @inject ILogger<App> Logger
 
 <CascadingAuthenticationState>
@@ -71,103 +73,80 @@
 </CascadingAuthenticationState>
 
 @code {
-    private bool _isProcessingOAuth = false;
+    private DotNetObjectReference<App>? _dotNetReference;
+    private IJSObjectReference? _jsModule;
 
     protected override async Task OnInitializedAsync()
     {
-        // ✅ CRITICAL: Check for OAuth callback on app initialization
-        await CheckForOAuthCallbackAsync();
+        // Create reference for JavaScript callbacks
+        _dotNetReference = DotNetObjectReference.Create(this);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Give OAuth a moment to process if needed
-            if (_isProcessingOAuth)
+            try
             {
-                await Task.Delay(1000);
-                StateHasChanged();
+                // ✅ Register event listeners for OAuth callbacks
+                await JSRuntime.InvokeVoidAsync("eval", @"
+                    window.addEventListener('supabase-auth-success', async function(event) {
+                        console.log('🎉 Blazor received auth success event');
+                        
+                        // Get post-OAuth redirect destination
+                        const redirectTo = sessionStorage.getItem('post_oauth_redirect') || '/';
+                        sessionStorage.removeItem('post_oauth_redirect');
+                        
+                        console.log('Redirecting to:', redirectTo);
+                        
+                        // Notify Blazor
+                        if (window.blazorAuthCallback) {
+                            window.blazorAuthCallback.invokeMethodAsync('OnAuthSuccess', redirectTo);
+                        }
+                    });
+                    
+                    window.addEventListener('supabase-auth-change', function(event) {
+                        console.log('🔔 Blazor received auth change:', event.detail.event);
+                    });
+                ");
+
+                // Make this component accessible to JavaScript
+                await JSRuntime.InvokeVoidAsync("eval", $"window.blazorAuthCallback = {_dotNetReference}");
+
+                Logger.LogInformation("✅ OAuth event listeners registered");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to register OAuth event listeners");
             }
         }
     }
 
     /// <summary>
-    /// Check if this is an OAuth callback and handle it
+    /// Called by JavaScript when OAuth authentication succeeds
     /// </summary>
-    private async Task CheckForOAuthCallbackAsync()
+    [JSInvokable]
+    public async Task OnAuthSuccess(string redirectUrl)
     {
         try
         {
-            var uri = new Uri(NavigationManager.Uri);
-            var fragment = uri.Fragment;
+            Logger.LogInformation("OnAuthSuccess called with redirect: {RedirectUrl}", redirectUrl);
 
-            // Check for OAuth callback (access_token or error in fragment)
-            if (!string.IsNullOrEmpty(fragment) && 
-                (fragment.Contains("access_token") || fragment.Contains("error")))
+            // Notify authentication state changed
+            if (AuthStateProvider is SupabaseAuthStateProvider provider)
             {
-                _isProcessingOAuth = true;
+                provider.NotifyAuthenticationStateChanged();
                 
-                Logger.LogInformation("OAuth callback detected in App.razor");
-                
-                // Wait for Supabase to process the callback
-                await Task.Delay(1500);
-
-                // Check if user is now authenticated
-                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-                var isAuthenticated = authState.User?.Identity?.IsAuthenticated ?? false;
-
-                if (isAuthenticated)
-                {
-                    Logger.LogInformation("✓ OAuth authentication successful");
-
-                    // Notify auth state changed
-                    if (AuthStateProvider is SupabaseAuthStateProvider provider)
-                    {
-                        provider.NotifyAuthenticationStateChanged();
-                    }
-
-                    // Check for stored return URL
-                    string? returnUrl = null;
-                    try
-                    {
-                        returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
-                        if (!string.IsNullOrEmpty(returnUrl))
-                        {
-                            await LocalStorage.RemoveItemAsync("oauth_return_url");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogWarning(ex, "Failed to retrieve OAuth return URL");
-                    }
-
-                    // Clean up URL (remove hash fragment)
-                    var cleanUrl = uri.GetLeftPart(UriPartial.Path);
-                    
-                    // Navigate to return URL or home
-                    var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
-                    
-                    Logger.LogInformation("Redirecting after OAuth to: {Destination}", destination);
-                    
-                    // Use JavaScript to replace URL without fragment, then navigate
-                    NavigationManager.NavigateTo(destination, forceLoad: false);
-                }
-                else
-                {
-                    Logger.LogWarning("OAuth callback processed but user not authenticated");
-                    
-                    // Navigate to sign-in with error
-                    NavigationManager.NavigateTo("/signin?error=oauth_failed", forceLoad: false);
-                }
-
-                _isProcessingOAuth = false;
+                // Wait for state to update
+                await Task.Delay(500);
             }
+
+            // Navigate to destination
+            NavigationManager.NavigateTo(redirectUrl, forceLoad: false);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error checking for OAuth callback");
-            _isProcessingOAuth = false;
+            Logger.LogError(ex, "Error in OnAuthSuccess");
         }
     }
 
@@ -181,5 +160,11 @@
         var returnUrl = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "/");
         var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
         NavigationManager.NavigateTo($"/signin?returnUrl={encodedReturnUrl}", forceLoad: false);
+    }
+
+    public void Dispose()
+    {
+        _dotNetReference?.Dispose();
+        _jsModule?.DisposeAsync();
     }
 }
