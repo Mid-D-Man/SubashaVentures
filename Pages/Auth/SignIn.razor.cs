@@ -1,6 +1,7 @@
-// Pages/Auth/SignIn.razor.cs - FIXED AUTH FLOW
+// Pages/Auth/SignIn.razor.cs - FINAL (Updated HandleGoogleSignIn only)
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -15,11 +16,11 @@ public partial class SignIn : ComponentBase
     [Inject] private ILogger<SignIn> Logger { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "registered")]
     private bool Registered { get; set; }
 
-    // ✅ NEW: Return URL parameter for redirect after sign-in
     [SupplyParameterFromQuery(Name = "returnUrl")]
     private string? ReturnUrl { get; set; }
 
@@ -37,7 +38,6 @@ public partial class SignIn : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        // ✅ CRITICAL FIX: Check if user is already authenticated
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         if (authState.User?.Identity?.IsAuthenticated ?? false)
         {
@@ -46,7 +46,6 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
 
-            // Redirect to return URL or home
             var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
             NavigationManager.NavigateTo(destination, forceLoad: false);
             return;
@@ -71,7 +70,6 @@ public partial class SignIn : ComponentBase
             Logger.LogWarning(ex, "Failed to load remembered email");
         }
 
-        // ✅ NEW: Decode return URL if present
         if (!string.IsNullOrEmpty(ReturnUrl))
         {
             try
@@ -130,16 +128,12 @@ public partial class SignIn : ComponentBase
                     await LocalStorage.RemoveItemAsync("remember_email");
                 }
 
-                // ✅ CRITICAL: Notify authentication state changed BEFORE navigation
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
                 {
                     provider.NotifyAuthenticationStateChanged();
-                    
-                    // Wait for authentication state to update
                     await Task.Delay(500);
                 }
 
-                // ✅ FIXED: Navigate to return URL or home (NO forceLoad)
                 var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
                 
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -180,6 +174,7 @@ public partial class SignIn : ComponentBase
         }
     }
 
+    // ✅ UPDATED: Pass return URL to JavaScript OAuth handler
     private async Task HandleGoogleSignIn()
     {
         try
@@ -194,27 +189,13 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
             
-            // ✅ NEW: Store return URL before OAuth redirect
-            if (!string.IsNullOrEmpty(ReturnUrl))
-            {
-                await LocalStorage.SetItemAsync("oauth_return_url", ReturnUrl);
-            }
+            // ✅ CRITICAL: Call JavaScript function with return URL
+            var success = await JSRuntime.InvokeAsync<bool>(
+                "supabaseOAuth.signInWithGoogle", 
+                ReturnUrl ?? "/"
+            );
             
-            var success = await AuthService.SignInWithGoogleAsync();
-            
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Google OAuth initiated successfully",
-                    LogLevel.Info
-                );
-
-                Logger.LogInformation("Google OAuth sign in initiated");
-                
-                // The OAuth flow will redirect to Google automatically
-                // When user returns, they'll be authenticated
-            }
-            else
+            if (!success)
             {
                 generalError = "Failed to connect to Google. Please try again.";
                 Logger.LogError("Google OAuth initiation failed");
