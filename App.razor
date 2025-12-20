@@ -1,23 +1,52 @@
+@* App.razor - UPDATED WITH OAUTH CALLBACK HANDLING *@
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Supabase
-@inject AuthenticationStateProvider AuthStateProvider
+@using SubashaVentures.Services.Storage
 @inject ISupabaseAuthService AuthService
-@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IBlazorAppLocalStorageService LocalStorage
 @inject ILogger<App> Logger
-@inject IJSRuntime JSRuntime
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <Authorizing>
+                    <div class="app-loading-container">
+                        <div class="app-loading-content">
+                            <div class="app-spinner"></div>
+                            <h3 class="app-loading-title">Authorizing</h3>
+                            <p class="app-loading-text">Please wait while we verify your credentials...</p>
+                        </div>
+                    </div>
+                </Authorizing>
                 <NotAuthorized>
-                    @if (context.User.Identity?.IsAuthenticated != true)
+                    @if (context.User.Identity?.IsAuthenticated ?? false)
                     {
-                        <RedirectToLogin />
+                        <div class="app-error-container">
+                            <div class="app-error-content">
+                                <div class="app-error-icon">🔒</div>
+                                <h3 class="app-error-title">Access Denied</h3>
+                                <p class="app-error-text">You don't have permission to access this page.</p>
+                                <button class="app-error-button" @onclick="NavigateToHome">
+                                    Return to Home
+                                </button>
+                            </div>
+                        </div>
                     }
                     else
                     {
-                        <p role="alert">You are not authorized to access this resource.</p>
+                        <div class="app-error-container">
+                            <div class="app-error-content">
+                                <div class="app-error-icon">🔐</div>
+                                <h3 class="app-error-title">Sign In Required</h3>
+                                <p class="app-error-text">Please sign in to access this page.</p>
+                                <button class="app-error-button" @onclick="NavigateToSignIn">
+                                    Sign In
+                                </button>
+                            </div>
+                        </div>
                     }
                 </NotAuthorized>
             </AuthorizeRouteView>
@@ -26,159 +55,131 @@
         <NotFound>
             <PageTitle>Not found</PageTitle>
             <LayoutView Layout="@typeof(MainLayout)">
-                <p role="alert">Sorry, there's nothing at this address.</p>
+                <div class="app-error-container">
+                    <div class="app-error-content">
+                        <div class="app-error-icon">🔍</div>
+                        <h3 class="app-error-title">Page Not Found</h3>
+                        <p class="app-error-text">Sorry, we couldn't find the page you're looking for.</p>
+                        <button class="app-error-button" @onclick="NavigateToHome">
+                            Return to Home
+                        </button>
+                    </div>
+                </div>
             </LayoutView>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>
 
 @code {
+    private bool _isProcessingOAuth = false;
+
     protected override async Task OnInitializedAsync()
     {
-        // Handle OAuth callback
-        await HandleOAuthCallback();
+        // ✅ CRITICAL: Check for OAuth callback on app initialization
+        await CheckForOAuthCallbackAsync();
     }
 
-    private async Task HandleOAuthCallback()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Give OAuth a moment to process if needed
+            if (_isProcessingOAuth)
+            {
+                await Task.Delay(1000);
+                StateHasChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Check if this is an OAuth callback and handle it
+    /// </summary>
+    private async Task CheckForOAuthCallbackAsync()
     {
         try
         {
-            var uri = new Uri(Navigation.Uri);
-            
-            Logger.LogInformation("=== OAuth Callback Check ===");
-            Logger.LogInformation("Current URI: {Uri}", uri.ToString());
-            Logger.LogInformation("Fragment: {Fragment}", uri.Fragment);
-            
-            // Check if this is an OAuth callback
-            if (!string.IsNullOrEmpty(uri.Fragment) && 
-                (uri.Fragment.Contains("access_token") || uri.Fragment.Contains("error")))
+            var uri = new Uri(NavigationManager.Uri);
+            var fragment = uri.Fragment;
+
+            // Check for OAuth callback (access_token or error in fragment)
+            if (!string.IsNullOrEmpty(fragment) && 
+                (fragment.Contains("access_token") || fragment.Contains("error")))
             {
-                Logger.LogInformation("✅ OAuth callback detected in URL fragment");
+                _isProcessingOAuth = true;
                 
-                // Wait for Supabase JS client to process the session
-                await Task.Delay(2000);
+                Logger.LogInformation("OAuth callback detected in App.razor");
                 
-                // Check if user is authenticated
-                var isAuthenticated = await AuthService.IsAuthenticatedAsync();
-                
+                // Wait for Supabase to process the callback
+                await Task.Delay(1500);
+
+                // Check if user is now authenticated
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var isAuthenticated = authState.User?.Identity?.IsAuthenticated ?? false;
+
                 if (isAuthenticated)
                 {
-                    Logger.LogInformation("✅ OAuth authentication successful");
-                    
-                    // Notify authentication state changed
+                    Logger.LogInformation("✓ OAuth authentication successful");
+
+                    // Notify auth state changed
                     if (AuthStateProvider is SupabaseAuthStateProvider provider)
                     {
                         provider.NotifyAuthenticationStateChanged();
                     }
+
+                    // Check for stored return URL
+                    string? returnUrl = null;
+                    try
+                    {
+                        returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
+                        if (!string.IsNullOrEmpty(returnUrl))
+                        {
+                            await LocalStorage.RemoveItemAsync("oauth_return_url");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to retrieve OAuth return URL");
+                    }
+
+                    // Clean up URL (remove hash fragment)
+                    var cleanUrl = uri.GetLeftPart(UriPartial.Path);
                     
-                    // Get base path and redirect
-                    var basePath = await GetBasePathAsync();
-                    Logger.LogInformation("Redirecting to: {BasePath}", basePath);
-                    Navigation.NavigateTo(basePath, forceLoad: true);
-                }
-                else if (uri.Fragment.Contains("error"))
-                {
-                    var errorMsg = ExtractErrorFromFragment(uri.Fragment);
-                    Logger.LogWarning("❌ OAuth authentication failed: {Error}", errorMsg);
+                    // Navigate to return URL or home
+                    var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
                     
-                    var basePath = await GetBasePathAsync();
-                    Navigation.NavigateTo($"{basePath}signin?error={Uri.EscapeDataString(errorMsg)}", forceLoad: true);
+                    Logger.LogInformation("Redirecting after OAuth to: {Destination}", destination);
+                    
+                    // Use JavaScript to replace URL without fragment, then navigate
+                    NavigationManager.NavigateTo(destination, forceLoad: false);
                 }
                 else
                 {
-                    Logger.LogWarning("⚠️ OAuth callback received but user not authenticated");
+                    Logger.LogWarning("OAuth callback processed but user not authenticated");
                     
-                    // Retry once more
-                    await Task.Delay(1000);
-                    isAuthenticated = await AuthService.IsAuthenticatedAsync();
-                    
-                    if (isAuthenticated)
-                    {
-                        Logger.LogInformation("✅ OAuth authentication successful on retry");
-                        
-                        if (AuthStateProvider is SupabaseAuthStateProvider provider)
-                        {
-                            provider.NotifyAuthenticationStateChanged();
-                        }
-                        
-                        var basePath = await GetBasePathAsync();
-                        Navigation.NavigateTo(basePath, forceLoad: true);
-                    }
-                    else
-                    {
-                        Logger.LogError("❌ OAuth callback failed after retries");
-                        var basePath = await GetBasePathAsync();
-                        Navigation.NavigateTo($"{basePath}signin", forceLoad: true);
-                    }
+                    // Navigate to sign-in with error
+                    NavigationManager.NavigateTo("/signin?error=oauth_failed", forceLoad: false);
                 }
-            }
-            else
-            {
-                Logger.LogInformation("No OAuth callback detected - normal page load");
+
+                _isProcessingOAuth = false;
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "❌ Error handling OAuth callback");
+            Logger.LogError(ex, "Error checking for OAuth callback");
+            _isProcessingOAuth = false;
         }
     }
-    
-    private async Task<string> GetBasePathAsync()
+
+    private void NavigateToHome()
     {
-        try
-        {
-            var basePath = await JSRuntime.InvokeAsync<string>("supabaseOAuth.getBasePath");
-            
-            if (!string.IsNullOrEmpty(basePath))
-            {
-                Logger.LogInformation("Base path from JS: {BasePath}", basePath);
-                return basePath;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Could not get base path from JavaScript");
-        }
-        
-        // Fallback
-        var uri = new Uri(Navigation.BaseUri);
-        
-        if (uri.AbsolutePath != "/" && uri.AbsolutePath.Length > 1)
-        {
-            Logger.LogInformation("Base path from BaseUri: {BasePath}", uri.AbsolutePath);
-            return uri.AbsolutePath;
-        }
-        
-        Logger.LogInformation("Using root base path: /");
-        return "/";
+        NavigationManager.NavigateTo("/", forceLoad: false);
     }
-    
-    private string ExtractErrorFromFragment(string fragment)
+
+    private void NavigateToSignIn()
     {
-        try
-        {
-            var parts = fragment.TrimStart('#').Split('&');
-            
-            foreach (var part in parts)
-            {
-                if (part.StartsWith("error_description="))
-                {
-                    var errorDesc = part.Substring("error_description=".Length);
-                    return Uri.UnescapeDataString(errorDesc.Replace('+', ' '));
-                }
-                
-                if (part.StartsWith("error="))
-                {
-                    return part.Substring("error=".Length);
-                }
-            }
-            
-            return "Authentication failed";
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Could not parse error from fragment");
-            return "Authentication failed";
-        }
+        var returnUrl = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "/");
+        var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
+        NavigationManager.NavigateTo($"/signin?returnUrl={encodedReturnUrl}", forceLoad: false);
     }
 }
