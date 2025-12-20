@@ -1,4 +1,4 @@
-// Pages/Auth/SignIn.razor.cs - UPDATED (removed Facebook)
+// Pages/Auth/SignIn.razor.cs - FIXED AUTH FLOW
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Storage;
@@ -19,6 +19,10 @@ public partial class SignIn : ComponentBase
     [SupplyParameterFromQuery(Name = "registered")]
     private bool Registered { get; set; }
 
+    // ✅ NEW: Return URL parameter for redirect after sign-in
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+
     private string email = "";
     private string password = "";
     private bool rememberMe = false;
@@ -33,6 +37,21 @@ public partial class SignIn : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        // ✅ CRITICAL FIX: Check if user is already authenticated
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User?.Identity?.IsAuthenticated ?? false)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "User already authenticated, redirecting...",
+                LogLevel.Info
+            );
+
+            // Redirect to return URL or home
+            var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+            NavigationManager.NavigateTo(destination, forceLoad: false);
+            return;
+        }
+
         if (Registered)
         {
             successMessage = "Account created successfully! Please sign in.";
@@ -50,6 +69,24 @@ public partial class SignIn : ComponentBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to load remembered email");
+        }
+
+        // ✅ NEW: Decode return URL if present
+        if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            try
+            {
+                ReturnUrl = Uri.UnescapeDataString(ReturnUrl);
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Will redirect to: {ReturnUrl} after sign-in",
+                    LogLevel.Info
+                );
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to decode return URL");
+                ReturnUrl = null;
+            }
         }
     }
 
@@ -93,12 +130,24 @@ public partial class SignIn : ComponentBase
                     await LocalStorage.RemoveItemAsync("remember_email");
                 }
 
+                // ✅ CRITICAL: Notify authentication state changed BEFORE navigation
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
                 {
                     provider.NotifyAuthenticationStateChanged();
+                    
+                    // Wait for authentication state to update
+                    await Task.Delay(500);
                 }
+
+                // ✅ FIXED: Navigate to return URL or home (NO forceLoad)
+                var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
                 
-                NavigationManager.NavigateTo("/", forceLoad: true);
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Redirecting to: {destination}",
+                    LogLevel.Info
+                );
+
+                NavigationManager.NavigateTo(destination, forceLoad: false);
             }
             else
             {
@@ -144,6 +193,12 @@ public partial class SignIn : ComponentBase
                 "Initiating Google OAuth sign in",
                 LogLevel.Info
             );
+            
+            // ✅ NEW: Store return URL before OAuth redirect
+            if (!string.IsNullOrEmpty(ReturnUrl))
+            {
+                await LocalStorage.SetItemAsync("oauth_return_url", ReturnUrl);
+            }
             
             var success = await AuthService.SignInWithGoogleAsync();
             
