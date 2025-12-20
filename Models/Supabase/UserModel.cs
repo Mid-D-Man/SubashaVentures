@@ -3,9 +3,9 @@ using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
 
-
 /// <summary>
 /// Supabase user model - linked to auth.users
+/// Updated: Added Roles property for role-based access control
 /// </summary>
 [Table("users")]
 public class UserModel : BaseModel
@@ -93,4 +93,37 @@ public class UserModel : BaseModel
     
     [Column("last_login_at")]
     public DateTime? LastLoginAt { get; set; }
+    
+    // ==================== NEW: ROLES ====================
+    
+    /// <summary>
+    /// User roles fetched from public.user_roles table
+    /// Not persisted in users table, loaded separately
+    /// </summary>
+    [Ignore]
+    public List<UserRoleModel> UserRoles { get; set; } = new();
+    
+    /// <summary>
+    /// Helper property to get role strings
+    /// </summary>
+    [Ignore]
+    public List<string> RoleStrings => UserRoles.Select(r => r.Role).ToList();
+    
+    /// <summary>
+    /// Check if user has a specific role
+    /// </summary>
+    [Ignore]
+    public bool HasRole(string role) => RoleStrings.Contains(role, StringComparer.OrdinalIgnoreCase);
+    
+    /// <summary>
+    /// Check if user is superior admin
+    /// </summary>
+    [Ignore]
+    public bool IsSuperiorAdmin => HasRole("superior_admin");
+    
+    /// <summary>
+    /// Check if user is regular user
+    /// </summary>
+    [Ignore]
+    public bool IsRegularUser => HasRole("user") || RoleStrings.Count == 0;
 }
