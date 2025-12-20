@@ -15,13 +15,16 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
     <meta http-equiv="Permissions-Policy" content="interest-cohort=()">
 
-    <!-- Firebase SDKs from CDN -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
 
-    <!-- stats charts -->
+    <!-- Supabase JavaScript SDK - REQUIRED -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -50,7 +53,10 @@
 <script src="js/adminHelpers.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/imageCacheHelper.js"></script>
+
+<!-- Load Supabase OAuth AFTER Supabase SDK -->
 <script src="js/supabaseOAuth.js"></script>
+
 <script src="_framework/blazor.webassembly.js"></script>
 <script>
     navigator.serviceWorker.register('service-worker.js');
