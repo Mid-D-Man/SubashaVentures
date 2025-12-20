@@ -1,4 +1,4 @@
-// Services/Users/UserService.cs - COMPLETE IMPLEMENTATION
+// Services/Users/UserService.cs - COMPLETE UPDATED IMPLEMENTATION
 using SubashaVentures.Domain.User;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Models.Supabase;
@@ -9,6 +9,7 @@ using Supabase.Postgrest.Interfaces;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Client = Supabase.Client;
 using Gotrue = Supabase.Gotrue;
+
 namespace SubashaVentures.Services.Users;
 
 public class UserService : IUserService
@@ -53,10 +54,24 @@ public class UserService : IUserService
                 return new List<UserProfileViewModel>();
             }
 
-            var viewModels = users.Models.Select(MapToViewModel).ToList();
+            // ✅ NEW: Fetch all roles for these users in one efficient query
+            var userIds = users.Models.Select(u => u.Id).ToList();
+            var allRoles = await _supabaseClient
+                .From<UserRoleModel>()
+                .Get();
+
+            var rolesByUserId = allRoles?.Models?
+                .GroupBy(r => r.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(r => r.Role).ToList())
+                ?? new Dictionary<string, List<string>>();
+
+            // Map users with their roles
+            var viewModels = users.Models.Select(u => 
+                MapToViewModel(u, rolesByUserId.TryGetValue(u.Id, out var roles) ? roles : new List<string> { "user" })
+            ).ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved {viewModels.Count} users",
+                $"✓ Retrieved {viewModels.Count} users with roles",
                 LogLevel.Info
             );
 
@@ -91,7 +106,20 @@ public class UserService : IUserService
                 return null;
             }
 
-            return MapToViewModel(user);
+            // ✅ NEW: Fetch user roles from database
+            var userRoles = await _supabaseClient
+                .From<UserRoleModel>()
+                .Where(r => r.UserId == userId)
+                .Get();
+
+            var roles = userRoles?.Models?.Select(r => r.Role).ToList() ?? new List<string> { "user" };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved user {userId} with roles: {string.Join(", ", roles)}",
+                LogLevel.Info
+            );
+
+            return MapToViewModel(user, roles);
         }
         catch (Exception ex)
         {
@@ -122,7 +150,15 @@ public class UserService : IUserService
                 return null;
             }
 
-            return MapToViewModel(user);
+            // ✅ NEW: Fetch user roles
+            var userRoles = await _supabaseClient
+                .From<UserRoleModel>()
+                .Where(r => r.UserId == user.Id)
+                .Get();
+
+            var roles = userRoles?.Models?.Select(r => r.Role).ToList() ?? new List<string> { "user" };
+
+            return MapToViewModel(user, roles);
         }
         catch (Exception ex)
         {
@@ -145,7 +181,6 @@ public class UserService : IUserService
             // Search by name or email using PostgreSQL pattern matching
             var users = await _supabaseClient
                 .From<UserProfileModel>()
-                //.Or($"first_name.ilike.%{query}%,last_name.ilike.%{query}%,email.ilike.%{query}%")
                 .Limit(50) // Limit search results
                 .Get();
 
@@ -158,7 +193,19 @@ public class UserService : IUserService
                 return new List<UserProfileViewModel>();
             }
 
-            var viewModels = users.Models.Select(MapToViewModel).ToList();
+            // ✅ NEW: Fetch all roles for search results
+            var allRoles = await _supabaseClient
+                .From<UserRoleModel>()
+                .Get();
+
+            var rolesByUserId = allRoles?.Models?
+                .GroupBy(r => r.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(r => r.Role).ToList())
+                ?? new Dictionary<string, List<string>>();
+
+            var viewModels = users.Models.Select(u => 
+                MapToViewModel(u, rolesByUserId.TryGetValue(u.Id, out var roles) ? roles : new List<string> { "user" })
+            ).ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Found {viewModels.Count} users matching '{query}'",
@@ -223,13 +270,13 @@ public class UserService : IUserService
             // Wait for trigger to create profile (give it 2 seconds)
             await Task.Delay(2000);
 
-            // Fetch the created profile
+            // Fetch the created profile with roles
             var createdUser = await GetUserByIdAsync(authResponse.User.Id);
 
             if (createdUser != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User created successfully: {request.Email}",
+                    $"✓ User created successfully: {request.Email} with roles: {string.Join(", ", createdUser.Roles)}",
                     LogLevel.Info
                 );
 
@@ -836,7 +883,7 @@ public class UserService : IUserService
             var csv = new StringBuilder();
             
             // CSV Header
-            csv.AppendLine("ID,Email,First Name,Last Name,Phone,Status,Membership," +
+            csv.AppendLine("ID,Email,First Name,Last Name,Phone,Roles,Status,Membership," +
                           "Total Orders,Total Spent,Loyalty Points,Email Verified,Phone Verified," +
                           "Created At,Last Login");
 
@@ -848,6 +895,7 @@ public class UserService : IUserService
                               $"\"{user.FirstName}\"," +
                               $"\"{user.LastName}\"," +
                               $"\"{user.PhoneNumber ?? ""}\"," +
+                              $"\"{user.RoleDisplay}\"," +
                               $"{user.AccountStatus}," +
                               $"{user.MembershipTier}," +
                               $"{user.TotalOrders}," +
@@ -876,7 +924,11 @@ public class UserService : IUserService
 
     // ==================== PRIVATE HELPERS ====================
 
-    private UserProfileViewModel MapToViewModel(UserProfileModel model)
+    /// <summary>
+    /// Maps UserProfileModel to UserProfileViewModel
+    /// ✅ UPDATED: Now includes roles parameter
+    /// </summary>
+    private UserProfileViewModel MapToViewModel(UserProfileModel model, List<string>? roles = null)
     {
         return new UserProfileViewModel
         {
@@ -905,10 +957,16 @@ public class UserService : IUserService
             MembershipTier = Enum.Parse<MembershipTier>(model.MembershipTier),
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,
-            LastLoginAt = model.LastLoginAt
+            LastLoginAt = model.LastLoginAt,
+            
+            // ✅ NEW: Include roles (default to "user" if not provided)
+            Roles = roles ?? new List<string> { "user" }
         };
     }
 
+    /// <summary>
+    /// Calculate membership tier based on total spent
+    /// </summary>
     private string CalculateMembershipTier(decimal totalSpent)
     {
         if (totalSpent >= 500000) return "Platinum"; // ₦500,000+
