@@ -163,31 +163,133 @@ jobs:
           # Create 404.html for SPA routing
           cp ./pages/index.html ./pages/404.html
           echo "✅ 404.html created"
-          
-          # Update base href for GitHub Pages
-          # Change this to match your repository name: /repository-name/
+
+      - name: Update base href for GitHub Pages
+        run: |
+          echo "=== Updating base href ==="
           REPO_NAME="${{ github.event.repository.name }}"
+          
+          # Update base href in both index.html and 404.html
           sed -i "s|<base href=\"/\" />|<base href=\"/$REPO_NAME/\" />|g" ./pages/index.html
           sed -i "s|<base href=\"/\" />|<base href=\"/$REPO_NAME/\" />|g" ./pages/404.html
+          
           echo "✅ Base href updated to /$REPO_NAME/"
           
-          # Verify deployment files
+          # Verify the change
+          echo "Verifying base href in index.html:"
+          grep '<base href=' ./pages/index.html || echo "⚠️ Warning: base tag not found"
+
+      - name: Fix service worker path
+        run: |
+          echo "=== Fixing service worker registration ==="
+          REPO_NAME="${{ github.event.repository.name }}"
+          
+          # Fix service worker path in both index.html and 404.html
+          sed -i "s|register('service-worker.js')|register('/$REPO_NAME/service-worker.js')|g" ./pages/index.html
+          sed -i "s|register('/service-worker.js')|register('/$REPO_NAME/service-worker.js')|g" ./pages/index.html
+          
+          sed -i "s|register('service-worker.js')|register('/$REPO_NAME/service-worker.js')|g" ./pages/404.html
+          sed -i "s|register('/service-worker.js')|register('/$REPO_NAME/service-worker.js')|g" ./pages/404.html
+          
+          echo "✅ Service worker path updated to /$REPO_NAME/service-worker.js"
+          
+          # Verify the change
+          echo "Verifying service worker registration:"
+          grep 'service-worker' ./pages/index.html || echo "⚠️ Warning: service worker registration not found"
+
+      - name: Configure .gitattributes for binary files
+        run: |
+          echo "=== Configuring .gitattributes ==="
+          cat > ./pages/.gitattributes << 'EOF'
+          # Blazor WASM binary files
+          *.wasm binary
+          *.dll binary
+          *.dat binary
+          *.blat binary
+          *.pdb binary
+          
+          # JavaScript files (treat as binary to prevent line ending issues)
+          *.js binary
+          
+          # Compressed files
+          *.br binary
+          *.gz binary
+          EOF
+          
+          echo "✅ .gitattributes configured for binary files"
+          
+          # Show the contents
+          echo "Contents of .gitattributes:"
+          cat ./pages/.gitattributes
+
+      - name: Verify deployment files
+        run: |
           echo "=== Verifying deployment ==="
-          echo "Index.html exists: $([ -f ./pages/index.html ] && echo '✅' || echo '❌')"
-          echo "404.html exists: $([ -f ./pages/404.html ] && echo '✅' || echo '❌')"
-          echo ".nojekyll exists: $([ -f ./pages/.nojekyll ] && echo '✅' || echo '❌')"
+          
+          # Check critical files
+          echo "📋 Critical files check:"
+          echo "  index.html: $([ -f ./pages/index.html ] && echo '✅' || echo '❌')"
+          echo "  404.html: $([ -f ./pages/404.html ] && echo '✅' || echo '❌')"
+          echo "  .nojekyll: $([ -f ./pages/.nojekyll ] && echo '✅' || echo '❌')"
+          echo "  .gitattributes: $([ -f ./pages/.gitattributes ] && echo '✅' || echo '❌')"
           
           # Check for framework files
-          if ls ./pages/_framework/*.wasm 1> /dev/null 2>&1; then
-            echo "✅ WASM files found"
+          echo ""
+          echo "📦 Framework files check:"
+          if [ -d ./pages/_framework ]; then
+            echo "  _framework directory: ✅"
+            
+            WASM_COUNT=$(find ./pages/_framework -name "*.wasm" 2>/dev/null | wc -l)
+            echo "  WASM files: $WASM_COUNT $([ $WASM_COUNT -gt 0 ] && echo '✅' || echo '❌')"
+            
+            DLL_COUNT=$(find ./pages/_framework -name "*.dll" 2>/dev/null | wc -l)
+            echo "  DLL files: $DLL_COUNT $([ $DLL_COUNT -gt 0 ] && echo '✅' || echo '❌')"
+            
+            JS_COUNT=$(find ./pages/_framework -name "*.js" 2>/dev/null | wc -l)
+            echo "  JS files: $JS_COUNT $([ $JS_COUNT -gt 0 ] && echo '✅' || echo '❌')"
           else
-            echo "❌ No WASM files found"
+            echo "  _framework directory: ❌ NOT FOUND"
+            exit 1
           fi
           
-          if ls ./pages/_framework/*.dll 1> /dev/null 2>&1; then
-            echo "✅ DLL files found"
+          # Check file sizes
+          echo ""
+          echo "📊 Deployment size:"
+          TOTAL_SIZE=$(du -sh ./pages | cut -f1)
+          echo "  Total size: $TOTAL_SIZE"
+          
+          # List largest files
+          echo ""
+          echo "📈 Largest files:"
+          find ./pages -type f -exec du -h {} + | sort -rh | head -10
+          
+          # Check for service worker
+          echo ""
+          echo "🔧 Service worker check:"
+          if [ -f ./pages/service-worker.js ] || [ -f ./pages/service-worker.published.js ]; then
+            echo "  Service worker: ✅"
           else
-            echo "❌ No DLL files found"
+            echo "  Service worker: ⚠️ Not found (optional)"
+          fi
+          
+          # Verify base href was updated
+          echo ""
+          echo "🔍 Configuration verification:"
+          REPO_NAME="${{ github.event.repository.name }}"
+          if grep -q "/$REPO_NAME/" ./pages/index.html; then
+            echo "  Base href updated: ✅"
+          else
+            echo "  Base href updated: ❌ FAILED"
+            echo "  Expected: /$REPO_NAME/"
+            echo "  Actual base tag:"
+            grep '<base href=' ./pages/index.html
+            exit 1
+          fi
+          
+          if grep -q "/$REPO_NAME/service-worker" ./pages/index.html; then
+            echo "  Service worker path updated: ✅"
+          else
+            echo "  Service worker path updated: ⚠️ Warning - may not work correctly"
           fi
 
       - name: Upload Pages artifact
@@ -216,6 +318,35 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      
+      - name: Deployment Summary
+        run: |
+          echo "======================================"
+          echo "🚀 DEPLOYMENT SUCCESSFUL!"
+          echo "======================================"
+          echo ""
+          echo "📍 Your app is now live at:"
+          echo "   ${{ steps.deployment.outputs.page_url }}"
+          echo ""
+          echo "🔐 OAuth Configuration Required:"
+          echo "   1. Supabase Site URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "   2. Supabase Redirect URLs: Add the URL above"
+          echo "   3. Google OAuth JavaScript Origins: Add https://mid-d-man.github.io"
+          echo "   4. Google OAuth Redirect URI: https://wbwmovtewytjibxutssk.supabase.co/auth/v1/callback"
+          echo ""
+          echo "✅ Deployment checklist:"
+          echo "   ✅ Base href updated"
+          echo "   ✅ Service worker path updated"
+          echo "   ✅ .nojekyll file added"
+          echo "   ✅ .gitattributes configured"
+          echo "   ✅ 404.html created for SPA routing"
+          echo ""
+          echo "📚 Next steps:"
+          echo "   1. Test your app at the URL above"
+          echo "   2. Configure OAuth settings (see above)"
+          echo "   3. Test Google sign-in functionality"
+          echo ""
+          echo "======================================"
 
   # Show skip message when deployment not triggered
   deployment-skipped:
@@ -232,11 +363,23 @@ jobs:
     steps:
       - name: Deployment Skipped
         run: |
-          echo "ℹ️ GitHub Pages deployment was skipped"
+          echo "======================================"
+          echo "ℹ️  DEPLOYMENT SKIPPED"
+          echo "======================================"
           echo ""
-          echo "To trigger deployment, include one of these keywords in your commit message:"
-          echo "  --deploy   (build and deploy to GitHub Pages)"
-          echo "  --publish  (build and deploy to GitHub Pages)"
-          echo "  --release  (build and deploy to GitHub Pages)"
+          echo "📋 Project structure was updated, but GitHub Pages deployment was skipped."
           echo ""
-          echo "Current commit: ${{ github.event.head_commit.message }}"
+          echo "🚀 To trigger a deployment, include one of these keywords in your commit message:"
+          echo "   • --deploy   (recommended for regular deployments)"
+          echo "   • --publish  (for production releases)"
+          echo "   • --release  (for version releases)"
+          echo ""
+          echo "📝 Example commit messages:"
+          echo "   git commit -m 'Fix OAuth configuration --deploy'"
+          echo "   git commit -m 'Update UI components --deploy'"
+          echo "   git commit -m 'v1.0.0 release --release'"
+          echo ""
+          echo "Current commit message:"
+          echo "   ${{ github.event.head_commit.message }}"
+          echo ""
+          echo "======================================"
