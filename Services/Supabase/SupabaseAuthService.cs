@@ -219,47 +219,38 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== OAUTH AUTHENTICATION ====================
 
-    public async Task<bool> SignInWithGoogleAsync()
+       public async Task<bool> SignInWithGoogleAsync()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Google OAuth sign in",
+                "Initiating Google OAuth sign in (via JavaScript)",
                 LogLevel.Info
             );
 
-            // Get redirect URL from JavaScript
-            var redirectUrl = await _jsRuntime.InvokeAsync<string>("supabaseOAuth.getRedirectUrl");
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Redirect URL: {redirectUrl}",
-                LogLevel.Info
-            );
-
-            // Get OAuth URL from Supabase
-            var options = new SignInOptions
-            {
-                RedirectTo = redirectUrl
-            };
-
-            // Start OAuth flow - this returns the URL we need to redirect to
-            var response = await _client.Auth.SignIn(Constants.Provider.Google, options);
+            // Call JavaScript function which uses Supabase JS client
+            var success = await _jsRuntime.InvokeAsync<bool>("supabaseOAuth.signInWithGoogle");
             
-            if (response != null && !string.IsNullOrEmpty(response.ToString()))
+            if (success)
             {
-                // The SignIn method with provider should redirect automatically,
-                // but in WASM we need to manually handle the redirect
-                // The browser will redirect to Google, then back to our app
-                
                 await MID_HelperFunctions.DebugMessageAsync(
                     "✓ Google OAuth initiated successfully",
                     LogLevel.Info
                 );
 
+                _logger.LogInformation("Google OAuth sign in initiated successfully");
                 return true;
             }
-
-            _logger.LogWarning("Google OAuth returned null or empty response");
+            else
+            {
+                _logger.LogError("Google OAuth initiation returned false");
+                return false;
+            }
+        }
+        catch (JSException jsEx)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(jsEx, "Google OAuth (JavaScript)");
+            _logger.LogError(jsEx, "JavaScript error during Google OAuth: {Message}", jsEx.Message);
             return false;
         }
         catch (Exception ex)
