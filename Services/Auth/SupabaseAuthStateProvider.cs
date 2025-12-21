@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Utilities.HelperScripts;
+using Supabase.Gotrue;
 using Client = Supabase.Client;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -31,13 +32,13 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
         _claimsFactory = claimsFactory;
 
         // ✅ NEW: Subscribe to auth state changes
-        _supabaseClient.Auth.StateChanged += OnAuthStateChanged;
+        _supabaseClient.Auth.AddStateChangedListener(OnAuthStateChanged);
     }
 
     /// <summary>
     /// Handle Supabase auth state changes
     /// </summary>
-    private void OnAuthStateChanged(object? sender, Gotrue.Constants.AuthState state)
+    private void OnAuthStateChanged(object? sender, Constants.AuthState state)
     {
         _ = Task.Run(async () =>
         {
@@ -74,7 +75,7 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
                 {
                     // Check if session is still valid (not expired)
                     var session = _supabaseClient.Auth.CurrentSession;
-                    if (session != null && session.ExpiresAt > DateTime.UtcNow)
+                    if (session != null && session.ExpiresAt() > DateTime.UtcNow)
                     {
                         await MID_HelperFunctions.DebugMessageAsync(
                             "Using cached authentication state",
@@ -248,6 +249,6 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
     /// </summary>
     public void Dispose()
     {
-        _supabaseClient.Auth.StateChanged -= OnAuthStateChanged;
+        _supabaseClient.Auth.RemoveStateChangedListener(OnAuthStateChanged);
     }
 }

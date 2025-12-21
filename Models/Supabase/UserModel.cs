@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
@@ -100,30 +101,30 @@ public class UserModel : BaseModel
     /// User roles fetched from public.user_roles table
     /// Not persisted in users table, loaded separately
     /// </summary>
-    [Ignore]
+    [JsonIgnore]
     public List<UserRoleModel> UserRoles { get; set; } = new();
     
     /// <summary>
     /// Helper property to get role strings
     /// </summary>
-    [Ignore]
+    [JsonIgnore]
     public List<string> RoleStrings => UserRoles.Select(r => r.Role).ToList();
     
     /// <summary>
     /// Check if user has a specific role
     /// </summary>
-    [Ignore]
     public bool HasRole(string role) => RoleStrings.Contains(role, StringComparer.OrdinalIgnoreCase);
     
     /// <summary>
     /// Check if user is superior admin
     /// </summary>
-    [Ignore]
+    [JsonIgnore]
     public bool IsSuperiorAdmin => HasRole("superior_admin");
     
     /// <summary>
     /// Check if user is regular user
     /// </summary>
-    [Ignore]
+    [JsonIgnore]
     public bool IsRegularUser => HasRole("user") || RoleStrings.Count == 0;
 }
+
