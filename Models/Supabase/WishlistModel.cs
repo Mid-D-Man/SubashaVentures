@@ -1,17 +1,41 @@
+// Models/Supabase/WishlistModel.cs - UPDATED
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
+using Newtonsoft.Json;
+
 namespace SubashaVentures.Models.Supabase;
 
-public record WishlistModel : ISecureEntity
+[Table("wishlist")]
+public class WishlistModel : BaseModel
 {
-    public string Id { get; init; } = string.Empty;
-    public string UserId { get; init; } = string.Empty;
-    public string ProductId { get; init; } = string.Empty;
+    [PrimaryKey("id", false)]
+    [Column("id")]
+    public Guid Id { get; set; }
     
-    // ISecureEntity
-    public DateTime CreatedAt { get; init; }
-    public string CreatedBy { get; init; } = string.Empty;
-    public DateTime? UpdatedAt { get; init; }
-    public string? UpdatedBy { get; init; }
-    public bool IsDeleted { get; init; }
-    public DateTime? DeletedAt { get; init; }
-    public string? DeletedBy { get; init; }
+    [Column("user_id")]
+    public string UserId { get; set; } = string.Empty;
+    
+    [Column("product_id")]
+    public string ProductId { get; set; } = string.Empty;
+    
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; }
+    
+    [Column("created_by")]
+    public string CreatedBy { get; set; } = string.Empty;
+    
+    [Column("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+    
+    [Column("updated_by")]
+    public string? UpdatedBy { get; set; }
+    
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+    
+    [Column("deleted_at")]
+    public DateTime? DeletedAt { get; set; }
+    
+    [Column("deleted_by")]
+    public string? DeletedBy { get; set; }
 }
