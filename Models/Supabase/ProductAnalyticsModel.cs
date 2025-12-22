@@ -1,3 +1,4 @@
+// Models/Supabase/ProductAnalyticsModel.cs - UPDATED
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
@@ -5,6 +6,7 @@ namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// Product analytics - shares same ID as product
+/// UPDATED: Added last_wishlist_at tracking
 /// </summary>
 [Table("product_analytics")]
 public class ProductAnalyticsModel : BaseModel
