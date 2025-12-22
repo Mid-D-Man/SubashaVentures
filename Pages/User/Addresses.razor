@@ -1,0 +1,208 @@
+@page "/user/addresses"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Domain.User
+@inject NavigationManager Navigation
+
+<div class="addresses-page">
+    <div class="page-header">
+        <div>
+            <h1>My Addresses</h1>
+            <p>Manage your delivery and billing addresses</p>
+        </div>
+        <PrimaryButton OnClick="OpenAddAddressModal" Icon="+" Size="PrimaryButton.ButtonSize.Medium">
+            Add New Address
+        </PrimaryButton>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="addresses-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading addresses..." />
+        </div>
+    }
+    else if (!Addresses.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📍</div>
+            <h2>No Addresses Yet</h2>
+            <p>Add your first delivery address to make checkout faster</p>
+            <PrimaryButton OnClick="OpenAddAddressModal" Size="PrimaryButton.ButtonSize.Large">
+                Add Address
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="addresses-grid">
+            @foreach (var address in Addresses)
+            {
+                <div class="address-card @(address.IsDefault ? "default" : "")">
+                    @if (address.IsDefault)
+                    {
+                        <span class="default-badge">Default</span>
+                    }
+                    
+                    <div class="address-checkbox">
+                        <input type="checkbox" 
+                               id="addr-@address.Id" 
+                               @bind="SelectedAddresses[address.Id]" />
+                    </div>
+
+                    <div class="address-content">
+                        <h3>@address.FullName</h3>
+                        <p class="address-phone">@address.PhoneNumber</p>
+                        <p class="address-text">
+                            @address.AddressLine1<br />
+                            @if (!string.IsNullOrEmpty(address.AddressLine2))
+                            {
+                                @address.AddressLine2<br />
+                            }
+                            @address.City, @address.State @address.PostalCode<br />
+                            @address.Country
+                        </p>
+                        <span class="address-type">@address.Type</span>
+                    </div>
+
+                    <div class="address-actions">
+                        <button class="btn-icon" @onclick="() => EditAddress(address)" title="Edit">
+                            ✏️
+                        </button>
+                        @if (!address.IsDefault)
+                        {
+                            <button class="btn-icon" @onclick="() => SetDefaultAddress(address.Id)" title="Set as default">
+                                ⭐
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (SelectedAddresses.Any(x => x.Value))
+        {
+            <div class="bulk-actions">
+                <SecondaryButton OnClick="DeleteSelectedAddresses" 
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                Size="SecondaryButton.ButtonSize.Medium">
+                    Delete Selected (@SelectedAddresses.Count(x => x.Value))
+                </SecondaryButton>
+            </div>
+        }
+    }
+</div>
+
+<DynamicModal @ref="AddressModal"
+              Title="@(IsEditMode ? "Edit Address" : "Add New Address")"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@IsModalOpen"
+              OnConfirm="SaveAddress"
+              OnCancel="CloseModal"
+              ConfirmText="@(IsEditMode ? "Update" : "Add Address")"
+              IsProcessing="@IsSaving">
+    <BodyContent>
+        <div class="address-form">
+            <div class="form-notice">
+                <span class="notice-icon">🔒</span>
+                <p>Your address information is securely stored and used only for delivery purposes.</p>
+            </div>
+
+            <InputField @bind-Value="CurrentAddress.FullName"
+                       Label="Full Name"
+                       Placeholder="Enter full name"
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("FullName")))"
+                       ErrorMessage="@ValidationErrors.GetValueOrDefault("FullName")" />
+
+            <InputField @bind-Value="CurrentAddress.PhoneNumber"
+                       Label="Phone Number"
+                       Placeholder="+234"
+                       PrefixIcon="📱"
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("PhoneNumber")))"
+                       ErrorMessage="@ValidationErrors.GetValueOrDefault("PhoneNumber")" />
+
+            <InputField @bind-Value="CurrentAddress.AddressLine1"
+                       Label="Delivery Address"
+                       Placeholder="Street address, P.O. Box, etc."
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("AddressLine1")))"
+                       ErrorMessage="@ValidationErrors.GetValueOrDefault("AddressLine1")" />
+
+            <InputField @bind-Value="CurrentAddress.AddressLine2"
+                       Label="Address Line 2 (Optional)"
+                       Placeholder="Apartment, suite, unit, building, floor, etc." />
+
+            <div class="form-row">
+                <div class="form-field">
+                    <label>State <span class="required">*</span></label>
+                    <select @bind="CurrentAddress.State" class="form-select" required>
+                        <option value="">Select State</option>
+                        @foreach (var state in NigerianStates)
+                        {
+                            <option value="@state">@state</option>
+                        }
+                    </select>
+                </div>
+
+                <InputField @bind-Value="CurrentAddress.City"
+                           Label="City"
+                           Placeholder="Enter city"
+                           IsRequired="true"
+                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("City")))"
+                           ErrorMessage="@ValidationErrors.GetValueOrDefault("City")" />
+            </div>
+
+            <InputField @bind-Value="CurrentAddress.PostalCode"
+                       Label="Postal Code"
+                       Placeholder="Enter postal code"
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("PostalCode")))"
+                       ErrorMessage="@ValidationErrors.GetValueOrDefault("PostalCode")" />
+
+            <div class="form-field">
+                <label>Address Type</label>
+                <div class="address-type-options">
+                    <label class="type-option">
+                        <input type="radio" name="addressType" value="Shipping" 
+                               @onchange="() => CurrentAddress.Type = AddressType.Shipping" 
+                               checked="@(CurrentAddress.Type == AddressType.Shipping)" />
+                        <span>Shipping</span>
+                    </label>
+                    <label class="type-option">
+                        <input type="radio" name="addressType" value="Billing" 
+                               @onchange="() => CurrentAddress.Type = AddressType.Billing"
+                               checked="@(CurrentAddress.Type == AddressType.Billing)" />
+                        <span>Billing</span>
+                    </label>
+                    <label class="type-option">
+                        <input type="radio" name="addressType" value="Both" 
+                               @onchange="() => CurrentAddress.Type = AddressType.Both"
+                               checked="@(CurrentAddress.Type == AddressType.Both)" />
+                        <span>Both</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-checkbox">
+                <label>
+                    <input type="checkbox" @bind="CurrentAddress.IsDefault" />
+                    <span>Set as default address</span>
+                </label>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<ConfirmationPopup @ref="DeleteConfirmPopup"
+                   Title="Delete Addresses"
+                   Message="Are you sure you want to delete the selected address(es)? This action cannot be undone."
+                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                   ConfirmButtonText="Delete"
+                   OnConfirm="ConfirmDeleteAddresses" />
+
+@code {
+    // Component references and state variables will be in the .cs file
+}
