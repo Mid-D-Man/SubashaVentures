@@ -1,0 +1,218 @@
+/* ===== USER LAYOUT ===== */
+.user-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+    background: var(--bg-secondary);
+    gap: 2rem;
+    padding: 2rem;
+}
+
+/* ===== SIDEBAR ===== */
+.user-sidebar {
+    background: var(--bg-surface);
+    border-radius: 16px;
+    padding: 2rem;
+    height: fit-content;
+    position: sticky;
+    top: 2rem;
+    box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.user-profile-card {
+    text-align: center;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 2rem;
+}
+
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin: 0 auto 1rem;
+    overflow: hidden;
+    border: 3px solid var(--primary-color);
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem;
+}
+
+.user-email {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* ===== NAVIGATION ===== */
+.user-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.user-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.user-nav-item:hover {
+    background: rgba(150, 153, 74, 0.1);
+    color: var(--primary-color);
+    transform: translateX(4px);
+}
+
+.user-nav-item.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 2px 8px rgba(150, 153, 74, 0.3);
+}
+
+.nav-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.nav-text {
+    font-size: 0.94rem;
+}
+
+/* ===== CONTENT AREA ===== */
+.user-content {
+    background: var(--bg-surface);
+    border-radius: 16px;
+    padding: 2rem;
+    min-height: 600px;
+    box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.mobile-menu-toggle {
+    display: none;
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .user-sidebar,
+[data-theme="dark"] .user-content {
+    background: var(--bg-surface);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .user-nav-item:hover {
+    background: rgba(184, 187, 106, 0.15);
+}
+
+[data-theme="dark"] .user-nav-item.active {
+    background: var(--primary-color);
+    color: var(--text-on-primary);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+    .user-layout {
+        grid-template-columns: 240px 1fr;
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .user-sidebar {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .user-layout {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .user-sidebar {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+        padding: 2rem;
+        border-radius: 0;
+    }
+
+    .user-sidebar.mobile-open {
+        display: block;
+    }
+
+    .mobile-menu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border: none;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .mobile-menu-toggle:hover {
+        transform: scale(1.05);
+    }
+
+    .burger-icon {
+        font-size: 1.5rem;
+    }
+
+    .user-content {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .user-layout {
+        padding: 0.5rem;
+    }
+
+    .user-content {
+        padding: 1rem;
+        border-radius: 12px;
+    }
+
+    .user-profile-card {
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .user-avatar {
+        width: 64px;
+        height: 64px;
+    }
+
+    .user-name {
+        font-size: 1.125rem;
+    }
+
+    .user-email {
+        font-size: 0.8125rem;
+    }
+}
