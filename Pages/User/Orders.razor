@@ -1,0 +1,178 @@
+@page "/user/orders"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Domain.User.Order
+
+<div class="orders-page">
+    <div class="page-header">
+        <div>
+            <h1>My Orders</h1>
+            <p>Track and manage your orders</p>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="orders-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading orders..." />
+        </div>
+    }
+    else if (!Orders.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h2>No Orders Yet</h2>
+            <p>Start shopping and your orders will appear here</p>
+        </div>
+    }
+    else
+    {
+        <div class="orders-filters">
+            <button class="filter-btn @(FilterStatus == "All" ? "active" : "")" 
+                    @onclick='() => FilterOrders("All")'>
+                All (@Orders.Count)
+            </button>
+            <button class="filter-btn @(FilterStatus == "Pending" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Pending")'>
+                Pending
+            </button>
+            <button class="filter-btn @(FilterStatus == "Processing" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Processing")'>
+                Processing
+            </button>
+            <button class="filter-btn @(FilterStatus == "Shipped" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Shipped")'>
+                Shipped
+            </button>
+            <button class="filter-btn @(FilterStatus == "Delivered" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Delivered")'>
+                Delivered
+            </button>
+        </div>
+
+        <div class="orders-list">
+            @foreach (var order in FilteredOrders)
+            {
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-info">
+                            <h3>Order #@order.OrderNumber</h3>
+                            <span class="order-date">@order.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        </div>
+                        <span class="order-status @GetStatusClass(order.Status)">
+                            @order.Status
+                        </span>
+                    </div>
+
+                    <div class="order-items">
+                        @foreach (var item in order.Items.Take(3))
+                        {
+                            <div class="order-item">
+                                <img src="@item.ImageUrl" alt="@item.ProductName" />
+                                <div class="item-details">
+                                    <h4>@item.ProductName</h4>
+                                    <p>Qty: @item.Quantity × @item.Price.ToString("C0")</p>
+                                </div>
+                            </div>
+                        }
+                        @if (order.Items.Count > 3)
+                        {
+                            <p class="more-items">+@(order.Items.Count - 3) more items</p>
+                        }
+                    </div>
+
+                    <div class="order-footer">
+                        <div class="order-total">
+                            <span>Total:</span>
+                            <strong>@order.DisplayTotal</strong>
+                        </div>
+                        <div class="order-actions">
+                            @if (order.Status == OrderStatus.Shipped && !string.IsNullOrEmpty(order.TrackingNumber))
+                            {
+                                <button class="btn-track" @onclick="() => TrackOrder(order.Id)">
+                                    Track Order
+                                </button>
+                            }
+                            <button class="btn-view" @onclick="() => ViewOrder(order.Id)">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<OrderViewModel> Orders = new();
+    private List<OrderViewModel> FilteredOrders = new();
+    private bool IsLoading = true;
+    private string FilterStatus = "All";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        IsLoading = true;
+        try
+        {
+            // TODO: Load from service
+            await Task.Delay(500);
+            
+            // Mock data
+            Orders = new List<OrderViewModel>
+            {
+                new()
+                {
+                    Id = "1",
+                    OrderNumber = "ORD-2024-001",
+                    Status = OrderStatus.Delivered,
+                    Total = 45000,
+                    CreatedAt = DateTime.Now.AddDays(-5),
+                    Items = new()
+                    {
+                        new() { ProductName = "Men's T-Shirt", Quantity = 2, Price = 15000, ImageUrl = "/images/placeholder.jpg" }
+                    }
+                }
+            };
+
+            FilteredOrders = Orders;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void FilterOrders(string status)
+    {
+        FilterStatus = status;
+        FilteredOrders = status == "All" 
+            ? Orders 
+            : Orders.Where(o => o.Status.ToString() == status).ToList();
+    }
+
+    private string GetStatusClass(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending => "status-pending",
+        OrderStatus.Processing => "status-processing",
+        OrderStatus.Shipped => "status-shipped",
+        OrderStatus.Delivered => "status-delivered",
+        OrderStatus.Cancelled => "status-cancelled",
+        _ => ""
+    };
+
+    private void TrackOrder(string orderId)
+    {
+        // TODO: Implement tracking
+    }
+
+    private void ViewOrder(string orderId)
+    {
+        Navigation.NavigateTo($"user/orders/{orderId}");
+    }
+}
