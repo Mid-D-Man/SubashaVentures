@@ -1,0 +1,143 @@
+@page "user/reviews"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Popups
+
+<div class="reviews-page">
+    <div class="page-header">
+        <div>
+            <h1>My Reviews</h1>
+            <p>Manage your product reviews and ratings</p>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="reviews-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading reviews..." />
+        </div>
+    }
+    else if (!Reviews.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">⭐</div>
+            <h2>No Reviews Yet</h2>
+            <p>Purchase products and leave reviews to help other shoppers</p>
+        </div>
+    }
+    else
+    {
+        <div class="reviews-stats">
+            <div class="stat-card">
+                <span class="stat-value">@Reviews.Count</span>
+                <span class="stat-label">Total Reviews</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">@AverageRating.ToString("F1")</span>
+                <span class="stat-label">Average Rating</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">@HelpfulCount</span>
+                <span class="stat-label">Helpful Votes</span>
+            </div>
+        </div>
+
+        <div class="reviews-list">
+            @foreach (var review in Reviews)
+            {
+                <div class="review-card">
+                    <div class="review-product">
+                        <img src="@review.ProductImage" alt="@review.ProductName" />
+                        <div class="product-info">
+                            <h3>@review.ProductName</h3>
+                            <span class="review-date">@review.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        </div>
+                    </div>
+
+                    <div class="review-rating">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            <span class="star @(i <= review.Rating ? "filled" : "")">⭐</span>
+                        }
+                    </div>
+
+                    <div class="review-content">
+                        <h4>@review.Title</h4>
+                        <p>@review.Comment</p>
+                    </div>
+
+                    @if (review.Images.Any())
+                    {
+                        <div class="review-images">
+                            @foreach (var image in review.Images)
+                            {
+                                <img src="@image" alt="Review image" />
+                            }
+                        </div>
+                    }
+
+                    <div class="review-footer">
+                        <span class="helpful-count">@review.HelpfulCount people found this helpful</span>
+                        <div class="review-actions">
+                            <button class="btn-icon" @onclick="() => EditReview(review)" title="Edit">
+                                ✏️
+                            </button>
+                            <button class="btn-icon danger" @onclick="() => ConfirmDelete(review.Id)" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<DynamicModal @ref="ReviewModal" Title="@ModalTitle">
+    <div class="review-form">
+        <div class="product-preview">
+            <img src="@EditingReview?.ProductImage" alt="@EditingReview?.ProductName" />
+            <h4>@EditingReview?.ProductName</h4>
+        </div>
+
+        <div class="form-field">
+            <label>Rating <span class="required">*</span></label>
+            <div class="rating-input">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    int rating = i;
+                    <span class="star-input @(i <= EditingReview?.Rating ? "selected" : "")" 
+                          @onclick="() => SetRating(rating)">
+                        ⭐
+                    </span>
+                }
+            </div>
+        </div>
+
+        <div class="form-field">
+            <label>Review Title <span class="required">*</span></label>
+            <InputField @bind-Value="EditingReview.Title" 
+                       Placeholder="Summarize your experience" />
+        </div>
+
+        <div class="form-field">
+            <label>Your Review <span class="required">*</span></label>
+            <textarea class="form-textarea" 
+                     @bind="EditingReview.Comment" 
+                     placeholder="Share your thoughts about this product..."
+                     rows="5"></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <SecondaryButton OnClick="CloseReviewModal">Cancel</SecondaryButton>
+            <PrimaryButton OnClick="SaveReview">Save Review</PrimaryButton>
+        </div>
+    </div>
+</DynamicModal>
+
+<ConfirmationPopup @ref="DeleteConfirmation"
+                   Title="Delete Review?"
+                   Message="Are you sure you want to delete this review? This action cannot be undone."
+                   ConfirmText="Delete"
+                   OnConfirm="DeleteReview" />
