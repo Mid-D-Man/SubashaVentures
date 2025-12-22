@@ -1,0 +1,119 @@
+@page "/user"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Buttons
+@inject NavigationManager Navigation
+
+<div class="user-dashboard">
+    <div class="dashboard-header">
+        <h1>My Account</h1>
+        <p>Manage your profile, orders, and preferences</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/addresses"))">
+            <div class="card-icon">📍</div>
+            <h3>Addresses</h3>
+            <p>Manage delivery addresses</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/orders"))">
+            <div class="card-icon">📦</div>
+            <h3>Orders</h3>
+            <p>Track and view orders</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/messages"))">
+            <div class="card-icon">💬</div>
+            <h3>Messages</h3>
+            <p>Promotions and updates</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/reviews"))">
+            <div class="card-icon">⭐</div>
+            <h3>Reviews</h3>
+            <p>Your product reviews</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/history"))">
+            <div class="card-icon">🕐</div>
+            <h3>History</h3>
+            <p>Recently viewed items</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/payment"))">
+            <div class="card-icon">💳</div>
+            <h3>Payment</h3>
+            <p>Payment methods & credit</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/offers"))">
+            <div class="card-icon">🎁</div>
+            <h3>Offers & Deals</h3>
+            <p>Exclusive promotions</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/support"))">
+            <div class="card-icon">🆘</div>
+            <h3>Support</h3>
+            <p>Help & contact us</p>
+            <span class="card-arrow">→</span>
+        </div>
+
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("/user/settings"))">
+            <div class="card-icon">⚙️</div>
+            <h3>Settings</h3>
+            <p>Account preferences</p>
+            <span class="card-arrow">→</span>
+        </div>
+    </div>
+
+    <div class="quick-stats">
+        <div class="stat-card">
+            <div class="stat-value">@TotalOrders</div>
+            <div class="stat-label">Total Orders</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@TotalSpent</div>
+            <div class="stat-label">Total Spent</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@LoyaltyPoints</div>
+            <div class="stat-label">Loyalty Points</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@MembershipTier</div>
+            <div class="stat-label">Membership</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int TotalOrders = 0;
+    private string TotalSpent = "₦0";
+    private int LoyaltyPoints = 0;
+    private string MembershipTier = "Bronze";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load user statistics
+        await LoadUserStats();
+    }
+
+    private async Task LoadUserStats()
+    {
+        // TODO: Implement actual data loading from service
+        await Task.Delay(100);
+        
+        TotalOrders = 5;
+        TotalSpent = "₦125,000";
+        LoyaltyPoints = 1250;
+        MembershipTier = "Silver";
+    }
+}
