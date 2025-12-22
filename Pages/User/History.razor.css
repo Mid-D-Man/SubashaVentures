@@ -1,0 +1,134 @@
+/* ===== HISTORY PAGE ===== */
+.history-page {
+    max-width: 1200px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.btn-clear {
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--danger-color);
+    background: transparent;
+    color: var(--danger-color);
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-clear:hover {
+    background: var(--danger-color);
+    color: white;
+}
+
+/* ===== HISTORY GRID ===== */
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.history-card {
+    position: relative;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-light);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.history-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 16px var(--shadow-medium);
+    transform: translateY(-4px);
+}
+
+.btn-remove {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.history-card:hover .btn-remove {
+    opacity: 1;
+}
+
+.btn-remove:hover {
+    background: var(--danger-color);
+    transform: scale(1.1);
+}
+
+.history-card img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    background: var(--gray-100);
+}
+
+.card-content {
+    padding: 1rem;
+}
+
+.card-content h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-price {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 0 0 0.5rem;
+}
+
+.viewed-time {
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .btn-clear {
+        width: 100%;
+    }
+
+    .history-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .history-card img {
+        height: 200px;
+    }
+      }
