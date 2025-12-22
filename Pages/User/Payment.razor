@@ -1,0 +1,237 @@
+@page "/user/payment"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Loading
+
+<div class="payment-page">
+    <div class="page-header">
+        <div>
+            <h1>Payment Methods</h1>
+            <p>Manage your payment methods and wallet balance</p>
+        </div>
+        <PrimaryButton OnClick="OpenAddPaymentModal" 
+                      Icon="+" 
+                      Size="PrimaryButton.ButtonSize.Medium">
+            Add Payment Method
+        </PrimaryButton>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="payment-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
+                          Message="Loading payment methods..." />
+        </div>
+    }
+    else
+    {
+        <!-- Wallet Balance -->
+        <div class="wallet-card">
+            <div class="wallet-icon">💳</div>
+            <div class="wallet-info">
+                <span class="wallet-label">Wallet Balance</span>
+                <h2 class="wallet-balance">@WalletBalance</h2>
+            </div>
+            <PrimaryButton OnClick="ShowTopUpModal" 
+                          Size="PrimaryButton.ButtonSize.Small">
+                Top Up
+            </PrimaryButton>
+        </div>
+
+        <!-- Payment Methods -->
+        @if (!PaymentMethods.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">💳</div>
+                <h2>No Payment Methods</h2>
+                <p>Add a payment method for faster checkout</p>
+                <PrimaryButton OnClick="OpenAddPaymentModal" 
+                              Size="PrimaryButton.ButtonSize.Large">
+                    Add Payment Method
+                </PrimaryButton>
+            </div>
+        }
+        else
+        {
+            <div class="payment-methods-grid">
+                @foreach (var method in PaymentMethods)
+                {
+                    <div class="payment-card @(method.IsDefault ? "default" : "")">
+                        @if (method.IsDefault)
+                        {
+                            <span class="default-badge">Default</span>
+                        }
+                        
+                        <div class="card-type-icon">
+                            @GetCardIcon(method.CardType)
+                        </div>
+
+                        <div class="card-info">
+                            <h3>@method.CardType</h3>
+                            <p class="card-number">•••• •••• •••• @method.LastFourDigits</p>
+                            <span class="card-expiry">Expires @method.ExpiryDate</span>
+                        </div>
+
+                        <div class="card-actions">
+                            @if (!method.IsDefault)
+                            {
+                                <button class="btn-icon" 
+                                        @onclick="() => SetDefaultPayment(method.Id)" 
+                                        title="Set as default">
+                                    ⭐
+                                </button>
+                            }
+                            <button class="btn-icon danger" 
+                                    @onclick="() => ConfirmDeletePayment(method.Id)" 
+                                    title="Remove">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Recent Transactions -->
+        <div class="transactions-section">
+            <h3>Recent Transactions</h3>
+            
+            @if (!Transactions.Any())
+            {
+                <p class="no-transactions">No recent transactions</p>
+            }
+            else
+            {
+                <div class="transactions-list">
+                    @foreach (var transaction in Transactions)
+                    {
+                        <div class="transaction-item">
+                            <div class="transaction-icon @transaction.Type.ToLower()">
+                                @(transaction.Type == "Credit" ? "+" : "-")
+                            </div>
+                            <div class="transaction-info">
+                                <h4>@transaction.Description</h4>
+                                <span class="transaction-date">@transaction.Date.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            <div class="transaction-amount @transaction.Type.ToLower()">
+                                @(transaction.Type == "Credit" ? "+" : "-")@transaction.Amount.ToString("C0")
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Add Payment Method Modal -->
+<DynamicModal @ref="AddPaymentModal"
+              Title="Add Payment Method"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@IsAddPaymentModalOpen"
+              OnConfirm="SavePaymentMethod"
+              OnCancel="CloseAddPaymentModal"
+              ConfirmText="Add Card"
+              IsProcessing="@IsSaving">
+    <BodyContent>
+        <div class="payment-form">
+            <div class="form-notice">
+                <span class="notice-icon">🔒</span>
+                <p>Your payment information is encrypted and secure. We never store your full card details.</p>
+            </div>
+
+            <InputField @bind-Value="NewCard.CardholderName"
+                       Label="Cardholder Name"
+                       Placeholder="John Doe"
+                       IsRequired="true"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("CardholderName")))"
+                       ErrorMessage="@ValidationErrors.GetValueOrDefault("CardholderName")" />
+
+            <InputField @bind-Value="NewCard.CardNumber"
+                       Label="Card Number"
+                       Placeholder="1234 5678 9012 3456"
+                       PrefixIcon="💳"
+                       IsRequired="true"
+                       MaxLength="19"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("CardNumber")))"
+                       ErrorMessage="@ValidationErrors.GetValueOrDefault("CardNumber")" />
+
+            <div class="form-row">
+                <InputField @bind-Value="NewCard.ExpiryMonth"
+                           Label="Expiry Month"
+                           Placeholder="MM"
+                           IsRequired="true"
+                           MaxLength="2"
+                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("ExpiryMonth")))"
+                           ErrorMessage="@ValidationErrors.GetValueOrDefault("ExpiryMonth")" />
+
+                <InputField @bind-Value="NewCard.ExpiryYear"
+                           Label="Expiry Year"
+                           Placeholder="YY"
+                           IsRequired="true"
+                           MaxLength="2"
+                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("ExpiryYear")))"
+                           ErrorMessage="@ValidationErrors.GetValueOrDefault("ExpiryYear")" />
+
+                <InputField @bind-Value="NewCard.CVV"
+                           Label="CVV"
+                           Placeholder="123"
+                           IsRequired="true"
+                           MaxLength="4"
+                           Type="password"
+                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("CVV")))"
+                           ErrorMessage="@ValidationErrors.GetValueOrDefault("CVV")" />
+            </div>
+
+            <div class="form-checkbox">
+                <label>
+                    <input type="checkbox" @bind="NewCard.SetAsDefault" />
+                    <span>Set as default payment method</span>
+                </label>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Top Up Modal -->
+<DynamicModal @ref="TopUpModal"
+              Title="Top Up Wallet"
+              Size="DynamicModal.ModalSize.Small"
+              IsOpen="@IsTopUpModalOpen"
+              OnConfirm="ProcessTopUp"
+              OnCancel="CloseTopUpModal"
+              ConfirmText="Top Up"
+              IsProcessing="@IsProcessing">
+    <BodyContent>
+        <div class="topup-form">
+            <p class="current-balance">Current Balance: @WalletBalance</p>
+            
+            <InputField @bind-Value="TopUpAmount"
+                       Label="Amount"
+                       Placeholder="Enter amount"
+                       PrefixIcon="₦"
+                       Type="number"
+                       IsRequired="true" />
+            
+            <div class="quick-amounts">
+                <button class="quick-amount-btn" @onclick='() => TopUpAmount = "5000"'>₦5,000</button>
+                <button class="quick-amount-btn" @onclick='() => TopUpAmount = "10000"'>₦10,000</button>
+                <button class="quick-amount-btn" @onclick='() => TopUpAmount = "20000"'>₦20,000</button>
+                <button class="quick-amount-btn" @onclick='() => TopUpAmount = "50000"'>₦50,000</button>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<ConfirmationPopup @ref="DeleteConfirmPopup"
+                   Title="Remove Payment Method"
+                   Message="Are you sure you want to remove this payment method?"
+                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                   ConfirmButtonText="Remove"
+                   OnConfirm="ConfirmDeletePaymentMethod" />
+
+@code {
+    // Component state will be in .cs file
+}
