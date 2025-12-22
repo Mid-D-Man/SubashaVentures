@@ -1,0 +1,171 @@
+@page "user/history"
+@layout UserLayout
+@inject IJSRuntime JS
+
+<div class="history-page">
+    <div class="page-header">
+        <div>
+            <h1>Browsing History</h1>
+            <p>Products you've recently viewed</p>
+        </div>
+        @if (HistoryItems.Any())
+        {
+            <button class="btn-clear" @onclick="ClearHistory">
+                Clear All History
+            </button>
+        }
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="history-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading history..." />
+        </div>
+    }
+    else if (!HistoryItems.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🕒</div>
+            <h2>No Browsing History</h2>
+            <p>Products you view will appear here</p>
+        </div>
+    }
+    else
+    {
+        <div class="history-grid">
+            @foreach (var item in HistoryItems)
+            {
+                <div class="history-card" @onclick="() => ViewProduct(item.ProductId)">
+                    <button class="btn-remove" @onclick="(e) => RemoveItem(item.ProductId, e)" title="Remove">
+                        ✕
+                    </button>
+                    <img src="@item.ImageUrl" alt="@item.ProductName" />
+                    <div class="card-content">
+                        <h3>@item.ProductName</h3>
+                        <p class="product-price">@item.Price.ToString("C0")</p>
+                        <span class="viewed-time">Viewed @item.ViewedTime</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<ConfirmationPopup @ref="ClearConfirmation"
+                   Title="Clear History?"
+                   Message="Are you sure you want to clear your entire browsing history?"
+                   ConfirmText="Clear All"
+                   OnConfirm="ConfirmClearHistory" />
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private ConfirmationPopup ClearConfirmation { get; set; } = default!;
+    private List<HistoryItem> HistoryItems = new();
+    private bool IsLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistory();
+    }
+
+    private async Task LoadHistory()
+    {
+        IsLoading = true;
+        try
+        {
+            // Load from localStorage
+            var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", "browsingHistory");
+            
+            if (!string.IsNullOrEmpty(historyJson))
+            {
+                HistoryItems = System.Text.Json.JsonSerializer.Deserialize<List<HistoryItem>>(historyJson) ?? new();
+            }
+            else
+            {
+                // Mock data for demo
+                HistoryItems = new()
+                {
+                    new() 
+                    { 
+                        ProductId = "1", 
+                        ProductName = "Men's Cotton T-Shirt", 
+                        ImageUrl = "/images/placeholder.jpg",
+                        Price = 15000,
+                        ViewedAt = DateTime.Now.AddHours(-2)
+                    },
+                    new() 
+                    { 
+                        ProductId = "2", 
+                        ProductName = "Women's Summer Dress", 
+                        ImageUrl = "/images/placeholder.jpg",
+                        Price = 25000,
+                        ViewedAt = DateTime.Now.AddDays(-1)
+                    }
+                };
+            }
+
+            // Sort by most recent
+            HistoryItems = HistoryItems.OrderByDescending(h => h.ViewedAt).ToList();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task RemoveItem(string productId, MouseEventArgs e)
+    {
+        e.StopPropagation();
+        HistoryItems.RemoveAll(h => h.ProductId == productId);
+        await SaveHistory();
+        StateHasChanged();
+    }
+
+    private void ClearHistory()
+    {
+        ClearConfirmation.Show();
+    }
+
+    private async Task ConfirmClearHistory()
+    {
+        HistoryItems.Clear();
+        await SaveHistory();
+        StateHasChanged();
+    }
+
+    private async Task SaveHistory()
+    {
+        var historyJson = System.Text.Json.JsonSerializer.Serialize(HistoryItems);
+        await JS.InvokeVoidAsync("localStorage.setItem", "browsingHistory", historyJson);
+    }
+
+    private void ViewProduct(string productId)
+    {
+        Navigation.NavigateTo($"products/{productId}");
+    }
+
+    private class HistoryItem
+    {
+        public string ProductId { get; set; } = "";
+        public string ProductName { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+        public decimal Price { get; set; }
+        public DateTime ViewedAt { get; set; }
+
+        public string ViewedTime
+        {
+            get
+            {
+                var timeSpan = DateTime.Now - ViewedAt;
+                if (timeSpan.TotalMinutes < 60)
+                    return $"{(int)timeSpan.TotalMinutes} min ago";
+                if (timeSpan.TotalHours < 24)
+                    return $"{(int)timeSpan.TotalHours} hours ago";
+                if (timeSpan.TotalDays < 7)
+                    return $"{(int)timeSpan.TotalDays} days ago";
+                return ViewedAt.ToString("MMM dd, yyyy");
+            }
+        }
+    }
+}
