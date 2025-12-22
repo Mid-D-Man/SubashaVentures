@@ -1,0 +1,454 @@
+@page "/user/settings"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Inputs
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Loading
+
+<div class="settings-container">
+    <div class="settings-header">
+        <h1>Settings</h1>
+        <p>Manage your account preferences and security</p>
+    </div>
+
+    @if (isLoading)
+    {
+        <LoadingSpinner />
+    }
+    else
+    {
+        <!-- Profile Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <i class="fas fa-user-circle"></i>
+                <h2>Profile</h2>
+            </div>
+            <div class="section-content">
+                <div class="profile-display" @onclick="OpenProfileModal">
+                    <div class="profile-avatar">
+                        @if (!string.IsNullOrEmpty(profilePictureUrl))
+                        {
+                            <img src="@profilePictureUrl" alt="Profile" />
+                        }
+                        else
+                        {
+                            <i class="fas fa-user"></i>
+                        }
+                    </div>
+                    <div class="profile-info">
+                        <h3>@username</h3>
+                        <p>@phoneNumber</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <i class="fas fa-sliders-h"></i>
+                <h2>Preferences</h2>
+            </div>
+            <div class="section-content">
+                <div class="settings-item" @onclick="OpenLanguageModal">
+                    <div class="item-left">
+                        <i class="fas fa-language"></i>
+                        <span>Language</span>
+                    </div>
+                    <div class="item-right">
+                        <span class="item-value">@selectedLanguage</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </div>
+                <div class="settings-item" @onclick="OpenCurrencyModal">
+                    <div class="item-left">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span>Currency</span>
+                    </div>
+                    <div class="item-right">
+                        <span class="item-value">@selectedCurrency</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </div>
+                <div class="settings-item">
+                    <div class="item-left">
+                        <i class="fas fa-bell"></i>
+                        <span>Notifications</span>
+                    </div>
+                    <div class="item-right">
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="notificationsEnabled" @onchange="ToggleNotifications" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <i class="fas fa-shield-alt"></i>
+                <h2>Security & Payment</h2>
+            </div>
+            <div class="section-content">
+                <div class="settings-item" @onclick='() => NavigateTo("/user/payment")'>
+                    <div class="item-left">
+                        <i class="fas fa-credit-card"></i>
+                        <span>Payment Methods</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="settings-item" @onclick="OpenSecurityModal">
+                    <div class="item-left">
+                        <i class="fas fa-lock"></i>
+                        <span>Account Security</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="settings-item" @onclick="OpenSafetyCenterModal">
+                    <div class="item-left">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Safety Center</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- App Information Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <i class="fas fa-info-circle"></i>
+                <h2>App Information</h2>
+            </div>
+            <div class="section-content">
+                <div class="settings-item" @onclick="OpenAboutModal">
+                    <div class="item-left">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>About SubashaVentures</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="settings-item" @onclick="OpenPoliciesModal">
+                    <div class="item-left">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Policies</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="settings-item" @onclick="OpenLegalModal">
+                    <div class="item-left">
+                        <i class="fas fa-gavel"></i>
+                        <span>Legal Terms</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <i class="fas fa-share-alt"></i>
+                <h2>Share & Support</h2>
+            </div>
+            <div class="section-content">
+                <div class="settings-item" @onclick="ShareApp">
+                    <div class="item-left">
+                        <i class="fas fa-share-nodes"></i>
+                        <span>Share App</span>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logout Section -->
+        <div class="settings-section logout-section">
+            <div class="section-content">
+                <div class="settings-item logout-item" @onclick="ShowLogoutConfirmation">
+                    <div class="item-left">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-version">
+            <p>Version @appVersion</p>
+        </div>
+    }
+
+    <!-- Profile Edit Modal -->
+    <DynamicModal IsVisible="showProfileModal" OnClose="CloseProfileModal" Title="Edit Profile">
+        <div class="modal-form">
+            <div class="profile-picture-upload">
+                <div class="current-picture">
+                    @if (!string.IsNullOrEmpty(tempProfilePictureUrl))
+                    {
+                        <img src="@tempProfilePictureUrl" alt="Profile" />
+                    }
+                    else
+                    {
+                        <i class="fas fa-user"></i>
+                    }
+                </div>
+                <PrimaryButton Text="Change Picture" OnClick="ChangePicture" />
+            </div>
+            <InputField 
+                Label="Username" 
+                @bind-Value="tempUsername" 
+                Placeholder="Enter your username" 
+                Icon="fa-user" />
+            <InputField 
+                Label="Phone Number" 
+                @bind-Value="tempPhoneNumber" 
+                Placeholder="Enter your phone number" 
+                Icon="fa-phone" 
+                Type="tel" />
+            <div class="modal-actions">
+                <PrimaryButton Text="Cancel" OnClick="CloseProfileModal" IsSecondary="true" />
+                <PrimaryButton Text="Save Changes" OnClick="SaveProfile" />
+            </div>
+        </div>
+    </DynamicModal>
+
+    <!-- Language Modal -->
+    <DynamicModal IsVisible="showLanguageModal" OnClose="CloseLanguageModal" Title="Select Language">
+        <div class="modal-list">
+            @foreach (var language in availableLanguages)
+            {
+                <div class="list-item @(language == selectedLanguage ? "selected" : "")" 
+                     @onclick="() => SelectLanguage(language)">
+                    <span>@language</span>
+                    @if (language == selectedLanguage)
+                    {
+                        <i class="fas fa-check"></i>
+                    }
+                </div>
+            }
+        </div>
+    </DynamicModal>
+
+    <!-- Currency Modal -->
+    <DynamicModal IsVisible="showCurrencyModal" OnClose="CloseCurrencyModal" Title="Select Currency">
+        <div class="modal-list">
+            @foreach (var currency in availableCurrencies)
+            {
+                <div class="list-item @(currency.Code == selectedCurrency ? "selected" : "")" 
+                     @onclick="() => SelectCurrency(currency.Code)">
+                    <div class="currency-info">
+                        <span class="currency-code">@currency.Code</span>
+                        <span class="currency-name">@currency.Name</span>
+                    </div>
+                    @if (currency.Code == selectedCurrency)
+                    {
+                        <i class="fas fa-check"></i>
+                    }
+                </div>
+            }
+        </div>
+    </DynamicModal>
+
+    <!-- Security Modal -->
+    <DynamicModal IsVisible="showSecurityModal" OnClose="CloseSecurityModal" Title="Account Security">
+        <div class="modal-content-text">
+            <div class="security-options">
+                <div class="security-item" @onclick="ChangePassword">
+                    <i class="fas fa-key"></i>
+                    <div>
+                        <h4>Change Password</h4>
+                        <p>Update your account password</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="security-item" @onclick="Enable2FA">
+                    <i class="fas fa-mobile-alt"></i>
+                    <div>
+                        <h4>Two-Factor Authentication</h4>
+                        <p>@(twoFactorEnabled ? "Enabled" : "Not enabled")</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" @bind="twoFactorEnabled" @onchange="Toggle2FA" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="security-item" @onclick="ManageDevices">
+                    <i class="fas fa-laptop"></i>
+                    <div>
+                        <h4>Manage Devices</h4>
+                        <p>View devices logged into your account</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+    </DynamicModal>
+
+    <!-- Safety Center Modal -->
+    <DynamicModal IsVisible="showSafetyCenterModal" OnClose="CloseSafetyCenterModal" Title="Safety Center">
+        <div class="modal-content-text">
+            <div class="safety-info">
+                <div class="safety-section">
+                    <i class="fas fa-shield-alt"></i>
+                    <h3>How to Stay Safe</h3>
+                    <ul>
+                        <li>Never share your password or OTP with anyone</li>
+                        <li>Always verify seller ratings and reviews before purchasing</li>
+                        <li>Use our secure payment methods for all transactions</li>
+                        <li>Be cautious of deals that seem too good to be true</li>
+                        <li>Report suspicious activity immediately</li>
+                    </ul>
+                </div>
+                <div class="safety-section">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>Recognizing Scams</h3>
+                    <ul>
+                        <li><strong>Fake sellers:</strong> Check for verified badges and reviews</li>
+                        <li><strong>Phishing:</strong> We'll never ask for passwords via email/SMS</li>
+                        <li><strong>Advance payment scams:</strong> Use our escrow service</li>
+                        <li><strong>Fake websites:</strong> Always use our official app/website</li>
+                    </ul>
+                </div>
+                <div class="safety-action">
+                    <PrimaryButton Text="Report Suspicious Activity" OnClick="ReportScam" />
+                </div>
+            </div>
+        </div>
+    </DynamicModal>
+
+    <!-- About Modal -->
+    <DynamicModal IsVisible="showAboutModal" OnClose="CloseAboutModal" Title="About SubashaVentures">
+        <div class="modal-content-text">
+            <div class="about-content">
+                <div class="app-logo">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <h3>SubashaVentures</h3>
+                <p class="version">Version @appVersion</p>
+                <p class="description">
+                    SubashaVentures is Nigeria's trusted e-commerce platform, connecting buyers and sellers 
+                    across the nation. We're committed to providing a safe, reliable, and convenient shopping 
+                    experience for all Nigerians.
+                </p>
+                <div class="about-stats">
+                    <div class="stat">
+                        <i class="fas fa-users"></i>
+                        <div>
+                            <strong>50K+</strong>
+                            <span>Active Users</span>
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-store"></i>
+                        <div>
+                            <strong>5K+</strong>
+                            <span>Verified Sellers</span>
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-box"></i>
+                        <div>
+                            <strong>100K+</strong>
+                            <span>Products</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </DynamicModal>
+
+    <!-- Policies Modal -->
+    <DynamicModal IsVisible="showPoliciesModal" OnClose="ClosePoliciesModal" Title="Our Policies">
+        <div class="modal-content-text">
+            <div class="policies-list">
+                <div class="policy-item" @onclick="ViewPrivacyPolicy">
+                    <i class="fas fa-user-shield"></i>
+                    <div>
+                        <h4>Privacy Policy</h4>
+                        <p>How we collect, use, and protect your data</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="policy-item" @onclick="ViewReturnPolicy">
+                    <i class="fas fa-undo"></i>
+                    <div>
+                        <h4>Return & Refund Policy</h4>
+                        <p>Guidelines for returns and refunds</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="policy-item" @onclick="ViewShippingPolicy">
+                    <i class="fas fa-truck"></i>
+                    <div>
+                        <h4>Shipping Policy</h4>
+                        <p>Delivery timelines and shipping information</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="policy-item" @onclick="ViewSellerPolicy">
+                    <i class="fas fa-handshake"></i>
+                    <div>
+                        <h4>Seller Policy</h4>
+                        <p>Guidelines for sellers on our platform</p>
+                    </div>
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+    </DynamicModal>
+
+    <!-- Legal Modal -->
+    <DynamicModal IsVisible="showLegalModal" OnClose="CloseLegalModal" Title="Legal Terms">
+        <div class="modal-content-text">
+            <div class="legal-content">
+                <h3>Terms of Service</h3>
+                <p class="last-updated">Last updated: December 2024</p>
+                <div class="legal-section">
+                    <h4>1. Acceptance of Terms</h4>
+                    <p>
+                        By accessing and using SubashaVentures, you accept and agree to be bound by the terms 
+                        and provision of this agreement.
+                    </p>
+                </div>
+                <div class="legal-section">
+                    <h4>2. Use License</h4>
+                    <p>
+                        Permission is granted to temporarily use SubashaVentures for personal, non-commercial 
+                        transitory viewing only.
+                    </p>
+                </div>
+                <div class="legal-section">
+                    <h4>3. Disclaimer</h4>
+                    <p>
+                        The materials on SubashaVentures are provided on an 'as is' basis. SubashaVentures makes 
+                        no warranties, expressed or implied, and hereby disclaims and negates all other warranties.
+                    </p>
+                </div>
+                <div class="legal-section">
+                    <h4>4. Limitations</h4>
+                    <p>
+                        In no event shall SubashaVentures or its suppliers be liable for any damages arising out 
+                        of the use or inability to use the materials on SubashaVentures.
+                    </p>
+                </div>
+                <div class="legal-action">
+                    <PrimaryButton Text="View Full Terms" OnClick="ViewFullTerms" />
+                </div>
+            </div>
+        </div>
+    </DynamicModal>
+
+    <!-- Logout Confirmation -->
+    <ConfirmationPopup 
+        IsVisible="showLogoutConfirmation"
+        Title="Logout"
+        Message="Are you sure you want to logout?"
+        ConfirmText="Logout"
+        CancelText="Cancel"
+        OnConfirm="ConfirmLogout"
+        OnCancel="CancelLogout" />
+</div>
