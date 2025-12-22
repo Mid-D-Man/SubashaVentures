@@ -1,0 +1,116 @@
+@page "user/messages"
+@layout UserLayout
+@inject NavigationManager Navigation
+
+<div class="messages-page">
+    <div class="page-header">
+        <div>
+            <h1>Messages</h1>
+            <p>View promotions and order updates</p>
+        </div>
+    </div>
+
+    <div class="messages-tabs">
+        <button class="tab-btn @(ActiveTab == "orders" ? "active" : "")" 
+                @onclick='() => SwitchTab("orders")'>
+            📦 Order Updates
+        </button>
+        <button class="tab-btn @(ActiveTab == "promotions" ? "active" : "")" 
+                @onclick='() => SwitchTab("promotions")'>
+            🎁 Promotions
+        </button>
+    </div>
+
+    <div class="messages-content">
+        @if (ActiveTab == "orders")
+        {
+            <div class="messages-list">
+                @if (!OrderMessages.Any())
+                {
+                    <div class="empty-messages">
+                        <p>No order updates yet</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var message in OrderMessages)
+                    {
+                        <div class="message-card @(message.IsRead ? "" : "unread")">
+                            <div class="message-icon">📦</div>
+                            <div class="message-content">
+                                <h3>@message.Title</h3>
+                                <p>@message.Message</p>
+                                <span class="message-time">@message.TimeAgo</span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            <div class="messages-list">
+                @if (!PromotionMessages.Any())
+                {
+                    <div class="empty-messages">
+                        <p>No promotions available</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var promo in PromotionMessages)
+                    {
+                        <div class="message-card promo @(promo.IsRead ? "" : "unread")">
+                            <div class="message-icon">🎁</div>
+                            <div class="message-content">
+                                <h3>@promo.Title</h3>
+                                <p>@promo.Message</p>
+                                <span class="message-time">@promo.TimeAgo</span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string ActiveTab = "orders";
+    private List<MessageItem> OrderMessages = new();
+    private List<MessageItem> PromotionMessages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMessages();
+    }
+
+    private async Task LoadMessages()
+    {
+        // TODO: Load from service
+        await Task.Delay(100);
+
+        OrderMessages = new()
+        {
+            new() { Title = "Order Shipped", Message = "Your order #ORD-2024-001 has been shipped", TimeAgo = "2 hours ago", IsRead = false }
+        };
+
+        PromotionMessages = new()
+        {
+            new() { Title = "Weekend Sale - 50% Off!", Message = "Don't miss our biggest sale of the year", TimeAgo = "1 day ago", IsRead = true }
+        };
+    }
+
+    private void SwitchTab(string tab)
+    {
+        ActiveTab = tab;
+    }
+
+    private class MessageItem
+    {
+        public string Title { get; set; } = "";
+        public string Message { get; set; } = "";
+        public string TimeAgo { get; set; } = "";
+        public bool IsRead { get; set; }
+    }
+}
