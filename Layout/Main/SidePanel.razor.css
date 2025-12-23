@@ -31,6 +31,7 @@
     right: 0;
     width: 320px;
     height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
     
     background: var(--bg-surface, rgba(255, 255, 255, 0.98));
     backdrop-filter: blur(20px);
@@ -47,6 +48,8 @@
     
     z-index: 10001;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .side-panel.active {
@@ -187,8 +190,13 @@
     flex: 1 1 auto;
     padding: 1rem 0;
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
+    
+    /* CRITICAL: Ensure nav can scroll properly on mobile */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .panel-nav::-webkit-scrollbar {
@@ -282,9 +290,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
 }
 
 .action-btn {
@@ -318,23 +323,6 @@
 }
 
 .action-btn.sign-in:active {
-    transform: translateY(0);
-}
-
-/* Sign Up Button */
-.action-btn.sign-up {
-    background: var(--theme-secondary, #9A4A96);
-    color: white;
-    box-shadow: 0 4px 12px rgba(154, 74, 150, 0.3);
-}
-
-.action-btn.sign-up:hover {
-    background: var(--hover-secondary, #7D3A7A);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(154, 74, 150, 0.4);
-}
-
-.action-btn.sign-up:active {
     transform: translateY(0);
 }
 
@@ -459,17 +447,6 @@
     box-shadow: 0 6px 20px rgba(184, 187, 106, 0.6);
 }
 
-[data-theme="dark"] .action-btn.sign-up {
-    background: var(--theme-secondary, #BB6AB8);
-    color: var(--text-on-secondary, #212529);
-    box-shadow: 0 4px 12px rgba(187, 106, 184, 0.4);
-}
-
-[data-theme="dark"] .action-btn.sign-up:hover {
-    background: var(--hover-secondary, #CB7AC8);
-    box-shadow: 0 6px 20px rgba(187, 106, 184, 0.6);
-}
-
 [data-theme="dark"] .action-btn.sign-out {
     background: rgba(33, 37, 41, 0.5);
     color: #ff6b6b;
@@ -517,8 +494,6 @@
     
     .panel-actions {
         padding: 1.25rem;
-        background: rgba(150, 153, 74, 0.05);
-        backdrop-filter: blur(10px);
     }
     
     .action-btn {
@@ -593,6 +568,31 @@
     }
 }
 
+/* Landscape orientation - reduce heights */
+@media (max-height: 600px) and (orientation: landscape) {
+    .panel-header {
+        padding: 0.75rem 1rem;
+    }
+    
+    .user-profile-section {
+        padding: 0.75rem 1rem;
+    }
+    
+    .user-avatar-large {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .panel-actions {
+        padding: 0.75rem 1rem;
+    }
+    
+    .action-btn {
+        padding: 0.75rem;
+    }
+}
+
 /* ===== ANIMATIONS AND EFFECTS ===== */
 @media (prefers-reduced-motion: reduce) {
     .side-panel-overlay,
@@ -649,4 +649,4 @@
     .user-profile-card {
         border-width: 2px;
     }
-    }
+                               }
