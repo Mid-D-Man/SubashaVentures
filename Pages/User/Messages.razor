@@ -1,4 +1,4 @@
-@page "user/messages"
+@page "/user/messages"
 @layout UserLayout
 @inject NavigationManager Navigation
 
@@ -87,7 +87,6 @@
 
     private async Task LoadMessages()
     {
-        // TODO: Load from service
         await Task.Delay(100);
 
         OrderMessages = new()
