@@ -61,11 +61,9 @@ public partial class LandingPage : ComponentBase
         {
             isLoadingFeatured = true;
             
-            // Get ALL products first
             var allProducts = await ProductService.GetProductsAsync(0, 100);
             Console.WriteLine($"📦 Total products retrieved: {allProducts.Count}");
             
-            // Filter for featured AND active products with stock
             featuredProducts = allProducts
                 .Where(p => p.IsFeatured && p.IsActive && p.Stock > 0)
                 .OrderByDescending(p => p.Rating)
@@ -75,7 +73,6 @@ public partial class LandingPage : ComponentBase
             
             Console.WriteLine($"⭐ Featured products found: {featuredProducts.Count}");
             
-            // If no featured products, get top-rated products instead
             if (!featuredProducts.Any())
             {
                 Console.WriteLine("⚠ No featured products, using top-rated instead");
@@ -153,12 +150,14 @@ public partial class LandingPage : ComponentBase
     // ===== PRODUCT OF THE DAY HANDLERS =====
     private void HandlePOTDClick(ProductViewModel product)
     {
-        Navigation.NavigateTo($"shop?productId={product.Id}");
+        // Navigate to product details page using slug
+        Navigation.NavigateTo($"product/{product.Slug}");
     }
 
     private void HandleViewPOTDDetails(ProductViewModel product)
     {
-        Navigation.NavigateTo($"shop?productId={product.Id}");
+        // Navigate to product details page using slug
+        Navigation.NavigateTo($"product/{product.Slug}");
     }
 
     private async Task HandleAddToCart(ProductViewModel product)
@@ -171,12 +170,14 @@ public partial class LandingPage : ComponentBase
     // ===== FEATURED PRODUCTS HANDLERS =====
     private void HandleProductClick(ProductViewModel product)
     {
-        Navigation.NavigateTo($"shop?productId={product.Id}");
+        // Navigate to product details page using slug
+        Navigation.NavigateTo($"product/{product.Slug}");
     }
 
     private void HandleViewDetails(ProductViewModel product)
     {
-        Navigation.NavigateTo($"shop?productId={product.Id}");
+        // Navigate to product details page using slug
+        Navigation.NavigateTo($"product/{product.Slug}");
     }
 
     // ===== REVIEW HANDLERS =====
