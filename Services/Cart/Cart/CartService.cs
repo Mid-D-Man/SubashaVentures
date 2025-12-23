@@ -3,6 +3,7 @@ using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Cart;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Utilities.HelperScripts;
+using Supabase.Postgrest;
 using Client = Supabase.Client;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -46,7 +47,7 @@ public class CartService : ICartService
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
                 .Where(c => c.IsDeleted == false)
-                .Order("created_at", Supabase.Postgrest.Constants.Ordering.Descending)
+                .Order("created_at", Constants.Ordering.Descending)
                 .Get();
 
             var items = cart?.Models ?? new List<CartModel>();
