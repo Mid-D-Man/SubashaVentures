@@ -1,6 +1,9 @@
-@page "user/history"
+@page "/user/history"
 @layout UserLayout
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Modals
 
 <div class="history-page">
     <div class="page-header">
@@ -36,7 +39,7 @@
             @foreach (var item in HistoryItems)
             {
                 <div class="history-card" @onclick="() => ViewProduct(item.ProductId)">
-                    <button class="btn-remove" @onclick="(e) => RemoveItem(item.ProductId, e)" title="Remove">
+                    <button class="btn-remove" @onclick="(e) => RemoveItem(item.ProductId, e)" @onclick:stopPropagation="true" title="Remove">
                         ✕
                     </button>
                     <img src="@item.ImageUrl" alt="@item.ProductName" />
@@ -58,8 +61,6 @@
                    OnConfirm="ConfirmClearHistory" />
 
 @code {
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
-
     private ConfirmationPopup ClearConfirmation { get; set; } = default!;
     private List<HistoryItem> HistoryItems = new();
     private bool IsLoading = true;
@@ -74,7 +75,6 @@
         IsLoading = true;
         try
         {
-            // Load from localStorage
             var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", "browsingHistory");
             
             if (!string.IsNullOrEmpty(historyJson))
@@ -83,7 +83,6 @@
             }
             else
             {
-                // Mock data for demo
                 HistoryItems = new()
                 {
                     new() 
@@ -105,7 +104,6 @@
                 };
             }
 
-            // Sort by most recent
             HistoryItems = HistoryItems.OrderByDescending(h => h.ViewedAt).ToList();
         }
         finally
@@ -116,7 +114,6 @@
 
     private async Task RemoveItem(string productId, MouseEventArgs e)
     {
-        e.StopPropagation();
         HistoryItems.RemoveAll(h => h.ProductId == productId);
         await SaveHistory();
         StateHasChanged();
@@ -124,7 +121,7 @@
 
     private void ClearHistory()
     {
-        ClearConfirmation.Show();
+        ClearConfirmation.Open();
     }
 
     private async Task ConfirmClearHistory()
@@ -142,7 +139,7 @@
 
     private void ViewProduct(string productId)
     {
-        Navigation.NavigateTo($"products/{productId}");
+        Navigation.NavigateTo($"/products/{productId}");
     }
 
     private class HistoryItem
