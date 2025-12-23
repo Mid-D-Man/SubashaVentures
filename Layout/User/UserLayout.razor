@@ -1,3 +1,4 @@
+@using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
@@ -14,43 +15,43 @@
         </div>
 
         <nav class="user-nav">
-            <a href="/user" class="user-nav-item @(IsActive("/user") ? "active" : "")">
+            <a href="user" class="user-nav-item @(IsActive("/user") ? "active" : "")">
                 <span class="nav-icon">👤</span>
                 <span class="nav-text">Profile</span>
             </a>
-            <a href="/user/addresses" class="user-nav-item @(IsActive("/user/addresses") ? "active" : "")">
+            <a href="user/addresses" class="user-nav-item @(IsActive("/user/addresses") ? "active" : "")">
                 <span class="nav-icon">📍</span>
                 <span class="nav-text">Addresses</span>
             </a>
-            <a href="/user/orders" class="user-nav-item @(IsActive("/user/orders") ? "active" : "")">
+            <a href="user/orders" class="user-nav-item @(IsActive("/user/orders") ? "active" : "")">
                 <span class="nav-icon">📦</span>
                 <span class="nav-text">Orders</span>
             </a>
-            <a href="/user/messages" class="user-nav-item @(IsActive("/user/messages") ? "active" : "")">
+            <a href="user/messages" class="user-nav-item @(IsActive("/user/messages") ? "active" : "")">
                 <span class="nav-icon">💬</span>
                 <span class="nav-text">Messages</span>
             </a>
-            <a href="/user/reviews" class="user-nav-item @(IsActive("/user/reviews") ? "active" : "")">
+            <a href="user/reviews" class="user-nav-item @(IsActive("/user/reviews") ? "active" : "")">
                 <span class="nav-icon">⭐</span>
                 <span class="nav-text">Reviews</span>
             </a>
-            <a href="/user/history" class="user-nav-item @(IsActive("/user/history") ? "active" : "")">
+            <a href="user/history" class="user-nav-item @(IsActive("/user/history") ? "active" : "")">
                 <span class="nav-icon">🕐</span>
                 <span class="nav-text">History</span>
             </a>
-            <a href="/user/payment" class="user-nav-item @(IsActive("/user/payment") ? "active" : "")">
+            <a href="user/payment" class="user-nav-item @(IsActive("/user/payment") ? "active" : "")">
                 <span class="nav-icon">💳</span>
                 <span class="nav-text">Payment</span>
             </a>
-            <a href="/user/offers" class="user-nav-item @(IsActive("/user/offers") ? "active" : "")">
+            <a href="user/offers" class="user-nav-item @(IsActive("/user/offers") ? "active" : "")">
                 <span class="nav-icon">🎁</span>
                 <span class="nav-text">Offers</span>
             </a>
-            <a href="/user/support" class="user-nav-item @(IsActive("/user/support") ? "active" : "")">
+            <a href="user/support" class="user-nav-item @(IsActive("/user/support") ? "active" : "")">
                 <span class="nav-icon">🆘</span>
                 <span class="nav-text">Support</span>
             </a>
-            <a href="/user/settings" class="user-nav-item @(IsActive("/user/settings") ? "active" : "")">
+            <a href="user/settings" class="user-nav-item @(IsActive("/user/settings") ? "active" : "")">
                 <span class="nav-icon">⚙️</span>
                 <span class="nav-text">Settings</span>
             </a>
