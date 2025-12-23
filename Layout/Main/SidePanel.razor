@@ -1,4 +1,4 @@
-@* Layout/Main/SidePanel.razor - FIXED *@
+@* Layout/Main/SidePanel.razor - UPDATED WITH AUTH STATE *@
 @using SubashaVentures.Components.Shared.Buttons
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
@@ -40,6 +40,9 @@
                 {
                     <div class="nav-section">
                         <h4 class="section-title">My Account</h4>
+                        <a class="nav-link" @onclick="() => NavigateTo(UserDirectory)">
+                            <span class="nav-text">Me</span>
+                        </a>
                         <a class="nav-link" @onclick="() => NavigateTo(ProfileDirectory)">
                             <span class="nav-text">Profile Settings</span>
                         </a>
@@ -113,9 +116,6 @@
                     <button class="action-btn sign-in" @onclick="HandleSignIn">
                         <span class="btn-text">Sign In</span>
                     </button>
-                    <button class="action-btn sign-up" @onclick="HandleSignUp">
-                        <span class="btn-text">Sign Up</span>
-                    </button>
                 }
             </div>
         </div>
@@ -135,19 +135,17 @@
     private const string ContactDirectory = "contact";
     private const string HelpDirectory = "help";
     private const string TrackOrderDirectory = "orders/track";
-    private const string ProfileDirectory = "profile";
-    private const string OrdersDirectory = "orders";
+    private const string UserDirectory = "user";
+    private const string ProfileDirectory = "user/settings";
+    private const string OrdersDirectory = "user/orders";
     private const string WishlistDirectory = "wishlist";
     private const string SignInDirectory = "signin";
     private const string SignUpDirectory = "signup";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    
-    // FIXED: Added missing SearchQuery parameters
     [Parameter] public string SearchQuery { get; set; } = "";
     [Parameter] public EventCallback<string> SearchQueryChanged { get; set; }
-    
     [Parameter] public bool IsLoggedIn { get; set; } = false;
     [Parameter] public string UserName { get; set; } = "";
     [Parameter] public string UserEmail { get; set; } = "";
@@ -166,6 +164,15 @@
     protected override async Task OnInitializedAsync()
     {
         await CheckAuthStatus();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Re-check auth status when side panel opens
+        if (IsOpen)
+        {
+            await CheckAuthStatus();
+        }
     }
 
     private async Task CheckAuthStatus()
@@ -223,17 +230,6 @@
         if (OnActionClick.HasDelegate)
         {
             await OnActionClick.InvokeAsync(ActionType.SignIn);
-        }
-    }
-
-    private async Task HandleSignUp()
-    {
-        await ClosePanel();
-        NavigationManager.NavigateTo(SignUpDirectory);
-        
-        if (OnActionClick.HasDelegate)
-        {
-            await OnActionClick.InvokeAsync(ActionType.SignUp);
         }
     }
 
