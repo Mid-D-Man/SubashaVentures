@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Components.Shared.Modals;
-using SubashaVentures.Components.Shared.Popups;
 
 namespace SubashaVentures.Pages.User;
 
@@ -11,14 +10,15 @@ public partial class Reviews
     private DynamicModal ReviewModal { get; set; } = default!;
     private ConfirmationPopup DeleteConfirmation { get; set; } = default!;
 
-    private List<ReviewViewModel> Reviews = new();
+    private List<ReviewViewModel> ReviewsList = new();
     private ReviewViewModel? EditingReview;
     private string ModalTitle = "";
     private bool IsLoading = true;
+    private bool IsModalOpen = false;
     private string? ReviewToDelete;
 
-    private double AverageRating => Reviews.Any() ? Reviews.Average(r => r.Rating) : 0;
-    private int HelpfulCount => Reviews.Sum(r => r.HelpfulCount);
+    private double AverageRating => ReviewsList.Any() ? ReviewsList.Average(r => r.Rating) : 0;
+    private int HelpfulCount => ReviewsList.Sum(r => r.HelpfulCount);
 
     protected override async Task OnInitializedAsync()
     {
@@ -33,7 +33,7 @@ public partial class Reviews
             // TODO: Load from service
             await Task.Delay(500);
 
-            Reviews = new List<ReviewViewModel>
+            ReviewsList = new List<ReviewViewModel>
             {
                 new()
                 {
@@ -81,7 +81,7 @@ public partial class Reviews
         };
 
         ModalTitle = "Edit Review";
-        ReviewModal.Open();
+        IsModalOpen = true;
     }
 
     private void SetRating(int rating)
@@ -99,7 +99,7 @@ public partial class Reviews
         // TODO: Save to service
         await Task.Delay(100);
 
-        var existingReview = Reviews.FirstOrDefault(r => r.Id == EditingReview.Id);
+        var existingReview = ReviewsList.FirstOrDefault(r => r.Id == EditingReview.Id);
         if (existingReview != null)
         {
             existingReview.Rating = EditingReview.Rating;
@@ -113,14 +113,14 @@ public partial class Reviews
 
     private void CloseReviewModal()
     {
-        ReviewModal.Close();
+        IsModalOpen = false;
         EditingReview = null;
     }
 
     private void ConfirmDelete(string reviewId)
     {
         ReviewToDelete = reviewId;
-        DeleteConfirmation.Show();
+        DeleteConfirmation.Open();
     }
 
     private async Task DeleteReview()
@@ -130,7 +130,7 @@ public partial class Reviews
         // TODO: Delete from service
         await Task.Delay(100);
 
-        Reviews.RemoveAll(r => r.Id == ReviewToDelete);
+        ReviewsList.RemoveAll(r => r.Id == ReviewToDelete);
         ReviewToDelete = null;
         StateHasChanged();
     }
