@@ -1,7 +1,7 @@
 @page "/user/orders"
-@layout UserLayout
+@layout SubashaVentures.Layout.User.UserLayout
 @using SubashaVentures.Components.Shared.Loading
-@using SubashaVentures.Domain.User.Order
+@using SubashaVentures.Domain.Order
 
 <div class="orders-page">
     <div class="page-header">
@@ -17,7 +17,7 @@
             <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading orders..." />
         </div>
     }
-    else if (!Orders.Any())
+    else if (!OrdersList.Any())
     {
         <div class="empty-state">
             <div class="empty-icon">📦</div>
@@ -30,7 +30,7 @@
         <div class="orders-filters">
             <button class="filter-btn @(FilterStatus == "All" ? "active" : "")" 
                     @onclick='() => FilterOrders("All")'>
-                All (@Orders.Count)
+                All (@OrdersList.Count)
             </button>
             <button class="filter-btn @(FilterStatus == "Pending" ? "active" : "")" 
                     @onclick='() => FilterOrders("Pending")'>
@@ -105,7 +105,7 @@
 </div>
 
 @code {
-    private List<OrderViewModel> Orders = new();
+    private List<OrderViewModel> OrdersList = new();
     private List<OrderViewModel> FilteredOrders = new();
     private bool IsLoading = true;
     private string FilterStatus = "All";
@@ -124,7 +124,7 @@
             await Task.Delay(500);
             
             // Mock data
-            Orders = new List<OrderViewModel>
+            OrdersList = new List<OrderViewModel>
             {
                 new()
                 {
@@ -140,7 +140,7 @@
                 }
             };
 
-            FilteredOrders = Orders;
+            FilteredOrders = OrdersList;
         }
         finally
         {
@@ -152,8 +152,8 @@
     {
         FilterStatus = status;
         FilteredOrders = status == "All" 
-            ? Orders 
-            : Orders.Where(o => o.Status.ToString() == status).ToList();
+            ? OrdersList 
+            : OrdersList.Where(o => o.Status.ToString() == status).ToList();
     }
 
     private string GetStatusClass(OrderStatus status) => status switch
