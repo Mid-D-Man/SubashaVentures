@@ -1,8 +1,9 @@
 @page "/user/addresses"
-@layout UserLayout
+@layout SubashaVentures.Layout.User.UserLayout
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Domain.User
 @inject NavigationManager Navigation
 
@@ -23,7 +24,7 @@
             <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading addresses..." />
         </div>
     }
-    else if (!Addresses.Any())
+    else if (!AddressList.Any())
     {
         <div class="empty-state">
             <div class="empty-icon">📍</div>
@@ -37,7 +38,7 @@
     else
     {
         <div class="addresses-grid">
-            @foreach (var address in Addresses)
+            @foreach (var address in AddressList)
             {
                 <div class="address-card @(address.IsDefault ? "default" : "")">
                     @if (address.IsDefault)
