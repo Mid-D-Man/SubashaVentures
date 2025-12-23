@@ -1,9 +1,14 @@
-@* Layout/Main/SidePanel.razor - UPDATED WITH AUTH STATE *@
+@* Layout/Main/SidePanel.razor - UPDATED WITH DYNAMIC CATEGORIES *@
 @using SubashaVentures.Components.Shared.Buttons
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@using SubashaVentures.Services.Categories
+@using SubashaVentures.Services.Storage
+@using SubashaVentures.Domain.Product
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ICategoryService CategoryService
+@inject IBlazorAppLocalStorageService LocalStorage
 
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
@@ -68,23 +73,43 @@
                     </a>
                 </div>
 
+                @* UPDATED: Dynamic Categories Section *@
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
-                    <a class="nav-link" @onclick="() => NavigateTo(MenDirectory)">
-                        <span class="nav-text">Men's Fashion</span>
-                    </a>
-                    <a class="nav-link" @onclick="() => NavigateTo(WomenDirectory)">
-                        <span class="nav-text">Women's Fashion</span>
-                    </a>
-                    <a class="nav-link" @onclick="() => NavigateTo(KidsDirectory)">
-                        <span class="nav-text">Kids & Baby</span>
-                    </a>
-                    <a class="nav-link" @onclick="() => NavigateTo(HomeGoodsDirectory)">
-                        <span class="nav-text">Home & Living</span>
-                    </a>
-                    <a class="nav-link" @onclick="() => NavigateTo(AccessoriesDirectory)">
-                        <span class="nav-text">Accessories</span>
-                    </a>
+                    
+                    @if (IsLoadingCategories)
+                    {
+                        <div class="category-loading">
+                            <div class="loading-spinner-small"></div>
+                            <span class="loading-text">Loading categories...</span>
+                        </div>
+                    }
+                    else if (TopCategories.Any())
+                    {
+                        @foreach (var category in TopCategories)
+                        {
+                            <a class="nav-link" @onclick="() => NavigateToShopWithCategory(category)">
+                                @if (!string.IsNullOrEmpty(category.IconEmoji))
+                                {
+                                    <span class="category-icon">@category.IconEmoji</span>
+                                }
+                                <span class="nav-text">@category.Name</span>
+                            </a>
+                        }
+                        
+                        @if (HasMoreCategories)
+                        {
+                            <a class="nav-link view-all-link" @onclick="() => NavigateTo(ShopDirectory)">
+                                <span class="nav-text">View All Categories</span>
+                            </a>
+                        }
+                    }
+                    else
+                    {
+                        <div class="category-empty">
+                            <span class="empty-text">No categories available</span>
+                        </div>
+                    }
                 </div>
 
                 <div class="nav-section">
@@ -126,11 +151,6 @@
     private const string HomeDirectory = "";
     private const string ShopDirectory = "shop";
     private const string DealsDirectory = "shop/deals";
-    private const string MenDirectory = "shop/men";
-    private const string WomenDirectory = "shop/women";
-    private const string KidsDirectory = "shop/kids";
-    private const string HomeGoodsDirectory = "shop/home";
-    private const string AccessoriesDirectory = "shop/accessories";
     private const string AboutDirectory = "about";
     private const string ContactDirectory = "contact";
     private const string HelpDirectory = "help";
@@ -141,6 +161,10 @@
     private const string WishlistDirectory = "wishlist";
     private const string SignInDirectory = "signin";
     private const string SignUpDirectory = "signup";
+    
+    // CONSTANTS
+    private const int MAX_CATEGORIES_TO_SHOW = 4;
+    private const string CATEGORY_FILTER_KEY = "shop_category_filter";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
@@ -153,6 +177,11 @@
     [Parameter] public EventCallback<string> OnNavigate { get; set; }
     [Parameter] public EventCallback<string> OnSearch { get; set; }
 
+    // UPDATED: Category state
+    private List<CategoryViewModel> TopCategories = new();
+    private bool IsLoadingCategories = true;
+    private bool HasMoreCategories = false;
+
     public enum ActionType
     {
         SignIn,
@@ -164,14 +193,88 @@
     protected override async Task OnInitializedAsync()
     {
         await CheckAuthStatus();
+        await LoadTopCategories();
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        // Re-check auth status when side panel opens
         if (IsOpen)
         {
             await CheckAuthStatus();
+            
+            // Reload categories if panel is opened and categories are empty
+            if (!TopCategories.Any() && !IsLoadingCategories)
+            {
+                await LoadTopCategories();
+            }
+        }
+    }
+
+    // UPDATED: Load top categories from Firebase
+    private async Task LoadTopCategories()
+    {
+        IsLoadingCategories = true;
+        StateHasChanged();
+        
+        try
+        {
+            var allCategories = await CategoryService.GetTopLevelCategoriesAsync();
+            
+            if (allCategories != null && allCategories.Any())
+            {
+                TopCategories = allCategories
+                    .Take(MAX_CATEGORIES_TO_SHOW)
+                    .ToList();
+                
+                HasMoreCategories = allCategories.Count > MAX_CATEGORIES_TO_SHOW;
+                
+                Console.WriteLine($"✓ Loaded {TopCategories.Count} categories for side panel");
+            }
+            else
+            {
+                TopCategories = new List<CategoryViewModel>();
+                HasMoreCategories = false;
+                Console.WriteLine("⚠ No categories found");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading categories: {ex.Message}");
+            TopCategories = new List<CategoryViewModel>();
+            HasMoreCategories = false;
+        }
+        finally
+        {
+            IsLoadingCategories = false;
+            StateHasChanged();
+        }
+    }
+
+    // UPDATED: Navigate to shop with category filter
+    private async Task NavigateToShopWithCategory(CategoryViewModel category)
+    {
+        try
+        {
+            // Store category in localStorage for shop page to pick up
+            await LocalStorage.SetItemAsync(CATEGORY_FILTER_KEY, category.Name);
+            
+            Console.WriteLine($"✓ Stored category filter: {category.Name}");
+            
+            // Close panel and navigate
+            await ClosePanel();
+            NavigationManager.NavigateTo(ShopDirectory);
+            
+            if (OnNavigate.HasDelegate)
+            {
+                await OnNavigate.InvokeAsync(ShopDirectory);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
+            // Fallback: just navigate without filter
+            await ClosePanel();
+            NavigationManager.NavigateTo(ShopDirectory);
         }
     }
 
