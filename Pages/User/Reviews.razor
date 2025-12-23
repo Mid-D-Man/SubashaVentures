@@ -1,8 +1,9 @@
-@page "user/reviews"
+@page "/user/reviews"
 @layout UserLayout
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Components.Shared.Popups
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
 
 <div class="reviews-page">
     <div class="page-header">
@@ -94,46 +95,47 @@
     }
 </div>
 
-<DynamicModal @ref="ReviewModal" Title="@ModalTitle">
-    <div class="review-form">
-        <div class="product-preview">
-            <img src="@EditingReview?.ProductImage" alt="@EditingReview?.ProductName" />
-            <h4>@EditingReview?.ProductName</h4>
-        </div>
+<DynamicModal @ref="ReviewModal" 
+              Title="@ModalTitle"
+              IsOpen="@IsModalOpen"
+              OnConfirm="SaveReview"
+              OnCancel="CloseReviewModal">
+    <BodyContent>
+        <div class="review-form">
+            <div class="product-preview">
+                <img src="@EditingReview?.ProductImage" alt="@EditingReview?.ProductName" />
+                <h4>@EditingReview?.ProductName</h4>
+            </div>
 
-        <div class="form-field">
-            <label>Rating <span class="required">*</span></label>
-            <div class="rating-input">
-                @for (int i = 1; i <= 5; i++)
-                {
-                    int rating = i;
-                    <span class="star-input @(i <= EditingReview?.Rating ? "selected" : "")" 
-                          @onclick="() => SetRating(rating)">
-                        ⭐
-                    </span>
-                }
+            <div class="form-field">
+                <label>Rating <span class="required">*</span></label>
+                <div class="rating-input">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        int rating = i;
+                        <span class="star-input @(i <= EditingReview?.Rating ? "selected" : "")" 
+                              @onclick="() => SetRating(rating)">
+                            ⭐
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label>Review Title <span class="required">*</span></label>
+                <InputField @bind-Value="EditingReview.Title" 
+                           Placeholder="Summarize your experience" />
+            </div>
+
+            <div class="form-field">
+                <label>Your Review <span class="required">*</span></label>
+                <textarea class="form-textarea" 
+                         @bind="EditingReview.Comment" 
+                         placeholder="Share your thoughts about this product..."
+                         rows="5"></textarea>
             </div>
         </div>
-
-        <div class="form-field">
-            <label>Review Title <span class="required">*</span></label>
-            <InputField @bind-Value="EditingReview.Title" 
-                       Placeholder="Summarize your experience" />
-        </div>
-
-        <div class="form-field">
-            <label>Your Review <span class="required">*</span></label>
-            <textarea class="form-textarea" 
-                     @bind="EditingReview.Comment" 
-                     placeholder="Share your thoughts about this product..."
-                     rows="5"></textarea>
-        </div>
-
-        <div class="modal-actions">
-            <SecondaryButton OnClick="CloseReviewModal">Cancel</SecondaryButton>
-            <PrimaryButton OnClick="SaveReview">Save Review</PrimaryButton>
-        </div>
-    </div>
+    </BodyContent>
 </DynamicModal>
 
 <ConfirmationPopup @ref="DeleteConfirmation"
@@ -141,3 +143,7 @@
                    Message="Are you sure you want to delete this review? This action cannot be undone."
                    ConfirmText="Delete"
                    OnConfirm="DeleteReview" />
+
+@code {
+    // See Reviews.razor.cs for code
+}
