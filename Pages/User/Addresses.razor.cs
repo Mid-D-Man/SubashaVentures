@@ -6,7 +6,7 @@ namespace SubashaVentures.Pages.User;
 
 public partial class Addresses
 {
-    private List<AddressViewModel> Addresses = new();
+    private List<AddressViewModel> AddressList = new();
     private Dictionary<string, bool> SelectedAddresses = new();
     private AddressViewModel CurrentAddress = new();
     private Dictionary<string, string> ValidationErrors = new();
@@ -44,7 +44,7 @@ public partial class Addresses
             await Task.Delay(500);
             
             // Mock data
-            Addresses = new List<AddressViewModel>
+            AddressList = new List<AddressViewModel>
             {
                 new()
                 {
@@ -62,7 +62,7 @@ public partial class Addresses
                 }
             };
             
-            SelectedAddresses = Addresses.ToDictionary(a => a.Id, _ => false);
+            SelectedAddresses = AddressList.ToDictionary(a => a.Id, _ => false);
         }
         catch (Exception ex)
         {
@@ -126,23 +126,23 @@ public partial class Addresses
 
             if (IsEditMode)
             {
-                var existing = Addresses.FirstOrDefault(a => a.Id == CurrentAddress.Id);
+                var existing = AddressList.FirstOrDefault(a => a.Id == CurrentAddress.Id);
                 if (existing != null)
                 {
-                    var index = Addresses.IndexOf(existing);
-                    Addresses[index] = CurrentAddress;
+                    var index = AddressList.IndexOf(existing);
+                    AddressList[index] = CurrentAddress;
                 }
             }
             else
             {
                 CurrentAddress.Id = Guid.NewGuid().ToString();
-                Addresses.Add(CurrentAddress);
+                AddressList.Add(CurrentAddress);
                 SelectedAddresses[CurrentAddress.Id] = false;
             }
 
             if (CurrentAddress.IsDefault)
             {
-                foreach (var addr in Addresses.Where(a => a.Id != CurrentAddress.Id))
+                foreach (var addr in AddressList.Where(a => a.Id != CurrentAddress.Id))
                 {
                     addr.IsDefault = false;
                 }
@@ -205,10 +205,10 @@ public partial class Addresses
             
             foreach (var id in toDelete)
             {
-                var address = Addresses.FirstOrDefault(a => a.Id == id);
+                var address = AddressList.FirstOrDefault(a => a.Id == id);
                 if (address != null)
                 {
-                    Addresses.Remove(address);
+                    AddressList.Remove(address);
                     SelectedAddresses.Remove(id);
                 }
             }
@@ -225,7 +225,7 @@ public partial class Addresses
     {
         try
         {
-            foreach (var addr in Addresses)
+            foreach (var addr in AddressList)
             {
                 addr.IsDefault = addr.Id == addressId;
             }
