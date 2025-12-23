@@ -1,5 +1,5 @@
 @page "/user/reviews"
-@layout UserLayout
+@layout SubashaVentures.Layout.User.UserLayout
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Buttons
@@ -19,7 +19,7 @@
             <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading reviews..." />
         </div>
     }
-    else if (!Reviews.Any())
+    else if (!ReviewsList.Any())
     {
         <div class="empty-state">
             <div class="empty-icon">⭐</div>
@@ -31,7 +31,7 @@
     {
         <div class="reviews-stats">
             <div class="stat-card">
-                <span class="stat-value">@Reviews.Count</span>
+                <span class="stat-value">@ReviewsList.Count</span>
                 <span class="stat-label">Total Reviews</span>
             </div>
             <div class="stat-card">
@@ -45,7 +45,7 @@
         </div>
 
         <div class="reviews-list">
-            @foreach (var review in Reviews)
+            @foreach (var review in ReviewsList)
             {
                 <div class="review-card">
                     <div class="review-product">
