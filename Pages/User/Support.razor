@@ -1,9 +1,10 @@
 @page "/user/support"
 @layout UserLayout
 @using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Components.Shared.Inputs
+@using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Loading
+@using Microsoft.AspNetCore.Components.Forms
 
 <div class="support-page">
     <div class="page-header">
@@ -167,46 +168,43 @@
 <!-- Contact Support Modal -->
 <DynamicModal IsOpen="ShowContactModal" 
              Title="Contact Support" 
-             OnClose="CloseContactModal">
-    <div class="contact-form">
-        <InputField Label="Subject" 
-                   @bind-Value="ContactSubject" 
-                   Placeholder="Brief description of your issue"
-                   Required="true" />
-        
-        <div class="form-group">
-            <label>Category</label>
-            <select class="form-select" @bind="ContactCategory">
-                @foreach (var category in Enum.GetValues<SupportCategory>())
-                {
-                    <option value="@category">@GetCategoryName(category)</option>
-                }
-            </select>
-        </div>
+             OnClose="CloseContactModal"
+             OnConfirm="SubmitContactForm"
+             IsProcessing="IsSubmitting">
+    <BodyContent>
+        <div class="contact-form">
+            <InputField Label="Subject" 
+                       @bind-Value="ContactSubject" 
+                       Placeholder="Brief description of your issue"
+                       IsRequired="true" />
+            
+            <div class="form-group">
+                <label>Category</label>
+                <select class="form-select" @bind="ContactCategory">
+                    @foreach (var category in Enum.GetValues<SupportCategory>())
+                    {
+                        <option value="@category">@GetCategoryName(category)</option>
+                    }
+                </select>
+            </div>
 
-        <div class="form-group">
-            <label>Message</label>
-            <textarea class="form-textarea" 
-                     @bind="ContactMessage" 
-                     placeholder="Describe your issue in detail..."
-                     rows="6"></textarea>
-        </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea class="form-textarea" 
+                         @bind="ContactMessage" 
+                         placeholder="Describe your issue in detail..."
+                         rows="6"></textarea>
+            </div>
 
-        <div class="form-group">
-            <label>Attach File (Optional)</label>
-            <InputFile OnChange="HandleFileUpload" class="file-input" />
-            <span class="file-hint">Max size: 5MB. Formats: jpg, png, pdf</span>
+            <div class="form-group">
+                <label>Attach File (Optional)</label>
+                <InputFile OnChange="HandleFileUpload" class="file-input" />
+                <span class="file-hint">Max size: 5MB. Formats: jpg, png, pdf</span>
+            </div>
         </div>
-
-        <div class="modal-actions">
-            <PrimaryButton OnClick="CloseContactModal" 
-                          Variant="PrimaryButton.ButtonVariant.Outline">
-                Cancel
-            </PrimaryButton>
-            <PrimaryButton OnClick="SubmitContactForm" 
-                          IsLoading="IsSubmitting">
-                Submit Ticket
-            </PrimaryButton>
-        </div>
-    </div>
+    </BodyContent>
 </DynamicModal>
+
+@code {
+    // See Support.razor.cs for code
+}
