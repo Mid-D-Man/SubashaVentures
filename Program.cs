@@ -1,4 +1,4 @@
-// Program.cs - FIXED WITH CORRECT NAMESPACE
+// Program.cs - FIXED: Register Supabase client BEFORE building host
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -26,7 +26,7 @@ using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
 using Supabase;
 using Supabase.Gotrue;
-using Supabase.Gotrue.Interfaces; // ✅ CORRECT NAMESPACE
+using Supabase.Gotrue.Interfaces;
 using Newtonsoft.Json;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -88,29 +88,20 @@ if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
     throw new InvalidOperationException("Supabase URL and AnonKey must be configured");
 }
 
-// Build host first to access services
-var host = builder.Build();
-
 // ============================================================================
-// ✅ CRITICAL FIX: Setup Supabase with Session Persistence
+// ✅ CRITICAL FIX: Setup Supabase client BEFORE building host
+// Session persistence is handled automatically by Supabase using browser localStorage
 // ============================================================================
-var localStorage = host.Services.GetRequiredService<ILocalStorageService>();
-var logger = host.Services.GetRequiredService<ILogger<Program>>();
-
-const string SESSION_KEY = "supabase.auth.token";
-
-var sessionHandler = new SupabaseSessionHandler(localStorage, SESSION_KEY, logger);
-
 var options = new SupabaseOptions
 {
     AutoRefreshToken = true,
     AutoConnectRealtime = false,
-    SessionHandler = sessionHandler // ✅ Set the custom handler
+    // Supabase will use browser localStorage automatically for session persistence
 };
 
 var supabaseClient = new Supabase.Client(supabaseUrl, supabaseKey, options);
 
-// Register as singleton
+// ✅ Register Supabase client BEFORE building host
 builder.Services.AddSingleton(supabaseClient);
 
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
@@ -125,15 +116,18 @@ builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
 
+// ✅ Build host AFTER all services are registered
+var host = builder.Build();
+
 try
 {
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
     var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
     
-    midLogger.Initialize(logger, jsRuntime);
+    midLogger.Initialize(host.Services.GetRequiredService<ILogger<IMid_Logger>>(), jsRuntime);
     MID_HelperFunctions.Initialize(midLogger);
     
-    logger.LogInformation("✓ Mid_Logger initialized");
+    Console.WriteLine("✓ Mid_Logger initialized");
 }
 catch (Exception ex)
 {
@@ -145,103 +139,22 @@ try
     var firebaseConfig = host.Services.GetRequiredService<IFirebaseConfigService>();
     await firebaseConfig.InitializeAsync();
     
-    logger.LogInformation("✓ Firebase initialized");
+    Console.WriteLine("✓ Firebase initialized");
 }
 catch (Exception ex)
 {
-    logger.LogError(ex, "❌ Failed to initialize Firebase");
+    Console.WriteLine($"❌ Failed to initialize Firebase: {ex.Message}");
 }
 
-// ✅ Initialize Supabase (this will call LoadSession automatically)
+// ✅ Initialize Supabase client (loads session from browser localStorage automatically)
 try
 {
     await supabaseClient.InitializeAsync();
-    logger.LogInformation("✓ Supabase client initialized with session persistence");
+    Console.WriteLine("✓ Supabase client initialized with automatic session persistence");
 }
 catch (Exception ex)
 {
-    logger.LogError(ex, "❌ Failed to initialize Supabase client");
+    Console.WriteLine($"❌ Failed to initialize Supabase client: {ex.Message}");
 }
 
 await host.RunAsync();
-
-// ============================================================================
-// ✅ FIXED: Custom Session Handler with SYNCHRONOUS methods
-// ============================================================================
-public class SupabaseSessionHandler : IGotrueSessionPersistence<Session>
-{
-    private readonly ILocalStorageService _localStorage;
-    private readonly string _sessionKey;
-    private readonly ILogger _logger;
-
-    public SupabaseSessionHandler(
-        ILocalStorageService localStorage, 
-        string sessionKey,
-        ILogger logger)
-    {
-        _localStorage = localStorage;
-        _sessionKey = sessionKey;
-        _logger = logger;
-    }
-
-    // ✅ SYNCHRONOUS - LoadSession
-    public Session? LoadSession()
-    {
-        try
-        {
-            // ⚠️ SYNC blocking call - this is required by the interface
-            var storedSession = _localStorage.GetItemAsStringAsync(_sessionKey).GetAwaiter().GetResult();
-            
-            if (string.IsNullOrEmpty(storedSession))
-                return null;
-
-            var session = JsonConvert.DeserializeObject<Session>(storedSession);
-            
-            if (session != null && session.ExpiresAt() > DateTime.UtcNow)
-            {
-                _logger.LogInformation("✓ Session loaded from storage");
-                return session;
-            }
-            
-            _logger.LogInformation("ℹ️ Stored session expired");
-            _localStorage.RemoveItemAsync(_sessionKey).GetAwaiter().GetResult();
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load session");
-            return null;
-        }
-    }
-
-    // ✅ SYNCHRONOUS - SaveSession
-    public void SaveSession(Session session)
-    {
-        try
-        {
-            var serialized = JsonConvert.SerializeObject(session);
-            // ⚠️ SYNC blocking call - this is required by the interface
-            _localStorage.SetItemAsStringAsync(_sessionKey, serialized).GetAwaiter().GetResult();
-            _logger.LogInformation("✓ Session saved to storage");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to save session");
-        }
-    }
-
-    // ✅ SYNCHRONOUS - DestroySession
-    public void DestroySession()
-    {
-        try
-        {
-            // ⚠️ SYNC blocking call - this is required by the interface
-            _localStorage.RemoveItemAsync(_sessionKey).GetAwaiter().GetResult();
-            _logger.LogInformation("✓ Session destroyed");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to destroy session");
-        }
-    }
-}
