@@ -45,15 +45,18 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
             try
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Auth state changed: {state}",
+                    $"🔔 Auth state changed: {state}",
                     LogLevel.Info
                 );
 
-                // Clear cached state
+                // Clear cached state to force reload
                 _cachedAuthState = null;
 
-                // Notify Blazor of authentication state change
-                NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+                // ✅ FIXED: Notify on the synchronization context
+                var authStateTask = GetAuthenticationStateAsync();
+                NotifyAuthenticationStateChanged(Task.FromResult(await authStateTask));
+                
+                _logger.LogInformation("✅ Notified authentication state change");
             }
             catch (Exception ex)
             {
@@ -178,7 +181,7 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
             
             NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
             
-            _logger.LogInformation("Authentication state change notified");
+            _logger.LogInformation("✅ Authentication state change notified manually");
         }
         catch (Exception ex)
         {
