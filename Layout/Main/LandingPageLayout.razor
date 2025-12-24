@@ -11,36 +11,28 @@
 @implements IDisposable
 
 <div class="main-layout">
-    <!-- Top Section - Navigation (Fixed Header)  -->
     <header class="layout-header">
         <TopNavigation />
     </header>  
 
-    <!-- Main Content Section (Scrollable) -->
     <main class="layout-content">
         <div class="page-content">
             @Body
             
-            <!-- Footer Section - Part of page content -->
             <footer class="page-footer">
                 <FooterSection />
             </footer>
         </div>
     </main>
     
-    <!-- Side Panel Component - Global Level -->
     <SidePanel IsOpen="@isSidePanelOpen"
                IsOpenChanged="@HandleSidePanelToggle"
-               SearchQuery="@searchQuery"
-               SearchQueryChanged="@OnSearchQueryChanged"
                IsLoggedIn="@isLoggedIn"
                UserName="@userName"
                UserEmail="@userEmail"
                OnActionClick="@HandleActionClick"
-               OnNavigate="@HandleNavigate"
-               OnSearch="@HandleSearch"/>
+               OnNavigate="@HandleNavigate" />
     
-    <!-- ✅ NEW: Logout Confirmation Popup -->
     <ConfirmationPopup IsOpen="@showLogoutConfirmation"
                        Title="Sign Out"
                        Message="Are you sure you want to sign out?"
@@ -56,35 +48,21 @@
 
 @code {
     private bool isSidePanelOpen = false;
-    private string searchQuery = "";
-    
-    // ✅ FIXED: Authentication state from Supabase
     private bool isLoggedIn = false;
     private string userName = "";
     private string userEmail = "";
-    
-    // ✅ NEW: Logout confirmation state
     private bool showLogoutConfirmation = false;
     private bool isSigningOut = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to navigation service events
         NavService.SidePanelStateChanged += OnSidePanelStateChanged;
-        NavService.SearchQueryChanged += OnSearchQueryChangedFromService;
-        
-        // Initialize state from service
         isSidePanelOpen = NavService.IsSidePanelOpen;
-        searchQuery = NavService.SearchQuery;
         
-        // ✅ NEW: Subscribe to auth state changes
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
-        
-        // ✅ NEW: Load initial authentication state
         await LoadAuthenticationState();
     }
 
-    // ✅ NEW: Load authentication state from Supabase
     private async Task LoadAuthenticationState()
     {
         try
@@ -125,7 +103,6 @@
         }
     }
 
-    // ✅ NEW: Handle authentication state changes
     private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
     {
         try
@@ -145,21 +122,9 @@
         StateHasChanged();
     }
 
-    private void OnSearchQueryChangedFromService(object? sender, string query)
-    {
-        searchQuery = query;
-        StateHasChanged();
-    }
-
     private async Task HandleSidePanelToggle(bool isOpen)
     {
         NavService.SetSidePanelState(isOpen);
-        await Task.CompletedTask;
-    }
-
-    private async Task OnSearchQueryChanged(string query)
-    {
-        NavService.UpdateSearchQuery(query);
         await Task.CompletedTask;
     }
 
@@ -169,18 +134,14 @@
         {
             case SidePanel.ActionType.SignIn:
                 NavigationManager.NavigateTo("/signin");
-                Logger.LogInformation("Navigate to: /signin");
                 break;
             case SidePanel.ActionType.SignUp:
                 NavigationManager.NavigateTo("/signup");
-                Logger.LogInformation("Navigate to: /signup");
                 break;
             case SidePanel.ActionType.Profile:
                 NavigationManager.NavigateTo("/user/settings");
-                Logger.LogInformation("Navigate to: /user/settings");
                 break;
             case SidePanel.ActionType.Logout:
-                // ✅ UPDATED: Show confirmation popup instead of logging out directly
                 await HandleLogout();
                 break;
         }
@@ -190,31 +151,15 @@
     private async Task HandleNavigate(string url)
     {
         NavigationManager.NavigateTo(url);
-        Logger.LogInformation("Navigate to: {Url}", url);
         await Task.CompletedTask;
     }
 
-    private async Task HandleSearch(string query)
-    {
-        if (!string.IsNullOrWhiteSpace(query))
-        {
-            NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
-            Logger.LogInformation("Search for: {Query}", query);
-        }
-        await Task.CompletedTask;
-    }
-
-    // ✅ UPDATED: Show confirmation popup
     private async Task HandleLogout()
     {
         try
         {
-            Logger.LogInformation("📋 Showing logout confirmation for: {Email}", userEmail);
-            
-            // Close side panel first
+            Logger.LogInformation("📋 Showing logout confirmation");
             NavService.SetSidePanelState(false);
-            
-            // Show confirmation popup
             showLogoutConfirmation = true;
             StateHasChanged();
         }
@@ -226,7 +171,6 @@
         await Task.CompletedTask;
     }
 
-    // ✅ NEW: Confirm logout - actually sign out
     private async Task ConfirmLogout()
     {
         try
@@ -236,34 +180,27 @@
             
             Logger.LogInformation("🔴 Signing out user: {Email}", userEmail);
             
-            // ✅ CRITICAL: Actually call Supabase sign out
             var success = await AuthService.SignOutAsync();
             
             if (success)
             {
                 Logger.LogInformation("✅ User signed out successfully");
                 
-                // Clear local state
                 isLoggedIn = false;
                 userName = "";
                 userEmail = "";
-                
-                // Close confirmation popup
                 showLogoutConfirmation = false;
                 
-                // Redirect to home page
                 NavigationManager.NavigateTo("/", forceLoad: true);
             }
             else
             {
                 Logger.LogError("❌ Sign out failed");
-                // TODO: Show error message to user
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error during logout");
-            // TODO: Show error message to user
         }
         finally
         {
@@ -272,7 +209,6 @@
         }
     }
 
-    // ✅ NEW: Cancel logout
     private async Task CancelLogout()
     {
         try
@@ -291,9 +227,7 @@
 
     public void Dispose()
     {
-        // Unsubscribe from events
         NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
-        NavService.SearchQueryChanged -= OnSearchQueryChangedFromService;
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }
