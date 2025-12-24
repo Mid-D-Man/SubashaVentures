@@ -1,4 +1,4 @@
-// Program.cs - FIXED: Register Supabase client BEFORE building host
+// Program.cs - FIXED WITH SESSION HANDLER
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -88,20 +88,24 @@ if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
     throw new InvalidOperationException("Supabase URL and AnonKey must be configured");
 }
 
-// ============================================================================
-// ✅ CRITICAL FIX: Setup Supabase client BEFORE building host
-// Session persistence is handled automatically by Supabase using browser localStorage
-// ============================================================================
+// Build host first to get services
+var host = builder.Build();
+
+// ✅ CRITICAL FIX: Create session handler that reads from localStorage
+var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
+var sessionHandler = new SupabaseSessionHandler(jsRuntime);
+
+// Setup Supabase client with session handler
 var options = new SupabaseOptions
 {
     AutoRefreshToken = true,
     AutoConnectRealtime = false,
-    // Supabase will use browser localStorage automatically for session persistence
+    SessionHandler = sessionHandler
 };
 
 var supabaseClient = new Supabase.Client(supabaseUrl, supabaseKey, options);
 
-// ✅ Register Supabase client BEFORE building host
+// Register Supabase client as singleton
 builder.Services.AddSingleton(supabaseClient);
 
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
@@ -116,13 +120,9 @@ builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
 
-// ✅ Build host AFTER all services are registered
-var host = builder.Build();
-
 try
 {
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
-    var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
     
     midLogger.Initialize(host.Services.GetRequiredService<ILogger<IMid_Logger>>(), jsRuntime);
     MID_HelperFunctions.Initialize(midLogger);
@@ -146,11 +146,11 @@ catch (Exception ex)
     Console.WriteLine($"❌ Failed to initialize Firebase: {ex.Message}");
 }
 
-// ✅ Initialize Supabase client (loads session from browser localStorage automatically)
+// Initialize Supabase client (will load session from localStorage via handler)
 try
 {
     await supabaseClient.InitializeAsync();
-    Console.WriteLine("✓ Supabase client initialized with automatic session persistence");
+    Console.WriteLine("✓ Supabase client initialized with session persistence");
 }
 catch (Exception ex)
 {
@@ -158,3 +158,67 @@ catch (Exception ex)
 }
 
 await host.RunAsync();
+
+// ✅ NEW: Custom session handler that reads from browser localStorage
+public class SupabaseSessionHandler : IGotrueSessionPersistence<Session>
+{
+    private readonly IJSRuntime _jsRuntime;
+    private const string SESSION_KEY = "supabase.auth.token";
+
+    public SupabaseSessionHandler(IJSRuntime jsRuntime)
+    {
+        _jsRuntime = jsRuntime;
+    }
+
+    public void SaveSession(Session session)
+    {
+        try
+        {
+            var sessionJson = JsonConvert.SerializeObject(session);
+            // Use eval to set localStorage synchronously (required by Supabase)
+            _jsRuntime.InvokeVoidAsync("eval", $"localStorage.setItem('{SESSION_KEY}', {JsonConvert.SerializeObject(sessionJson)})");
+            Console.WriteLine("✓ Session saved to localStorage");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to save session: {ex.Message}");
+        }
+    }
+
+    public void DestroySession()
+    {
+        try
+        {
+            _jsRuntime.InvokeVoidAsync("eval", $"localStorage.removeItem('{SESSION_KEY}')");
+            Console.WriteLine("✓ Session destroyed from localStorage");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to destroy session: {ex.Message}");
+        }
+    }
+
+    public Session? LoadSession()
+    {
+        try
+        {
+            // Use eval to get localStorage item synchronously
+            var sessionJson = _jsRuntime.InvokeAsync<string>("eval", $"localStorage.getItem('{SESSION_KEY}')").GetAwaiter().GetResult();
+            
+            if (string.IsNullOrEmpty(sessionJson) || sessionJson == "null")
+            {
+                Console.WriteLine("ℹ️ No session found in localStorage");
+                return null;
+            }
+
+            var session = JsonConvert.DeserializeObject<Session>(sessionJson);
+            Console.WriteLine("✓ Session loaded from localStorage");
+            return session;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to load session: {ex.Message}");
+            return null;
+        }
+    }
+}
