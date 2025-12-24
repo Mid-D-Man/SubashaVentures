@@ -264,34 +264,45 @@ public class SupabaseAuthService : ISupabaseAuthService
     // ==================== SESSION MANAGEMENT ====================
 
     public async Task<bool> SignOutAsync()
+{
+    try
     {
+        await MID_HelperFunctions.DebugMessageAsync(
+            "Signing out user",
+            LogLevel.Info
+        );
+
+        await _client.Auth.SignOut();
+        
+        // Clear stored session
+        await _localStorage.RemoveItemAsync(SESSION_STORAGE_KEY);
+        await _localStorage.RemoveItemAsync(USER_STORAGE_KEY);
+        
+        // ✅ NEW: Clear any OAuth return URLs
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Signing out user",
-                LogLevel.Info
-            );
-
-            await _client.Auth.SignOut();
-            
-            // Clear stored session
-            await _localStorage.RemoveItemAsync(SESSION_STORAGE_KEY);
-            await _localStorage.RemoveItemAsync(USER_STORAGE_KEY);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✓ User signed out successfully",
-                LogLevel.Info
-            );
-
-            return true;
+            await _jsRuntime.InvokeVoidAsync("eval", 
+                "localStorage.removeItem('oauth_return_url'); sessionStorage.removeItem('post_oauth_redirect');");
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign out");
-            _logger.LogError(ex, "Error signing out");
-            return false;
+            _logger.LogWarning(ex, "Failed to clear OAuth URLs from storage");
         }
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            "✓ User signed out successfully",
+            LogLevel.Info
+        );
+
+        return true;
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Sign out");
+        _logger.LogError(ex, "Error signing out");
+        return false;
+    }
+}
 
     public async Task<User?> GetCurrentUserAsync()
     {
