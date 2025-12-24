@@ -8,6 +8,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ICategoryService CategoryService
 @inject IBlazorAppLocalStorageService LocalStorage
+@implements IDisposable
 
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
     <div class="side-panel @(IsOpen ? "active" : "")" @onclick:stopPropagation="true">
@@ -189,14 +190,15 @@
         await LoadAuthenticationState();
         await LoadTopCategories();
         
+        // Subscribe to auth state changes
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
     protected override async Task OnParametersSetAsync()
     {
+        // Only reload auth when panel opens
         if (IsOpen)
         {
-            // ✅ FIXED: Reload auth state when panel opens
             await LoadAuthenticationState();
             
             if (!TopCategories.Any() && !IsLoadingCategories)
@@ -209,6 +211,7 @@
     private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
     {
         await LoadAuthenticationState();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task LoadAuthenticationState()
@@ -238,8 +241,6 @@
                 userEmail = "";
                 Console.WriteLine("ℹ️ SidePanel: User not authenticated");
             }
-            
-            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
