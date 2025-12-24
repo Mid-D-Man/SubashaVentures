@@ -107,7 +107,7 @@ public partial class SignUp : ComponentBase
 
                 // Wait 3 seconds then redirect to sign in
                 await Task.Delay(3000);
-                NavigationManager.NavigateTo("/signin?registered=true");
+                NavigationManager.NavigateTo("signin?registered=true");
             }
             else
             {
