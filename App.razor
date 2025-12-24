@@ -177,7 +177,7 @@
     {
         var returnUrl = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "/");
         var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
-        NavigationManager.NavigateTo($"/signin?returnUrl={encodedReturnUrl}", forceLoad: false);
+        NavigationManager.NavigateTo($"signin?returnUrl={encodedReturnUrl}", forceLoad: false);
     }
 
     public void Dispose()
