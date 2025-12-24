@@ -25,7 +25,6 @@
         </div>
     </main>
     
-    @* ✅ FIXED: Removed IsLoggedIn, UserName, UserEmail parameters - SidePanel manages auth internally *@
     <SidePanel IsOpen="@isSidePanelOpen"
                IsOpenChanged="@HandleSidePanelToggle"
                OnActionClick="@HandleActionClick"
@@ -72,13 +71,13 @@
         switch (action)
         {
             case SidePanel.ActionType.SignIn:
-                NavigationManager.NavigateTo("/signin");
+                NavigationManager.NavigateTo("signin");
                 break;
             case SidePanel.ActionType.SignUp:
-                NavigationManager.NavigateTo("/signup");
+                NavigationManager.NavigateTo("signup");
                 break;
             case SidePanel.ActionType.Profile:
-                NavigationManager.NavigateTo("/user/settings");
+                NavigationManager.NavigateTo("user/settings");
                 break;
             case SidePanel.ActionType.Logout:
                 await HandleLogout();
@@ -127,7 +126,7 @@
                 
                 showLogoutConfirmation = false;
                 
-                NavigationManager.NavigateTo("/", forceLoad: true);
+                NavigationManager.NavigateTo("", forceLoad: true);
             }
             else
             {
