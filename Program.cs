@@ -17,9 +17,11 @@ using SubashaVentures.Services.Brands;
 using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
+using SubashaVentures.Services.SupaBase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
