@@ -7,6 +7,7 @@ using SubashaVentures.Services.Navigation;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.Time;
 using SubashaVentures.Services.Connectivity;
 using SubashaVentures.Services.Products;
