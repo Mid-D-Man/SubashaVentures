@@ -1,4 +1,4 @@
-// Pages/Auth/SignIn.razor.cs - FINAL (Updated HandleGoogleSignIn only)
+// Pages/Auth/SignIn.razor.cs - FIXED: No leading slashes in navigation
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
@@ -46,7 +46,7 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
 
-            var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+            var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "";
             NavigationManager.NavigateTo(destination, forceLoad: false);
             return;
         }
@@ -134,7 +134,7 @@ public partial class SignIn : ComponentBase
                     await Task.Delay(500);
                 }
 
-                var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+                var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "";
                 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"Redirecting to: {destination}",
@@ -174,7 +174,6 @@ public partial class SignIn : ComponentBase
         }
     }
 
-    // ✅ UPDATED: Pass return URL to JavaScript OAuth handler
     private async Task HandleGoogleSignIn()
     {
         try
@@ -189,10 +188,9 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
             
-            // ✅ CRITICAL: Call JavaScript function with return URL
             var success = await JSRuntime.InvokeAsync<bool>(
                 "supabaseOAuth.signInWithGoogle", 
-                ReturnUrl ?? "/"
+                ReturnUrl ?? ""
             );
             
             if (!success)
@@ -202,6 +200,14 @@ public partial class SignIn : ComponentBase
                 isLoading = false;
                 StateHasChanged();
             }
+        }
+        catch (JSException jsEx)
+        {
+            generalError = "Failed to sign in with Google. Please try again.";
+            await MID_HelperFunctions.LogExceptionAsync(jsEx, "Google OAuth sign in");
+            Logger.LogError(jsEx, "Google sign in error");
+            isLoading = false;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
