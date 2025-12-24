@@ -1,5 +1,3 @@
-
-@* Layout/Main/SidePanel.razor - UPDATED WITH DYNAMIC CATEGORIES *@
 @using SubashaVentures.Components.Shared.Buttons
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
@@ -26,23 +24,23 @@
                 </button>
             </div>
 
-            @if (IsLoggedIn)
+            @if (isAuthenticated)
             {
                 <div class="user-profile-section">
                     <div class="user-profile-card">
                         <div class="user-avatar-large">
-                            @UserName.Substring(0, 1).ToUpper()
+                            @GetUserInitial()
                         </div>
                         <div class="user-info-text">
-                            <span class="user-name-display">@UserName</span>
-                            <span class="user-email-display">@UserEmail</span>
+                            <span class="user-name-display">@userName</span>
+                            <span class="user-email-display">@userEmail</span>
                         </div>
                     </div>
                 </div>
             }
 
             <div class="panel-nav">
-                @if (IsLoggedIn)
+                @if (isAuthenticated)
                 {
                     <div class="nav-section">
                         <h4 class="section-title">My Account</h4>
@@ -74,7 +72,6 @@
                     </a>
                 </div>
 
-                @* UPDATED: Dynamic Categories Section *@
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
                     
@@ -131,7 +128,7 @@
             </div>
 
             <div class="panel-actions">
-                @if (IsLoggedIn)
+                @if (isAuthenticated)
                 {
                     <button class="action-btn sign-out" @onclick="HandleLogout">
                         <span class="btn-text">Sign Out</span>
@@ -163,22 +160,18 @@
     private const string SignInDirectory = "signin";
     private const string SignUpDirectory = "signup";
     
-    // CONSTANTS
     private const int MAX_CATEGORIES_TO_SHOW = 4;
     private const string CATEGORY_FILTER_KEY = "shop_category_filter";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
-    [Parameter] public string SearchQuery { get; set; } = "";
-    [Parameter] public EventCallback<string> SearchQueryChanged { get; set; }
-    [Parameter] public bool IsLoggedIn { get; set; } = false;
-    [Parameter] public string UserName { get; set; } = "";
-    [Parameter] public string UserEmail { get; set; } = "";
     [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
     [Parameter] public EventCallback<string> OnNavigate { get; set; }
-    [Parameter] public EventCallback<string> OnSearch { get; set; }
 
-    // UPDATED: Category state
+    private bool isAuthenticated = false;
+    private string userName = "";
+    private string userEmail = "";
+    
     private List<CategoryViewModel> TopCategories = new();
     private bool IsLoadingCategories = true;
     private bool HasMoreCategories = false;
@@ -193,17 +186,19 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await CheckAuthStatus();
+        await LoadAuthenticationState();
         await LoadTopCategories();
+        
+        // Subscribe to auth state changes
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
     protected override async Task OnParametersSetAsync()
     {
         if (IsOpen)
         {
-            await CheckAuthStatus();
+            await LoadAuthenticationState();
             
-            // Reload categories if panel is opened and categories are empty
             if (!TopCategories.Any() && !IsLoadingCategories)
             {
                 await LoadTopCategories();
@@ -211,7 +206,56 @@
         }
     }
 
-    // UPDATED: Load top categories from Firebase
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        await LoadAuthenticationState();
+    }
+
+    private async Task LoadAuthenticationState()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            isAuthenticated = user?.Identity?.IsAuthenticated ?? false;
+            
+            if (isAuthenticated)
+            {
+                userEmail = user?.FindFirst(ClaimTypes.Email)?.Value ?? "";
+                var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value ?? "";
+                var lastName = user?.FindFirst(ClaimTypes.Surname)?.Value ?? "";
+                
+                userName = !string.IsNullOrEmpty(firstName) 
+                    ? $"{firstName} {lastName}".Trim() 
+                    : userEmail.Split('@')[0];
+                
+                Console.WriteLine($"✓ SidePanel: User authenticated - {userEmail}");
+            }
+            else
+            {
+                userName = "";
+                userEmail = "";
+                Console.WriteLine("ℹ️ SidePanel: User not authenticated");
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ SidePanel: Error loading auth state - {ex.Message}");
+            isAuthenticated = false;
+            userName = "";
+            userEmail = "";
+        }
+    }
+
+    private string GetUserInitial()
+    {
+        if (string.IsNullOrEmpty(userName)) return "?";
+        return userName.Substring(0, 1).ToUpper();
+    }
+
     private async Task LoadTopCategories()
     {
         IsLoadingCategories = true;
@@ -251,17 +295,13 @@
         }
     }
 
-    // UPDATED: Navigate to shop with category filter
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
     {
         try
         {
-            // Store category in localStorage for shop page to pick up
             await LocalStorage.SetItemAsync(CATEGORY_FILTER_KEY, category.Name);
-            
             Console.WriteLine($"✓ Stored category filter: {category.Name}");
             
-            // Close panel and navigate
             await ClosePanel();
             NavigationManager.NavigateTo(ShopDirectory);
             
@@ -273,34 +313,8 @@
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
-            // Fallback: just navigate without filter
             await ClosePanel();
             NavigationManager.NavigateTo(ShopDirectory);
-        }
-    }
-
-    private async Task CheckAuthStatus()
-    {
-        try
-        {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            IsLoggedIn = user?.Identity?.IsAuthenticated ?? false;
-            
-            if (IsLoggedIn)
-            {
-                UserEmail = user?.FindFirst("email")?.Value ?? "";
-                var firstName = user?.FindFirst("given_name")?.Value ?? "";
-                var lastName = user?.FindFirst("family_name")?.Value ?? "";
-                UserName = !string.IsNullOrEmpty(firstName) ? $"{firstName} {lastName}".Trim() : UserEmail.Split('@')[0];
-            }
-            
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error checking auth status: {ex.Message}");
         }
     }
 
@@ -345,5 +359,10 @@
         {
             await OnActionClick.InvokeAsync(ActionType.Logout);
         }
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }
