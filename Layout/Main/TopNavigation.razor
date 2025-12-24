@@ -12,27 +12,8 @@
     <!-- Middle: Filler Space -->
     <div class="nav-middle"></div>
 
-    <!-- Right: Search + Burger -->
+    <!-- Right: Burger Menu Only -->
     <div class="nav-right">
-        <!-- Search Bar (Desktop Only) -->
-        <div class="nav-search desktop-only">
-            <div class="search-container">
-                <span class="search-icon">🔍</span>
-                <input type="text"
-                       class="search-input"
-                       placeholder="Search products..."
-                       value="@searchQuery"
-                       @oninput="HandleSearchInput"
-                       @onkeydown="HandleSearchKeyPress" />
-                <button class="search-clear @(string.IsNullOrEmpty(searchQuery) ? "hidden" : "")"
-                        @onclick="ClearSearch"
-                        title="Clear search">
-                    ✕
-                </button>
-            </div>
-        </div>
-
-        <!-- Burger Menu -->
         <div class="nav-burger">
             <BurgerMenu IsOpen="@isSidePanelOpen" 
                        IsOpenChanged="@HandleBurgerToggle" />
@@ -42,28 +23,16 @@
 
 @code {
     private bool isSidePanelOpen = false;
-    private string searchQuery = "";
 
     protected override void OnInitialized()
     {
-        // Subscribe to service events
         NavService.SidePanelStateChanged += OnSidePanelStateChanged;
-        NavService.SearchQueryChanged += OnSearchQueryChanged;
-        
-        // Initialize from service
         isSidePanelOpen = NavService.IsSidePanelOpen;
-        searchQuery = NavService.SearchQuery;
     }
 
     private void OnSidePanelStateChanged(object? sender, bool isOpen)
     {
         isSidePanelOpen = isOpen;
-        StateHasChanged();
-    }
-
-    private void OnSearchQueryChanged(object? sender, string query)
-    {
-        searchQuery = query;
         StateHasChanged();
     }
 
@@ -73,30 +42,8 @@
         await Task.CompletedTask;
     }
 
-    private void HandleSearchInput(ChangeEventArgs e)
-    {
-        var query = e.Value?.ToString() ?? "";
-        NavService.UpdateSearchQuery(query);
-    }
-
-    private void ClearSearch()
-    {
-        NavService.ClearSearchQuery();
-    }
-
-    private void HandleSearchKeyPress(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchQuery))
-        {
-            // In real app: NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
-            Console.WriteLine($"Searching for: {searchQuery}");
-        }
-    }
-
     public void Dispose()
     {
-        // Unsubscribe from events
         NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
-        NavService.SearchQueryChanged -= OnSearchQueryChanged;
     }
 }
