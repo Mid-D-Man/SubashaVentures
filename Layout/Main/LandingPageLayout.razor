@@ -123,9 +123,7 @@
             if (success)
             {
                 Logger.LogInformation("✅ User signed out successfully");
-                
                 showLogoutConfirmation = false;
-                
                 NavigationManager.NavigateTo("", forceLoad: true);
             }
             else
