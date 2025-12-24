@@ -1,4 +1,3 @@
-
 @using SubashaVentures.Components.Shared.Buttons
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
@@ -190,7 +189,6 @@
         await LoadAuthenticationState();
         await LoadTopCategories();
         
-        // Subscribe to auth state changes
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
@@ -198,6 +196,7 @@
     {
         if (IsOpen)
         {
+            // ✅ FIXED: Reload auth state when panel opens
             await LoadAuthenticationState();
             
             if (!TopCategories.Any() && !IsLoadingCategories)
@@ -240,7 +239,7 @@
                 Console.WriteLine("ℹ️ SidePanel: User not authenticated");
             }
             
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
