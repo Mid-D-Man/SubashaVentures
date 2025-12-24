@@ -1,4 +1,4 @@
-// Program.cs - SIMPLIFIED (NO C# CLIENT)
+// Program.cs - FIXED: Added Supabase.Client registration
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -22,6 +22,7 @@ using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.SupaBase;
+using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -47,7 +48,23 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ✅ SIMPLIFIED: Only JavaScript-based auth
+// ✅ FIXED: Register Supabase.Client
+builder.Services.AddScoped<Client>(sp =>
+{
+    var url = "https://wbwmovtewytjibxutssk.supabase.co";
+    var key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indid21vdnRld3l0amlieHV0c3NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQyODMzNDcsImV4cCI6MjA0OTg1OTM0N30.f3ZGDFYp-6h_GNMG7T1rCJI8v8Lv-BdwggNk9NiFpKg";
+    
+    var options = new SupabaseOptions
+    {
+        AutoConnectRealtime = false, // Disable realtime for WASM
+        AutoRefreshToken = true,
+        PersistSession = true
+    };
+    
+    return new Client(url, key, options);
+});
+
+// JavaScript-based auth
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
@@ -74,10 +91,10 @@ builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
-// ✅ Register auth service (JavaScript-based)
+// Register auth service (JavaScript-based)
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 
-// ✅ Register other Supabase services (they'll use JavaScript too)
+// Register other Supabase services
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
