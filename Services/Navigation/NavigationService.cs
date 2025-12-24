@@ -39,6 +39,7 @@ public class NavigationService : INavigationService
             }
         }
     }
+
     
     public event EventHandler<bool>? SidePanelStateChanged;
     public event EventHandler<string>? SearchQueryChanged;
