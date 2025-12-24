@@ -1,4 +1,4 @@
-@* App.razor - FIXED JAVASCRIPT SYNTAX *@
+@* App.razor - FIXED JAVASCRIPT *@
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Supabase
 @using SubashaVentures.Services.Storage
@@ -87,32 +87,25 @@
         {
             try
             {
-                // ✅ FIXED: Properly escaped JavaScript with no template literals
-                var script = @"
-                    window.addEventListener('supabase-auth-success', async function(event) {
+                // Register event listeners
+                await JSRuntime.InvokeVoidAsync("eval", @"
+                    window.addEventListener('supabase-auth-success', function(event) {
                         console.log('🎉 Blazor received auth success event');
-                        
-                        const redirectTo = sessionStorage.getItem('post_oauth_redirect') || '/';
-                        sessionStorage.removeItem('post_oauth_redirect');
-                        
-                        console.log('Redirecting to:', redirectTo);
-                        
                         if (window.blazorAuthCallback) {
-                            window.blazorAuthCallback.invokeMethodAsync('OnAuthSuccess', redirectTo);
+                            window.blazorAuthCallback.invokeMethodAsync('OnAuthSuccess');
                         }
                     });
                     
                     window.addEventListener('supabase-auth-change', function(event) {
                         console.log('🔔 Blazor received auth change:', event.detail.event);
-                        
                         if (window.blazorAuthCallback) {
                             window.blazorAuthCallback.invokeMethodAsync('OnAuthStateChanged');
                         }
                     });
-                ";
+                ");
 
-                await JSRuntime.InvokeVoidAsync("eval", script);
-                await JSRuntime.InvokeVoidAsync("eval", $"window.blazorAuthCallback = {_dotNetReference}");
+                // Set the callback reference
+                await JSRuntime.InvokeVoidAsync("eval", $"window.blazorAuthCallback = {System.Text.Json.JsonSerializer.Serialize(_dotNetReference)}");
 
                 Logger.LogInformation("✅ OAuth event listeners registered");
             }
@@ -124,13 +117,13 @@
     }
 
     [JSInvokable]
-    public async Task OnAuthSuccess(string redirectUrl)
+    public async Task OnAuthSuccess()
     {
         try
         {
-            Logger.LogInformation("🎯 OnAuthSuccess called with redirect: {RedirectUrl}", redirectUrl);
+            Logger.LogInformation("🎯 OnAuthSuccess called");
 
-            // ✅ CRITICAL: Force auth state refresh
+            // Force auth state refresh
             if (AuthStateProvider is SupabaseAuthStateProvider provider)
             {
                 await provider.RefreshAuthenticationStateAsync();
@@ -140,8 +133,8 @@
             // Small delay to ensure state is updated
             await Task.Delay(500);
 
-            // Navigate
-            NavigationManager.NavigateTo(redirectUrl, forceLoad: false);
+            // Navigate to home (OAuth redirects are always to home for simplicity)
+            NavigationManager.NavigateTo("", forceLoad: false);
         }
         catch (Exception ex)
         {
@@ -170,14 +163,21 @@
 
     private void NavigateToHome()
     {
-        NavigationManager.NavigateTo("/", forceLoad: false);
+        NavigationManager.NavigateTo("", forceLoad: false);
     }
 
     private void NavigateToSignIn()
     {
-        var returnUrl = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "/");
-        var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
-        NavigationManager.NavigateTo($"signin?returnUrl={encodedReturnUrl}", forceLoad: false);
+        var returnUrl = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "");
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl != "/")
+        {
+            var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
+            NavigationManager.NavigateTo($"signin?returnUrl={encodedReturnUrl}", forceLoad: false);
+        }
+        else
+        {
+            NavigationManager.NavigateTo("signin", forceLoad: false);
+        }
     }
 
     public void Dispose()
