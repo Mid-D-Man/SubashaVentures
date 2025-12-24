@@ -1,4 +1,4 @@
-@* App.razor - FIXED OAUTH CALLBACK HANDLER *@
+@* App.razor - FIXED JAVASCRIPT SYNTAX *@
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Supabase
 @using SubashaVentures.Services.Storage
@@ -87,8 +87,8 @@
         {
             try
             {
-                // Register OAuth callback listener
-                await JSRuntime.InvokeVoidAsync("eval", @"
+                // ✅ FIXED: Properly escaped JavaScript with no template literals
+                var script = @"
                     window.addEventListener('supabase-auth-success', async function(event) {
                         console.log('🎉 Blazor received auth success event');
                         
@@ -109,8 +109,9 @@
                             window.blazorAuthCallback.invokeMethodAsync('OnAuthStateChanged');
                         }
                     });
-                ");
+                ";
 
+                await JSRuntime.InvokeVoidAsync("eval", script);
                 await JSRuntime.InvokeVoidAsync("eval", $"window.blazorAuthCallback = {_dotNetReference}");
 
                 Logger.LogInformation("✅ OAuth event listeners registered");
