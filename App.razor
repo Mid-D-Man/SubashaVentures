@@ -1,4 +1,4 @@
-@* App.razor - FINAL WITH JAVASCRIPT EVENT LISTENERS *@
+@* App.razor - FIXED OAUTH CALLBACK HANDLER *@
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Supabase
 @using SubashaVentures.Services.Storage
@@ -75,11 +75,9 @@
 
 @code {
     private DotNetObjectReference<App>? _dotNetReference;
-    private IJSObjectReference? _jsModule;
 
     protected override async Task OnInitializedAsync()
     {
-        // Create reference for JavaScript callbacks
         _dotNetReference = DotNetObjectReference.Create(this);
     }
 
@@ -89,18 +87,16 @@
         {
             try
             {
-                // ✅ Register event listeners for OAuth callbacks
+                // Register OAuth callback listener
                 await JSRuntime.InvokeVoidAsync("eval", @"
                     window.addEventListener('supabase-auth-success', async function(event) {
                         console.log('🎉 Blazor received auth success event');
                         
-                        // Get post-OAuth redirect destination
                         const redirectTo = sessionStorage.getItem('post_oauth_redirect') || '/';
                         sessionStorage.removeItem('post_oauth_redirect');
                         
                         console.log('Redirecting to:', redirectTo);
                         
-                        // Notify Blazor
                         if (window.blazorAuthCallback) {
                             window.blazorAuthCallback.invokeMethodAsync('OnAuthSuccess', redirectTo);
                         }
@@ -108,10 +104,13 @@
                     
                     window.addEventListener('supabase-auth-change', function(event) {
                         console.log('🔔 Blazor received auth change:', event.detail.event);
+                        
+                        if (window.blazorAuthCallback) {
+                            window.blazorAuthCallback.invokeMethodAsync('OnAuthStateChanged');
+                        }
                     });
                 ");
 
-                // Make this component accessible to JavaScript
                 await JSRuntime.InvokeVoidAsync("eval", $"window.blazorAuthCallback = {_dotNetReference}");
 
                 Logger.LogInformation("✅ OAuth event listeners registered");
@@ -123,31 +122,48 @@
         }
     }
 
-    /// <summary>
-    /// Called by JavaScript when OAuth authentication succeeds
-    /// </summary>
     [JSInvokable]
     public async Task OnAuthSuccess(string redirectUrl)
     {
         try
         {
-            Logger.LogInformation("OnAuthSuccess called with redirect: {RedirectUrl}", redirectUrl);
+            Logger.LogInformation("🎯 OnAuthSuccess called with redirect: {RedirectUrl}", redirectUrl);
 
-            // Notify authentication state changed
+            // ✅ CRITICAL: Force auth state refresh
             if (AuthStateProvider is SupabaseAuthStateProvider provider)
             {
-                provider.NotifyAuthenticationStateChanged();
-                
-                // Wait for state to update
-                await Task.Delay(500);
+                await provider.RefreshAuthenticationStateAsync();
+                Logger.LogInformation("✅ Auth state refreshed");
             }
 
-            // Navigate to destination
+            // Small delay to ensure state is updated
+            await Task.Delay(500);
+
+            // Navigate
             NavigationManager.NavigateTo(redirectUrl, forceLoad: false);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error in OnAuthSuccess");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnAuthStateChanged()
+    {
+        try
+        {
+            Logger.LogInformation("🔄 OnAuthStateChanged called");
+
+            if (AuthStateProvider is SupabaseAuthStateProvider provider)
+            {
+                provider.NotifyAuthenticationStateChanged();
+                Logger.LogInformation("✅ Auth state change notified");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in OnAuthStateChanged");
         }
     }
 
@@ -166,6 +182,5 @@
     public void Dispose()
     {
         _dotNetReference?.Dispose();
-        _jsModule?.DisposeAsync();
     }
 }
