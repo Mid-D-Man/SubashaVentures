@@ -1,5 +1,9 @@
 @inherits LayoutComponentBase
 @inject INavigationService NavService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISupabaseAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ILogger<LandingPageLayout> Logger
 @implements IDisposable
 
 <div class="main-layout">
@@ -31,18 +35,35 @@
                OnActionClick="@HandleActionClick"
                OnNavigate="@HandleNavigate"
                OnSearch="@HandleSearch"/>
+    
+    <!-- ✅ NEW: Logout Confirmation Popup -->
+    <ConfirmationPopup IsOpen="@showLogoutConfirmation"
+                       Title="Sign Out"
+                       Message="Are you sure you want to sign out?"
+                       Variant="ConfirmationPopup.ConfirmationVariant.Warning"
+                       ConfirmButtonText="Sign Out"
+                       CancelButtonText="Cancel"
+                       CloseOnOverlayClick="true"
+                       IsProcessing="@isSigningOut"
+                       OnConfirm="@ConfirmLogout"
+                       OnCancel="@CancelLogout"
+                       OnClose="@CancelLogout" />
 </div>
 
 @code {
     private bool isSidePanelOpen = false;
     private string searchQuery = "";
     
-    // User state - In real app, this would come from an AuthService
+    // ✅ FIXED: Authentication state from Supabase
     private bool isLoggedIn = false;
-    private string userName = "John Doe";
-    private string userEmail = "john.doe@example.com";
+    private string userName = "";
+    private string userEmail = "";
+    
+    // ✅ NEW: Logout confirmation state
+    private bool showLogoutConfirmation = false;
+    private bool isSigningOut = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Subscribe to navigation service events
         NavService.SidePanelStateChanged += OnSidePanelStateChanged;
@@ -51,6 +72,67 @@
         // Initialize state from service
         isSidePanelOpen = NavService.IsSidePanelOpen;
         searchQuery = NavService.SearchQuery;
+        
+        // ✅ NEW: Subscribe to auth state changes
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        
+        // ✅ NEW: Load initial authentication state
+        await LoadAuthenticationState();
+    }
+
+    // ✅ NEW: Load authentication state from Supabase
+    private async Task LoadAuthenticationState()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            isLoggedIn = user?.Identity?.IsAuthenticated ?? false;
+            
+            if (isLoggedIn)
+            {
+                userEmail = user?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+                
+                var firstName = user?.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value ?? "";
+                var lastName = user?.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value ?? "";
+                
+                userName = !string.IsNullOrEmpty(firstName) 
+                    ? $"{firstName} {lastName}".Trim() 
+                    : userEmail.Split('@')[0];
+                
+                Logger.LogInformation("✅ User authenticated: {Email}", userEmail);
+            }
+            else
+            {
+                userName = "";
+                userEmail = "";
+                Logger.LogInformation("ℹ️ User not authenticated");
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading authentication state");
+            isLoggedIn = false;
+            userName = "";
+            userEmail = "";
+        }
+    }
+
+    // ✅ NEW: Handle authentication state changes
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        try
+        {
+            Logger.LogInformation("🔔 Authentication state changed, reloading...");
+            await LoadAuthenticationState();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error handling authentication state change");
+        }
     }
 
     private void OnSidePanelStateChanged(object? sender, bool isOpen)
@@ -82,18 +164,19 @@
         switch (action)
         {
             case SidePanel.ActionType.SignIn:
-                // Navigate to sign in
-                Console.WriteLine("Navigate to: /signin");
+                NavigationManager.NavigateTo("/signin");
+                Logger.LogInformation("Navigate to: /signin");
                 break;
-            case SidePanel.ActionType.SignUp:  // FIXED: Changed from Register to SignUp
-                // Navigate to register
-                Console.WriteLine("Navigate to: /signup");
+            case SidePanel.ActionType.SignUp:
+                NavigationManager.NavigateTo("/signup");
+                Logger.LogInformation("Navigate to: /signup");
                 break;
             case SidePanel.ActionType.Profile:
-                // Navigate to profile
-                Console.WriteLine("Navigate to: /profile");
+                NavigationManager.NavigateTo("/user/settings");
+                Logger.LogInformation("Navigate to: /user/settings");
                 break;
             case SidePanel.ActionType.Logout:
+                // ✅ UPDATED: Show confirmation popup instead of logging out directly
                 await HandleLogout();
                 break;
         }
@@ -102,8 +185,8 @@
 
     private async Task HandleNavigate(string url)
     {
-        // In real app: NavigationManager.NavigateTo(url);
-        Console.WriteLine($"Navigate to: {url}");
+        NavigationManager.NavigateTo(url);
+        Logger.LogInformation("Navigate to: {Url}", url);
         await Task.CompletedTask;
     }
 
@@ -111,18 +194,94 @@
     {
         if (!string.IsNullOrWhiteSpace(query))
         {
-            // In real app: NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
-            Console.WriteLine($"Search for: {query}");
+            NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(query)}");
+            Logger.LogInformation("Search for: {Query}", query);
         }
         await Task.CompletedTask;
     }
 
+    // ✅ UPDATED: Show confirmation popup
     private async Task HandleLogout()
     {
-        isLoggedIn = false;
-        userName = "";
-        userEmail = "";
-        StateHasChanged();
+        try
+        {
+            Logger.LogInformation("📋 Showing logout confirmation for: {Email}", userEmail);
+            
+            // Close side panel first
+            NavService.SetSidePanelState(false);
+            
+            // Show confirmation popup
+            showLogoutConfirmation = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error showing logout confirmation");
+        }
+        
+        await Task.CompletedTask;
+    }
+
+    // ✅ NEW: Confirm logout - actually sign out
+    private async Task ConfirmLogout()
+    {
+        try
+        {
+            isSigningOut = true;
+            StateHasChanged();
+            
+            Logger.LogInformation("🔴 Signing out user: {Email}", userEmail);
+            
+            // ✅ CRITICAL: Actually call Supabase sign out
+            var success = await AuthService.SignOutAsync();
+            
+            if (success)
+            {
+                Logger.LogInformation("✅ User signed out successfully");
+                
+                // Clear local state
+                isLoggedIn = false;
+                userName = "";
+                userEmail = "";
+                
+                // Close confirmation popup
+                showLogoutConfirmation = false;
+                
+                // Redirect to home page
+                NavigationManager.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                Logger.LogError("❌ Sign out failed");
+                // TODO: Show error message to user
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during logout");
+            // TODO: Show error message to user
+        }
+        finally
+        {
+            isSigningOut = false;
+            StateHasChanged();
+        }
+    }
+
+    // ✅ NEW: Cancel logout
+    private async Task CancelLogout()
+    {
+        try
+        {
+            Logger.LogInformation("❌ Logout cancelled");
+            showLogoutConfirmation = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error cancelling logout");
+        }
+        
         await Task.CompletedTask;
     }
 
@@ -131,5 +290,6 @@
         // Unsubscribe from events
         NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
         NavService.SearchQueryChanged -= OnSearchQueryChangedFromService;
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }
