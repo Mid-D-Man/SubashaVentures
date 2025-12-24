@@ -25,11 +25,9 @@
         </div>
     </main>
     
+    @* ✅ FIXED: Removed IsLoggedIn, UserName, UserEmail parameters - SidePanel manages auth internally *@
     <SidePanel IsOpen="@isSidePanelOpen"
                IsOpenChanged="@HandleSidePanelToggle"
-               IsLoggedIn="@isLoggedIn"
-               UserName="@userName"
-               UserEmail="@userEmail"
                OnActionClick="@HandleActionClick"
                OnNavigate="@HandleNavigate" />
     
@@ -48,72 +46,13 @@
 
 @code {
     private bool isSidePanelOpen = false;
-    private bool isLoggedIn = false;
-    private string userName = "";
-    private string userEmail = "";
     private bool showLogoutConfirmation = false;
     private bool isSigningOut = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         NavService.SidePanelStateChanged += OnSidePanelStateChanged;
         isSidePanelOpen = NavService.IsSidePanelOpen;
-        
-        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
-        await LoadAuthenticationState();
-    }
-
-    private async Task LoadAuthenticationState()
-    {
-        try
-        {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            isLoggedIn = user?.Identity?.IsAuthenticated ?? false;
-            
-            if (isLoggedIn)
-            {
-                userEmail = user?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
-                
-                var firstName = user?.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value ?? "";
-                var lastName = user?.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value ?? "";
-                
-                userName = !string.IsNullOrEmpty(firstName) 
-                    ? $"{firstName} {lastName}".Trim() 
-                    : userEmail.Split('@')[0];
-                
-                Logger.LogInformation("✅ User authenticated: {Email}", userEmail);
-            }
-            else
-            {
-                userName = "";
-                userEmail = "";
-                Logger.LogInformation("ℹ️ User not authenticated");
-            }
-            
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error loading authentication state");
-            isLoggedIn = false;
-            userName = "";
-            userEmail = "";
-        }
-    }
-
-    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
-    {
-        try
-        {
-            Logger.LogInformation("🔔 Authentication state changed, reloading...");
-            await LoadAuthenticationState();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error handling authentication state change");
-        }
     }
 
     private void OnSidePanelStateChanged(object? sender, bool isOpen)
@@ -178,7 +117,7 @@
             isSigningOut = true;
             StateHasChanged();
             
-            Logger.LogInformation("🔴 Signing out user: {Email}", userEmail);
+            Logger.LogInformation("🔴 Signing out user");
             
             var success = await AuthService.SignOutAsync();
             
@@ -186,9 +125,6 @@
             {
                 Logger.LogInformation("✅ User signed out successfully");
                 
-                isLoggedIn = false;
-                userName = "";
-                userEmail = "";
                 showLogoutConfirmation = false;
                 
                 NavigationManager.NavigateTo("/", forceLoad: true);
@@ -228,6 +164,5 @@
     public void Dispose()
     {
         NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
-        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }
