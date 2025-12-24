@@ -1,4 +1,4 @@
-// Program.cs - FIXED WITH SESSION PERSISTENCE
+// Program.cs - FIXED WITH CORRECT NAMESPACE
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
@@ -25,6 +25,8 @@ using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
 using Supabase;
+using Supabase.Gotrue;
+using Supabase.Gotrue.Interfaces; // ✅ CORRECT NAMESPACE
 using Newtonsoft.Json;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -53,7 +55,6 @@ builder.Services.AddBlazoredToast();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
-
 builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 
@@ -87,6 +88,7 @@ if (string.IsNullOrEmpty(supabaseUrl) || string.IsNullOrEmpty(supabaseKey))
     throw new InvalidOperationException("Supabase URL and AnonKey must be configured");
 }
 
+// Build host first to access services
 var host = builder.Build();
 
 // ============================================================================
@@ -97,16 +99,18 @@ var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
 const string SESSION_KEY = "supabase.auth.token";
 
+var sessionHandler = new SupabaseSessionHandler(localStorage, SESSION_KEY, logger);
+
 var options = new SupabaseOptions
 {
     AutoRefreshToken = true,
     AutoConnectRealtime = false,
-    SessionHandler = new SupabaseSessionHandler(localStorage, SESSION_KEY, logger)
+    SessionHandler = sessionHandler // ✅ Set the custom handler
 };
 
 var supabaseClient = new Supabase.Client(supabaseUrl, supabaseKey, options);
 
-// Register as singleton so same instance is used everywhere
+// Register as singleton
 builder.Services.AddSingleton(supabaseClient);
 
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
@@ -148,36 +152,11 @@ catch (Exception ex)
     logger.LogError(ex, "❌ Failed to initialize Firebase");
 }
 
-// ✅ CRITICAL: Initialize Supabase and restore session
+// ✅ Initialize Supabase (this will call LoadSession automatically)
 try
 {
     await supabaseClient.InitializeAsync();
-    
-    logger.LogInformation("✓ Supabase client initialized");
-    
-    // ✅ Try to restore session from localStorage
-    var storedSession = await localStorage.GetItemAsStringAsync(SESSION_KEY);
-    if (!string.IsNullOrEmpty(storedSession))
-    {
-        try
-        {
-            var session = JsonConvert.DeserializeObject<Supabase.Gotrue.Session>(storedSession);
-            if (session != null && session.ExpiresAt() > DateTime.UtcNow)
-            {
-                await supabaseClient.Auth.SetSession(session.AccessToken, session.RefreshToken);
-                logger.LogInformation("✓ Session restored from localStorage");
-            }
-            else
-            {
-                logger.LogInformation("ℹ️ Stored session expired, clearing");
-                await localStorage.RemoveItemAsync(SESSION_KEY);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to restore session");
-        }
-    }
+    logger.LogInformation("✓ Supabase client initialized with session persistence");
 }
 catch (Exception ex)
 {
@@ -187,9 +166,9 @@ catch (Exception ex)
 await host.RunAsync();
 
 // ============================================================================
-// ✅ NEW: Custom Session Handler for Supabase
+// ✅ FIXED: Custom Session Handler with SYNCHRONOUS methods
 // ============================================================================
-public class SupabaseSessionHandler : IGotrueSessionPersistence<Supabase.Gotrue.Session>
+public class SupabaseSessionHandler : IGotrueSessionPersistence<Session>
 {
     private readonly ILocalStorageService _localStorage;
     private readonly string _sessionKey;
@@ -205,15 +184,18 @@ public class SupabaseSessionHandler : IGotrueSessionPersistence<Supabase.Gotrue.
         _logger = logger;
     }
 
-    public async Task<Supabase.Gotrue.Session?> LoadSession()
+    // ✅ SYNCHRONOUS - LoadSession
+    public Session? LoadSession()
     {
         try
         {
-            var storedSession = await _localStorage.GetItemAsStringAsync(_sessionKey);
+            // ⚠️ SYNC blocking call - this is required by the interface
+            var storedSession = _localStorage.GetItemAsStringAsync(_sessionKey).GetAwaiter().GetResult();
+            
             if (string.IsNullOrEmpty(storedSession))
                 return null;
 
-            var session = JsonConvert.DeserializeObject<Supabase.Gotrue.Session>(storedSession);
+            var session = JsonConvert.DeserializeObject<Session>(storedSession);
             
             if (session != null && session.ExpiresAt() > DateTime.UtcNow)
             {
@@ -222,7 +204,7 @@ public class SupabaseSessionHandler : IGotrueSessionPersistence<Supabase.Gotrue.
             }
             
             _logger.LogInformation("ℹ️ Stored session expired");
-            await _localStorage.RemoveItemAsync(_sessionKey);
+            _localStorage.RemoveItemAsync(_sessionKey).GetAwaiter().GetResult();
             return null;
         }
         catch (Exception ex)
@@ -232,12 +214,14 @@ public class SupabaseSessionHandler : IGotrueSessionPersistence<Supabase.Gotrue.
         }
     }
 
-    public async Task SaveSession(Supabase.Gotrue.Session session)
+    // ✅ SYNCHRONOUS - SaveSession
+    public void SaveSession(Session session)
     {
         try
         {
             var serialized = JsonConvert.SerializeObject(session);
-            await _localStorage.SetItemAsStringAsync(_sessionKey, serialized);
+            // ⚠️ SYNC blocking call - this is required by the interface
+            _localStorage.SetItemAsStringAsync(_sessionKey, serialized).GetAwaiter().GetResult();
             _logger.LogInformation("✓ Session saved to storage");
         }
         catch (Exception ex)
@@ -246,11 +230,13 @@ public class SupabaseSessionHandler : IGotrueSessionPersistence<Supabase.Gotrue.
         }
     }
 
-    public async Task DestroySession()
+    // ✅ SYNCHRONOUS - DestroySession
+    public void DestroySession()
     {
         try
         {
-            await _localStorage.RemoveItemAsync(_sessionKey);
+            // ⚠️ SYNC blocking call - this is required by the interface
+            _localStorage.RemoveItemAsync(_sessionKey).GetAwaiter().GetResult();
             _logger.LogInformation("✓ Session destroyed");
         }
         catch (Exception ex)
