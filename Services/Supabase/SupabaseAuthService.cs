@@ -1,29 +1,37 @@
-// Services/Supabase/SupabaseAuthService.cs - JAVASCRIPT-BASED
+// Services/Auth/SupabaseAuthService.cs - PURE C# AUTH
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Models.Auth;
 using SubashaVentures.Utilities.HelperScripts;
-using Microsoft.JSInterop;
-using Newtonsoft.Json.Linq;
+using SubashaVentures.Services.Storage;
 using Supabase.Gotrue;
+using Supabase.Gotrue.Exceptions;
+using System.Text.Json;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
-namespace SubashaVentures.Services.Supabase;
+namespace SubashaVentures.Services.Auth;
 
-public class SupabaseAuthService : ISupabaseAuthService
+public class SupabaseAuthService
 {
-    private readonly IJSRuntime _jsRuntime;
+    private const string AccessTokenKey = "supabase_access_token";
+    private const string RefreshTokenKey = "supabase_refresh_token";
+
+    private readonly Client _supabase;
+    private readonly IBlazorAppLocalStorageService _localStorage;
     private readonly ILogger<SupabaseAuthService> _logger;
 
     public SupabaseAuthService(
-        IJSRuntime jsRuntime,
+        Client supabase,
+        IBlazorAppLocalStorageService localStorage,
         ILogger<SupabaseAuthService> logger)
     {
-        _jsRuntime = jsRuntime;
+        _supabase = supabase;
+        _localStorage = localStorage;
         _logger = logger;
     }
 
-    // ==================== EMAIL/PASSWORD AUTH ====================
-
-    public async Task<SupabaseAuthResult> SignInAsync(string email, string password)
+    // ==================== SIGN IN ====================
+    
+    public async Task<AuthResult> SignInAsync(string email, string password)
     {
         try
         {
@@ -32,52 +40,46 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            var resultJson = await _jsRuntime.InvokeAsync<string>(
-                "supabaseOAuth.signIn", email, password);
+            var session = await _supabase.Auth.SignIn(email, password);
 
-            var result = JObject.Parse(resultJson);
+            if (session == null || string.IsNullOrEmpty(session.AccessToken))
+            {
+                return AuthResult.Fail("Sign in failed");
+            }
+
+            // Store tokens
+            await _localStorage.SetItemAsync(AccessTokenKey, session.AccessToken);
+            await _localStorage.SetItemAsync(RefreshTokenKey, session.RefreshToken);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ User signed in successfully: {email}",
+                LogLevel.Info
+            );
+
+            return AuthResult.Success();
+        }
+        catch (GotrueException ex)
+        {
+            var errorCode = GetErrorCode(ex.Message);
+            var errorMessage = GetFriendlyErrorMessage(errorCode);
             
-            if (result["success"]?.Value<bool>() == true)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User signed in successfully: {email}",
-                    LogLevel.Info
-                );
-
-                return new SupabaseAuthResult
-                {
-                    Success = true,
-                    Message = "Sign in successful"
-                };
-            }
-            else
-            {
-                var error = result["error"]?.ToString() ?? "Sign in failed";
-                var errorCode = result["errorCode"]?.ToString();
-
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = error,
-                    ErrorCode = errorCode == "400" ? "INVALID_CREDENTIALS" : "AUTH_ERROR"
-                };
-            }
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
+            _logger.LogError(ex, "Sign in failed for {Email}", email);
+            
+            return AuthResult.Fail(errorMessage, errorCode);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
             _logger.LogError(ex, "Unexpected error during sign in");
             
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "An unexpected error occurred",
-                ErrorCode = "UNEXPECTED_ERROR"
-            };
+            return AuthResult.Fail("An unexpected error occurred");
         }
     }
 
-    public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
+    // ==================== SIGN UP ====================
+    
+    public async Task<AuthResult> SignUpAsync(string email, string password, UserModel userData)
     {
         try
         {
@@ -86,88 +88,52 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            var userMetadata = new
+            var signUpOptions = new SignUpOptions
             {
-                first_name = userData.FirstName,
-                last_name = userData.LastName,
-                phone_number = userData.PhoneNumber ?? "",
-                avatar_url = userData.AvatarUrl ?? ""
+                Data = new Dictionary<string, object>
+                {
+                    { "first_name", userData.FirstName },
+                    { "last_name", userData.LastName },
+                    { "phone_number", userData.PhoneNumber ?? "" },
+                    { "avatar_url", userData.AvatarUrl ?? "" }
+                }
             };
 
-            var resultJson = await _jsRuntime.InvokeAsync<string>(
-                "supabaseOAuth.signUp", email, password, userMetadata);
+            var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
 
-            var result = JObject.Parse(resultJson);
+            if (session?.User == null)
+            {
+                return AuthResult.Fail("Sign up failed");
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ User signed up successfully: {email}",
+                LogLevel.Info
+            );
+
+            return AuthResult.Success("Registration successful. Please check your email to verify your account.");
+        }
+        catch (GotrueException ex)
+        {
+            var errorCode = GetErrorCode(ex.Message);
+            var errorMessage = GetFriendlyErrorMessage(errorCode);
             
-            if (result["success"]?.Value<bool>() == true)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User signed up successfully: {email}",
-                    LogLevel.Info
-                );
-
-                return new SupabaseAuthResult
-                {
-                    Success = true,
-                    Message = "Registration successful. Please check your email to verify your account."
-                };
-            }
-            else
-            {
-                var error = result["error"]?.ToString() ?? "Sign up failed";
-                
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = error,
-                    ErrorCode = error.Contains("already registered") ? "USER_EXISTS" : "SIGNUP_ERROR"
-                };
-            }
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
+            _logger.LogError(ex, "Sign up failed for {Email}", email);
+            
+            return AuthResult.Fail(errorMessage, errorCode);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
             _logger.LogError(ex, "Unexpected error during sign up");
             
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "An unexpected error occurred",
-                ErrorCode = "UNEXPECTED_ERROR"
-            };
+            return AuthResult.Fail("An unexpected error occurred");
         }
     }
 
-    // ==================== OAUTH ====================
-
-    public async Task<bool> SignInWithGoogleAsync()
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Google OAuth sign in",
-                LogLevel.Info
-            );
-
-            var success = await _jsRuntime.InvokeAsync<bool>("supabaseOAuth.signInWithGoogle");
-            
-            if (success)
-            {
-                _logger.LogInformation("Google OAuth initiated successfully");
-            }
-            
-            return success;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth sign in");
-            _logger.LogError(ex, "Failed to initiate Google sign in");
-            return false;
-        }
-    }
-
-    // ==================== SESSION MANAGEMENT ====================
-
+    // ==================== SIGN OUT ====================
+    
     public async Task<bool> SignOutAsync()
     {
         try
@@ -177,17 +143,18 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            var success = await _jsRuntime.InvokeAsync<bool>("supabaseOAuth.signOut");
+            await _supabase.Auth.SignOut();
             
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ User signed out successfully",
-                    LogLevel.Info
-                );
-            }
-            
-            return success;
+            // Clear stored tokens
+            await _localStorage.RemoveItemAsync(AccessTokenKey);
+            await _localStorage.RemoveItemAsync(RefreshTokenKey);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✓ User signed out successfully",
+                LogLevel.Info
+            );
+
+            return true;
         }
         catch (Exception ex)
         {
@@ -197,60 +164,177 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
     }
 
+    // ==================== GET CURRENT USER ====================
+    
     public async Task<User?> GetCurrentUserAsync()
     {
         try
         {
-            var userJson = await _jsRuntime.InvokeAsync<string>("eval",
-                @"(async function() {
-                    try {
-                        const user = await window.supabaseOAuth.getUser();
-                        return user ? JSON.stringify(user) : null;
-                    } catch (error) {
-                        return null;
-                    }
-                })()");
-
-            if (string.IsNullOrEmpty(userJson))
+            var session = _supabase.Auth.CurrentSession;
+            if (session != null)
             {
-                return null;
+                return session.User;
             }
 
-            // For now, return null - we're using JavaScript exclusively
+            // Try to restore session from storage
+            var accessToken = await _localStorage.GetItemAsync<string>(AccessTokenKey);
+            var refreshToken = await _localStorage.GetItemAsync<string>(RefreshTokenKey);
+
+            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+            {
+                var restoredSession = await _supabase.Auth.SetSession(accessToken, refreshToken);
+                return restoredSession?.User;
+            }
+
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving current user");
+            _logger.LogError(ex, "Error getting current user");
             return null;
         }
     }
 
+    // ==================== SESSION MANAGEMENT ====================
+    
     public async Task<bool> IsAuthenticatedAsync()
     {
         try
         {
-            return await _jsRuntime.InvokeAsync<bool>("supabaseOAuth.isAuthenticated");
+            var user = await GetCurrentUserAsync();
+            return user != null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking authentication status");
+            _logger.LogError(ex, "Error checking authentication");
             return false;
+        }
+    }
+
+    public async Task<Session?> GetCurrentSessionAsync()
+    {
+        try
+        {
+            var session = _supabase.Auth.CurrentSession;
+            if (session != null)
+            {
+                return session;
+            }
+
+            // Try to restore session
+            var accessToken = await _localStorage.GetItemAsync<string>(AccessTokenKey);
+            var refreshToken = await _localStorage.GetItemAsync<string>(RefreshTokenKey);
+
+            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+            {
+                return await _supabase.Auth.SetSession(accessToken, refreshToken);
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting session");
+            return null;
         }
     }
 
     public async Task<bool> RefreshSessionAsync()
     {
-        // Session refresh is handled automatically by JavaScript SDK
-        return true;
+        try
+        {
+            var session = await _supabase.Auth.RefreshSession();
+            
+            if (session != null && !string.IsNullOrEmpty(session.AccessToken))
+            {
+                await _localStorage.SetItemAsync(AccessTokenKey, session.AccessToken);
+                await _localStorage.SetItemAsync(RefreshTokenKey, session.RefreshToken);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing session");
+            return false;
+        }
     }
 
-    // ==================== NOT IMPLEMENTED (Use JavaScript) ====================
+    // ==================== PASSWORD MANAGEMENT ====================
+    
+    public async Task<bool> SendPasswordResetEmailAsync(string email)
+    {
+        try
+        {
+            await _supabase.Auth.ResetPasswordForEmail(email);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending password reset email");
+            return false;
+        }
+    }
 
-    public Task<bool> SendPasswordResetEmailAsync(string email) => Task.FromResult(false);
-    public Task<bool> UpdatePasswordAsync(string newPassword) => Task.FromResult(false);
-    public Task<bool> UpdateUserProfileAsync(Dictionary<string, object> updates) => Task.FromResult(false);
-    public Task<SupabaseSessionInfo?> GetSessionInfoAsync() => Task.FromResult<SupabaseSessionInfo?>(null);
-    public Task<bool> VerifyEmailAsync(string token) => Task.FromResult(false);
-    public Task<bool> ResendVerificationEmailAsync(string email) => Task.FromResult(false);
+    public async Task<AuthResult> UpdatePasswordAsync(string newPassword)
+    {
+        try
+        {
+            var attributes = new UserAttributes
+            {
+                Password = newPassword
+            };
+
+            var user = await _supabase.Auth.Update(attributes);
+
+            if (user == null)
+            {
+                return AuthResult.Fail("Failed to update password");
+            }
+
+            return AuthResult.Success("Password updated successfully");
+        }
+        catch (GotrueException ex)
+        {
+            var errorCode = GetErrorCode(ex.Message);
+            var errorMessage = GetFriendlyErrorMessage(errorCode);
+            
+            _logger.LogError(ex, "Error updating password");
+            return AuthResult.Fail(errorMessage, errorCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error updating password");
+            return AuthResult.Fail("An unexpected error occurred");
+        }
+    }
+
+    // ==================== ERROR HANDLING ====================
+    
+    private string GetErrorCode(string errorMessage)
+    {
+        try
+        {
+            var error = JsonSerializer.Deserialize<AuthError>(errorMessage);
+            return error?.error_code ?? "unknown_error";
+        }
+        catch
+        {
+            return "unknown_error";
+        }
+    }
+
+    private string GetFriendlyErrorMessage(string errorCode)
+    {
+        return errorCode switch
+        {
+            "user_already_exists" => "An account with this email already exists. Please sign in instead.",
+            "weak_password" => "Password is too weak. Please use at least 8 characters with uppercase, lowercase, and numbers.",
+            "invalid_credentials" => "Invalid email or password. Please try again.",
+            "email_not_confirmed" => "Please verify your email before signing in. Check your inbox.",
+            "same_password" => "The new password must be different from the old one.",
+            _ => "An error occurred. Please try again."
+        };
+    }
 }
