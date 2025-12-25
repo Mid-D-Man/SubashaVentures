@@ -1,14 +1,8 @@
-@* App.razor - FIXED JAVASCRIPT *@
+@* App.razor - REMOVED JAVASCRIPT AUTH *@
 @using Microsoft.AspNetCore.Components.Authorization
-@using SubashaVentures.Services.Supabase
-@using SubashaVentures.Services.Storage
-@using System.Security.Claims
 @implements IDisposable
-@inject ISupabaseAuthService AuthService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
-@inject IBlazorAppLocalStorageService LocalStorage
-@inject IJSRuntime JSRuntime
 @inject ILogger<App> Logger
 
 <CascadingAuthenticationState>
@@ -74,93 +68,6 @@
 </CascadingAuthenticationState>
 
 @code {
-    private DotNetObjectReference<App>? _dotNetReference;
-
-    protected override async Task OnInitializedAsync()
-    {
-        _dotNetReference = DotNetObjectReference.Create(this);
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            try
-            {
-                // Register event listeners
-                await JSRuntime.InvokeVoidAsync("eval", @"
-                    window.addEventListener('supabase-auth-success', function(event) {
-                        console.log('🎉 Blazor received auth success event');
-                        if (window.blazorAuthCallback) {
-                            window.blazorAuthCallback.invokeMethodAsync('OnAuthSuccess');
-                        }
-                    });
-                    
-                    window.addEventListener('supabase-auth-change', function(event) {
-                        console.log('🔔 Blazor received auth change:', event.detail.event);
-                        if (window.blazorAuthCallback) {
-                            window.blazorAuthCallback.invokeMethodAsync('OnAuthStateChanged');
-                        }
-                    });
-                ");
-
-                // Set the callback reference
-                await JSRuntime.InvokeVoidAsync("eval", $"window.blazorAuthCallback = {System.Text.Json.JsonSerializer.Serialize(_dotNetReference)}");
-
-                Logger.LogInformation("✅ OAuth event listeners registered");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Failed to register OAuth event listeners");
-            }
-        }
-    }
-
-    [JSInvokable]
-    public async Task OnAuthSuccess()
-    {
-        try
-        {
-            Logger.LogInformation("🎯 OnAuthSuccess called");
-
-            // Force auth state refresh
-            if (AuthStateProvider is SupabaseAuthStateProvider provider)
-            {
-                await provider.RefreshAuthenticationStateAsync();
-                Logger.LogInformation("✅ Auth state refreshed");
-            }
-
-            // Small delay to ensure state is updated
-            await Task.Delay(500);
-
-            // Navigate to home (OAuth redirects are always to home for simplicity)
-            NavigationManager.NavigateTo("", forceLoad: false);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error in OnAuthSuccess");
-        }
-    }
-
-    [JSInvokable]
-    public async Task OnAuthStateChanged()
-    {
-        try
-        {
-            Logger.LogInformation("🔄 OnAuthStateChanged called");
-
-            if (AuthStateProvider is SupabaseAuthStateProvider provider)
-            {
-                provider.NotifyAuthenticationStateChanged();
-                Logger.LogInformation("✅ Auth state change notified");
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error in OnAuthStateChanged");
-        }
-    }
-
     private void NavigateToHome()
     {
         NavigationManager.NavigateTo("", forceLoad: false);
@@ -182,6 +89,6 @@
 
     public void Dispose()
     {
-        _dotNetReference?.Dispose();
+        // No cleanup needed
     }
 }
