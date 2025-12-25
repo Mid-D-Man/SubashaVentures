@@ -1,9 +1,8 @@
-// Pages/Auth/SignIn.razor.cs - FIXED: No leading slashes in navigation
+// Pages/Auth/SignIn.razor.cs - UPDATED FOR C# AUTH
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.JSInterop;
 using SubashaVentures.Services.Storage;
-using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Auth;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -11,12 +10,11 @@ namespace SubashaVentures.Pages.Auth;
 
 public partial class SignIn : ComponentBase
 {
-    [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
+    [Inject] private SupabaseAuthService AuthService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<SignIn> Logger { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "registered")]
     private bool Registered { get; set; }
@@ -145,19 +143,7 @@ public partial class SignIn : ComponentBase
             }
             else
             {
-                if (result.ErrorCode == "INVALID_CREDENTIALS")
-                {
-                    generalError = "Invalid email or password. Please try again.";
-                }
-                else if (result.ErrorCode == "EMAIL_NOT_CONFIRMED")
-                {
-                    generalError = "Please verify your email before signing in.";
-                }
-                else
-                {
-                    generalError = result.Message ?? "Sign in failed. Please try again.";
-                }
-                
+                generalError = result.Message;
                 Logger.LogWarning("Sign in failed for {Email}: {Message}", email, result.Message);
             }
         }
@@ -169,51 +155,6 @@ public partial class SignIn : ComponentBase
         }
         finally
         {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task HandleGoogleSignIn()
-    {
-        try
-        {
-            isLoading = true;
-            ClearErrors();
-            successMessage = "";
-            StateHasChanged();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Google OAuth sign in",
-                LogLevel.Info
-            );
-            
-            var success = await JSRuntime.InvokeAsync<bool>(
-                "supabaseOAuth.signInWithGoogle", 
-                ReturnUrl ?? ""
-            );
-            
-            if (!success)
-            {
-                generalError = "Failed to connect to Google. Please try again.";
-                Logger.LogError("Google OAuth initiation failed");
-                isLoading = false;
-                StateHasChanged();
-            }
-        }
-        catch (JSException jsEx)
-        {
-            generalError = "Failed to sign in with Google. Please try again.";
-            await MID_HelperFunctions.LogExceptionAsync(jsEx, "Google OAuth sign in");
-            Logger.LogError(jsEx, "Google sign in error");
-            isLoading = false;
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            generalError = "Failed to sign in with Google. Please try again.";
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth sign in");
-            Logger.LogError(ex, "Google sign in error");
             isLoading = false;
             StateHasChanged();
         }
