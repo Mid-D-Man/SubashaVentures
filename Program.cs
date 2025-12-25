@@ -1,4 +1,4 @@
-// Program.cs - FIXED FOR BLAZOR WASM .NET 7
+// Program.cs - FIXED FOR C# SUPABASE AUTH
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -17,11 +17,10 @@ using SubashaVentures.Services.Brands;
 using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.JSInterop;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
-using SubashaVentures.Services.SupaBase;
+using SubashaVentures.Services.Auth;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -48,26 +47,23 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ✅ FIXED: Register Supabase.Client with correct options
+// ==================== SUPABASE CLIENT - C# AUTH ====================
 builder.Services.AddScoped<Client>(sp =>
 {
     var url = "https://wbwmovtewytjibxutssk.supabase.co";
     var key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indid21vdnRld3l0amlieHV0c3NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQyODMzNDcsImV4cCI6MjA0OTg1OTM0N30.f3ZGDFYp-6h_GNMG7T1rCJI8v8Lv-BdwggNk9NiFpKg";
     
-    // ✅ Only use properties that exist in SupabaseOptions
     var options = new SupabaseOptions
     {
-        AutoConnectRealtime = false // Disable realtime for WASM
+        AutoConnectRealtime = false,
+        AutoRefreshToken = true,
+        PersistSession = true
     };
     
     return new Client(url, key, options);
 });
 
-// JavaScript-based auth (no C# client needed for auth)
-builder.Services.AddAuthorizationCore();
-builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
-builder.Services.AddScoped<IPermissionService, PermissionService>();
-
+// ==================== AUTHENTICATION - C# ONLY ====================
 builder.Services.AddAuthorizationCore(options =>
 {
     options.AddPolicy("SuperiorAdminOnly", policy =>
@@ -80,6 +76,12 @@ builder.Services.AddAuthorizationCore(options =>
         policy.RequireRole("superior_admin", "user"));
 });
 
+// Register auth services
+builder.Services.AddScoped<SupabaseAuthService>();
+builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+
+// ==================== OTHER SERVICES ====================
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();
 builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
@@ -90,10 +92,6 @@ builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
-// Register auth service (JavaScript-based via supabaseOAuth.js)
-builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
-
-// Register other Supabase services (use C# client for database ops)
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
@@ -135,6 +133,6 @@ catch (Exception ex)
     Console.WriteLine($"❌ Failed to initialize Firebase: {ex.Message}");
 }
 
-Console.WriteLine("✓ All services initialized (JavaScript auth + C# database)");
+Console.WriteLine("✓ All services initialized (C# authentication)");
 
 await host.RunAsync();
