@@ -1,8 +1,7 @@
-// Pages/Auth/SignUp.razor.cs - UPDATED FOR C# AUTH
+// Pages/Auth/SignUp.razor.cs - FIXED IMPORTS
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Models.Supabase;
-using SubashaVentures.Models.Auth;
 using SubashaVentures.Utilities.HelperScripts;
 using Microsoft.AspNetCore.Components.Authorization;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
