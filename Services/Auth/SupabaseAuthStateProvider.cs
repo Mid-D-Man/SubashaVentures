@@ -1,24 +1,23 @@
-// Services/Auth/SupabaseAuthStateProvider.cs - COMPLETE REWRITE
+// Services/Auth/SupabaseAuthStateProvider.cs - C# AUTH STATE
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
-using Microsoft.JSInterop;
-using Newtonsoft.Json.Linq;
+using SubashaVentures.Services.Auth;
 using SubashaVentures.Utilities.HelperScripts;
+using SubashaVentures.Utilities.Auth;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
-namespace SubashaVentures.Services.Supabase;
+namespace SubashaVentures.Services.Auth;
 
 public class SupabaseAuthStateProvider : AuthenticationStateProvider
 {
-    private readonly IJSRuntime _jsRuntime;
+    private readonly SupabaseAuthService _authService;
     private readonly ILogger<SupabaseAuthStateProvider> _logger;
-    private AuthenticationState? _cachedAuthState;
 
     public SupabaseAuthStateProvider(
-        IJSRuntime jsRuntime,
+        SupabaseAuthService authService,
         ILogger<SupabaseAuthStateProvider> logger)
     {
-        _jsRuntime = jsRuntime;
+        _authService = authService;
         _logger = logger;
     }
 
@@ -26,69 +25,42 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
     {
         try
         {
-            // Get session from JavaScript
-            var sessionJson = await _jsRuntime.InvokeAsync<string>("eval", 
-                @"(async function() {
-                    try {
-                        const session = await window.supabaseOAuth.getSession();
-                        return session ? JSON.stringify(session) : null;
-                    } catch (error) {
-                        console.error('Error getting session:', error);
-                        return null;
-                    }
-                })()");
-
-            if (string.IsNullOrEmpty(sessionJson))
+            var session = await _authService.GetCurrentSessionAsync();
+            
+            if (session == null || session.User == null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
                     "No authenticated user found",
                     LogLevel.Info
                 );
                 
-                _cachedAuthState = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-                return _cachedAuthState;
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
-            // Parse session
-            var session = JObject.Parse(sessionJson);
-            var user = session["user"];
+            // Validate token
+            var claims = JwtTokenHelper.ValidateAndExtractClaims(session.AccessToken);
             
-            if (user == null)
+            if (claims == null || !claims.Any())
             {
-                _cachedAuthState = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-                return _cachedAuthState;
-            }
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Token validation failed, attempting refresh",
+                    LogLevel.Warning
+                );
 
-            // Create claims from user data
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user["id"]?.ToString() ?? ""),
-                new Claim(ClaimTypes.Email, user["email"]?.ToString() ?? ""),
-                new Claim("sub", user["id"]?.ToString() ?? "")
-            };
-
-            // Add metadata claims
-            var metadata = user["user_metadata"];
-            if (metadata != null)
-            {
-                if (metadata["first_name"] != null)
-                    claims.Add(new Claim(ClaimTypes.GivenName, metadata["first_name"].ToString()));
-                
-                if (metadata["last_name"] != null)
-                    claims.Add(new Claim(ClaimTypes.Surname, metadata["last_name"].ToString()));
-                
-                if (metadata["avatar_url"] != null)
-                    claims.Add(new Claim("avatar_url", metadata["avatar_url"].ToString()));
-            }
-
-            // Get roles from database via JavaScript
-            var userId = user["id"]?.ToString();
-            if (!string.IsNullOrEmpty(userId))
-            {
-                var roles = await GetUserRolesAsync(userId);
-                foreach (var role in roles)
+                // Try to refresh token
+                var refreshed = await _authService.RefreshSessionAsync();
+                if (refreshed)
                 {
-                    claims.Add(new Claim(ClaimTypes.Role, role));
+                    session = await _authService.GetCurrentSessionAsync();
+                    if (session != null)
+                    {
+                        claims = JwtTokenHelper.ValidateAndExtractClaims(session.AccessToken);
+                    }
+                }
+
+                if (claims == null || !claims.Any())
+                {
+                    return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
                 }
             }
 
@@ -96,67 +68,18 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
             var principal = new ClaimsPrincipal(identity);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User authenticated: {user["email"]}",
+                $"✓ User authenticated: {session.User.Email}",
                 LogLevel.Info
             );
 
-            _cachedAuthState = new AuthenticationState(principal);
-            return _cachedAuthState;
+            return new AuthenticationState(principal);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authentication state");
             _logger.LogError(ex, "Failed to get authentication state");
             
-            _cachedAuthState = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-            return _cachedAuthState;
-        }
-    }
-
-    private async Task<List<string>> GetUserRolesAsync(string userId)
-    {
-        try
-        {
-            // Call JavaScript to query Supabase for roles
-            var rolesJson = await _jsRuntime.InvokeAsync<string>("eval", 
-                $@"(async function() {{
-                    try {{
-                        const {{ data, error }} = await window.supabaseOAuth.supabaseClient
-                            .from('user_roles')
-                            .select('role')
-                            .eq('user_id', '{userId}');
-                        
-                        if (error) {{
-                            console.error('Error getting roles:', error);
-                            return null;
-                        }}
-                        
-                        return JSON.stringify(data);
-                    }} catch (error) {{
-                        console.error('Exception getting roles:', error);
-                        return null;
-                    }}
-                }})()");
-
-            if (string.IsNullOrEmpty(rolesJson))
-            {
-                return new List<string> { "user" }; // Default role
-            }
-
-            var rolesArray = JArray.Parse(rolesJson);
-            var roles = rolesArray.Select(r => r["role"]?.ToString() ?? "user").ToList();
-
-            if (!roles.Any())
-            {
-                roles.Add("user");
-            }
-
-            return roles;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get user roles");
-            return new List<string> { "user" };
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
         }
     }
 
@@ -164,32 +87,12 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
     {
         try
         {
-            _cachedAuthState = null;
             NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
             _logger.LogInformation("✅ Authentication state change notified");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error notifying authentication state change");
-        }
-    }
-
-    public async Task RefreshAuthenticationStateAsync()
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Forcing authentication state refresh",
-                LogLevel.Info
-            );
-
-            _cachedAuthState = null;
-            NotifyAuthenticationStateChanged();
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Refreshing auth state");
-            _logger.LogError(ex, "Failed to refresh authentication state");
         }
     }
 }
