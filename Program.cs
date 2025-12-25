@@ -17,10 +17,12 @@ using SubashaVentures.Services.Brands;
 using Blazored.LocalStorage;
 using Blazored.Toast;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Auth;
+using SubashaVentures.Services.SupaBase;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -57,9 +59,9 @@ builder.Services.AddScoped<Client>(sp =>
     {
         AutoConnectRealtime = false,
         AutoRefreshToken = true,
-        PersistSession = true
+        SessionHandler = new DefaultSupabaseSessionHandler()
     };
-    
+  
     return new Client(url, key, options);
 });
 

@@ -39,7 +39,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            var session = await _supabase.Auth.SignIn(email, password);
+            var session = await _supabase.SignIn(email, password);
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
@@ -117,7 +117,7 @@ public class SupabaseAuthService
                 }
             };
 
-            var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
+            var session = await _supabase.SignUp(email, password, signUpOptions);
 
             if (session?.User == null)
             {
@@ -180,7 +180,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            await _supabase.Auth.SignOut();
+            await _supabase.SignOut();
             
             // Clear stored tokens
             await _localStorage.RemoveItemAsync(AccessTokenKey);
@@ -207,7 +207,7 @@ public class SupabaseAuthService
     {
         try
         {
-            var session = _supabase.Auth.CurrentSession;
+            var session = _supabase.CurrentSession;
             if (session != null)
             {
                 return session.User;
@@ -219,7 +219,7 @@ public class SupabaseAuthService
 
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                var restoredSession = await _supabase.Auth.SetSession(accessToken, refreshToken);
+                var restoredSession = await _supabase.SetSession(accessToken, refreshToken);
                 return restoredSession?.User;
             }
 
@@ -252,7 +252,7 @@ public class SupabaseAuthService
     {
         try
         {
-            var session = _supabase.Auth.CurrentSession;
+            var session = _supabase.CurrentSession;
             if (session != null)
             {
                 return session;
@@ -264,7 +264,7 @@ public class SupabaseAuthService
 
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                return await _supabase.Auth.SetSession(accessToken, refreshToken);
+                return await _supabase.SetSession(accessToken, refreshToken);
             }
 
             return null;
@@ -280,7 +280,7 @@ public class SupabaseAuthService
     {
         try
         {
-            var session = await _supabase.Auth.RefreshSession();
+            var session = await _supabase.RefreshSession();
             
             if (session != null && !string.IsNullOrEmpty(session.AccessToken))
             {
@@ -304,7 +304,7 @@ public class SupabaseAuthService
     {
         try
         {
-            await _supabase.Auth.ResetPasswordForEmail(email);
+            await _supabase.ResetPasswordForEmail(email);
             return true;
         }
         catch (Exception ex)
@@ -323,7 +323,7 @@ public class SupabaseAuthService
                 Password = newPassword
             };
 
-            var user = await _supabase.Auth.Update(attributes);
+            var user = await _supabase.Update(attributes);
 
             if (user == null)
             {
