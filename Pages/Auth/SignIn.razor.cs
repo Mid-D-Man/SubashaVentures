@@ -1,4 +1,4 @@
-// Pages/Auth/SignIn.razor.cs - UPDATED FOR C# AUTH
+// Pages/Auth/SignIn.razor.cs - FIXED IMPORTS
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Storage;
