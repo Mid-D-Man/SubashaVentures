@@ -1,6 +1,5 @@
-// Services/Auth/SupabaseAuthService.cs - PURE C# AUTH
+// Services/Auth/SupabaseAuthService.cs - USING EXISTING MODEL
 using SubashaVentures.Models.Supabase;
-using SubashaVentures.Models.Auth;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
 using Supabase.Gotrue;
@@ -31,7 +30,7 @@ public class SupabaseAuthService
 
     // ==================== SIGN IN ====================
     
-    public async Task<AuthResult> SignInAsync(string email, string password)
+    public async Task<SupabaseAuthResult> SignInAsync(string email, string password)
     {
         try
         {
@@ -44,7 +43,12 @@ public class SupabaseAuthService
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
-                return AuthResult.Fail("Sign in failed");
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "Sign in failed",
+                    ErrorCode = "AUTH_ERROR"
+                };
             }
 
             // Store tokens
@@ -56,7 +60,11 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            return AuthResult.Success();
+            return new SupabaseAuthResult
+            {
+                Success = true,
+                Message = "Sign in successful"
+            };
         }
         catch (GotrueException ex)
         {
@@ -66,20 +74,30 @@ public class SupabaseAuthService
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
             _logger.LogError(ex, "Sign in failed for {Email}", email);
             
-            return AuthResult.Fail(errorMessage, errorCode);
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = errorMessage,
+                ErrorCode = errorCode
+            };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
             _logger.LogError(ex, "Unexpected error during sign in");
             
-            return AuthResult.Fail("An unexpected error occurred");
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "An unexpected error occurred",
+                ErrorCode = "UNEXPECTED_ERROR"
+            };
         }
     }
 
     // ==================== SIGN UP ====================
     
-    public async Task<AuthResult> SignUpAsync(string email, string password, UserModel userData)
+    public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
     {
         try
         {
@@ -103,7 +121,12 @@ public class SupabaseAuthService
 
             if (session?.User == null)
             {
-                return AuthResult.Fail("Sign up failed");
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "Sign up failed",
+                    ErrorCode = "SIGNUP_ERROR"
+                };
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -111,7 +134,11 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            return AuthResult.Success("Registration successful. Please check your email to verify your account.");
+            return new SupabaseAuthResult
+            {
+                Success = true,
+                Message = "Registration successful. Please check your email to verify your account."
+            };
         }
         catch (GotrueException ex)
         {
@@ -121,14 +148,24 @@ public class SupabaseAuthService
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
             _logger.LogError(ex, "Sign up failed for {Email}", email);
             
-            return AuthResult.Fail(errorMessage, errorCode);
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = errorMessage,
+                ErrorCode = errorCode
+            };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
             _logger.LogError(ex, "Unexpected error during sign up");
             
-            return AuthResult.Fail("An unexpected error occurred");
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "An unexpected error occurred",
+                ErrorCode = "UNEXPECTED_ERROR"
+            };
         }
     }
 
@@ -277,7 +314,7 @@ public class SupabaseAuthService
         }
     }
 
-    public async Task<AuthResult> UpdatePasswordAsync(string newPassword)
+    public async Task<SupabaseAuthResult> UpdatePasswordAsync(string newPassword)
     {
         try
         {
@@ -290,10 +327,19 @@ public class SupabaseAuthService
 
             if (user == null)
             {
-                return AuthResult.Fail("Failed to update password");
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "Failed to update password",
+                    ErrorCode = "UPDATE_ERROR"
+                };
             }
 
-            return AuthResult.Success("Password updated successfully");
+            return new SupabaseAuthResult
+            {
+                Success = true,
+                Message = "Password updated successfully"
+            };
         }
         catch (GotrueException ex)
         {
@@ -301,12 +347,22 @@ public class SupabaseAuthService
             var errorMessage = GetFriendlyErrorMessage(errorCode);
             
             _logger.LogError(ex, "Error updating password");
-            return AuthResult.Fail(errorMessage, errorCode);
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = errorMessage,
+                ErrorCode = errorCode
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error updating password");
-            return AuthResult.Fail("An unexpected error occurred");
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "An unexpected error occurred",
+                ErrorCode = "UNEXPECTED_ERROR"
+            };
         }
     }
 
@@ -336,5 +392,11 @@ public class SupabaseAuthService
             "same_password" => "The new password must be different from the old one.",
             _ => "An error occurred. Please try again."
         };
+    }
+
+    // Helper class for error parsing
+    private class AuthError
+    {
+        public string error_code { get; set; } = string.Empty;
     }
 }
