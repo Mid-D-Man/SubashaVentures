@@ -11,7 +11,7 @@ using Client = Supabase.Client;
 
 namespace SubashaVentures.Services.Supabase;
 
-public class SupabaseAuthService
+public class SupabaseAuthService : ISupabaseAuthService
 {
     private const string AccessTokenKey = "supabase_access_token";
     private const string RefreshTokenKey = "supabase_refresh_token";

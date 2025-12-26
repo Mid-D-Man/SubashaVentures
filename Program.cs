@@ -79,7 +79,8 @@ builder.Services.AddAuthorizationCore(options =>
 });
 
 // Register auth services
-builder.Services.AddScoped<SupabaseAuthService>();
+builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
+builder.Services.AddScoped<SupabaseAuthService>(); // Also register concrete type in case it's used directly
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 
