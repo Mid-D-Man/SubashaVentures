@@ -2,7 +2,7 @@
 using SubashaVentures.Models.Supabase;
 using Supabase.Gotrue;
 
-namespace SubashaVentures.Services.Auth;
+namespace SubashaVentures.Services.Supabase;
 
 /// <summary>
 /// Service for Supabase authentication operations with OAuth support (Pure C#)

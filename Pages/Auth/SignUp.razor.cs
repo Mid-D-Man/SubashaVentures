@@ -4,6 +4,7 @@ using SubashaVentures.Services.Auth;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Microsoft.AspNetCore.Components.Authorization;
+using SubashaVentures.Services.Supabase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;

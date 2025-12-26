@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Components;
 using System.Text.Json;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
-namespace SubashaVentures.Services.Auth;
+namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseAuthService
 {
@@ -44,7 +44,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            var session = await _supabase.Auth.SignIn(email, password);
+            var session = await _supabase.SignIn(email, password);
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
@@ -126,12 +126,12 @@ public class SupabaseAuthService
             };
 
             // Initiate Google OAuth flow
-            var result = await _supabase.Auth.SignIn(Provider.Google, options);
+            var result = await _supabase.SignIn(Constants.Provider.Google, options);
 
             if (result != null)
             {
                 // Redirect to Google OAuth page
-                _navigationManager.NavigateTo(result, true);
+             //   _navigationManager.NavigateTo(result, true);
                 return true;
             }
 
@@ -162,7 +162,7 @@ public class SupabaseAuthService
             );
 
             // Get session from current state (Supabase handles the token exchange)
-            var session = _supabase.Auth.CurrentSession;
+            var session = _supabase.CurrentSession;
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
@@ -235,7 +235,7 @@ public class SupabaseAuthService
                 }
             };
 
-            var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
+            var session = await _supabase.SignUp(email, password, signUpOptions);
 
             if (session?.User == null)
             {
@@ -302,7 +302,7 @@ public class SupabaseAuthService
             );
 
             // Sign out from Supabase
-            await _supabase.Auth.SignOut();
+            await _supabase.SignOut();
             
             // Clear all stored authentication data
             await ClearStoredSessionAsync();
@@ -341,7 +341,7 @@ public class SupabaseAuthService
         try
         {
             // Check current session first
-            var session = _supabase.Auth.CurrentSession;
+            var session = _supabase.CurrentSession;
             if (session?.User != null)
             {
                 return session.User;
@@ -353,7 +353,7 @@ public class SupabaseAuthService
 
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                var restoredSession = await _supabase.Auth.SetSession(accessToken, refreshToken);
+                var restoredSession = await _supabase.SetSession(accessToken, refreshToken);
                 if (restoredSession?.User != null)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
@@ -378,7 +378,7 @@ public class SupabaseAuthService
         try
         {
             // Check current session
-            var session = _supabase.Auth.CurrentSession;
+            var session = _supabase.CurrentSession;
             if (session != null && !string.IsNullOrEmpty(session.AccessToken))
             {
                 return session;
@@ -390,7 +390,7 @@ public class SupabaseAuthService
 
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                var restoredSession = await _supabase.Auth.SetSession(accessToken, refreshToken);
+                var restoredSession = await _supabase.SetSession(accessToken, refreshToken);
                 if (restoredSession != null)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
@@ -440,7 +440,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            var session = await _supabase.Auth.RefreshSession();
+            var session = await _supabase.RefreshSession();
             
             if (session != null && !string.IsNullOrEmpty(session.AccessToken))
             {
@@ -480,7 +480,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            await _supabase.Auth.ResetPasswordForEmail(email);
+            await _supabase.ResetPasswordForEmail(email);
             
             await MID_HelperFunctions.DebugMessageAsync(
                 "✓ Password reset email sent",
@@ -511,7 +511,7 @@ public class SupabaseAuthService
                 Password = newPassword
             };
 
-            var user = await _supabase.Auth.Update(attributes);
+            var user = await _supabase.Update(attributes);
 
             if (user == null)
             {
@@ -574,7 +574,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            var session = await _supabase.Auth.VerifyOTP(token, Constants.EmailOtpType.Email);
+            var session = await _supabase.VerifyOTP(token,token, Constants.EmailOtpType.Email);
             
             if (session != null)
             {
@@ -607,7 +607,7 @@ public class SupabaseAuthService
                 LogLevel.Info
             );
 
-            await _supabase.Auth.SignUp(email, "");
+            await _supabase.SignUp(email, "");
             
             await MID_HelperFunctions.DebugMessageAsync(
                 "✓ Verification email resent",
@@ -640,7 +640,7 @@ public class SupabaseAuthService
                 Data = updates
             };
 
-            var user = await _supabase.Auth.Update(attributes);
+            var user = await _supabase.Update(attributes);
             
             if (user != null)
             {
@@ -712,7 +712,7 @@ public class SupabaseAuthService
         {
             AccessToken = session.AccessToken ?? "",
             RefreshToken = session.RefreshToken ?? "",
-            ExpiresAt = session.ExpiresAt ?? DateTime.UtcNow.AddHours(1),
+            ExpiresAt = session.ExpiresAt(),
             UserId = session.User?.Id ?? "",
             UserEmail = session.User?.Email ?? ""
         };
@@ -741,7 +741,7 @@ public class SupabaseAuthService
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = authUser.Id
             };
-
+/*
             await _supabase.From<UserModel>().Insert(userProfile);
             
             // Assign default "user" role
@@ -755,7 +755,7 @@ public class SupabaseAuthService
             };
 
             await _supabase.From<UserRoleModel>().Insert(userRole);
-            
+            */
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ User profile created for: {authUser.Email}",
                 LogLevel.Info
@@ -772,6 +772,7 @@ public class SupabaseAuthService
     {
         try
         {
+            /*
             // Check if user profile exists
             var existingUser = await _supabase
                 .From<UserModel>()
@@ -812,13 +813,13 @@ public class SupabaseAuthService
                 };
 
                 await _supabase.From<UserRoleModel>().Insert(userRole);
-                
+                */
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"✓ OAuth user profile created for: {authUser.Email}",
                     LogLevel.Info
                 );
             }
-        }
+        
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring user profile exists");

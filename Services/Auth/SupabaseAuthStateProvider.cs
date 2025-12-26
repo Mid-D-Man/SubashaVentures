@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using SubashaVentures.Services.Auth;
+using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.Auth;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
