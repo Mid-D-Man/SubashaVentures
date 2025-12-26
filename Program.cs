@@ -1,4 +1,4 @@
-// Program.cs - FIXED FOR C# SUPABASE AUTH
+// Program.cs - LOAD KEYS FROM CONFIGURATION
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -49,11 +49,23 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ==================== SUPABASE CLIENT - C# AUTH ====================
+// ==================== SUPABASE CLIENT - LOAD FROM CONFIG ====================
 builder.Services.AddScoped<Client>(sp =>
 {
-    var url = "https://wbwmovtewytjibxutssk.supabase.co";
-    var key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indid21vdnRld3l0amlieHV0c3NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQyODMzNDcsImV4cCI6MjA0OTg1OTM0N30.f3ZGDFYp-6h_GNMG7T1rCJI8v8Lv-BdwggNk9NiFpKg";
+    var config = builder.Configuration;
+    
+    // Load from appsettings.json
+    var url = config["Supabase:Url"];
+    var key = config["Supabase:AnonKey"];
+    
+    if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(key))
+    {
+        throw new InvalidOperationException(
+            "Supabase configuration is missing. Please check appsettings.json");
+    }
+    
+    Console.WriteLine($"✓ Supabase URL: {url}");
+    Console.WriteLine($"✓ Supabase Key (first 20 chars): {key.Substring(0, Math.Min(20, key.Length))}...");
     
     var options = new SupabaseOptions
     {
@@ -80,7 +92,7 @@ builder.Services.AddAuthorizationCore(options =>
 
 // Register auth services
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
-builder.Services.AddScoped<SupabaseAuthService>(); // Also register concrete type in case it's used directly
+builder.Services.AddScoped<SupabaseAuthService>();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 
