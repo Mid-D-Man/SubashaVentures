@@ -149,61 +149,73 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== HANDLE OAUTH CALLBACK ====================
     
-    public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
+    // ==================== HANDLE OAUTH CALLBACK ====================
+
+public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
+{
+    try
     {
-        try
+        await MID_HelperFunctions.DebugMessageAsync(
+            "Processing OAuth callback",
+            LogLevel.Info
+        );
+
+        // Wait a moment for Supabase to process the tokens from URL
+        await Task.Delay(1500);
+
+        // Try to get the current session (Supabase should have parsed the URL fragment)
+        var session = _supabase.Auth.CurrentSession;
+
+        if (session == null || string.IsNullOrEmpty(session.AccessToken))
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Processing OAuth callback",
-                LogLevel.Info
+                "No session found, attempting to restore from URL",
+                LogLevel.Warning
             );
 
-            var session = _supabase.Auth.CurrentSession;
-
-            if (session == null || string.IsNullOrEmpty(session.AccessToken))
-            {
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = "OAuth authentication failed",
-                    ErrorCode = "OAUTH_ERROR"
-                };
-            }
-
-            await StoreSessionAsync(session);
-
-            var user = session.User;
-            if (user != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ OAuth sign-in successful for: {user.Email}",
-                    LogLevel.Info
-                );
-
-                await EnsureUserProfileExistsAsync(user);
-            }
-
-            return new SupabaseAuthResult
-            {
-                Success = true,
-                Message = "Sign in successful",
-                Session = CreateSessionInfo(session)
-            };
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
-            _logger.LogError(ex, "Error handling OAuth callback");
-            
+            // The session might need to be manually set from URL parameters
+            // This is handled by Supabase JS SDK automatically, but in C# we might need to help
             return new SupabaseAuthResult
             {
                 Success = false,
-                Message = "Authentication failed",
-                ErrorCode = "OAUTH_CALLBACK_ERROR"
+                Message = "OAuth authentication failed - no session established",
+                ErrorCode = "OAUTH_ERROR"
             };
         }
-    }
 
+        await StoreSessionAsync(session);
+
+        var user = session.User;
+        if (user != null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ OAuth sign-in successful for: {user.Email}",
+                LogLevel.Info
+            );
+
+            await EnsureUserProfileExistsAsync(user);
+        }
+
+        return new SupabaseAuthResult
+        {
+            Success = true,
+            Message = "Sign in successful",
+            Session = CreateSessionInfo(session)
+        };
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
+        _logger.LogError(ex, "Error handling OAuth callback");
+        
+        return new SupabaseAuthResult
+        {
+            Success = false,
+            Message = "Authentication failed",
+            ErrorCode = "OAUTH_CALLBACK_ERROR"
+        };
+    }
+}
     // ==================== SIGN UP ====================
     
     public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
