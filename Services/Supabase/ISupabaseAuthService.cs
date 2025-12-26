@@ -1,11 +1,8 @@
-
 // Services/Auth/ISupabaseAuthService.cs - COMPLETE INTERFACE
 using SubashaVentures.Models.Supabase;
 using Supabase.Gotrue;
 
-
 namespace SubashaVentures.Services.Auth;
-
 
 /// <summary>
 /// Service for Supabase authentication operations with OAuth support (Pure C#)
@@ -118,44 +115,4 @@ public interface ISupabaseAuthService
     /// <param name="updates">Dictionary of updates</param>
     /// <returns>True if update successful</returns>
     Task<bool> UpdateUserProfileAsync(Dictionary<string, object> updates);
-}    /// <summary>
-    /// Check if user is authenticated
-    /// </summary>
-    Task<bool> IsAuthenticatedAsync();
-    
-    /// <summary>
-    /// Refresh current session
-    /// </summary>
-    Task<bool> RefreshSessionAsync();
-    
-    /// <summary>
-    /// Send password reset email
-    /// </summary>
-    Task<bool> SendPasswordResetEmailAsync(string email);
-    
-    /// <summary>
-    /// Update user password
-    /// </summary>
-    Task<bool> UpdatePasswordAsync(string newPassword);
-    
-    /// <summary>
-    /// Update user profile
-    /// </summary>
-    Task<bool> UpdateUserProfileAsync(Dictionary<string, object> updates);
-    
-    /// <summary>
-    /// Get current session info
-    /// </summary>
-    Task<SupabaseSessionInfo?> GetSessionInfoAsync();
-    
-    /// <summary>
-    /// Verify email with token
-    /// </summary>
-    Task<bool> VerifyEmailAsync(string token);
-    
-    /// <summary>
-    /// Resend verification email
-    /// </summary>
-    Task<bool> ResendVerificationEmailAsync(string email);
 }
-
