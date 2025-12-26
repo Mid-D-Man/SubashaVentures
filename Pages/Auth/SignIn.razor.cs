@@ -1,4 +1,4 @@
-// Pages/Auth/SignIn.razor.cs - FIXED IMPORTS
+// Pages/Auth/SignIn.razor.cs - WITH GOOGLE OAUTH
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Storage;
@@ -36,6 +36,7 @@ public partial class SignIn : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if already authenticated
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         if (authState.User?.Identity?.IsAuthenticated ?? false)
         {
@@ -44,16 +45,18 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
 
-            var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "";
+            var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
             NavigationManager.NavigateTo(destination, forceLoad: false);
             return;
         }
 
+        // Show registration success message
         if (Registered)
         {
             successMessage = "Account created successfully! Please sign in.";
         }
 
+        // Load remembered email
         try
         {
             var rememberedEmail = await LocalStorage.GetItemAsync<string>("remember_email");
@@ -68,6 +71,7 @@ public partial class SignIn : ComponentBase
             Logger.LogWarning(ex, "Failed to load remembered email");
         }
 
+        // Decode return URL
         if (!string.IsNullOrEmpty(ReturnUrl))
         {
             try
@@ -86,6 +90,8 @@ public partial class SignIn : ComponentBase
         }
     }
 
+    // ==================== EMAIL/PASSWORD SIGN IN ====================
+    
     private async Task HandleSignIn()
     {
         ClearErrors();
@@ -117,6 +123,7 @@ public partial class SignIn : ComponentBase
 
                 Logger.LogInformation("User signed in successfully: {Email}", email);
                 
+                // Handle remember me
                 if (rememberMe)
                 {
                     await LocalStorage.SetItemAsync("remember_email", email);
@@ -126,13 +133,15 @@ public partial class SignIn : ComponentBase
                     await LocalStorage.RemoveItemAsync("remember_email");
                 }
 
+                // Notify auth state changed
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
                 {
                     provider.NotifyAuthenticationStateChanged();
                     await Task.Delay(500);
                 }
 
-                var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "";
+                // Redirect
+                var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
                 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"Redirecting to: {destination}",
@@ -160,6 +169,49 @@ public partial class SignIn : ComponentBase
         }
     }
 
+    // ==================== GOOGLE OAUTH SIGN IN ====================
+    
+    private async Task HandleGoogleSignIn()
+    {
+        try
+        {
+            ClearErrors();
+            isLoading = true;
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Initiating Google sign-in",
+                LogLevel.Info
+            );
+
+            // Get return URL for after OAuth
+            var returnUrl = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+
+            // Initiate Google OAuth (this will redirect to Google)
+            var success = await AuthService.SignInWithGoogleAsync(returnUrl);
+
+            if (!success)
+            {
+                generalError = "Failed to initiate Google sign-in. Please try again.";
+                isLoading = false;
+                StateHasChanged();
+            }
+            // Note: If successful, user will be redirected to Google
+            // They'll come back to /auth/callback after authentication
+        }
+        catch (Exception ex)
+        {
+            generalError = "An error occurred with Google sign-in. Please try again.";
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Google sign-in");
+            Logger.LogError(ex, "Error during Google sign-in");
+            
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== VALIDATION ====================
+    
     private bool ValidateForm()
     {
         bool isValid = true;
