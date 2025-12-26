@@ -1,4 +1,4 @@
-// Services/Auth/CustomSupabaseClaimsFactory.cs
+// Services/Auth/CustomSupabaseClaimsFactory.cs - COMPLETE FULL FILE
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Models.Supabase;
@@ -8,7 +8,6 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Client = Supabase.Client;
 
 namespace SubashaVentures.Services.Auth;
-
 
 /// <summary>
 /// Custom claims factory to process user roles from Supabase for authorization
