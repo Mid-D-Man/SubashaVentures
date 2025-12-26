@@ -1,3 +1,4 @@
+
 // Pages/Auth/OAuthCallback.razor
 @page "/auth/callback"
 @using Microsoft.AspNetCore.Components.Authorization
@@ -10,6 +11,7 @@
 @inject IBlazorAppLocalStorageService LocalStorage
 @inject AuthenticationStateProvider AuthStateProvider
 
+
 <div class="oauth-callback-container">
     <div class="loading-spinner">
         <div class="spinner"></div>
@@ -18,9 +20,11 @@
     </div>
 </div>
 
+
 @code {
     private string statusMessage = "Completing sign in...";
     private string detailMessage = "Please wait while we authenticate your account.";
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -31,16 +35,20 @@
                 LogLevel.Info
             );
 
+
             // Small delay to let Supabase process the tokens
             await Task.Delay(1000);
 
+
             // Handle the OAuth callback
             var result = await AuthService.HandleOAuthCallbackAsync();
+
 
             if (result.Success)
             {
                 statusMessage = "Sign in successful!";
                 detailMessage = "Redirecting to your dashboard...";
+
 
                 // Notify auth state changed
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
@@ -48,18 +56,23 @@
                     provider.NotifyAuthenticationStateChanged();
                 }
 
+
                 await Task.Delay(500);
+
 
                 // Get return URL if stored
                 var returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
                 await LocalStorage.RemoveItemAsync("oauth_return_url");
 
+
                 var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
+
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"Redirecting to: {destination}",
                     LogLevel.Info
                 );
+
 
                 NavigationManager.NavigateTo(destination, forceLoad: false);
             }
@@ -68,10 +81,81 @@
                 statusMessage = "Authentication failed";
                 detailMessage = result.Message;
 
+
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"OAuth callback failed: {result.Message}",
                     LogLevel.Error
                 );
+
+
+                await Task.Delay(3000);
+                NavigationManager.NavigateTo("signin", forceLoad: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "An error occurred";
+            detailMessage = "Please try signing in again.";
+
+
+            await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
+
+
+            await Task.Delay(3000);
+            NavigationManager.NavigateTo("signin", forceLoad: false);
+        }
+    }
+}
+
+
+
+            // Handle the OAuth callback
+            var result = await AuthService.HandleOAuthCallbackAsync();
+
+
+            if (result.Success)
+            {
+                statusMessage = "Sign in successful!";
+                detailMessage = "Redirecting to your dashboard...";
+
+
+                // Notify auth state changed
+                if (AuthStateProvider is SupabaseAuthStateProvider provider)
+                {
+                    provider.NotifyAuthenticationStateChanged();
+                }
+
+
+                await Task.Delay(500);
+
+
+                // Get return URL if stored
+                var returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
+                await LocalStorage.RemoveItemAsync("oauth_return_url");
+
+
+                var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
+
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Redirecting to: {destination}",
+                    LogLevel.Info
+                );
+
+
+                NavigationManager.NavigateTo(destination, forceLoad: false);
+            }
+            else
+            {
+                statusMessage = "Authentication failed";
+                detailMessage = result.Message;
+
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"OAuth callback failed: {result.Message}",
+                    LogLevel.Error
+                );
+
 
                 await Task.Delay(3000);
                 NavigationManager.NavigateTo("/signin", forceLoad: false);
@@ -82,11 +166,15 @@
             statusMessage = "An error occurred";
             detailMessage = "Please try signing in again.";
 
+
             await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
+
 
             await Task.Delay(3000);
             NavigationManager.NavigateTo("/signin", forceLoad: false);
         }
     }
 }
+
+
 
