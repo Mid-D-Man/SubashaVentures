@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - FIXED
+// Services/Supabase/SupabaseAuthService.cs - PKCE FLOW IMPLEMENTATION
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
@@ -6,6 +6,7 @@ using Supabase.Gotrue;
 using Supabase.Gotrue.Exceptions;
 using Microsoft.AspNetCore.Components;
 using System.Text.Json;
+using Microsoft.AspNetCore.WebUtilities;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Client = Supabase.Client;
 
@@ -16,6 +17,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     private const string AccessTokenKey = "supabase_access_token";
     private const string RefreshTokenKey = "supabase_refresh_token";
     private const string UserSessionKey = "supabase_user_session";
+    private const string PkceVerifierKey = "supabase_pkce_verifier"; // NEW: For PKCE flow
 
     private readonly Client _supabase;
     private readonly IBlazorAppLocalStorageService _localStorage;
@@ -100,17 +102,18 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
     }
 
-    // ==================== SIGN IN WITH GOOGLE OAUTH ====================
+    // ==================== SIGN IN WITH GOOGLE OAUTH (PKCE FLOW) ====================
 
     public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Google OAuth sign-in",
+                "🔵 Initiating Google OAuth with PKCE flow",
                 LogLevel.Info
             );
 
+            // Store return URL for after OAuth
             if (!string.IsNullOrEmpty(returnUrl))
             {
                 await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
@@ -118,22 +121,32 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             var redirectUrl = $"{_navigationManager.BaseUri}auth/callback";
 
+            // ✅ USE PKCE FLOW (NOT IMPLICIT)
             var options = new SignInOptions
             {
+                FlowType = Constants.OAuthFlowType.PKCE, // 🔑 KEY CHANGE: Use PKCE instead of implicit
                 RedirectTo = redirectUrl
             };
 
             var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
 
-            if (result?.Uri != null)
+            if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
             {
-                // Convert System.Uri to string
+                // ✅ STORE PKCE VERIFIER - We'll need this in the callback!
+                await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ PKCE verifier stored, redirecting to Google",
+                    LogLevel.Info
+                );
+
+                // Redirect to Google OAuth
                 _navigationManager.NavigateTo(result.Uri.ToString(), true);
                 return true;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "Google OAuth initiation failed - no redirect URL returned",
+                "❌ Google OAuth initiation failed - no redirect URL or PKCE verifier returned",
                 LogLevel.Error
             );
 
@@ -141,81 +154,136 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth sign-in");
-            _logger.LogError(ex, "Error initiating Google OAuth sign-in");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth PKCE sign-in");
+            _logger.LogError(ex, "Error initiating Google OAuth PKCE sign-in");
             return false;
         }
     }
 
-    // ==================== HANDLE OAUTH CALLBACK ====================
-    
-    // ==================== HANDLE OAUTH CALLBACK ====================
+    // ==================== HANDLE OAUTH CALLBACK (PKCE FLOW) ====================
 
-public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
-{
-    try
+    public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            "Processing OAuth callback",
-            LogLevel.Info
-        );
-
-        // Wait a moment for Supabase to process the tokens from URL
-        await Task.Delay(1500);
-
-        // Try to get the current session (Supabase should have parsed the URL fragment)
-        var session = _supabase.Auth.CurrentSession;
-
-        if (session == null || string.IsNullOrEmpty(session.AccessToken))
+        try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "No session found, attempting to restore from URL",
-                LogLevel.Warning
-            );
-
-            // The session might need to be manually set from URL parameters
-            // This is handled by Supabase JS SDK automatically, but in C# we might need to help
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "OAuth authentication failed - no session established",
-                ErrorCode = "OAUTH_ERROR"
-            };
-        }
-
-        await StoreSessionAsync(session);
-
-        var user = session.User;
-        if (user != null)
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ OAuth sign-in successful for: {user.Email}",
+                "🔄 Processing OAuth PKCE callback",
                 LogLevel.Info
             );
 
-            await EnsureUserProfileExistsAsync(user);
-        }
+            // ✅ EXTRACT CODE FROM QUERY PARAMETERS (NOT HASH)
+            var uri = new Uri(_navigationManager.Uri);
+            var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-        return new SupabaseAuthResult
+            if (!queryParams.TryGetValue("code", out var codeValues) || codeValues.Count == 0)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ No authorization code found in callback URL",
+                    LogLevel.Error
+                );
+
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "OAuth authentication failed - no authorization code received",
+                    ErrorCode = "OAUTH_NO_CODE"
+                };
+            }
+
+            var code = codeValues.First();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Authorization code extracted: {code.Substring(0, Math.Min(20, code.Length))}...",
+                LogLevel.Info
+            );
+
+            // ✅ RETRIEVE STORED PKCE VERIFIER
+            var pkceVerifier = await _localStorage.GetItemAsync<string>(PkceVerifierKey);
+
+            if (string.IsNullOrEmpty(pkceVerifier))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ PKCE verifier not found in storage",
+                    LogLevel.Error
+                );
+
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "OAuth authentication failed - session state lost",
+                    ErrorCode = "OAUTH_NO_VERIFIER"
+                };
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✅ PKCE verifier retrieved from storage",
+                LogLevel.Info
+            );
+
+            // ✅ EXCHANGE CODE FOR SESSION
+            var session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
+
+            if (session == null || string.IsNullOrEmpty(session.AccessToken))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Failed to exchange code for session",
+                    LogLevel.Error
+                );
+
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "OAuth authentication failed - could not establish session",
+                    ErrorCode = "OAUTH_EXCHANGE_FAILED"
+                };
+            }
+
+            // ✅ CLEAN UP PKCE VERIFIER
+            await _localStorage.RemoveItemAsync(PkceVerifierKey);
+
+            // ✅ STORE SESSION
+            await StoreSessionAsync(session);
+
+            var user = session.User;
+            if (user != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ OAuth PKCE sign-in successful for: {user.Email}",
+                    LogLevel.Info
+                );
+
+                // Ensure user profile exists
+                await EnsureUserProfileExistsAsync(user);
+            }
+
+            return new SupabaseAuthResult
+            {
+                Success = true,
+                Message = "Sign in successful",
+                Session = CreateSessionInfo(session)
+            };
+        }
+        catch (Exception ex)
         {
-            Success = true,
-            Message = "Sign in successful",
-            Session = CreateSessionInfo(session)
-        };
+            await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth PKCE callback");
+            _logger.LogError(ex, "Error handling OAuth PKCE callback");
+            
+            // Clean up verifier on error
+            try
+            {
+                await _localStorage.RemoveItemAsync(PkceVerifierKey);
+            }
+            catch { }
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Authentication failed",
+                ErrorCode = "OAUTH_CALLBACK_ERROR"
+            };
+        }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
-        _logger.LogError(ex, "Error handling OAuth callback");
-        
-        return new SupabaseAuthResult
-        {
-            Success = false,
-            Message = "Authentication failed",
-            ErrorCode = "OAUTH_CALLBACK_ERROR"
-        };
-    }
-}
+
     // ==================== SIGN UP ====================
     
     public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
@@ -688,6 +756,7 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
             await _localStorage.RemoveItemAsync(RefreshTokenKey);
             await _localStorage.RemoveItemAsync(UserSessionKey);
             await _localStorage.RemoveItemAsync("oauth_return_url");
+            await _localStorage.RemoveItemAsync(PkceVerifierKey); // NEW: Clear PKCE verifier
             
             await MID_HelperFunctions.DebugMessageAsync(
                 "Stored session cleared",
