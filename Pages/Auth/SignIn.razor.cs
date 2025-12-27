@@ -1,9 +1,10 @@
-// Pages/Auth/SignIn.razor.cs - WITH GOOGLE OAUTH
+// Pages/Auth/SignIn.razor.cs - WITH ROLE-BASED REDIRECT
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Users;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -16,6 +17,7 @@ public partial class SignIn : ComponentBase
     [Inject] private ILogger<SignIn> Logger { get; set; } = default!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private IUserService UserService { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "registered")]
     private bool Registered { get; set; }
@@ -37,7 +39,6 @@ public partial class SignIn : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if already authenticated
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         if (authState.User?.Identity?.IsAuthenticated ?? false)
         {
@@ -46,18 +47,16 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
 
-            var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+            var destination = await DetermineRedirectDestinationAsync();
             NavigationManager.NavigateTo(destination, forceLoad: false);
             return;
         }
 
-        // Show registration success message
         if (Registered)
         {
             successMessage = "Account created successfully! Please sign in.";
         }
 
-        // Load remembered email
         try
         {
             var rememberedEmail = await LocalStorage.GetItemAsync<string>("remember_email");
@@ -72,7 +71,6 @@ public partial class SignIn : ComponentBase
             Logger.LogWarning(ex, "Failed to load remembered email");
         }
 
-        // Decode return URL
         if (!string.IsNullOrEmpty(ReturnUrl))
         {
             try
@@ -124,7 +122,6 @@ public partial class SignIn : ComponentBase
 
                 Logger.LogInformation("User signed in successfully: {Email}", email);
                 
-                // Handle remember me
                 if (rememberMe)
                 {
                     await LocalStorage.SetItemAsync("remember_email", email);
@@ -134,15 +131,14 @@ public partial class SignIn : ComponentBase
                     await LocalStorage.RemoveItemAsync("remember_email");
                 }
 
-                // Notify auth state changed
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
                 {
                     provider.NotifyAuthenticationStateChanged();
                     await Task.Delay(500);
                 }
 
-                // Redirect
-                var destination = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+                // ✅ ROLE-BASED REDIRECT
+                var destination = await DetermineRedirectDestinationAsync();
                 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"Redirecting to: {destination}",
@@ -185,10 +181,7 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
 
-            // Get return URL for after OAuth
-            var returnUrl = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
-
-            // Initiate Google OAuth (this will redirect to Google)
+            var returnUrl = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : null;
             var success = await AuthService.SignInWithGoogleAsync(returnUrl);
 
             if (!success)
@@ -197,8 +190,6 @@ public partial class SignIn : ComponentBase
                 isLoading = false;
                 StateHasChanged();
             }
-            // Note: If successful, user will be redirected to Google
-            // They'll come back to /auth/callback after authentication
         }
         catch (Exception ex)
         {
@@ -208,6 +199,63 @@ public partial class SignIn : ComponentBase
             
             isLoading = false;
             StateHasChanged();
+        }
+    }
+
+    // ==================== ROLE-BASED REDIRECT ====================
+
+    private async Task<string> DetermineRedirectDestinationAsync()
+    {
+        try
+        {
+            // If there's a return URL, use it
+            if (!string.IsNullOrEmpty(ReturnUrl))
+            {
+                return ReturnUrl;
+            }
+
+            // Get current user
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user == null)
+            {
+                return "/";
+            }
+
+            // Get user profile with roles
+            var userProfile = await UserService.GetUserByIdAsync(user.Id);
+            
+            if (userProfile == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "User profile not found, redirecting to home",
+                    LogLevel.Warning
+                );
+                return "/";
+            }
+
+            // Check if user is superior admin
+            if (userProfile.IsSuperiorAdmin)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Superior admin detected: {user.Email}, redirecting to admin panel",
+                    LogLevel.Info
+                );
+                return "admin";
+            }
+
+            // Regular user - go to home
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Regular user detected: {user.Email}, redirecting to home",
+                LogLevel.Info
+            );
+            
+            return "/";
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
+            Logger.LogError(ex, "Error determining redirect destination");
+            return "/";
         }
     }
 
