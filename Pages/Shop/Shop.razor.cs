@@ -16,6 +16,7 @@ public partial class Shop : ComponentBase, IDisposable
     [Inject] private ShopStateService ShopState { get; set; } = null!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = null!;
 
+    // FIXED: Same key as SidePanel
     private const string CATEGORY_FILTER_KEY = "shop_category_filter";
     
     private List<ProductViewModel> AllProducts { get; set; } = new();
@@ -30,7 +31,7 @@ public partial class Shop : ComponentBase, IDisposable
     private string SearchQuery { get; set; } = "";
     private string SelectedSort { get; set; } = "default";
     
-    // Active Filters
+    // Active Filters (matches FilterState structure)
     private List<string> ActiveCategories = new();
     private List<string> ActiveBrands = new();
     private int ActiveMinRating = 0;
@@ -104,6 +105,7 @@ public partial class Shop : ComponentBase, IDisposable
 
     /// <summary>
     /// Check localStorage for pending category filter from SidePanel navigation
+    /// FIXED: Now expects List<string> to match FilterState structure
     /// </summary>
     private async Task CheckAndApplyPendingCategoryFilter()
     {
@@ -121,9 +123,10 @@ public partial class Shop : ComponentBase, IDisposable
                 return;
             }
 
-            var categoryName = await LocalStorage.GetItemAsync<string>(CATEGORY_FILTER_KEY);
+            // FIXED: Read as List<string> to match FilterState structure
+            var categoryFilter = await LocalStorage.GetItemAsync<List<string>>(CATEGORY_FILTER_KEY);
             
-            if (string.IsNullOrWhiteSpace(categoryName))
+            if (categoryFilter == null || !categoryFilter.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
                     "Pending category filter is empty",
@@ -134,31 +137,33 @@ public partial class Shop : ComponentBase, IDisposable
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Found pending category filter: {categoryName}",
+                $"Found pending category filter: [{string.Join(", ", categoryFilter)}]",
                 LogLevel.Info
             );
 
-            // Verify the category exists in our products
-            var categoryExists = AllProducts.Any(p => 
-                !string.IsNullOrEmpty(p.Category) && 
-                p.Category.Equals(categoryName, StringComparison.OrdinalIgnoreCase));
+            // Verify at least one category exists in our products
+            var validCategories = categoryFilter
+                .Where(cat => AllProducts.Any(p => 
+                    !string.IsNullOrEmpty(p.Category) && 
+                    p.Category.Equals(cat, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
 
-            if (!categoryExists)
+            if (!validCategories.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Category '{categoryName}' not found in products, ignoring filter",
+                    $"None of the filter categories exist in products, ignoring filter",
                     LogLevel.Warning
                 );
                 await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
                 return;
             }
 
-            // Apply the category filter
+            // Apply the category filter (using FilterState structure)
             ActiveCategories.Clear();
-            ActiveCategories.Add(categoryName);
+            ActiveCategories.AddRange(validCategories);
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Applied category filter: {categoryName}",
+                $"✓ Applied category filter: [{string.Join(", ", ActiveCategories)}]",
                 LogLevel.Info
             );
 
@@ -204,8 +209,9 @@ public partial class Shop : ComponentBase, IDisposable
             LogLevel.Info
         );
 
-        ActiveCategories = filters.Categories;
-        ActiveBrands = filters.Brands;
+        // FIXED: Direct assignment (both are List<string>)
+        ActiveCategories = new List<string>(filters.Categories);
+        ActiveBrands = new List<string>(filters.Brands);
         ActiveMinRating = filters.MinRating;
         ActiveMinPrice = filters.MinPrice;
         ActiveMaxPrice = filters.MaxPrice;
@@ -267,7 +273,7 @@ public partial class Shop : ComponentBase, IDisposable
             ).ToList();
         }
 
-        // Apply category filter
+        // Apply category filter (matches FilterState structure)
         if (ActiveCategories.Any())
         {
             FilteredProducts = FilteredProducts
