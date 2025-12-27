@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - PKCE FLOW IMPLEMENTATION
+// Services/Supabase/SupabaseAuthService.cs - FIXED BASE PATH + PKCE
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
@@ -17,7 +17,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     private const string AccessTokenKey = "supabase_access_token";
     private const string RefreshTokenKey = "supabase_refresh_token";
     private const string UserSessionKey = "supabase_user_session";
-    private const string PkceVerifierKey = "supabase_pkce_verifier"; // NEW: For PKCE flow
+    private const string PkceVerifierKey = "supabase_pkce_verifier";
 
     private readonly Client _supabase;
     private readonly IBlazorAppLocalStorageService _localStorage;
@@ -105,66 +105,71 @@ public class SupabaseAuthService : ISupabaseAuthService
     // ==================== SIGN IN WITH GOOGLE OAUTH (PKCE FLOW) ====================
 
     public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
-{
-    try
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            "🔵 Initiating Google OAuth with PKCE flow",
-            LogLevel.Info
-        );
-
-        // Store return URL for after OAuth
-        if (!string.IsNullOrEmpty(returnUrl))
+        try
         {
-            await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
-        }
-
-        // ✅ FIX: Ensure base path is included
-        var baseUri = _navigationManager.BaseUri;
-        var redirectUrl = $"{baseUri}auth/callback";
-        
-        // Log for debugging
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Redirect URL: {redirectUrl}",
-            LogLevel.Info
-        );
-
-        var options = new SignInOptions
-        {
-            FlowType = Constants.OAuthFlowType.PKCE,
-            RedirectTo = redirectUrl
-        };
-
-        var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
-
-        if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
-        {
-            // Store PKCE verifier
-            await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
-            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ PKCE verifier stored, redirecting to Google (Redirect URL: {redirectUrl})",
+                "🔵 Initiating Google OAuth with PKCE flow",
                 LogLevel.Info
             );
 
-            _navigationManager.NavigateTo(result.Uri.ToString(), true);
-            return true;
+            // Store return URL for after OAuth
+            if (!string.IsNullOrEmpty(returnUrl))
+            {
+                await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
+            }
+
+            // ✅ CRITICAL FIX: Construct full redirect URL with base path
+            var baseUri = _navigationManager.BaseUri; // https://mid-d-man.github.io/SubashaVentures/
+            var redirectUrl = $"{baseUri}auth/callback"; // https://mid-d-man.github.io/SubashaVentures/auth/callback
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔗 BaseUri: {baseUri}",
+                LogLevel.Info
+            );
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔗 Redirect URL: {redirectUrl}",
+                LogLevel.Info
+            );
+
+            var options = new SignInOptions
+            {
+                FlowType = Constants.OAuthFlowType.PKCE,
+                RedirectTo = redirectUrl
+            };
+
+            var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
+
+            if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
+            {
+                // Store PKCE verifier
+                await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ PKCE verifier stored, redirecting to: {result.Uri}",
+                    LogLevel.Info
+                );
+
+                // Force full page reload to Google OAuth
+                _navigationManager.NavigateTo(result.Uri.ToString(), forceLoad: true);
+                return true;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "❌ Google OAuth initiation failed - no redirect URL or PKCE verifier returned",
+                LogLevel.Error
+            );
+
+            return false;
         }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            "❌ Google OAuth initiation failed - no redirect URL or PKCE verifier returned",
-            LogLevel.Error
-        );
-
-        return false;
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth PKCE sign-in");
+            _logger.LogError(ex, "Error initiating Google OAuth PKCE sign-in");
+            return false;
+        }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth PKCE sign-in");
-        _logger.LogError(ex, "Error initiating Google OAuth PKCE sign-in");
-        return false;
-    }
-}
 
     // ==================== HANDLE OAUTH CALLBACK (PKCE FLOW) ====================
 
@@ -173,11 +178,11 @@ public class SupabaseAuthService : ISupabaseAuthService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "🔄 Processing OAuth PKCE callback",
+                $"🔄 Processing OAuth PKCE callback at: {_navigationManager.Uri}",
                 LogLevel.Info
             );
 
-            // ✅ EXTRACT CODE FROM QUERY PARAMETERS (NOT HASH)
+            // Extract code from query parameters
             var uri = new Uri(_navigationManager.Uri);
             var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
@@ -203,7 +208,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // ✅ RETRIEVE STORED PKCE VERIFIER
+            // Retrieve stored PKCE verifier
             var pkceVerifier = await _localStorage.GetItemAsync<string>(PkceVerifierKey);
 
             if (string.IsNullOrEmpty(pkceVerifier))
@@ -226,7 +231,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // ✅ EXCHANGE CODE FOR SESSION
+            // Exchange code for session
             var session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
@@ -244,10 +249,10 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // ✅ CLEAN UP PKCE VERIFIER
+            // Clean up PKCE verifier
             await _localStorage.RemoveItemAsync(PkceVerifierKey);
 
-            // ✅ STORE SESSION
+            // Store session
             await StoreSessionAsync(session);
 
             var user = session.User;
@@ -762,7 +767,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             await _localStorage.RemoveItemAsync(RefreshTokenKey);
             await _localStorage.RemoveItemAsync(UserSessionKey);
             await _localStorage.RemoveItemAsync("oauth_return_url");
-            await _localStorage.RemoveItemAsync(PkceVerifierKey); // NEW: Clear PKCE verifier
+            await _localStorage.RemoveItemAsync(PkceVerifierKey);
             
             await MID_HelperFunctions.DebugMessageAsync(
                 "Stored session cleared",
@@ -791,7 +796,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            // Check if profile already exists (might be created by trigger)
             var existingProfile = await _supabase
                 .From<UserModel>()
                 .Where(u => u.Id == authUser.Id)
@@ -806,7 +810,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 return;
             }
 
-            // Create profile if it doesn't exist
             var userProfile = new UserModel
             {
                 Id = authUser.Id,
@@ -829,7 +832,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             await _supabase.From<UserModel>().Insert(userProfile);
             
-            // Assign default "user" role
             var userRole = new UserRoleModel
             {
                 Id = Guid.NewGuid().ToString(),
@@ -857,7 +859,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            // Check if user profile exists
             var existingUser = await _supabase
                 .From<UserModel>()
                 .Where(u => u.Id == authUser.Id)
@@ -865,7 +866,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (existingUser == null)
             {
-                // Create profile for OAuth user
                 var userProfile = new UserModel
                 {
                     Id = authUser.Id,
@@ -886,7 +886,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
                 await _supabase.From<UserModel>().Insert(userProfile);
                 
-                // Assign default "user" role
                 var userRole = new UserRoleModel
                 {
                     Id = Guid.NewGuid().ToString(),
