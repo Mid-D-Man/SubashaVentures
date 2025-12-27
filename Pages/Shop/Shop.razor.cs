@@ -144,7 +144,7 @@ public partial class Shop : ComponentBase, IDisposable
                 );
                 
                 // No pending filter, just apply default filters
-                ApplyFilters();
+                await ApplyFilters();
                 return;
             }
 
@@ -158,7 +158,7 @@ public partial class Shop : ComponentBase, IDisposable
                     LogLevel.Warning
                 );
                 await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-                ApplyFilters();
+                await ApplyFilters();
                 return;
             }
 
@@ -181,7 +181,7 @@ public partial class Shop : ComponentBase, IDisposable
                     LogLevel.Warning
                 );
                 await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-                ApplyFilters();
+                await ApplyFilters();
                 return;
             }
 
@@ -199,7 +199,7 @@ public partial class Shop : ComponentBase, IDisposable
             
             // Reset to page 1 and apply filters
             CurrentPage = 1;
-            ApplyFilters();
+            await ApplyFilters();
             StateHasChanged();
         }
         catch (Exception ex)
@@ -216,7 +216,7 @@ public partial class Shop : ComponentBase, IDisposable
                 // Ignore cleanup errors
             }
             
-            ApplyFilters();
+            await ApplyFilters();
         }
     }
 
@@ -245,7 +245,7 @@ public partial class Shop : ComponentBase, IDisposable
         ActiveFreeShipping = filters.FreeShipping;
         
         CurrentPage = 1;
-        ApplyFilters();
+        await ApplyFilters();
         CloseMobileFilters();
     }
 
@@ -267,10 +267,11 @@ public partial class Shop : ComponentBase, IDisposable
 
         SearchQuery = query ?? "";
         CurrentPage = 1;
-        ApplyFilters();
+        await ApplyFilters();
     }
 
-    private void ApplyFilters()
+    // FIXED: Made async Task
+    private async Task ApplyFilters()
     {
         // Safety check - don't apply filters if products aren't loaded
         if (!ProductsLoaded || !AllProducts.Any())
@@ -497,7 +498,7 @@ public partial class Shop : ComponentBase, IDisposable
             // Ignore errors
         }
         
-        ApplyFilters();
+        await ApplyFilters();
         StateHasChanged();
     }
 
