@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Shop;
+using SubashaVentures.Services.Storage;
 using SubashaVentures.Layout.Shop;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Domain.Shop;
@@ -13,7 +14,10 @@ public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = null!;
     [Inject] private ShopStateService ShopState { get; set; } = null!;
+    [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = null!;
 
+    private const string CATEGORY_FILTER_KEY = "shop_category_filter";
+    
     private List<ProductViewModel> AllProducts { get; set; } = new();
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
     private List<ProductViewModel> CurrentPageProducts { get; set; } = new();
@@ -42,6 +46,9 @@ public partial class Shop : ComponentBase, IDisposable
 
     // Mobile Filter State
     public bool ShowMobileFilters { get; set; }
+    
+    // Data loading flags
+    private bool ProductsLoaded = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -50,12 +57,19 @@ public partial class Shop : ComponentBase, IDisposable
         ShopState.OnFiltersChanged += HandleFiltersChanged;
         
         await LoadProducts();
+        
+        // FIXED: Check for pending category filter AFTER products are loaded
+        if (ProductsLoaded)
+        {
+            await CheckAndApplyPendingCategoryFilter();
+        }
     }
 
     private async Task LoadProducts()
     {
         IsLoading = true;
         HasError = false;
+        ProductsLoaded = false;
         StateHasChanged();
 
         try
@@ -72,6 +86,7 @@ public partial class Shop : ComponentBase, IDisposable
                 LogLevel.Info
             );
 
+            ProductsLoaded = true;
             ApplyFilters();
         }
         catch (Exception ex)
@@ -87,9 +102,103 @@ public partial class Shop : ComponentBase, IDisposable
         }
     }
 
+    /// <summary>
+    /// Check localStorage for pending category filter from SidePanel navigation
+    /// </summary>
+    private async Task CheckAndApplyPendingCategoryFilter()
+    {
+        try
+        {
+            // Check if there's a pending category filter
+            var hasPendingFilter = await LocalStorage.ContainsKeyAsync(CATEGORY_FILTER_KEY);
+            
+            if (!hasPendingFilter)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No pending category filter found",
+                    LogLevel.Debug
+                );
+                return;
+            }
+
+            var categoryName = await LocalStorage.GetItemAsync<string>(CATEGORY_FILTER_KEY);
+            
+            if (string.IsNullOrWhiteSpace(categoryName))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Pending category filter is empty",
+                    LogLevel.Warning
+                );
+                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+                return;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Found pending category filter: {categoryName}",
+                LogLevel.Info
+            );
+
+            // Verify the category exists in our products
+            var categoryExists = AllProducts.Any(p => 
+                !string.IsNullOrEmpty(p.Category) && 
+                p.Category.Equals(categoryName, StringComparison.OrdinalIgnoreCase));
+
+            if (!categoryExists)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Category '{categoryName}' not found in products, ignoring filter",
+                    LogLevel.Warning
+                );
+                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+                return;
+            }
+
+            // Apply the category filter
+            ActiveCategories.Clear();
+            ActiveCategories.Add(categoryName);
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Applied category filter: {categoryName}",
+                LogLevel.Info
+            );
+
+            // Remove the pending filter from storage
+            await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+            
+            // Apply filters and update UI
+            CurrentPage = 1;
+            ApplyFilters();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking pending category filter");
+            
+            // Clean up on error
+            try
+            {
+                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
     // FIXED: Changed to private async Task (event handler)
     private async Task HandleFiltersChanged(FilterState filters)
     {
+        // Don't apply filters if products aren't loaded yet
+        if (!ProductsLoaded)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Ignoring filter change - products not loaded yet",
+                LogLevel.Warning
+            );
+            return;
+        }
+
         await MID_HelperFunctions.DebugMessageAsync(
             $"Filters changed: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
             LogLevel.Info
@@ -111,6 +220,16 @@ public partial class Shop : ComponentBase, IDisposable
     // FIXED: Changed to private async Task (event handler)
     private async Task HandleSearchChanged(string query)
     {
+        // Don't apply search if products aren't loaded yet
+        if (!ProductsLoaded)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Ignoring search change - products not loaded yet",
+                LogLevel.Warning
+            );
+            return;
+        }
+
         await MID_HelperFunctions.DebugMessageAsync(
             $"Search query: '{query}'",
             LogLevel.Info
@@ -123,6 +242,14 @@ public partial class Shop : ComponentBase, IDisposable
 
     private void ApplyFilters()
     {
+        // Safety check - don't apply filters if products aren't loaded
+        if (!ProductsLoaded || !AllProducts.Any())
+        {
+            FilteredProducts = new List<ProductViewModel>();
+            CurrentPageProducts = new List<ProductViewModel>();
+            return;
+        }
+
         // Start with all active products
         FilteredProducts = AllProducts
             .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
@@ -145,7 +272,7 @@ public partial class Shop : ComponentBase, IDisposable
         {
             FilteredProducts = FilteredProducts
                 .Where(p => !string.IsNullOrEmpty(p.Category) && 
-                           ActiveCategories.Contains(p.Category))
+                           ActiveCategories.Any(ac => ac.Equals(p.Category, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
         }
 
@@ -296,6 +423,16 @@ public partial class Shop : ComponentBase, IDisposable
         SelectedSort = "default";
         CurrentPage = 1;
         
+        // Clear any pending category filter
+        try
+        {
+            await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+        }
+        catch
+        {
+            // Ignore errors
+        }
+        
         ApplyFilters();
         StateHasChanged();
     }
@@ -318,5 +455,15 @@ public partial class Shop : ComponentBase, IDisposable
         // Unsubscribe from events to prevent memory leaks
         ShopState.OnSearchChanged -= HandleSearchChanged;
         ShopState.OnFiltersChanged -= HandleFiltersChanged;
+        
+        // Clean up any pending filters
+        try
+        {
+            _ = LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+        }
+        catch
+        {
+            // Ignore cleanup errors
+        }
     }
 }
