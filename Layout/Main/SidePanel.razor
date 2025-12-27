@@ -162,6 +162,7 @@
     private const string SignUpDirectory = "signup";
     
     private const int MAX_CATEGORIES_TO_SHOW = 4;
+    // FIXED: Same key and structure as Shop page
     private const string CATEGORY_FILTER_KEY = "shop_category_filter";
 
     [Parameter] public bool IsOpen { get; set; } = false;
@@ -303,9 +304,10 @@
             // Close panel first for immediate feedback
             await ClosePanel();
             
-            // Store category filter for Shop page to pick up
-            await LocalStorage.SetItemAsync(CATEGORY_FILTER_KEY, category.Name);
-            Console.WriteLine($"✓ Stored category filter: {category.Name}");
+            // FIXED: Store as List<string> to match FilterState structure
+            var categoryFilter = new List<string> { category.Name };
+            await LocalStorage.SetItemAsync(CATEGORY_FILTER_KEY, categoryFilter);
+            Console.WriteLine($"✓ Stored category filter: [{string.Join(", ", categoryFilter)}]");
             
             // Navigate to shop - the Shop page will check for pending filter after loading
             NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
