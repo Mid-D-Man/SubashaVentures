@@ -54,7 +54,7 @@
                 var returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
                 await LocalStorage.RemoveItemAsync("oauth_return_url");
 
-                var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
+                var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "";
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"Redirecting to: {destination}",
