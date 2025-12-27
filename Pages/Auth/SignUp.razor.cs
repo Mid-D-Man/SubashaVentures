@@ -1,10 +1,12 @@
-// Pages/Auth/SignUp.razor.cs - WITH GOOGLE OAUTH
+// Pages/Auth/SignUp.razor.cs - WITH ROLE-BASED REDIRECT
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Storage;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;
@@ -15,6 +17,8 @@ public partial class SignUp : ComponentBase
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<SignUp> Logger { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
 
     private string firstName = "";
     private string lastName = "";
@@ -44,11 +48,12 @@ public partial class SignUp : ComponentBase
         if (authState.User?.Identity?.IsAuthenticated ?? false)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "User already authenticated, redirecting to home",
+                "User already authenticated, redirecting...",
                 LogLevel.Info
             );
 
-            NavigationManager.NavigateTo("/", forceLoad: false);
+            var destination = await DetermineRedirectDestinationAsync();
+            NavigationManager.NavigateTo(destination, forceLoad: false);
         }
     }
 
@@ -110,7 +115,7 @@ public partial class SignUp : ComponentBase
 
                 // Wait and redirect to sign-in
                 await Task.Delay(3000);
-                NavigationManager.NavigateTo("/signin?registered=true", forceLoad: false);
+                NavigationManager.NavigateTo("signin?registered=true", forceLoad: false);
             }
             else
             {
@@ -155,9 +160,9 @@ public partial class SignUp : ComponentBase
                 LogLevel.Info
             );
 
-            // Initiate Google OAuth (this will redirect to Google)
-            // After successful authentication, user will be created automatically
-            var success = await AuthService.SignInWithGoogleAsync("/");
+            // ✅ For OAuth signup, we don't pass a return URL
+            // After OAuth callback, role-based redirect will happen automatically
+            var success = await AuthService.SignInWithGoogleAsync(null);
 
             if (!success)
             {
@@ -167,6 +172,7 @@ public partial class SignUp : ComponentBase
             }
             // Note: If successful, user will be redirected to Google
             // They'll come back to /auth/callback after authentication
+            // OAuthCallback.razor will handle role-based redirect
         }
         catch (Exception ex)
         {
@@ -176,6 +182,57 @@ public partial class SignUp : ComponentBase
             
             isLoading = false;
             StateHasChanged();
+        }
+    }
+
+    // ==================== ROLE-BASED REDIRECT ====================
+
+    private async Task<string> DetermineRedirectDestinationAsync()
+    {
+        try
+        {
+            // Get current user
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user == null)
+            {
+                return "/";
+            }
+
+            // Get user profile with roles
+            var userProfile = await UserService.GetUserByIdAsync(user.Id);
+            
+            if (userProfile == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "User profile not found, redirecting to home",
+                    LogLevel.Warning
+                );
+                return "/";
+            }
+
+            // Check if user is superior admin
+            if (userProfile.IsSuperiorAdmin)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Superior admin detected: {user.Email}, redirecting to admin panel",
+                    LogLevel.Info
+                );
+                return "admin";
+            }
+
+            // Regular user - go to home
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Regular user detected: {user.Email}, redirecting to home",
+                LogLevel.Info
+            );
+            
+            return "/";
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
+            Logger.LogError(ex, "Error determining redirect destination");
+            return "/";
         }
     }
 
