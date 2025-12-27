@@ -300,11 +300,15 @@
     {
         try
         {
+            // Close panel first for immediate feedback
+            await ClosePanel();
+            
+            // Store category filter for Shop page to pick up
             await LocalStorage.SetItemAsync(CATEGORY_FILTER_KEY, category.Name);
             Console.WriteLine($"✓ Stored category filter: {category.Name}");
             
-            await ClosePanel();
-            NavigationManager.NavigateTo(ShopDirectory);
+            // Navigate to shop - the Shop page will check for pending filter after loading
+            NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
             
             if (OnNavigate.HasDelegate)
             {
@@ -314,6 +318,18 @@
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
+            
+            // Clean up on error
+            try
+            {
+                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+            
+            // Still navigate even if filter storage failed
             await ClosePanel();
             NavigationManager.NavigateTo(ShopDirectory);
         }
@@ -365,5 +381,15 @@
     public void Dispose()
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        
+        // Clean up any pending filters on disposal
+        try
+        {
+            _ = LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+        }
+        catch
+        {
+            // Ignore cleanup errors
+        }
     }
 }
