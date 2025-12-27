@@ -1,14 +1,16 @@
-// Pages/Auth/OAuthCallback.razor
+// Pages/Auth/OAuthCallback.razor - WITH ROLE-BASED REDIRECT
 @page "/auth/callback"
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Auth
 @using SubashaVentures.Services.Supabase
+@using SubashaVentures.Services.Users
 @using SubashaVentures.Utilities.HelperScripts
 @using LogLevel = SubashaVentures.Utilities.Logging.LogLevel
 @inject SupabaseAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject IBlazorAppLocalStorageService LocalStorage
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IUserService UserService
 
 <div class="oauth-callback-container">
     <div class="loading-spinner">
@@ -27,12 +29,9 @@
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "OAuth callback page loaded",
+                $"OAuth callback page loaded at: {NavigationManager.Uri}",
                 LogLevel.Info
             );
-
-            // Small delay to let Supabase process the tokens
-          //  await Task.Delay(1000);
 
             // Handle the OAuth callback
             var result = await AuthService.HandleOAuthCallbackAsync();
@@ -40,7 +39,7 @@
             if (result.Success)
             {
                 statusMessage = "Sign in successful!";
-                detailMessage = "Redirecting to your dashboard...";
+                detailMessage = "Redirecting...";
 
                 // Notify auth state changed
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
@@ -50,11 +49,8 @@
 
                 await Task.Delay(500);
 
-                // Get return URL if stored
-                var returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
-                await LocalStorage.RemoveItemAsync("oauth_return_url");
-
-                var destination = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "";
+                // ✅ ROLE-BASED REDIRECT
+                var destination = await DetermineRedirectDestinationAsync();
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"Redirecting to: {destination}",
@@ -86,6 +82,70 @@
 
             await Task.Delay(3000);
             NavigationManager.NavigateTo("signin", forceLoad: false);
+        }
+    }
+
+    /// <summary>
+    /// Determine redirect destination based on user role
+    /// </summary>
+    private async Task<string> DetermineRedirectDestinationAsync()
+    {
+        try
+        {
+            // Check if there's a stored return URL
+            var returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
+            await LocalStorage.RemoveItemAsync("oauth_return_url");
+
+            if (!string.IsNullOrEmpty(returnUrl))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Using stored return URL: {returnUrl}",
+                    LogLevel.Info
+                );
+                return returnUrl;
+            }
+
+            // Get current user to check role
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user == null)
+            {
+                return "/"; // Fallback to home
+            }
+
+            // Get user profile with roles
+            var userProfile = await UserService.GetUserByIdAsync(user.Id);
+            
+            if (userProfile == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "User profile not found, redirecting to home",
+                    LogLevel.Warning
+                );
+                return "/";
+            }
+
+            // Check if user is superior admin
+            if (userProfile.IsSuperiorAdmin)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Superior admin detected: {user.Email}, redirecting to admin panel",
+                    LogLevel.Info
+                );
+                return "admin";
+            }
+
+            // Regular user - go to home
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Regular user detected: {user.Email}, redirecting to home",
+                LogLevel.Info
+            );
+            
+            return "/";
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
+            return "/"; // Fallback to home on error
         }
     }
 }
