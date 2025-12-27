@@ -105,60 +105,66 @@ public class SupabaseAuthService : ISupabaseAuthService
     // ==================== SIGN IN WITH GOOGLE OAUTH (PKCE FLOW) ====================
 
     public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
+{
+    try
     {
-        try
+        await MID_HelperFunctions.DebugMessageAsync(
+            "🔵 Initiating Google OAuth with PKCE flow",
+            LogLevel.Info
+        );
+
+        // Store return URL for after OAuth
+        if (!string.IsNullOrEmpty(returnUrl))
         {
+            await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
+        }
+
+        // ✅ FIX: Ensure base path is included
+        var baseUri = _navigationManager.BaseUri;
+        var redirectUrl = $"{baseUri}auth/callback";
+        
+        // Log for debugging
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Redirect URL: {redirectUrl}",
+            LogLevel.Info
+        );
+
+        var options = new SignInOptions
+        {
+            FlowType = Constants.OAuthFlowType.PKCE,
+            RedirectTo = redirectUrl
+        };
+
+        var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
+
+        if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
+        {
+            // Store PKCE verifier
+            await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                "🔵 Initiating Google OAuth with PKCE flow",
+                $"✅ PKCE verifier stored, redirecting to Google (Redirect URL: {redirectUrl})",
                 LogLevel.Info
             );
 
-            // Store return URL for after OAuth
-            if (!string.IsNullOrEmpty(returnUrl))
-            {
-                await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
-            }
-
-            var redirectUrl = $"{_navigationManager.BaseUri}auth/callback";
-
-            // ✅ USE PKCE FLOW (NOT IMPLICIT)
-            var options = new SignInOptions
-            {
-                FlowType = Constants.OAuthFlowType.PKCE, // 🔑 KEY CHANGE: Use PKCE instead of implicit
-                RedirectTo = redirectUrl
-            };
-
-            var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
-
-            if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
-            {
-                // ✅ STORE PKCE VERIFIER - We'll need this in the callback!
-                await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ PKCE verifier stored, redirecting to Google",
-                    LogLevel.Info
-                );
-
-                // Redirect to Google OAuth
-                _navigationManager.NavigateTo(result.Uri.ToString(), true);
-                return true;
-            }
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Google OAuth initiation failed - no redirect URL or PKCE verifier returned",
-                LogLevel.Error
-            );
-
-            return false;
+            _navigationManager.NavigateTo(result.Uri.ToString(), true);
+            return true;
         }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth PKCE sign-in");
-            _logger.LogError(ex, "Error initiating Google OAuth PKCE sign-in");
-            return false;
-        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            "❌ Google OAuth initiation failed - no redirect URL or PKCE verifier returned",
+            LogLevel.Error
+        );
+
+        return false;
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth PKCE sign-in");
+        _logger.LogError(ex, "Error initiating Google OAuth PKCE sign-in");
+        return false;
+    }
+}
 
     // ==================== HANDLE OAUTH CALLBACK (PKCE FLOW) ====================
 
