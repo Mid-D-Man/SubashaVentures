@@ -15,8 +15,8 @@ public partial class Shop : ComponentBase, IDisposable
     [Inject] private IProductService ProductService { get; set; } = null!;
     [Inject] private ShopStateService ShopState { get; set; } = null!;
     [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = null!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
 
-    // FIXED: Same key as SidePanel
     private const string CATEGORY_FILTER_KEY = "shop_category_filter";
     
     private List<ProductViewModel> AllProducts { get; set; } = new();
@@ -50,6 +50,7 @@ public partial class Shop : ComponentBase, IDisposable
     
     // Data loading flags
     private bool ProductsLoaded = false;
+    private bool IsInitialized = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -59,10 +60,30 @@ public partial class Shop : ComponentBase, IDisposable
         
         await LoadProducts();
         
-        // FIXED: Check for pending category filter AFTER products are loaded
-        if (ProductsLoaded)
+        IsInitialized = true;
+    }
+
+    // FIXED: Check for pending filters after render (when DOM is ready)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && ProductsLoaded)
         {
             await CheckAndApplyPendingCategoryFilter();
+        }
+        
+        // CRITICAL FIX: Also check on every render if products are loaded
+        // This handles the case where user is already on shop page
+        if (!firstRender && ProductsLoaded && IsInitialized)
+        {
+            var hasPendingFilter = await LocalStorage.ContainsKeyAsync(CATEGORY_FILTER_KEY);
+            if (hasPendingFilter)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Found pending filter on subsequent render, applying now",
+                    LogLevel.Info
+                );
+                await CheckAndApplyPendingCategoryFilter();
+            }
         }
     }
 
@@ -88,7 +109,9 @@ public partial class Shop : ComponentBase, IDisposable
             );
 
             ProductsLoaded = true;
-            ApplyFilters();
+            
+            // FIXED: Don't apply filters here - let OnAfterRenderAsync handle it
+            // This ensures pending category filter is checked first
         }
         catch (Exception ex)
         {
@@ -105,7 +128,6 @@ public partial class Shop : ComponentBase, IDisposable
 
     /// <summary>
     /// Check localStorage for pending category filter from SidePanel navigation
-    /// FIXED: Now expects List<string> to match FilterState structure
     /// </summary>
     private async Task CheckAndApplyPendingCategoryFilter()
     {
@@ -117,13 +139,16 @@ public partial class Shop : ComponentBase, IDisposable
             if (!hasPendingFilter)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No pending category filter found",
+                    "No pending category filter found, applying default filters",
                     LogLevel.Debug
                 );
+                
+                // No pending filter, just apply default filters
+                ApplyFilters();
                 return;
             }
 
-            // FIXED: Read as List<string> to match FilterState structure
+            // Read as List<string> to match FilterState structure
             var categoryFilter = await LocalStorage.GetItemAsync<List<string>>(CATEGORY_FILTER_KEY);
             
             if (categoryFilter == null || !categoryFilter.Any())
@@ -133,6 +158,7 @@ public partial class Shop : ComponentBase, IDisposable
                     LogLevel.Warning
                 );
                 await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+                ApplyFilters();
                 return;
             }
 
@@ -155,10 +181,11 @@ public partial class Shop : ComponentBase, IDisposable
                     LogLevel.Warning
                 );
                 await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
+                ApplyFilters();
                 return;
             }
 
-            // Apply the category filter (using FilterState structure)
+            // Apply the category filter
             ActiveCategories.Clear();
             ActiveCategories.AddRange(validCategories);
             
@@ -170,7 +197,7 @@ public partial class Shop : ComponentBase, IDisposable
             // Remove the pending filter from storage
             await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
             
-            // Apply filters and update UI
+            // Reset to page 1 and apply filters
             CurrentPage = 1;
             ApplyFilters();
             StateHasChanged();
@@ -179,7 +206,7 @@ public partial class Shop : ComponentBase, IDisposable
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Checking pending category filter");
             
-            // Clean up on error
+            // Clean up on error and apply default filters
             try
             {
                 await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
@@ -188,13 +215,13 @@ public partial class Shop : ComponentBase, IDisposable
             {
                 // Ignore cleanup errors
             }
+            
+            ApplyFilters();
         }
     }
 
-    // FIXED: Changed to private async Task (event handler)
     private async Task HandleFiltersChanged(FilterState filters)
     {
-        // Don't apply filters if products aren't loaded yet
         if (!ProductsLoaded)
         {
             await MID_HelperFunctions.DebugMessageAsync(
@@ -209,7 +236,6 @@ public partial class Shop : ComponentBase, IDisposable
             LogLevel.Info
         );
 
-        // FIXED: Direct assignment (both are List<string>)
         ActiveCategories = new List<string>(filters.Categories);
         ActiveBrands = new List<string>(filters.Brands);
         ActiveMinRating = filters.MinRating;
@@ -223,10 +249,8 @@ public partial class Shop : ComponentBase, IDisposable
         CloseMobileFilters();
     }
 
-    // FIXED: Changed to private async Task (event handler)
     private async Task HandleSearchChanged(string query)
     {
-        // Don't apply search if products aren't loaded yet
         if (!ProductsLoaded)
         {
             await MID_HelperFunctions.DebugMessageAsync(
@@ -251,15 +275,29 @@ public partial class Shop : ComponentBase, IDisposable
         // Safety check - don't apply filters if products aren't loaded
         if (!ProductsLoaded || !AllProducts.Any())
         {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Cannot apply filters - products not loaded",
+                LogLevel.Debug
+            );
             FilteredProducts = new List<ProductViewModel>();
             CurrentPageProducts = new List<ProductViewModel>();
             return;
         }
 
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Applying filters - Categories: [{string.Join(", ", ActiveCategories)}], Search: '{SearchQuery}'",
+            LogLevel.Info
+        );
+
         // Start with all active products
         FilteredProducts = AllProducts
             .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
             .ToList();
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"After active filter: {FilteredProducts.Count} products",
+            LogLevel.Debug
+        );
 
         // Apply search filter
         if (!string.IsNullOrWhiteSpace(SearchQuery))
@@ -271,15 +309,25 @@ public partial class Shop : ComponentBase, IDisposable
                 (p.Brand?.ToLower().Contains(query) ?? false) ||
                 (p.Category?.ToLower().Contains(query) ?? false)
             ).ToList();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"After search filter: {FilteredProducts.Count} products",
+                LogLevel.Debug
+            );
         }
 
-        // Apply category filter (matches FilterState structure)
+        // Apply category filter
         if (ActiveCategories.Any())
         {
             FilteredProducts = FilteredProducts
                 .Where(p => !string.IsNullOrEmpty(p.Category) && 
                            ActiveCategories.Any(ac => ac.Equals(p.Category, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"After category filter: {FilteredProducts.Count} products",
+                LogLevel.Debug
+            );
         }
 
         // Apply brand filter
@@ -289,6 +337,11 @@ public partial class Shop : ComponentBase, IDisposable
                 .Where(p => !string.IsNullOrEmpty(p.Brand) && 
                            ActiveBrands.Contains(p.Brand))
                 .ToList();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"After brand filter: {FilteredProducts.Count} products",
+                LogLevel.Debug
+            );
         }
 
         // Apply rating filter
@@ -319,6 +372,11 @@ public partial class Shop : ComponentBase, IDisposable
                 .Where(p => p.Price >= 50000)
                 .ToList();
         }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ Final filtered products: {FilteredProducts.Count}",
+            LogLevel.Info
+        );
 
         // Apply sorting
         ApplySorting();
@@ -458,11 +516,9 @@ public partial class Shop : ComponentBase, IDisposable
 
     public void Dispose()
     {
-        // Unsubscribe from events to prevent memory leaks
         ShopState.OnSearchChanged -= HandleSearchChanged;
         ShopState.OnFiltersChanged -= HandleFiltersChanged;
         
-        // Clean up any pending filters
         try
         {
             _ = LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
