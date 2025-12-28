@@ -128,7 +128,7 @@
     private async Task HandleWishlistToggle(MouseEventArgs e)
     {
         // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"/product/{Product.Slug}"))
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
         {
             return;
         }
