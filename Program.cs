@@ -118,6 +118,13 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
+// Add these lines in Program.cs if missing
+
+// Cart Service
+builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
+
+// Wishlist Service  
+builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
 
 var host = builder.Build();
 
