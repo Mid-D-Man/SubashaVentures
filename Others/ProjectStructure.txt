@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Dec 28 15:45:16 UTC 2025
+Generated: Sun Dec 28 16:13:40 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: fbbb523ad9162dd53e7d6634f7c118c9705a3ef8
+Commit: 47563f523478b30d3cb2000d4c67da9f283a6d0c
 Branch: master
 ==================================
 
@@ -35,6 +35,7 @@ Components/Shared/Cards/ShopProductCard.razor
 Components/Shared/Cards/ShopProductCard.razor.css
 Components/Shared/Forms/InputField.razor
 Components/Shared/Forms/InputField.razor.css
+Components/Shared/Forms/ProductReviewForm.razor
 Components/Shared/Loading/LoadingSpinner.razor
 Components/Shared/Loading/LoadingSpinner.razor.css
 Components/Shared/Loading/SkeletonCard.razor
@@ -380,7 +381,7 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 129 files
-.razor    : 65 files
+.razor    : 66 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
