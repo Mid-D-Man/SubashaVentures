@@ -1,5 +1,9 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
+@inject NavigationManager NavigationManager
+@inject IPermissionService PermissionService
+@inject ICartService CartService
+@inject IWishlistService WishlistService
 
 <div class="potd-card @CssClass">
     <div class="potd-header">
@@ -38,6 +42,14 @@
                         <span class="discount-label">OFF</span>
                     </div>
                 }
+                
+                @* Wishlist Button *@
+                <button class="potd-wishlist-btn @(isInWishlist ? "active" : "")" 
+                        @onclick="HandleWishlistToggle" 
+                        @onclick:stopPropagation="true"
+                        title="@(isInWishlist ? "Remove from wishlist" : "Add to wishlist")">
+                    <span class="heart-icon">@(isInWishlist ? "♥" : "♡")</span>
+                </button>
             </div>
 
             <div class="potd-info">
@@ -120,6 +132,40 @@
     [Parameter] public EventCallback<ProductViewModel> OnAddToCart { get; set; }
     [Parameter] public EventCallback<ProductViewModel> OnViewDetails { get; set; }
 
+    private bool isInWishlist = false;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is authenticated and get their wishlist status
+        if (Product != null && await PermissionService.IsAuthenticatedAsync())
+        {
+            currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                isInWishlist = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
+            }
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Update wishlist status if product changes
+        if (Product != null && await PermissionService.IsAuthenticatedAsync())
+        {
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+            
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                isInWishlist = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
+                StateHasChanged();
+            }
+        }
+    }
+
     private string GetTimeRemaining()
     {
         var now = DateTime.UtcNow;
@@ -139,27 +185,92 @@
         return "₦0";
     }
 
-    private async Task HandleCardClick()
+    private void HandleCardClick()
     {
-        if (Product != null && OnClick.HasDelegate)
+        if (Product != null)
         {
-            await OnClick.InvokeAsync(Product);
+            // Navigate to product details page
+            NavigationManager.NavigateTo($"product/{Product.Slug}");
         }
     }
 
     private async Task HandleAddToCart(MouseEventArgs e)
     {
-        if (Product != null && OnAddToCart.HasDelegate && Product.IsInStock)
+        if (Product == null || !Product.IsInStock) return;
+
+        // Check authentication
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
         {
-            await OnAddToCart.InvokeAsync(Product);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            currentUserId = await PermissionService.GetCurrentUserIdAsync();
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            PermissionService.ShowAuthRequiredMessage("add items to cart");
+            return;
+        }
+
+        // Add to cart
+        var success = await CartService.AddToCartAsync(
+            currentUserId, 
+            Product.Id.ToString(), 
+            quantity: 1
+        );
+        
+        if (success)
+        {
+            // Invoke parent callback if provided
+            if (OnAddToCart.HasDelegate)
+            {
+                await OnAddToCart.InvokeAsync(Product);
+            }
+            
+            Console.WriteLine($"✓ Added {Product.Name} to cart");
         }
     }
 
-    private async Task HandleViewDetails(MouseEventArgs e)
+    private void HandleViewDetails(MouseEventArgs e)
     {
-        if (Product != null && OnViewDetails.HasDelegate)
+        if (Product != null)
         {
-            await OnViewDetails.InvokeAsync(Product);
+            // Navigate to product details page
+            NavigationManager.NavigateTo($"product/{Product.Slug}");
+        }
+    }
+
+    private async Task HandleWishlistToggle(MouseEventArgs e)
+    {
+        if (Product == null) return;
+
+        // Check authentication
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            currentUserId = await PermissionService.GetCurrentUserIdAsync();
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            PermissionService.ShowAuthRequiredMessage("add items to wishlist");
+            return;
+        }
+
+        // Toggle wishlist
+        var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
+        
+        if (success)
+        {
+            isInWishlist = !isInWishlist;
+            StateHasChanged();
         }
     }
 }
