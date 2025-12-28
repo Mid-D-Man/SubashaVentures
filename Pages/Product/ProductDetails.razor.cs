@@ -12,6 +12,7 @@ public partial class ProductDetails : ComponentBase
     #region Injected Services
     
     [Inject] private IProductService ProductService { get; set; } = null!;
+    [Inject] private IReviewService ReviewService { get; set; } = null!;
     [Inject] private INavigationService NavigationService { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
     
@@ -26,13 +27,20 @@ public partial class ProductDetails : ComponentBase
     #region State Properties
     
     private ProductViewModel? Product { get; set; }
+    private List<ReviewViewModel> Reviews { get; set; } = new();
+    private List<ProductViewModel> RelatedProductsList { get; set; } = new();
+    
     private bool IsLoading { get; set; } = true;
+    private bool IsLoadingReviews { get; set; } = false;
+    private bool IsLoadingRelated { get; set; } = false;
     
     private int SelectedImageIndex { get; set; } = 0;
     private string? SelectedSize { get; set; }
     private string? SelectedColor { get; set; }
     private int Quantity { get; set; } = 1;
     private bool IsFavorite { get; set; }
+    
+    private bool ShowReviewForm { get; set; } = false;
     
     #endregion
 
@@ -94,6 +102,12 @@ public partial class ProductDetails : ComponentBase
 
                 // Initialize default selections
                 InitializeDefaults();
+                
+                // Load reviews
+                _ = LoadReviews();
+                
+                // Load related products
+                _ = LoadRelatedProducts();
             }
         }
         catch (Exception ex)
@@ -104,6 +118,98 @@ public partial class ProductDetails : ComponentBase
         finally
         {
             IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadReviews()
+    {
+        if (Product == null) return;
+
+        IsLoadingReviews = true;
+        StateHasChanged();
+
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loading reviews for product: {Product.Id}",
+                LogLevel.Info
+            );
+
+            Reviews = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {Reviews.Count} reviews",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading reviews");
+            Reviews = new List<ReviewViewModel>();
+        }
+        finally
+        {
+            IsLoadingReviews = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadRelatedProducts()
+    {
+        if (Product == null) return;
+
+        IsLoadingRelated = true;
+        StateHasChanged();
+
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loading related products for category: {Product.Category}",
+                LogLevel.Info
+            );
+
+            // Get products from same category, excluding current product
+            var allProducts = await ProductService.GetProductsByCategoryAsync(Product.CategoryId);
+            
+            RelatedProductsList = allProducts
+                .Where(p => p.Id != Product.Id && p.IsActive && p.Stock > 0)
+                .OrderByDescending(p => p.Rating)
+                .ThenByDescending(p => p.SalesCount)
+                .Take(6)
+                .ToList();
+
+            // If not enough products from category, add products from same brand
+            if (RelatedProductsList.Count < 4 && !string.IsNullOrEmpty(Product.Brand))
+            {
+                var brandProducts = await ProductService.GetAllProductsAsync();
+                var additionalProducts = brandProducts
+                    .Where(p => 
+                        p.Brand.Equals(Product.Brand, StringComparison.OrdinalIgnoreCase) &&
+                        p.Id != Product.Id &&
+                        !RelatedProductsList.Any(rp => rp.Id == p.Id) &&
+                        p.IsActive && 
+                        p.Stock > 0)
+                    .OrderByDescending(p => p.Rating)
+                    .Take(4 - RelatedProductsList.Count)
+                    .ToList();
+
+                RelatedProductsList.AddRange(additionalProducts);
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {RelatedProductsList.Count} related products",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading related products");
+            RelatedProductsList = new List<ProductViewModel>();
+        }
+        finally
+        {
+            IsLoadingRelated = false;
             StateHasChanged();
         }
     }
@@ -240,6 +346,60 @@ public partial class ProductDetails : ComponentBase
         );
 
         // TODO: Implement share functionality (Web Share API via JS Interop)
+    }
+
+    #endregion
+
+    #region Review Handlers
+
+    private void OpenReviewForm()
+    {
+        ShowReviewForm = true;
+        StateHasChanged();
+    }
+
+    private void CloseReviewForm()
+    {
+        ShowReviewForm = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleReviewSubmitted()
+    {
+        ShowReviewForm = false;
+        await LoadReviews();
+        StateHasChanged();
+    }
+
+    private async Task HandleHelpfulClick(ReviewViewModel review)
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Mark review helpful: {review.Id}",
+            LogLevel.Info
+        );
+
+        try
+        {
+            var success = await ReviewService.MarkReviewHelpfulAsync(review.Id);
+            if (success)
+            {
+                await LoadReviews();
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Marking review helpful");
+        }
+    }
+
+    private async Task HandleReviewImageClick(string imageUrl)
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Review image clicked: {imageUrl}",
+            LogLevel.Info
+        );
+
+        // TODO: Open image in lightbox/modal
     }
 
     #endregion
