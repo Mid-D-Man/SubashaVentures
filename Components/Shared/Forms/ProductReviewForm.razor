@@ -1,0 +1,234 @@
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Services.Products
+@using SubashaVentures.Services.Authorization
+@inject IReviewService ReviewService
+@inject IPermissionService PermissionService
+
+<div class="review-form @CssClass">
+    <h3 class="form-title">Write a Review</h3>
+    
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="error-banner">
+            <span class="error-icon">⚠️</span>
+            <span>@ErrorMessage</span>
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="success-banner">
+            <span class="success-icon">✓</span>
+            <span>@SuccessMessage</span>
+        </div>
+    }
+
+    <div class="form-content">
+        @* Rating *@
+        <div class="rating-input">
+            <label class="rating-label">Your Rating *</label>
+            <div class="star-selector">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    int starValue = i;
+                    <button type="button" 
+                            class="star-btn @(starValue <= SelectedRating ? "active" : "")"
+                            @onclick="() => SelectRating(starValue)">
+                        <span class="star">★</span>
+                    </button>
+                }
+            </div>
+            @if (ShowRatingError)
+            {
+                <span class="field-error">Please select a rating</span>
+            }
+        </div>
+
+        @* Title *@
+        <InputField Label="Review Title (Optional)"
+                    Placeholder="Sum up your experience in a few words"
+                    @bind-Value="ReviewTitle"
+                    MaxLength="100"
+                    ShowCharacterCount="true"
+                    CssClass="review-title-input" />
+
+        @* Comment *@
+        <div class="comment-input">
+            <label class="comment-label">Your Review *</label>
+            <textarea class="comment-textarea @(ShowCommentError ? "has-error" : "")"
+                      placeholder="Share your thoughts about this product (minimum 50 characters)"
+                      maxlength="2000"
+                      rows="6"
+                      @bind="ReviewComment"
+                      @oninput="HandleCommentInput"></textarea>
+            <div class="comment-footer">
+                @if (ShowCommentError)
+                {
+                    <span class="field-error">Review must be at least 50 characters</span>
+                }
+                <span class="char-count @(ReviewComment.Length >= 2000 ? "max-reached" : "")">
+                    @ReviewComment.Length / 2000
+                </span>
+            </div>
+        </div>
+
+        @* Submit Button *@
+        <div class="form-actions">
+            <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                           OnClick="HandleCancel"
+                           IsDisabled="IsSubmitting"
+                           CssClass="btn-cancel">
+                Cancel
+            </SecondaryButton>
+            
+            <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                         OnClick="HandleSubmit"
+                         IsLoading="IsSubmitting"
+                         IsDisabled="IsSubmitting"
+                         CssClass="btn-submit">
+                @(IsSubmitting ? "Submitting..." : "Submit Review")
+            </PrimaryButton>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string ProductId { get; set; } = "";
+    [Parameter] public string ProductName { get; set; } = "";
+    [Parameter] public EventCallback OnReviewSubmitted { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public string CssClass { get; set; } = "";
+
+    private int SelectedRating { get; set; } = 0;
+    private string ReviewTitle { get; set; } = "";
+    private string ReviewComment { get; set; } = "";
+    
+    private bool IsSubmitting { get; set; }
+    private bool ShowRatingError { get; set; }
+    private bool ShowCommentError { get; set; }
+    private string ErrorMessage { get; set; } = "";
+    private string SuccessMessage { get; set; } = "";
+
+    private const int MIN_COMMENT_LENGTH = 50;
+    private const int MAX_COMMENT_LENGTH = 2000;
+    private const int MAX_TITLE_LENGTH = 100;
+
+    private void SelectRating(int rating)
+    {
+        SelectedRating = rating;
+        ShowRatingError = false;
+        StateHasChanged();
+    }
+
+    private void HandleCommentInput(ChangeEventArgs e)
+    {
+        ReviewComment = e.Value?.ToString() ?? "";
+        ShowCommentError = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Reset errors
+        ErrorMessage = "";
+        SuccessMessage = "";
+        ShowRatingError = false;
+        ShowCommentError = false;
+
+        // Validation
+        if (SelectedRating == 0)
+        {
+            ShowRatingError = true;
+            ErrorMessage = "Please select a rating";
+            return;
+        }
+
+        if (ReviewComment.Length < MIN_COMMENT_LENGTH)
+        {
+            ShowCommentError = true;
+            ErrorMessage = $"Review must be at least {MIN_COMMENT_LENGTH} characters";
+            return;
+        }
+
+        // Check authentication
+        if (!await PermissionService.IsAuthenticatedAsync())
+        {
+            ErrorMessage = "You must be signed in to write a review";
+            return;
+        }
+
+        var userId = await PermissionService.GetCurrentUserIdAsync();
+        var userEmail = await PermissionService.GetCurrentUserEmailAsync();
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            ErrorMessage = "Unable to identify user. Please sign in again.";
+            return;
+        }
+
+        IsSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Check if user already reviewed this product
+            var hasReviewed = await ReviewService.HasUserReviewedProductAsync(userId, ProductId);
+            if (hasReviewed)
+            {
+                ErrorMessage = "You have already reviewed this product";
+                return;
+            }
+
+            var request = new CreateReviewRequest
+            {
+                ProductId = ProductId,
+                UserId = userId,
+                UserName = userEmail ?? "Anonymous",
+                Rating = SelectedRating,
+                Title = string.IsNullOrWhiteSpace(ReviewTitle) ? null : ReviewTitle.Trim(),
+                Comment = ReviewComment.Trim(),
+                IsVerifiedPurchase = false // TODO: Check if user purchased this product
+            };
+
+            var reviewId = await ReviewService.CreateReviewAsync(request);
+
+            if (!string.IsNullOrEmpty(reviewId))
+            {
+                SuccessMessage = "Thank you! Your review has been submitted and is pending approval.";
+                
+                // Reset form
+                SelectedRating = 0;
+                ReviewTitle = "";
+                ReviewComment = "";
+                
+                // Notify parent
+                if (OnReviewSubmitted.HasDelegate)
+                {
+                    await OnReviewSubmitted.InvokeAsync();
+                }
+            }
+            else
+            {
+                ErrorMessage = "Failed to submit review. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (OnCancel.HasDelegate)
+        {
+            await OnCancel.InvokeAsync();
+        }
+    }
+}
