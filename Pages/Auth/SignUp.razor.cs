@@ -1,4 +1,4 @@
-// Pages/Auth/SignUp.razor.cs - WITH ROLE-BASED REDIRECT
+// Pages/Auth/SignUp.razor.cs - FIXED REDIRECT
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Models.Supabase;
@@ -195,7 +195,7 @@ public partial class SignUp : ComponentBase
             var user = await AuthService.GetCurrentUserAsync();
             if (user == null)
             {
-                return "/";
+                return ""; // ✅ FIXED: Empty string for home
             }
 
             // Get user profile with roles
@@ -207,7 +207,7 @@ public partial class SignUp : ComponentBase
                     "User profile not found, redirecting to home",
                     LogLevel.Warning
                 );
-                return "/";
+                return ""; // ✅ FIXED: Empty string for home
             }
 
             // Check if user is superior admin
@@ -226,13 +226,13 @@ public partial class SignUp : ComponentBase
                 LogLevel.Info
             );
             
-            return "/";
+            return ""; // ✅ FIXED: Empty string for home
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
             Logger.LogError(ex, "Error determining redirect destination");
-            return "/";
+            return ""; // ✅ FIXED: Empty string for home on error
         }
     }
 
