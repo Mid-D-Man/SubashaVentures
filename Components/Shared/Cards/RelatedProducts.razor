@@ -1,0 +1,59 @@
+@using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Domain.Product
+
+<div class="related-products @CssClass">
+    <h3 class="section-title">You Might Also Like</h3>
+    
+    @if (IsLoading)
+    {
+        <div class="loading-state">
+            <div class="skeleton-grid">
+                @for (int i = 0; i < 4; i++)
+                {
+                    <div class="skeleton-card"></div>
+                }
+            </div>
+        </div>
+    }
+    else if (Products.Any())
+    {
+        <div class="products-grid">
+            @foreach (var product in Products)
+            {
+                <ShopProductCard Product="@product"
+                               OnAddToCart="HandleAddToCart"
+                               OnToggleFavorite="HandleToggleFavorite" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <p>No related products found</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<ProductViewModel> Products { get; set; } = new();
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback<int> OnAddToCart { get; set; }
+    [Parameter] public EventCallback<int> OnToggleFavorite { get; set; }
+    [Parameter] public string CssClass { get; set; } = "";
+
+    private async Task HandleAddToCart(int productId)
+    {
+        if (OnAddToCart.HasDelegate)
+        {
+            await OnAddToCart.InvokeAsync(productId);
+        }
+    }
+
+    private async Task HandleToggleFavorite(int productId)
+    {
+        if (OnToggleFavorite.HasDelegate)
+        {
+            await OnToggleFavorite.InvokeAsync(productId);
+        }
+    }
+}
