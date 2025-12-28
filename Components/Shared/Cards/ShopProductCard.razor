@@ -1,5 +1,8 @@
 @using SubashaVentures.Domain.Product
 @inject NavigationManager NavigationManager
+@inject IPermissionService PermissionService
+@inject ICartService CartService
+@inject IWishlistService WishlistService
 
 <div class="shop-product-card @(Product.IsFeatured ? "featured" : "")" @onclick="HandleCardClick">
     
@@ -105,9 +108,24 @@
     [Parameter] public EventCallback<int> OnToggleFavorite { get; set; }
 
     private bool IsFavorite { get; set; }
+    private string? currentUserId;
+    
     private bool HasValidImage => Product?.Images != null && 
                                    Product.Images.Any() && 
                                    !string.IsNullOrWhiteSpace(Product.Images.First());
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is authenticated and get their wishlist status
+        if (await PermissionService.IsAuthenticatedAsync())
+        {
+            currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                IsFavorite = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
+            }
+        }
+    }
 
     private string GetImageUrl()
     {
@@ -130,19 +148,77 @@
 
     private async Task HandleAddToCart(MouseEventArgs e)
     {
-        if (OnAddToCart.HasDelegate && Product.IsInStock)
+        if (!Product.IsInStock) return;
+
+        // Check authentication
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
         {
-            await OnAddToCart.InvokeAsync(Product.Id);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            currentUserId = await PermissionService.GetCurrentUserIdAsync();
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            PermissionService.ShowAuthRequiredMessage("add items to cart");
+            return;
+        }
+
+        // Add to cart
+        var success = await CartService.AddToCartAsync(
+            currentUserId, 
+            Product.Id.ToString(), 
+            quantity: 1
+        );
+        
+        if (success)
+        {
+            // Invoke parent callback if provided
+            if (OnAddToCart.HasDelegate)
+            {
+                await OnAddToCart.InvokeAsync(Product.Id);
+            }
+            
+            Console.WriteLine($"✓ Added {Product.Name} to cart");
         }
     }
 
     private async Task HandleToggleFavorite(MouseEventArgs e)
     {
-        IsFavorite = !IsFavorite;
-        
-        if (OnToggleFavorite.HasDelegate)
+        // Check authentication
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
         {
-            await OnToggleFavorite.InvokeAsync(Product.Id);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            currentUserId = await PermissionService.GetCurrentUserIdAsync();
+        }
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            PermissionService.ShowAuthRequiredMessage("add items to wishlist");
+            return;
+        }
+
+        // Toggle wishlist
+        var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
+        
+        if (success)
+        {
+            IsFavorite = !IsFavorite;
+            
+            // Invoke parent callback if provided
+            if (OnToggleFavorite.HasDelegate)
+            {
+                await OnToggleFavorite.InvokeAsync(Product.Id);
+            }
+            
+            StateHasChanged();
         }
     }
 }
