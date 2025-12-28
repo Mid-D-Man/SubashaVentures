@@ -116,13 +116,13 @@
     private void HandleCardClick()
     {
         // Navigate to product details page
-        NavigationManager.NavigateTo($"/product/{Product.Slug}");
+        NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
     private void HandleViewDetails(MouseEventArgs e)
     {
         // Navigate to product details page
-        NavigationManager.NavigateTo($"/product/{Product.Slug}");
+        NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
     private async Task HandleWishlistToggle(MouseEventArgs e)
@@ -157,7 +157,7 @@
     private async Task HandleAddToCart(MouseEventArgs e)
     {
         // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"/product/{Product.Slug}"))
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
         {
             return;
         }
