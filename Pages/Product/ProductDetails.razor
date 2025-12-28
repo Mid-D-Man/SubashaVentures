@@ -1,6 +1,7 @@
 @page "/product/{slug}"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Domain.Product
 
 <PageTitle>@(Product?.Name ?? "Product") - Subasha Ventures</PageTitle>
@@ -38,7 +39,7 @@
             </button>
         </div>
 
-        @* Main Content *@
+        @* Main Content - Scrollable *@
         <div class="product-content">
             <div class="product-layout">
                 
@@ -98,7 +99,7 @@
                         <p class="product-description">@Product.Description</p>
                     </div>
 
-                    @* Rating *@
+                    @* Rating & Reviews Summary *@
                     @if (Product.Rating > 0)
                     {
                         <div class="product-rating">
@@ -273,6 +274,61 @@
                     </div>
                 </div>
             </div>
+
+            @* Reviews Section *@
+            <div class="reviews-section">
+                <h2 class="section-title">Customer Reviews</h2>
+                
+                @* Write Review Button/Form *@
+                @if (ShowReviewForm)
+                {
+                    <ProductReviewForm ProductId="@Product.Id.ToString()"
+                                     ProductName="@Product.Name"
+                                     OnReviewSubmitted="HandleReviewSubmitted"
+                                     OnCancel="CloseReviewForm" />
+                }
+                else
+                {
+                    <button class="btn-write-review" @onclick="OpenReviewForm">
+                        <span class="review-icon">✍️</span>
+                        <span>Write a Review</span>
+                    </button>
+                }
+
+                @* Reviews List *@
+                @if (IsLoadingReviews)
+                {
+                    <div class="reviews-loading">
+                        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium" 
+                                      Message="Loading reviews..." />
+                    </div>
+                }
+                else if (Reviews.Any())
+                {
+                    <div class="reviews-list">
+                        @foreach (var review in Reviews)
+                        {
+                            <CustomerReviewCard Review="@review"
+                                              OnHelpfulClick="HandleHelpfulClick"
+                                              OnImageClick="HandleReviewImageClick" />
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="reviews-empty">
+                        <div class="empty-icon">💭</div>
+                        <h3>No Reviews Yet</h3>
+                        <p>Be the first to review this product!</p>
+                    </div>
+                }
+            </div>
+
+            @* Related Products *@
+            <RelatedProducts Products="@RelatedProductsList"
+                           IsLoading="@IsLoadingRelated"
+                           OnAddToCart="HandleAddToCart"
+                           OnToggleFavorite="HandleToggleFavorite" />
         </div>
     }
 </div>
