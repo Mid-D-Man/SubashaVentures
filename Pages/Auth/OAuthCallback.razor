@@ -1,4 +1,4 @@
-// Pages/Auth/OAuthCallback.razor - WITH ROLE-BASED REDIRECT
+// Pages/Auth/OAuthCallback.razor.cs - FIXED REDIRECT
 @page "/auth/callback"
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Auth
@@ -109,7 +109,7 @@
             var user = await AuthService.GetCurrentUserAsync();
             if (user == null)
             {
-                return "/"; // Fallback to home
+                return ""; // ✅ FIXED: Empty string for home
             }
 
             // Get user profile with roles
@@ -121,7 +121,7 @@
                     "User profile not found, redirecting to home",
                     LogLevel.Warning
                 );
-                return "/";
+                return ""; // ✅ FIXED: Empty string for home
             }
 
             // Check if user is superior admin
@@ -140,12 +140,12 @@
                 LogLevel.Info
             );
             
-            return "/";
+            return ""; // ✅ FIXED: Empty string for home
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
-            return "/"; // Fallback to home on error
+            return ""; // ✅ FIXED: Empty string for home on error
         }
     }
 }
