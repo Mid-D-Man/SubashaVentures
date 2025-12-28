@@ -4,7 +4,7 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Navigation;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-
+using ReviewModel = SubashaVentures.Models.Firebase.ReviewModel;
 namespace SubashaVentures.Pages.Product;
 
 public partial class ProductDetails : ComponentBase
@@ -408,12 +408,12 @@ public partial class ProductDetails : ComponentBase
 
     private void NavigateBack()
     {
-        NavigationManager.NavigateTo("/shop");
+        NavigationManager.NavigateTo("shop");
     }
 
     private void NavigateToShop()
     {
-        NavigationManager.NavigateTo("/shop");
+        NavigationManager.NavigateTo("shop");
     }
 
     #endregion

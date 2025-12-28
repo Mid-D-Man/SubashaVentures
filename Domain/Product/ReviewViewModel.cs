@@ -29,4 +29,6 @@ public class ReviewViewModel
         if (span.TotalMinutes > 1) return $"{(int)span.TotalMinutes} minute(s) ago";
         return "Just now";
     }
+    
+    
 }
