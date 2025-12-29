@@ -92,6 +92,7 @@ builder.Services.AddAuthorizationCore(options =>
     options.AddPolicy("AnyRole", policy =>
         policy.RequireRole("superior_admin", "user"));
 });
+builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
 
 // Register auth services
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
