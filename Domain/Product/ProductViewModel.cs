@@ -1,6 +1,8 @@
 // Domain/Product/ProductViewModel.cs - SINGLE SOURCE OF TRUTH
 namespace SubashaVentures.Domain.Product;
 
+using SubashaVentures.Models.Supabase;
+
 /// <summary>
 /// View model for displaying product information in the UI
 /// </summary>
@@ -69,4 +71,96 @@ public class ProductViewModel
     public string DisplayPrice => $"₦{Price:N0}";
     public string DisplayOriginalPrice => OriginalPrice.HasValue ? $"₦{OriginalPrice.Value:N0}" : string.Empty;
     public string DisplayRating => $"{Rating:F1}/5";
+    
+    // ==================== CONVERSION METHODS ====================
+    
+    /// <summary>
+    /// Convert from Supabase ProductModel to ProductViewModel
+    /// </summary>
+    public static ProductViewModel FromCloudModel(ProductModel model)
+    {
+        if (model == null)
+            throw new ArgumentNullException(nameof(model));
+            
+        return new ProductViewModel
+        {
+            Id = model.Id,
+            Name = model.Name,
+            Slug = model.Slug,
+            Description = model.Description,
+            LongDescription = model.LongDescription,
+            Price = model.Price,
+            OriginalPrice = model.OriginalPrice,
+            IsOnSale = model.IsOnSale,
+            Discount = model.Discount,
+            Images = model.Images ?? new List<string>(),
+            VideoUrl = model.VideoUrl,
+            Sizes = model.Sizes ?? new List<string>(),
+            Colors = model.Colors ?? new List<string>(),
+            Stock = model.Stock,
+            Sku = model.Sku,
+            CategoryId = model.CategoryId,
+            Category = model.Category,
+            SubCategory = model.SubCategory,
+            Brand = model.Brand,
+            Tags = model.Tags ?? new List<string>(),
+            Rating = model.Rating,
+            ReviewCount = model.ReviewCount,
+            ViewCount = model.ViewCount,
+            SalesCount = model.SalesCount,
+            CreatedAt = model.CreatedAt,
+            UpdatedAt = model.UpdatedAt,
+            IsActive = model.IsActive,
+            IsFeatured = model.IsFeatured
+        };
+    }
+    
+    /// <summary>
+    /// Convert from ProductViewModel to Supabase ProductModel
+    /// </summary>
+    public ProductModel ToCloudModel()
+    {
+        return new ProductModel
+        {
+            Id = this.Id,
+            Name = this.Name,
+            Slug = this.Slug,
+            Description = this.Description,
+            LongDescription = this.LongDescription,
+            Price = this.Price,
+            OriginalPrice = this.OriginalPrice,
+            IsOnSale = this.IsOnSale,
+            Discount = this.Discount,
+            Images = this.Images ?? new List<string>(),
+            VideoUrl = this.VideoUrl,
+            Sizes = this.Sizes ?? new List<string>(),
+            Colors = this.Colors ?? new List<string>(),
+            Stock = this.Stock,
+            Sku = this.Sku,
+            CategoryId = this.CategoryId,
+            Category = this.Category,
+            SubCategory = this.SubCategory,
+            Brand = this.Brand,
+            Tags = this.Tags ?? new List<string>(),
+            Rating = this.Rating,
+            ReviewCount = this.ReviewCount,
+            ViewCount = this.ViewCount,
+            SalesCount = this.SalesCount,
+            CreatedAt = this.CreatedAt,
+            UpdatedAt = this.UpdatedAt,
+            IsActive = this.IsActive,
+            IsFeatured = this.IsFeatured
+        };
+    }
+    
+    /// <summary>
+    /// Convert list of ProductModels to list of ProductViewModels
+    /// </summary>
+    public static List<ProductViewModel> FromCloudModels(IEnumerable<ProductModel> models)
+    {
+        if (models == null)
+            return new List<ProductViewModel>();
+            
+        return models.Select(FromCloudModel).ToList();
+    }
 }
