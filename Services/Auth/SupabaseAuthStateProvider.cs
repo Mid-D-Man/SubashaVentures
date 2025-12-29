@@ -1,4 +1,4 @@
-// Services/Auth/SupabaseAuthStateProvider.cs - C# AUTH STATE
+// Services/Auth/SupabaseAuthStateProvider.cs - FIXED TO USE ROLE CLAIMS FROM DATABASE
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using SubashaVentures.Services.Auth;
@@ -12,13 +12,16 @@ namespace SubashaVentures.Services.Auth;
 public class SupabaseAuthStateProvider : AuthenticationStateProvider
 {
     private readonly SupabaseAuthService _authService;
+    private readonly CustomSupabaseClaimsFactory _claimsFactory;
     private readonly ILogger<SupabaseAuthStateProvider> _logger;
 
     public SupabaseAuthStateProvider(
         SupabaseAuthService authService,
+        CustomSupabaseClaimsFactory claimsFactory,
         ILogger<SupabaseAuthStateProvider> logger)
     {
         _authService = authService;
+        _claimsFactory = claimsFactory;
         _logger = logger;
     }
 
@@ -38,7 +41,25 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
-            // Validate token
+            // ✅ CRITICAL FIX: Use CustomSupabaseClaimsFactory to get roles from database
+            var principal = await _claimsFactory.CreateUserPrincipalAsync(session.User);
+
+            if (principal?.Identity?.IsAuthenticated == true)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ User authenticated: {session.User.Email} with roles: {string.Join(", ", principal.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value))}",
+                    LogLevel.Info
+                );
+
+                return new AuthenticationState(principal);
+            }
+
+            // If claims factory failed, try token validation as fallback
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Claims factory returned empty principal, attempting token validation fallback",
+                LogLevel.Warning
+            );
+
             var claims = JwtTokenHelper.ValidateAndExtractClaims(session.AccessToken);
             
             if (claims == null || !claims.Any())
@@ -48,32 +69,26 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
                     LogLevel.Warning
                 );
 
-                // Try to refresh token
                 var refreshed = await _authService.RefreshSessionAsync();
                 if (refreshed)
                 {
                     session = await _authService.GetCurrentSessionAsync();
                     if (session != null)
                     {
-                        claims = JwtTokenHelper.ValidateAndExtractClaims(session.AccessToken);
+                        // Retry with claims factory after refresh
+                        principal = await _claimsFactory.CreateUserPrincipalAsync(session.User);
+                        if (principal?.Identity?.IsAuthenticated == true)
+                        {
+                            return new AuthenticationState(principal);
+                        }
                     }
                 }
 
-                if (claims == null || !claims.Any())
-                {
-                    return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-                }
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
             var identity = new ClaimsIdentity(claims, "Supabase");
-            var principal = new ClaimsPrincipal(identity);
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User authenticated: {session.User.Email}",
-                LogLevel.Info
-            );
-
-            return new AuthenticationState(principal);
+            return new AuthenticationState(new ClaimsPrincipal(identity));
         }
         catch (Exception ex)
         {
