@@ -1,6 +1,4 @@
-
 namespace SubashaVentures.Domain.Miscellaneous;
-
 
 public class ShippingMethodViewModel
 {
@@ -16,4 +14,8 @@ public class ShippingMethodViewModel
     public string DisplayEstimate => EstimatedDays == 1 
         ? "1 day" 
         : $"{EstimatedDays} days";
+    
+    // ==================== CONVERSION METHODS ====================
+    // Note: ShippingMethodViewModel typically comes from configuration/settings
+    // rather than a direct database model
 }
