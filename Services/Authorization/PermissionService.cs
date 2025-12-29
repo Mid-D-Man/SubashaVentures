@@ -72,7 +72,7 @@ public class PermissionService : IPermissionService
                 if (string.IsNullOrEmpty(returnUrl))
                 {
                     returnUrl = _navigationManager.Uri
-                        .Replace(_navigationManager.BaseUri, "/");
+                        .Replace(_navigationManager.BaseUri, "");
                 }
                 
                 NavigateToSignIn(returnUrl);
@@ -421,13 +421,13 @@ public class PermissionService : IPermissionService
     {
         try
         {
-            var signInUrl = "/signin";
+            var signInUrl = "signin";
             
             if (!string.IsNullOrEmpty(returnUrl))
             {
                 // Encode return URL
                 var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
-                signInUrl = $"/signin?returnUrl={encodedReturnUrl}";
+                signInUrl = $"signin?returnUrl={encodedReturnUrl}";
             }
             
             _logger.LogInformation("Navigating to sign-in: {Url}", signInUrl);
@@ -443,12 +443,12 @@ public class PermissionService : IPermissionService
     {
         try
         {
-            var url = "/access-denied";
+            var url = "access-denied";
             
             if (!string.IsNullOrEmpty(reason))
             {
                 var encodedReason = Uri.EscapeDataString(reason);
-                url = $"/access-denied?reason={encodedReason}";
+                url = $"access-denied?reason={encodedReason}";
             }
             
             _logger.LogInformation("Navigating to access denied: {Url}", url);
