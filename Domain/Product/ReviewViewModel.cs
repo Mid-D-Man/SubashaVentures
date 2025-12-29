@@ -1,5 +1,7 @@
 namespace SubashaVentures.Domain.Product;
 
+using SubashaVentures.Models.Firebase;
+
 public class ReviewViewModel
 {
     public string Id { get; set; } = string.Empty;
@@ -30,5 +32,66 @@ public class ReviewViewModel
         return "Just now";
     }
     
+    // ==================== CONVERSION METHODS ====================
     
+    /// <summary>
+    /// Convert from Firebase ReviewModel to ReviewViewModel
+    /// </summary>
+    public static ReviewViewModel FromCloudModel(ReviewModel model)
+    {
+        if (model == null)
+            throw new ArgumentNullException(nameof(model));
+            
+        return new ReviewViewModel
+        {
+            Id = model.Id,
+            ProductId = model.ProductId,
+            UserId = model.UserId,
+            UserName = model.UserName,
+            UserAvatar = model.UserAvatar,
+            Rating = model.Rating,
+            Title = model.Title,
+            Comment = model.Comment,
+            Images = model.Images ?? new List<string>(),
+            IsVerifiedPurchase = model.IsVerifiedPurchase,
+            HelpfulCount = model.HelpfulCount,
+            CreatedAt = model.CreatedAt,
+            UpdatedAt = model.UpdatedAt
+        };
+    }
+    
+    /// <summary>
+    /// Convert from ReviewViewModel to Firebase ReviewModel
+    /// </summary>
+    public ReviewModel ToCloudModel()
+    {
+        return new ReviewModel
+        {
+            Id = this.Id,
+            ProductId = this.ProductId,
+            UserId = this.UserId,
+            UserName = this.UserName,
+            UserAvatar = this.UserAvatar,
+            Rating = this.Rating,
+            Title = this.Title,
+            Comment = this.Comment,
+            Images = this.Images ?? new List<string>(),
+            IsVerifiedPurchase = this.IsVerifiedPurchase,
+            HelpfulCount = this.HelpfulCount,
+            IsApproved = true, // Default to approved when converting from view model
+            CreatedAt = this.CreatedAt,
+            UpdatedAt = this.UpdatedAt
+        };
+    }
+    
+    /// <summary>
+    /// Convert list of ReviewModels to list of ReviewViewModels
+    /// </summary>
+    public static List<ReviewViewModel> FromCloudModels(IEnumerable<ReviewModel> models)
+    {
+        if (models == null)
+            return new List<ReviewViewModel>();
+            
+        return models.Select(FromCloudModel).ToList();
+    }
 }
