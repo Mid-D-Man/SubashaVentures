@@ -1,4 +1,4 @@
-// Services/Authorization/PermissionService.cs - FIXED WITH BETTER ERROR HANDLING
+// Services/Authorization/PermissionService.cs - FIXED WITH AUTO PROFILE CREATION
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Domain.User;
@@ -74,14 +74,44 @@ public class PermissionService : IPermissionService
                 return false;
             }
             
-            // ✅ FIXED: Better error handling for account status
+            // ✅ CRITICAL FIX: Better account status checking with auto-profile creation
             var accountCheckResult = await CheckAccountStatusAsync();
             if (!accountCheckResult.IsActive)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Account check failed: {accountCheckResult.Reason}",
+                    $"⚠️ Account check failed: {accountCheckResult.Reason}",
                     LogLevel.Warning
                 );
+                
+                // If profile doesn't exist, this is likely a new OAuth user - create profile
+                if (accountCheckResult.Reason.Contains("profile not found", StringComparison.OrdinalIgnoreCase) ||
+                    accountCheckResult.Reason.Contains("User ID not found", StringComparison.OrdinalIgnoreCase))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "🔄 Attempting to create user profile for OAuth user...",
+                        LogLevel.Info
+                    );
+                    
+                    var userId = await GetCurrentUserIdAsync();
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        var created = await _userService.EnsureUserProfileExistsAsync(userId);
+                        if (created)
+                        {
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                "✅ User profile created successfully, retrying account check",
+                                LogLevel.Info
+                            );
+                            
+                            // Retry account check after profile creation
+                            accountCheckResult = await CheckAccountStatusAsync();
+                            if (accountCheckResult.IsActive)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
                 
                 ShowPermissionDeniedMessage(accountCheckResult.Reason);
                 return false;
@@ -102,7 +132,8 @@ public class PermissionService : IPermissionService
         try
         {
             var authState = await _authStateProvider.GetAuthenticationStateAsync();
-            var userId = authState.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = authState.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                ?? authState.User?.FindFirst("sub")?.Value;
             
             return userId;
         }
@@ -146,8 +177,10 @@ public class PermissionService : IPermissionService
             var authState = await _authStateProvider.GetAuthenticationStateAsync();
             var hasRole = authState.User?.IsInRole(role) ?? false;
             
+            // ✅ DEBUG: Log all role claims
+            var roleClaims = authState.User?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList() ?? new List<string>();
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Role check '{role}': {(hasRole ? "Has role" : "Does not have role")}",
+                $"🔍 Role check '{role}': {(hasRole ? "✅ HAS ROLE" : "❌ NO ROLE")} | User roles: [{string.Join(", ", roleClaims)}]",
                 LogLevel.Info
             );
             
@@ -229,7 +262,7 @@ public class PermissionService : IPermissionService
                 ShowPermissionDeniedMessage(message);
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Permission denied: User does not have '{role}' role",
+                    $"❌ Permission denied: User does not have '{role}' role",
                     LogLevel.Warning
                 );
             }
@@ -358,6 +391,10 @@ public class PermissionService : IPermissionService
         var isSuperiorAdmin = await IsSuperiorAdminAsync();
         if (!isSuperiorAdmin)
         {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "❌ Admin access denied: User is not superior_admin",
+                LogLevel.Warning
+            );
             ShowPermissionDeniedMessage("access admin panel (admin role required)");
             return false;
         }
@@ -367,7 +404,6 @@ public class PermissionService : IPermissionService
 
     // ==================== ACCOUNT STATUS CHECKS ====================
 
-    // ✅ NEW: Better account status checking
     private async Task<AccountStatusResult> CheckAccountStatusAsync()
     {
         try
@@ -378,42 +414,29 @@ public class PermissionService : IPermissionService
                 return new AccountStatusResult 
                 { 
                     IsActive = false, 
-                    Reason = "User ID not found" 
+                    Reason = "User ID not found in authentication claims" 
                 };
             }
             
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔍 Checking account status for user: {userId}",
+                LogLevel.Info
+            );
+            
             var user = await _userService.GetUserByIdAsync(userId);
             
-            // ✅ CRITICAL FIX: Handle missing user profile
             if (user == null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"⚠️ User profile not found for ID: {userId}. Attempting to create profile...",
+                    $"⚠️ User profile not found for ID: {userId}",
                     LogLevel.Warning
                 );
                 
-                // Try to create the profile
-                var created = await _userService.EnsureUserProfileExistsAsync(userId);
-                
-                if (!created)
-                {
-                    return new AccountStatusResult 
-                    { 
-                        IsActive = false, 
-                        Reason = "User profile could not be created. Please try signing out and signing in again." 
-                    };
-                }
-                
-                // Retry getting the user
-                user = await _userService.GetUserByIdAsync(userId);
-                if (user == null)
-                {
-                    return new AccountStatusResult 
-                    { 
-                        IsActive = false, 
-                        Reason = "User profile creation failed. Please contact support." 
-                    };
-                }
+                return new AccountStatusResult 
+                { 
+                    IsActive = false, 
+                    Reason = "User profile not found. Please try signing out and signing in again." 
+                };
             }
             
             // Check account status
@@ -421,7 +444,7 @@ public class PermissionService : IPermissionService
             {
                 var reason = user.AccountStatus switch
                 {
-                    "Suspended" => $"Your account has been suspended. Reason: {user.SuspensionReason ?? "Contact support for details"}",
+                    "Suspended" => $"Your account has been suspended. {(string.IsNullOrEmpty(user.SuspensionReason) ? "Please contact support for details." : $"Reason: {user.SuspensionReason}")}",
                     "Deleted" => "Your account has been deleted. Please contact support if this was a mistake.",
                     _ => $"Your account status is '{user.AccountStatus}'. Please contact support."
                 };
@@ -432,6 +455,11 @@ public class PermissionService : IPermissionService
                     Reason = reason 
                 };
             }
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Account status check passed for user: {userId}",
+                LogLevel.Info
+            );
             
             return new AccountStatusResult 
             { 
@@ -553,13 +581,10 @@ public class PermissionService : IPermissionService
     public void ShowPermissionDeniedMessage(string action)
     {
         _logger.LogWarning("Permission denied: {Action}", action);
-        // TODO: Show toast notification instead of navigation
-        // For now, just log it
         Console.WriteLine($"❌ Permission Denied: {action}");
     }
 }
 
-// ✅ NEW: Helper class for account status results
 internal class AccountStatusResult
 {
     public bool IsActive { get; set; }
