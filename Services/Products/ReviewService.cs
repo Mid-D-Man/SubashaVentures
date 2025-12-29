@@ -1,4 +1,4 @@
-// Services/Products/ReviewService.cs
+// Services/Products/ReviewService.cs - COMPLETE FILE
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -50,7 +50,6 @@ public class ReviewService : IReviewService
                 return new List<ReviewModel>();
             }
 
-            // Filter approved reviews only
             var approvedReviews = reviews
                 .Where(r => r.IsApproved)
                 .OrderByDescending(r => r.CreatedAt)
@@ -159,7 +158,6 @@ public class ReviewService : IReviewService
                 LogLevel.Info
             );
 
-            // Check if user already reviewed this product
             var existingReview = await HasUserReviewedProductAsync(request.UserId, request.ProductId);
             if (existingReview)
             {
@@ -183,7 +181,7 @@ public class ReviewService : IReviewService
                 Images = request.ImageUrls ?? new List<string>(),
                 IsVerifiedPurchase = request.IsVerifiedPurchase,
                 HelpfulCount = 0,
-                IsApproved = false, // Requires admin approval
+                IsApproved = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = null
             };
@@ -238,7 +236,6 @@ public class ReviewService : IReviewService
                 UpdatedAt = DateTime.UtcNow
             };
 
-            // Validate rating if changed
             if (updated.Rating < 1 || updated.Rating > 5)
             {
                 throw new ArgumentException("Rating must be between 1 and 5");
