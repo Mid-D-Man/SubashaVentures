@@ -158,6 +158,7 @@ public interface IUserService
     /// <param name="userIds">Optional list of specific user IDs to export (null for all)</param>
     /// <returns>CSV string</returns>
     Task<string> ExportUsersAsync(List<string>? userIds = null);
+
     /// <summary>
     /// Ensure user profile exists (create if missing) - for OAuth users
     /// </summary>
