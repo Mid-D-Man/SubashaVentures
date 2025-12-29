@@ -85,6 +85,102 @@ public class UserService : IUserService
         }
     }
 
+    // Services/Users/UserService.cs - ADD THIS METHOD
+public async Task<bool> EnsureUserProfileExistsAsync(string userId)
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            _logger.LogWarning("EnsureUserProfileExists called with empty userId");
+            return false;
+        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"🔍 Checking if user profile exists for: {userId}",
+            LogLevel.Info
+        );
+
+        // Check if profile already exists
+        var existingProfile = await _supabaseClient
+            .From<UserProfileModel>()
+            .Where(u => u.Id == userId)
+            .Single();
+
+        if (existingProfile != null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ User profile already exists for: {userId}",
+                LogLevel.Info
+            );
+            return true;
+        }
+
+        // Profile doesn't exist - get user from auth and create it
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"⚠️ User profile missing, attempting to create for: {userId}",
+            LogLevel.Warning
+        );
+
+        // Get user from Supabase Auth
+        var authUser = await _supabaseClient.Auth.User();
+        if (authUser == null || authUser.Id != userId)
+        {
+            _logger.LogError("Cannot create profile - auth user not found or mismatch");
+            return false;
+        }
+
+        // Create user profile
+        var userProfile = new UserProfileModel
+        {
+            Id = authUser.Id,
+            Email = authUser.Email ?? "",
+            FirstName = authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
+            LastName = authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
+            PhoneNumber = authUser.UserMetadata?.GetValueOrDefault("phone_number")?.ToString(),
+            AvatarUrl = authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
+            IsEmailVerified = authUser.EmailConfirmedAt != null,
+            IsPhoneVerified = false,
+            AccountStatus = "Active",
+            EmailNotifications = true,
+            SmsNotifications = false,
+            PreferredLanguage = "en",
+            Currency = "NGN",
+            MembershipTier = "Bronze",
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = authUser.Id,
+            LastLoginAt = DateTime.UtcNow
+        };
+
+        await _supabaseClient.From<UserProfileModel>().Insert(userProfile);
+        
+        // Assign default "user" role
+        var userRole = new UserRoleModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserId = authUser.Id,
+            Role = "user",
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = authUser.Id
+        };
+
+        await _supabaseClient.From<UserRoleModel>().Insert(userRole);
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✅ User profile created successfully for: {userId} with default 'user' role",
+            LogLevel.Info
+        );
+
+        return true;
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Ensuring user profile exists: {userId}");
+        _logger.LogError(ex, "Failed to ensure user profile exists: {UserId}", userId);
+        return false;
+    }
+}
+
     public async Task<UserProfileViewModel?> GetUserByIdAsync(string userId)
     {
         try
