@@ -4,7 +4,7 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Navigation;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-using ReviewModel = SubashaVentures.Models.Firebase.ReviewModel;
+
 namespace SubashaVentures.Pages.Product;
 
 public partial class ProductDetails : ComponentBase
@@ -136,7 +136,9 @@ public partial class ProductDetails : ComponentBase
                 LogLevel.Info
             );
 
-            Reviews = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
+            // Get Firebase ReviewModels and convert to ReviewViewModels
+            var reviewModels = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
+            Reviews = ReviewViewModel.FromCloudModels(reviewModels);
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Loaded {Reviews.Count} reviews",
