@@ -123,7 +123,7 @@ public async Task<bool> EnsureUserProfileExistsAsync(string userId)
         );
 
         // Get user from Supabase Auth
-        var authUser = await _supabaseClient.Auth.User();
+        var authUser = await _supabaseClient.Auth.GetUser();
         if (authUser == null || authUser.Id != userId)
         {
             _logger.LogError("Cannot create profile - auth user not found or mismatch");
@@ -148,7 +148,6 @@ public async Task<bool> EnsureUserProfileExistsAsync(string userId)
             Currency = "NGN",
             MembershipTier = "Bronze",
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = authUser.Id,
             LastLoginAt = DateTime.UtcNow
         };
 
