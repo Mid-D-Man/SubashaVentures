@@ -1,4 +1,4 @@
-// Services/Authorization/PermissionService.cs
+// Services/Authorization/PermissionService.cs - FIXED WITH BETTER ERROR HANDLING
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Domain.User;
@@ -9,9 +9,6 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Authorization;
 
-/// <summary>
-/// Implementation of permission service for authentication and authorization checks
-/// </summary>
 public class PermissionService : IPermissionService
 {
     private readonly AuthenticationStateProvider _authStateProvider;
@@ -68,27 +65,25 @@ public class PermissionService : IPermissionService
                     LogLevel.Warning
                 );
                 
-                // Get current URL if returnUrl not provided
                 if (string.IsNullOrEmpty(returnUrl))
                 {
-                    returnUrl = _navigationManager.Uri
-                        .Replace(_navigationManager.BaseUri, "");
+                    returnUrl = _navigationManager.Uri.Replace(_navigationManager.BaseUri, "");
                 }
                 
                 NavigateToSignIn(returnUrl);
                 return false;
             }
             
-            // Check if account is active
-            var isActive = await IsAccountActiveAsync();
-            if (!isActive)
+            // ✅ FIXED: Better error handling for account status
+            var accountCheckResult = await CheckAccountStatusAsync();
+            if (!accountCheckResult.IsActive)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "User account is not active",
+                    $"Account check failed: {accountCheckResult.Reason}",
                     LogLevel.Warning
                 );
                 
-                ShowPermissionDeniedMessage("access this feature (account suspended)");
+                ShowPermissionDeniedMessage(accountCheckResult.Reason);
                 return false;
             }
             
@@ -265,7 +260,14 @@ public class PermissionService : IPermissionService
             return false;
         }
         
-        return await IsAccountActiveAsync();
+        var accountCheck = await CheckAccountStatusAsync();
+        if (!accountCheck.IsActive)
+        {
+            ShowPermissionDeniedMessage(accountCheck.Reason);
+            return false;
+        }
+        
+        return true;
     }
 
     public async Task<bool> CanAddToCartAsync()
@@ -277,7 +279,14 @@ public class PermissionService : IPermissionService
             return false;
         }
         
-        return await IsAccountActiveAsync();
+        var accountCheck = await CheckAccountStatusAsync();
+        if (!accountCheck.IsActive)
+        {
+            ShowPermissionDeniedMessage(accountCheck.Reason);
+            return false;
+        }
+        
+        return true;
     }
 
     public async Task<bool> CanCheckoutAsync()
@@ -289,7 +298,14 @@ public class PermissionService : IPermissionService
             return false;
         }
         
-        return await IsAccountActiveAsync();
+        var accountCheck = await CheckAccountStatusAsync();
+        if (!accountCheck.IsActive)
+        {
+            ShowPermissionDeniedMessage(accountCheck.Reason);
+            return false;
+        }
+        
+        return true;
     }
 
     public async Task<bool> CanWriteReviewAsync()
@@ -301,7 +317,14 @@ public class PermissionService : IPermissionService
             return false;
         }
         
-        return await IsAccountActiveAsync();
+        var accountCheck = await CheckAccountStatusAsync();
+        if (!accountCheck.IsActive)
+        {
+            ShowPermissionDeniedMessage(accountCheck.Reason);
+            return false;
+        }
+        
+        return true;
     }
 
     public async Task<bool> CanViewOrdersAsync()
@@ -313,7 +336,14 @@ public class PermissionService : IPermissionService
             return false;
         }
         
-        return await IsAccountActiveAsync();
+        var accountCheck = await CheckAccountStatusAsync();
+        if (!accountCheck.IsActive)
+        {
+            ShowPermissionDeniedMessage(accountCheck.Reason);
+            return false;
+        }
+        
+        return true;
     }
 
     public async Task<bool> CanAccessAdminAsync()
@@ -337,40 +367,95 @@ public class PermissionService : IPermissionService
 
     // ==================== ACCOUNT STATUS CHECKS ====================
 
-    public async Task<bool> IsAccountActiveAsync()
+    // ✅ NEW: Better account status checking
+    private async Task<AccountStatusResult> CheckAccountStatusAsync()
     {
         try
         {
             var userId = await GetCurrentUserIdAsync();
             if (string.IsNullOrEmpty(userId))
             {
-                return false;
+                return new AccountStatusResult 
+                { 
+                    IsActive = false, 
+                    Reason = "User ID not found" 
+                };
             }
             
             var user = await _userService.GetUserByIdAsync(userId);
+            
+            // ✅ CRITICAL FIX: Handle missing user profile
             if (user == null)
             {
-                return false;
-            }
-            
-            var isActive = user.AccountStatus == "Active";
-            
-            if (!isActive)
-            {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Account not active: Status = {user.AccountStatus}",
+                    $"⚠️ User profile not found for ID: {userId}. Attempting to create profile...",
                     LogLevel.Warning
                 );
+                
+                // Try to create the profile
+                var created = await _userService.EnsureUserProfileExistsAsync(userId);
+                
+                if (!created)
+                {
+                    return new AccountStatusResult 
+                    { 
+                        IsActive = false, 
+                        Reason = "User profile could not be created. Please try signing out and signing in again." 
+                    };
+                }
+                
+                // Retry getting the user
+                user = await _userService.GetUserByIdAsync(userId);
+                if (user == null)
+                {
+                    return new AccountStatusResult 
+                    { 
+                        IsActive = false, 
+                        Reason = "User profile creation failed. Please contact support." 
+                    };
+                }
             }
             
-            return isActive;
+            // Check account status
+            if (user.AccountStatus != "Active")
+            {
+                var reason = user.AccountStatus switch
+                {
+                    "Suspended" => $"Your account has been suspended. Reason: {user.SuspensionReason ?? "Contact support for details"}",
+                    "Deleted" => "Your account has been deleted. Please contact support if this was a mistake.",
+                    _ => $"Your account status is '{user.AccountStatus}'. Please contact support."
+                };
+                
+                return new AccountStatusResult 
+                { 
+                    IsActive = false, 
+                    Reason = reason 
+                };
+            }
+            
+            return new AccountStatusResult 
+            { 
+                IsActive = true, 
+                Reason = "Active" 
+            };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Checking account status");
             _logger.LogError(ex, "Error checking account status");
-            return false;
+            
+            return new AccountStatusResult 
+            { 
+                IsActive = false, 
+                Reason = "Error checking account status. Please try again." 
+            };
         }
+    }
+
+    public async Task<bool> IsAccountActiveAsync()
+    {
+        var result = await CheckAccountStatusAsync();
+        return result.IsActive;
     }
 
     public async Task<string?> GetAccountStatusAsync()
@@ -416,7 +501,7 @@ public class PermissionService : IPermissionService
     }
 
     // ==================== NAVIGATION HELPERS ====================
-
+    
     public void NavigateToSignIn(string? returnUrl = null)
     {
         try
@@ -425,7 +510,6 @@ public class PermissionService : IPermissionService
             
             if (!string.IsNullOrEmpty(returnUrl))
             {
-                // Encode return URL
                 var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
                 signInUrl = $"signin?returnUrl={encodedReturnUrl}";
             }
@@ -463,18 +547,21 @@ public class PermissionService : IPermissionService
     public void ShowAuthRequiredMessage(string action)
     {
         _logger.LogWarning("Authentication required: {Action}", action);
-        
-        // TODO: Integrate with toast notification service
-        // For now, we'll just navigate to sign-in
         NavigateToSignIn();
     }
 
     public void ShowPermissionDeniedMessage(string action)
     {
         _logger.LogWarning("Permission denied: {Action}", action);
-        
-        // TODO: Integrate with toast notification service
-        // For now, we'll navigate to access denied page
-        NavigateToAccessDenied(action);
+        // TODO: Show toast notification instead of navigation
+        // For now, just log it
+        Console.WriteLine($"❌ Permission Denied: {action}");
     }
+}
+
+// ✅ NEW: Helper class for account status results
+internal class AccountStatusResult
+{
+    public bool IsActive { get; set; }
+    public string Reason { get; set; } = string.Empty;
 }
