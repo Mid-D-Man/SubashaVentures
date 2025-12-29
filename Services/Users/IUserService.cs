@@ -158,6 +158,12 @@ public interface IUserService
     /// <param name="userIds">Optional list of specific user IDs to export (null for all)</param>
     /// <returns>CSV string</returns>
     Task<string> ExportUsersAsync(List<string>? userIds = null);
+    /// <summary>
+    /// Ensure user profile exists (create if missing) - for OAuth users
+    /// </summary>
+    /// <param name="userId">User's unique identifier from auth</param>
+    /// <returns>True if profile exists or was created successfully</returns>
+    Task<bool> EnsureUserProfileExistsAsync(string userId);
 }
 
 // ==================== DTOs (Data Transfer Objects) ====================
