@@ -1,6 +1,4 @@
-// Services/Auth/CustomSupabaseClaimsFactory.cs - COMPLETE FULL FILE
 using System.Security.Claims;
-using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Gotrue;
@@ -10,8 +8,7 @@ using Client = Supabase.Client;
 namespace SubashaVentures.Services.Auth;
 
 /// <summary>
-/// Custom claims factory to process user roles from Supabase for authorization
-/// Similar to AirCode's CustomAccountFactory for Auth0
+/// Custom claims factory - UPDATED to get role from users table directly
 /// </summary>
 public class CustomSupabaseClaimsFactory
 {
@@ -27,7 +24,7 @@ public class CustomSupabaseClaimsFactory
     }
 
     /// <summary>
-    /// Create ClaimsPrincipal with user roles from database
+    /// Create ClaimsPrincipal with user role from users table
     /// </summary>
     public async Task<ClaimsPrincipal> CreateUserPrincipalAsync(User user)
     {
@@ -42,34 +39,18 @@ public class CustomSupabaseClaimsFactory
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-                new Claim("sub", user.Id), // Standard JWT claim
+                new Claim("sub", user.Id),
             };
 
-            // Get user roles from database
-            var roles = await GetUserRolesAsync(user.Id);
+            // ✅ Get role from users table (single field)
+            var role = await GetUserRoleAsync(user.Id);
             
-            if (roles.Any())
-            {
-                foreach (var role in roles)
-                {
-                    claims.Add(new Claim(ClaimTypes.Role, role));
-                    
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"Added role claim: {role} for user: {user.Email}",
-                        LogLevel.Info
-                    );
-                }
-            }
-            else
-            {
-                // No roles found - assign default "user" role
-                claims.Add(new Claim(ClaimTypes.Role, "user"));
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"No roles found for user {user.Email}, assigned default 'user' role",
-                    LogLevel.Warning
-                );
-            }
+            claims.Add(new Claim(ClaimTypes.Role, role));
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Added role claim: {role} for user: {user.Email}",
+                LogLevel.Info
+            );
 
             // Add metadata from user profile
             if (user.UserMetadata != null)
@@ -84,19 +65,10 @@ public class CustomSupabaseClaimsFactory
                     claims.Add(new Claim("avatar_url", avatar?.ToString() ?? ""));
             }
 
-            // Debug: Log all claims
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Claims created for {user.Email}:",
+                $"✅ Claims created for {user.Email} with role: {role}",
                 LogLevel.Info
             );
-            
-            foreach (var claim in claims)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"  - {claim.Type}: {claim.Value}",
-                    LogLevel.Debug
-                );
-            }
 
             var identity = new ClaimsIdentity(claims, "Supabase");
             var principal = new ClaimsPrincipal(identity);
@@ -108,46 +80,43 @@ public class CustomSupabaseClaimsFactory
             await MID_HelperFunctions.LogExceptionAsync(ex, "Creating claims principal");
             _logger.LogError(ex, "Failed to create claims principal for user: {UserId}", user.Id);
             
-            // Return empty principal on error
             return new ClaimsPrincipal(new ClaimsIdentity());
         }
     }
 
     /// <summary>
-    /// Get user roles from database
+    /// Get user role from users table (single field query)
     /// </summary>
-    private async Task<List<string>> GetUserRolesAsync(string userId)
+    private async Task<string> GetUserRoleAsync(string userId)
     {
         try
         {
-            var userRoles = await _supabaseClient
-                .From<UserRoleModel>()
-                .Where(r => r.UserId == userId)
-                .Get();
+            var user = await _supabaseClient
+                .From<UserModel>()
+                .Where(u => u.Id == userId)
+                .Single();
 
-            if (userRoles?.Models == null || !userRoles.Models.Any())
+            if (user == null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"No roles found in database for user: {userId}",
+                    $"⚠️ User not found in users table: {userId}, assigning default 'user' role",
                     LogLevel.Warning
                 );
-                return new List<string>();
+                return "user";
             }
 
-            var roles = userRoles.Models.Select(r => r.Role).ToList();
-            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Retrieved {roles.Count} role(s) for user {userId}: {string.Join(", ", roles)}",
+                $"✅ Retrieved role for user {userId}: {user.Role}",
                 LogLevel.Info
             );
 
-            return roles;
+            return user.Role;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting roles for user: {userId}");
-            _logger.LogError(ex, "Failed to get user roles for: {UserId}", userId);
-            return new List<string>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting role for user: {userId}");
+            _logger.LogError(ex, "Failed to get user role for: {UserId}", userId);
+            return "user"; // Default to 'user' on error
         }
     }
 }
