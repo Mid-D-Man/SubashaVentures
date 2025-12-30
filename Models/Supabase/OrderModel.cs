@@ -1,52 +1,117 @@
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
+
 namespace SubashaVentures.Models.Supabase;
 
-public record OrderModel : ISecureEntity
+/// <summary>
+/// Order model - UPDATED to use UUID for user_id
+/// </summary>
+[Table("orders")]
+public class OrderModel : BaseModel
 {
-    public string Id { get; init; } = string.Empty;
-    public string OrderNumber { get; init; } = string.Empty;
-    public string UserId { get; init; } = string.Empty;
+    [PrimaryKey("id", false)]
+    [Column("id")]
+    public string Id { get; set; } = string.Empty;
     
-    // Customer Info (denormalized for easier access)
-    public string CustomerName { get; init; } = string.Empty;
-    public string CustomerEmail { get; init; } = string.Empty;
-    public string CustomerPhone { get; init; } = string.Empty;
+    [Column("order_number")]
+    public string OrderNumber { get; set; } = string.Empty;
+    
+    [Column("user_id")]
+    public string UserId { get; set; } = string.Empty; // UUID as string
+    
+    // Customer Info
+    [Column("customer_name")]
+    public string CustomerName { get; set; } = string.Empty;
+    
+    [Column("customer_email")]
+    public string CustomerEmail { get; set; } = string.Empty;
+    
+    [Column("customer_phone")]
+    public string CustomerPhone { get; set; } = string.Empty;
     
     // Pricing
-    public decimal Subtotal { get; init; }
-    public decimal ShippingCost { get; init; }
-    public decimal Discount { get; init; }
-    public decimal Tax { get; init; }
-    public decimal Total { get; init; }
+    [Column("subtotal")]
+    public decimal Subtotal { get; set; }
+    
+    [Column("shipping_cost")]
+    public decimal ShippingCost { get; set; }
+    
+    [Column("discount")]
+    public decimal Discount { get; set; }
+    
+    [Column("tax")]
+    public decimal Tax { get; set; }
+    
+    [Column("total")]
+    public decimal Total { get; set; }
     
     // Shipping
-    public string ShippingAddressId { get; init; } = string.Empty;
-    public string ShippingAddressSnapshot { get; init; } = string.Empty; // JSON snapshot
-    public string ShippingMethod { get; init; } = string.Empty;
-    public string? TrackingNumber { get; init; }
-    public string? CourierName { get; init; }
+    [Column("shipping_address_id")]
+    public string ShippingAddressId { get; set; } = string.Empty;
+    
+    [Column("shipping_address_snapshot")]
+    public string ShippingAddressSnapshot { get; set; } = string.Empty;
+    
+    [Column("shipping_method")]
+    public string ShippingMethod { get; set; } = string.Empty;
+    
+    [Column("tracking_number")]
+    public string? TrackingNumber { get; set; }
+    
+    [Column("courier_name")]
+    public string? CourierName { get; set; }
     
     // Payment
-    public string PaymentMethod { get; init; } = string.Empty;
-    public string PaymentStatus { get; init; } = "Pending";
-    public string? PaymentReference { get; init; }
-    public DateTime? PaidAt { get; init; }
+    [Column("payment_method")]
+    public string PaymentMethod { get; set; } = string.Empty;
+    
+    [Column("payment_status")]
+    public string PaymentStatus { get; set; } = "Pending";
+    
+    [Column("payment_reference")]
+    public string? PaymentReference { get; set; }
+    
+    [Column("paid_at")]
+    public DateTime? PaidAt { get; set; }
     
     // Status
-    public string Status { get; init; } = "Pending";
-    public string? CancellationReason { get; init; }
-    public string? Notes { get; init; }
+    [Column("status")]
+    public string Status { get; set; } = "Pending";
+    
+    [Column("cancellation_reason")]
+    public string? CancellationReason { get; set; }
+    
+    [Column("notes")]
+    public string? Notes { get; set; }
     
     // Timestamps
-    public DateTime? ShippedAt { get; init; }
-    public DateTime? DeliveredAt { get; init; }
-    public DateTime? CancelledAt { get; init; }
+    [Column("shipped_at")]
+    public DateTime? ShippedAt { get; set; }
     
-    // ISecureEntity
-    public DateTime CreatedAt { get; init; }
-    public string CreatedBy { get; init; } = string.Empty;
-    public DateTime? UpdatedAt { get; init; }
-    public string? UpdatedBy { get; init; }
-    public bool IsDeleted { get; init; }
-    public DateTime? DeletedAt { get; init; }
-    public string? DeletedBy { get; init; }
+    [Column("delivered_at")]
+    public DateTime? DeliveredAt { get; set; }
+    
+    [Column("cancelled_at")]
+    public DateTime? CancelledAt { get; set; }
+    
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; }
+    
+    [Column("created_by")]
+    public string CreatedBy { get; set; } = string.Empty;
+    
+    [Column("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+    
+    [Column("updated_by")]
+    public string? UpdatedBy { get; set; }
+    
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+    
+    [Column("deleted_at")]
+    public DateTime? DeletedAt { get; set; }
+    
+    [Column("deleted_by")]
+    public string? DeletedBy { get; set; }
 }
