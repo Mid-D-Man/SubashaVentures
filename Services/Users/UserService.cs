@@ -1,11 +1,10 @@
-// Services/Users/UserService.cs - COMPLETE FIXED IMPLEMENTATION
+// Services/Users/UserService.cs - COMPLETE UPDATED IMPLEMENTATION
 using SubashaVentures.Domain.User;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
 using System.Text;
-using Supabase.Postgrest.Interfaces;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Client = Supabase.Client;
 using Gotrue = Supabase.Gotrue;
@@ -40,7 +39,7 @@ public class UserService : IUserService
             );
 
             var users = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Order("created_at", Constants.Ordering.Descending)
                 .Range(skip, skip + take - 1)
                 .Get();
@@ -54,24 +53,12 @@ public class UserService : IUserService
                 return new List<UserProfileViewModel>();
             }
 
-            // ✅ Fetch all roles for these users in one efficient query
-            var userIds = users.Models.Select(u => u.Id).ToList();
-            var allRoles = await _supabaseClient
-                .From<UserRoleModel>()
-                .Get();
-
-            var rolesByUserId = allRoles?.Models?
-                .GroupBy(r => r.UserId)
-                .ToDictionary(g => g.Key, g => g.Select(r => r.Role).ToList())
-                ?? new Dictionary<string, List<string>>();
-
-            // Map users with their roles
-            var viewModels = users.Models.Select(u => 
-                MapToViewModel(u, rolesByUserId.TryGetValue(u.Id, out var roles) ? roles : new List<string> { "user" })
-            ).ToList();
+            var viewModels = users.Models
+                .Select(UserProfileViewModel.FromCloudModel)
+                .ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved {viewModels.Count} users with roles",
+                $"✓ Retrieved {viewModels.Count} users",
                 LogLevel.Info
             );
 
@@ -100,9 +87,8 @@ public class UserService : IUserService
                 LogLevel.Info
             );
 
-            // Check if profile already exists
             var existingProfile = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -115,21 +101,18 @@ public class UserService : IUserService
                 return true;
             }
 
-            // Profile doesn't exist - get user from auth and create it
             await MID_HelperFunctions.DebugMessageAsync(
                 $"⚠️ User profile missing, attempting to create for: {userId}",
                 LogLevel.Warning
             );
 
-            // ✅ FIX: Get current session first, then get user with JWT
-            var session =  _supabaseClient.Auth.CurrentSession;
+            var session = _supabaseClient.Auth.CurrentSession;
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
                 _logger.LogError("Cannot create profile - no active session");
                 return false;
             }
 
-            // Get user from Supabase Auth using JWT token
             var authUser = await _supabaseClient.Auth.GetUser(session.AccessToken);
             if (authUser == null || authUser.Id != userId)
             {
@@ -137,8 +120,7 @@ public class UserService : IUserService
                 return false;
             }
 
-            // Create user profile
-            var userProfile = new UserProfileModel
+            var userProfile = new UserModel
             {
                 Id = authUser.Id,
                 Email = authUser.Email ?? "",
@@ -154,23 +136,12 @@ public class UserService : IUserService
                 PreferredLanguage = "en",
                 Currency = "NGN",
                 MembershipTier = "Bronze",
+                Role = "user", // ✅ Default role
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow
             };
 
-            await _supabaseClient.From<UserProfileModel>().Insert(userProfile);
-            
-            // Assign default "user" role
-            var userRole = new UserRoleModel
-            {
-                Id = Guid.NewGuid().ToString(),
-                UserId = authUser.Id,
-                Role = "user",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = authUser.Id
-            };
-
-            await _supabaseClient.From<UserRoleModel>().Insert(userRole);
+            await _supabaseClient.From<UserModel>().Insert(userProfile);
             
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✅ User profile created successfully for: {userId} with default 'user' role",
@@ -198,7 +169,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -208,20 +179,12 @@ public class UserService : IUserService
                 return null;
             }
 
-            // ✅ Fetch user roles from database
-            var userRoles = await _supabaseClient
-                .From<UserRoleModel>()
-                .Where(r => r.UserId == userId)
-                .Get();
-
-            var roles = userRoles?.Models?.Select(r => r.Role).ToList() ?? new List<string> { "user" };
-
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved user {userId} with roles: {string.Join(", ", roles)}",
+                $"✓ Retrieved user {userId} with role: {user.Role}",
                 LogLevel.Info
             );
 
-            return MapToViewModel(user, roles);
+            return UserProfileViewModel.FromCloudModel(user);
         }
         catch (Exception ex)
         {
@@ -242,7 +205,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Email == email)
                 .Single();
 
@@ -252,15 +215,7 @@ public class UserService : IUserService
                 return null;
             }
 
-            // ✅ Fetch user roles
-            var userRoles = await _supabaseClient
-                .From<UserRoleModel>()
-                .Where(r => r.UserId == user.Id)
-                .Get();
-
-            var roles = userRoles?.Models?.Select(r => r.Role).ToList() ?? new List<string> { "user" };
-
-            return MapToViewModel(user, roles);
+            return UserProfileViewModel.FromCloudModel(user);
         }
         catch (Exception ex)
         {
@@ -280,34 +235,19 @@ public class UserService : IUserService
                 return new List<UserProfileViewModel>();
             }
 
-            // Search by name or email using PostgreSQL pattern matching
             var users = await _supabaseClient
-                .From<UserProfileModel>()
-                .Limit(50) // Limit search results
+                .From<UserModel>()
+                .Limit(50)
                 .Get();
 
             if (users?.Models == null || !users.Models.Any())
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"No users found matching query: {query}",
-                    LogLevel.Info
-                );
                 return new List<UserProfileViewModel>();
             }
 
-            // ✅ Fetch all roles for search results
-            var allRoles = await _supabaseClient
-                .From<UserRoleModel>()
-                .Get();
-
-            var rolesByUserId = allRoles?.Models?
-                .GroupBy(r => r.UserId)
-                .ToDictionary(g => g.Key, g => g.Select(r => r.Role).ToList())
-                ?? new Dictionary<string, List<string>>();
-
-            var viewModels = users.Models.Select(u => 
-                MapToViewModel(u, rolesByUserId.TryGetValue(u.Id, out var roles) ? roles : new List<string> { "user" })
-            ).ToList();
+            var viewModels = users.Models
+                .Select(UserProfileViewModel.FromCloudModel)
+                .ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Found {viewModels.Count} users matching '{query}'",
@@ -330,7 +270,6 @@ public class UserService : IUserService
     {
         try
         {
-            // Validate request
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
                 _logger.LogWarning("CreateUser called with invalid email or password");
@@ -342,7 +281,6 @@ public class UserService : IUserService
                 LogLevel.Info
             );
 
-            // Create user in Supabase Auth
             var authResponse = await _supabaseClient.Auth.SignUp(
                 request.Email,
                 request.Password,
@@ -353,9 +291,7 @@ public class UserService : IUserService
                         { "first_name", request.FirstName },
                         { "last_name", request.LastName },
                         { "phone_number", request.PhoneNumber ?? "" },
-                        { "avatar_url", "" },
-                        { "email_verified", false },
-                        { "phone_verified", false }
+                        { "avatar_url", "" }
                     }
                 }
             );
@@ -369,23 +305,19 @@ public class UserService : IUserService
                 return null;
             }
 
-            // Wait for trigger to create profile (give it 2 seconds)
             await Task.Delay(2000);
 
-            // Fetch the created profile with roles
             var createdUser = await GetUserByIdAsync(authResponse.User.Id);
 
             if (createdUser != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User created successfully: {request.Email} with roles: {string.Join(", ", createdUser.Roles)}",
+                    $"✓ User created successfully: {request.Email} with role: {createdUser.Role}",
                     LogLevel.Info
                 );
 
-                // TODO: Send welcome email if requested
                 if (request.SendWelcomeEmail)
                 {
-                    // Implement email sending logic
                     _logger.LogInformation("Welcome email should be sent to: {Email}", request.Email);
                 }
             }
@@ -415,7 +347,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -425,7 +357,6 @@ public class UserService : IUserService
                 return false;
             }
 
-            // Update only provided fields (null-coalescing pattern)
             if (request.FirstName != null) user.FirstName = request.FirstName;
             if (request.LastName != null) user.LastName = request.LastName;
             if (request.PhoneNumber != null) user.PhoneNumber = request.PhoneNumber;
@@ -439,7 +370,7 @@ public class UserService : IUserService
 
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ User profile updated: {userId}",
@@ -467,7 +398,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -481,7 +412,7 @@ public class UserService : IUserService
             user.SuspensionReason = suspend ? reason : null;
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ User {(suspend ? "suspended" : "activated")}: {userId}",
@@ -513,10 +444,8 @@ public class UserService : IUserService
                 LogLevel.Warning
             );
 
-            // Note: Banning in auth.users requires Admin API access
-            // For now, we update the profile to mark as suspended
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -530,7 +459,7 @@ public class UserService : IUserService
             user.SuspensionReason = $"BANNED: {reason}";
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ User banned: {userId}",
@@ -558,7 +487,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -568,14 +497,13 @@ public class UserService : IUserService
                 return false;
             }
 
-            // Soft delete
             user.AccountStatus = "Deleted";
             user.IsDeleted = true;
             user.DeletedAt = DateTime.UtcNow;
-            user.DeletedBy = "admin"; // TODO: Get actual admin ID from auth context
+            user.DeletedBy = "admin";
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ User soft deleted: {userId}",
@@ -607,14 +535,11 @@ public class UserService : IUserService
                 LogLevel.Warning
             );
 
-            // Delete from public.users (cascade will handle related data)
             await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Delete();
 
-            // Note: Deleting from auth.users requires Admin API
-            // This should be done via Supabase Management API or Dashboard
             _logger.LogWarning("User deleted from public.users. Auth deletion requires manual action: {UserId}", userId);
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -639,7 +564,7 @@ public class UserService : IUserService
         try
         {
             var allUsers = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Get();
 
             if (allUsers?.Models == null || !allUsers.Models.Any())
@@ -691,7 +616,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -705,14 +630,12 @@ public class UserService : IUserService
             user.TotalSpent += orderAmount;
             user.UpdatedAt = DateTime.UtcNow;
 
-            // Calculate loyalty points (1 point per ₦100 spent)
             var pointsEarned = (int)(orderAmount / 100);
             user.LoyaltyPoints += pointsEarned;
 
-            // Auto-upgrade membership tier
             user.MembershipTier = CalculateMembershipTier(user.TotalSpent);
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Order stats updated: {userId} (+₦{orderAmount:N0}, +{pointsEarned} points, tier: {user.MembershipTier})",
@@ -740,7 +663,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -753,7 +676,7 @@ public class UserService : IUserService
             user.LoyaltyPoints += points;
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Loyalty points updated: {userId} ({points:+#;-#;0} points)",
@@ -781,7 +704,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -794,7 +717,7 @@ public class UserService : IUserService
             user.MembershipTier = tier.ToString();
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Membership tier updated: {userId} → {tier}",
@@ -824,7 +747,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -837,7 +760,7 @@ public class UserService : IUserService
             user.IsEmailVerified = true;
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Email verified for user: {userId}",
@@ -865,7 +788,7 @@ public class UserService : IUserService
             }
 
             var user = await _supabaseClient
-                .From<UserProfileModel>()
+                .From<UserModel>()
                 .Where(u => u.Id == userId)
                 .Single();
 
@@ -878,7 +801,7 @@ public class UserService : IUserService
             user.IsPhoneVerified = true;
             user.UpdatedAt = DateTime.UtcNow;
 
-            await user.Update<UserProfileModel>();
+            await user.Update<UserModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✓ Phone verified for user: {userId}",
@@ -984,12 +907,10 @@ public class UserService : IUserService
 
             var csv = new StringBuilder();
             
-            // CSV Header
-            csv.AppendLine("ID,Email,First Name,Last Name,Phone,Roles,Status,Membership," +
+            csv.AppendLine("ID,Email,First Name,Last Name,Phone,Role,Status,Membership," +
                           "Total Orders,Total Spent,Loyalty Points,Email Verified,Phone Verified," +
                           "Created At,Last Login");
 
-            // CSV Data
             foreach (var user in users)
             {
                 csv.AppendLine($"\"{user.Id}\"," +
@@ -997,7 +918,7 @@ public class UserService : IUserService
                               $"\"{user.FirstName}\"," +
                               $"\"{user.LastName}\"," +
                               $"\"{user.PhoneNumber ?? ""}\"," +
-                              $"\"{user.RoleDisplay}\"," +
+                              $"\"{user.Role}\"," +
                               $"{user.AccountStatus}," +
                               $"{user.MembershipTier}," +
                               $"{user.TotalOrders}," +
@@ -1026,54 +947,11 @@ public class UserService : IUserService
 
     // ==================== PRIVATE HELPERS ====================
 
-    /// <summary>
-    /// Maps UserProfileModel to UserProfileViewModel
-    /// ✅ UPDATED: Now includes roles parameter
-    /// </summary>
-    private UserProfileViewModel MapToViewModel(UserProfileModel model, List<string>? roles = null)
-    {
-        return new UserProfileViewModel
-        {
-            Id = model.Id,
-            Email = model.Email,
-            FirstName = model.FirstName,
-            LastName = model.LastName,
-            PhoneNumber = model.PhoneNumber,
-            DateOfBirth = model.DateOfBirth,
-            Gender = model.Gender,
-            AvatarUrl = model.AvatarUrl,
-            Bio = model.Bio,
-            EmailVerified = model.IsEmailVerified,
-            PhoneVerified = model.IsPhoneVerified,
-            AccountStatus = model.AccountStatus,
-            SuspensionReason = model.SuspensionReason,
-            EmailNotifications = model.EmailNotifications,
-            SmsNotifications = model.SmsNotifications,
-            PreferredLanguage = model.PreferredLanguage,
-            Currency = model.Currency,
-            TotalOrders = model.TotalOrders,
-            TotalSpent = model.TotalSpent,
-            WishlistCount = 0, // TODO: Query from wishlist table
-            ReviewsCount = 0, // TODO: Query from reviews table
-            LoyaltyPoints = model.LoyaltyPoints,
-            MembershipTier = Enum.Parse<MembershipTier>(model.MembershipTier),
-            CreatedAt = model.CreatedAt,
-            UpdatedAt = model.UpdatedAt,
-            LastLoginAt = model.LastLoginAt,
-            
-            // ✅ Include roles (default to "user" if not provided)
-            Roles = roles ?? new List<string> { "user" }
-        };
-    }
-
-    /// <summary>
-    /// Calculate membership tier based on total spent
-    /// </summary>
     private string CalculateMembershipTier(decimal totalSpent)
     {
-        if (totalSpent >= 500000) return "Platinum"; // ₦500,000+
-        if (totalSpent >= 200000) return "Gold";     // ₦200,000+
-        if (totalSpent >= 50000) return "Silver";    // ₦50,000+
+        if (totalSpent >= 500000) return "Platinum";
+        if (totalSpent >= 200000) return "Gold";
+        if (totalSpent >= 50000) return "Silver";
         return "Bronze";
     }
 }
