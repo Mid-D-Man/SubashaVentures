@@ -115,18 +115,18 @@ public class UserModel : BaseModel
     /// <summary>
     /// Check if user has a specific role
     /// </summary>
-    [JsonIgnore]
+  
     public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
     
     /// <summary>
     /// Check if user is superior admin
     /// </summary>
-    [JsonIgnore]
+
     public bool IsSuperiorAdmin => HasRole("superior_admin");
     
     /// <summary>
     /// Check if user is regular user
     /// </summary>
-    [JsonIgnore]
+
     public bool IsRegularUser => HasRole("user");
 }
