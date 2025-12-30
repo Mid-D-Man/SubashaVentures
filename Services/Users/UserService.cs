@@ -122,7 +122,7 @@ public class UserService : IUserService
             );
 
             // ✅ FIX: Get current session first, then get user with JWT
-            var session = await _supabaseClient.Auth.CurrentSession;
+            var session =  _supabaseClient.Auth.CurrentSession;
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
                 _logger.LogError("Cannot create profile - no active session");
