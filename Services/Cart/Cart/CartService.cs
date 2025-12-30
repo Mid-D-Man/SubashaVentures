@@ -1,4 +1,4 @@
-// Services/Cart/CartService.cs
+// Services/Cart/CartService.cs - UPDATED with UUID and better error handling
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Cart;
 using SubashaVentures.Services.Products;
@@ -56,7 +56,7 @@ public class CartService : ICartService
             _cartCountCache[userId] = items.Sum(c => c.Quantity);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved {items.Count} cart items",
+                $"✓ Retrieved {items.Count} cart items (total quantity: {_cartCountCache[userId]})",
                 LogLevel.Info
             );
 
@@ -98,7 +98,7 @@ public class CartService : ICartService
 
                 cartItemViewModels.Add(new CartItemViewModel
                 {
-                    Id = cartItem.Id,
+                    Id = cartItem.Id.ToString(),
                     ProductId = cartItem.ProductId,
                     Name = product.Name,
                     Slug = product.Slug,
@@ -154,7 +154,7 @@ public class CartService : ICartService
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Adding to cart: User={userId}, Product={productId}, Qty={quantity}",
+                $"Adding to cart: User={userId}, Product={productId}, Qty={quantity}, Size={size}, Color={color}",
                 LogLevel.Info
             );
 
@@ -170,17 +170,26 @@ public class CartService : ICartService
 
             if (product.Stock < quantity)
             {
-                _logger.LogWarning("Insufficient stock for product: {ProductId}", productId);
+                _logger.LogWarning("Insufficient stock for product: {ProductId}. Requested: {Quantity}, Available: {Stock}", 
+                    productId, quantity, product.Stock);
                 return false;
             }
 
-            // Check if item already exists in cart
-            var existingItem = await _supabaseClient
+            // Check if item already exists in cart (same product, size, color)
+            var existingItems = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
                 .Where(c => c.ProductId == productId)
                 .Where(c => c.IsDeleted == false)
-                .Single();
+                .Get();
+
+            CartModel? existingItem = null;
+            if (existingItems?.Models != null)
+            {
+                // Find exact match with size and color
+                existingItem = existingItems.Models.FirstOrDefault(c => 
+                    c.Size == size && c.Color == color);
+            }
 
             if (existingItem != null)
             {
@@ -207,7 +216,7 @@ public class CartService : ICartService
                 // Create new cart item
                 var cartItem = new CartModel
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    Id = Guid.NewGuid(),
                     UserId = userId,
                     ProductId = productId,
                     Quantity = quantity,
@@ -269,9 +278,15 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
+            if (!Guid.TryParse(cartItemId, out var cartItemGuid))
+            {
+                _logger.LogError("Invalid cart item ID format: {CartItemId}", cartItemId);
+                return false;
+            }
+
             var cartItem = await _supabaseClient
                 .From<CartModel>()
-                .Where(c => c.Id == cartItemId)
+                .Where(c => c.Id == cartItemGuid)
                 .Where(c => c.UserId == userId)
                 .Where(c => c.IsDeleted == false)
                 .Single();
@@ -288,7 +303,8 @@ public class CartService : ICartService
 
             if (product == null || product.Stock < newQuantity)
             {
-                _logger.LogWarning("Insufficient stock for cart update");
+                _logger.LogWarning("Insufficient stock for cart update. Product: {ProductId}, Requested: {Quantity}, Available: {Stock}",
+                    cartItem.ProductId, newQuantity, product?.Stock ?? 0);
                 return false;
             }
 
@@ -331,9 +347,15 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
+            if (!Guid.TryParse(cartItemId, out var cartItemGuid))
+            {
+                _logger.LogError("Invalid cart item ID format: {CartItemId}", cartItemId);
+                return false;
+            }
+
             var cartItem = await _supabaseClient
                 .From<CartModel>()
-                .Where(c => c.Id == cartItemId)
+                .Where(c => c.Id == cartItemGuid)
                 .Where(c => c.UserId == userId)
                 .Where(c => c.IsDeleted == false)
                 .Single();
@@ -466,14 +488,14 @@ public class CartService : ICartService
                 return false;
             }
 
-            var cartItem = await _supabaseClient
+            var cartItems = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
                 .Where(c => c.ProductId == productId)
                 .Where(c => c.IsDeleted == false)
-                .Single();
+                .Get();
 
-            return cartItem != null;
+            return cartItems?.Models?.Any() == true;
         }
         catch (Exception ex)
         {
@@ -506,7 +528,7 @@ public class CartService : ICartService
                     result.IsValid = false;
                     result.ItemIssues.Add(new CartItemIssue
                     {
-                        CartItemId = cartItem.Id,
+                        CartItemId = cartItem.Id.ToString(),
                         ProductId = cartItem.ProductId,
                         IssueType = "NoLongerAvailable",
                         Message = "This product is no longer available"
@@ -519,7 +541,7 @@ public class CartService : ICartService
                     result.IsValid = false;
                     result.ItemIssues.Add(new CartItemIssue
                     {
-                        CartItemId = cartItem.Id,
+                        CartItemId = cartItem.Id.ToString(),
                         ProductId = cartItem.ProductId,
                         ProductName = product.Name,
                         IssueType = "NoLongerAvailable",
@@ -532,7 +554,7 @@ public class CartService : ICartService
                     result.IsValid = false;
                     result.ItemIssues.Add(new CartItemIssue
                     {
-                        CartItemId = cartItem.Id,
+                        CartItemId = cartItem.Id.ToString(),
                         ProductId = cartItem.ProductId,
                         ProductName = product.Name,
                         IssueType = "OutOfStock",

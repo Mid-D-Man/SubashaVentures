@@ -1,6 +1,6 @@
-namespace SubashaVentures.Domain.Cart;
-
 using SubashaVentures.Models.Supabase;
+
+namespace SubashaVentures.Domain.Cart;
 
 /// <summary>
 /// View model for cart item in shopping cart
@@ -56,7 +56,7 @@ public class CartItemViewModel
             
         return new CartItemViewModel
         {
-            Id = model.Id,
+            Id = model.Id.ToString(),
             ProductId = model.ProductId,
             Name = productName,
             Slug = productSlug,
@@ -79,7 +79,7 @@ public class CartItemViewModel
     {
         return new CartModel
         {
-            Id = this.Id,
+            Id = string.IsNullOrEmpty(this.Id) ? Guid.NewGuid() : Guid.Parse(this.Id),
             UserId = userId,
             ProductId = this.ProductId,
             Quantity = this.Quantity,
