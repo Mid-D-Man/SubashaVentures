@@ -6,12 +6,13 @@ namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// Supabase user model - linked to auth.users
-/// Updated: Added Roles property for role-based access control
+/// UPDATED: Role is now a direct field in users table (no separate user_roles table)
 /// </summary>
 [Table("users")]
 public class UserModel : BaseModel
 {
     [PrimaryKey("id", false)]
+    [Column("id")]
     public string Id { get; set; } = string.Empty;
     
     [Column("email")]
@@ -35,6 +36,9 @@ public class UserModel : BaseModel
     [Column("avatar_url")]
     public string? AvatarUrl { get; set; }
     
+    [Column("bio")]
+    public string? Bio { get; set; }
+    
     [Column("is_email_verified")]
     public bool IsEmailVerified { get; set; }
     
@@ -43,6 +47,9 @@ public class UserModel : BaseModel
     
     [Column("account_status")]
     public string AccountStatus { get; set; } = "Active";
+    
+    [Column("suspension_reason")]
+    public string? SuspensionReason { get; set; }
     
     // Preferences
     [Column("email_notifications")]
@@ -70,6 +77,14 @@ public class UserModel : BaseModel
     [Column("membership_tier")]
     public string MembershipTier { get; set; } = "Bronze";
     
+    // ==================== ROLE (SINGLE FIELD) ====================
+    
+    /// <summary>
+    /// User role: 'user' or 'superior_admin'
+    /// </summary>
+    [Column("role")]
+    public string Role { get; set; } = "user";
+    
     // ISecureEntity
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
@@ -95,25 +110,13 @@ public class UserModel : BaseModel
     [Column("last_login_at")]
     public DateTime? LastLoginAt { get; set; }
     
-    // ==================== NEW: ROLES ====================
-    
-    /// <summary>
-    /// User roles fetched from public.user_roles table
-    /// Not persisted in users table, loaded separately
-    /// </summary>
-    [JsonIgnore]
-    public List<UserRoleModel> UserRoles { get; set; } = new();
-    
-    /// <summary>
-    /// Helper property to get role strings
-    /// </summary>
-    [JsonIgnore]
-    public List<string> RoleStrings => UserRoles.Select(r => r.Role).ToList();
+    // ==================== HELPER METHODS ====================
     
     /// <summary>
     /// Check if user has a specific role
     /// </summary>
-    public bool HasRole(string role) => RoleStrings.Contains(role, StringComparer.OrdinalIgnoreCase);
+    [JsonIgnore]
+    public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
     
     /// <summary>
     /// Check if user is superior admin
@@ -125,6 +128,5 @@ public class UserModel : BaseModel
     /// Check if user is regular user
     /// </summary>
     [JsonIgnore]
-    public bool IsRegularUser => HasRole("user") || RoleStrings.Count == 0;
+    public bool IsRegularUser => HasRole("user");
 }
-
