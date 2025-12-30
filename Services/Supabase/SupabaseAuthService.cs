@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - FIXED BASE PATH + PKCE
+// Services/Supabase/SupabaseAuthService.cs - UPDATED FOR SINGLE ROLE FIELD
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
@@ -113,20 +113,13 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // Store return URL for after OAuth
             if (!string.IsNullOrEmpty(returnUrl))
             {
                 await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
             }
 
-            // ✅ CRITICAL FIX: Construct full redirect URL with base path
-            var baseUri = _navigationManager.BaseUri; // https://mid-d-man.github.io/SubashaVentures/
-            var redirectUrl = $"{baseUri}auth/callback"; // https://mid-d-man.github.io/SubashaVentures/auth/callback
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔗 BaseUri: {baseUri}",
-                LogLevel.Info
-            );
+            var baseUri = _navigationManager.BaseUri;
+            var redirectUrl = $"{baseUri}auth/callback";
             
             await MID_HelperFunctions.DebugMessageAsync(
                 $"🔗 Redirect URL: {redirectUrl}",
@@ -143,7 +136,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
             {
-                // Store PKCE verifier
                 await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
                 
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -151,13 +143,12 @@ public class SupabaseAuthService : ISupabaseAuthService
                     LogLevel.Info
                 );
 
-                // Force full page reload to Google OAuth
                 _navigationManager.NavigateTo(result.Uri.ToString(), forceLoad: true);
                 return true;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Google OAuth initiation failed - no redirect URL or PKCE verifier returned",
+                "❌ Google OAuth initiation failed",
                 LogLevel.Error
             );
 
@@ -182,7 +173,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // Extract code from query parameters
             var uri = new Uri(_navigationManager.Uri);
             var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
@@ -208,7 +198,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // Retrieve stored PKCE verifier
             var pkceVerifier = await _localStorage.GetItemAsync<string>(PkceVerifierKey);
 
             if (string.IsNullOrEmpty(pkceVerifier))
@@ -231,7 +220,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
-            // Exchange code for session
             var session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
@@ -249,10 +237,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Clean up PKCE verifier
             await _localStorage.RemoveItemAsync(PkceVerifierKey);
-
-            // Store session
             await StoreSessionAsync(session);
 
             var user = session.User;
@@ -263,7 +248,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                     LogLevel.Info
                 );
 
-                // Ensure user profile exists
                 await EnsureUserProfileExistsAsync(user);
             }
 
@@ -279,7 +263,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth PKCE callback");
             _logger.LogError(ex, "Error handling OAuth PKCE callback");
             
-            // Clean up verifier on error
             try
             {
                 await _localStorage.RemoveItemAsync(PkceVerifierKey);
@@ -313,9 +296,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                     { "first_name", userData.FirstName },
                     { "last_name", userData.LastName },
                     { "phone_number", userData.PhoneNumber ?? "" },
-                    { "avatar_url", userData.AvatarUrl ?? "" },
-                    { "email_verified", false },
-                    { "phone_verified", false }
+                    { "avatar_url", userData.AvatarUrl ?? "" }
                 }
             };
 
@@ -331,7 +312,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Create user profile in public.users table
             await CreateUserProfileAsync(session.User, userData);
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -826,25 +806,15 @@ public class SupabaseAuthService : ISupabaseAuthService
                 PreferredLanguage = "en",
                 Currency = "NGN",
                 MembershipTier = "Bronze",
+                Role = "user", // ✅ Default role
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = authUser.Id
             };
 
             await _supabase.From<UserModel>().Insert(userProfile);
             
-            var userRole = new UserRoleModel
-            {
-                Id = Guid.NewGuid().ToString(),
-                UserId = authUser.Id,
-                Role = "user",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = authUser.Id
-            };
-
-            await _supabase.From<UserRoleModel>().Insert(userRole);
-            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User profile created for: {authUser.Email}",
+                $"✓ User profile created for: {authUser.Email} with role: user",
                 LogLevel.Info
             );
         }
@@ -880,25 +850,15 @@ public class SupabaseAuthService : ISupabaseAuthService
                     PreferredLanguage = "en",
                     Currency = "NGN",
                     MembershipTier = "Bronze",
+                    Role = "user", // ✅ Default role
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = authUser.Id
                 };
 
                 await _supabase.From<UserModel>().Insert(userProfile);
                 
-                var userRole = new UserRoleModel
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    UserId = authUser.Id,
-                    Role = "user",
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = authUser.Id
-                };
-
-                await _supabase.From<UserRoleModel>().Insert(userRole);
-                
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ OAuth user profile created for: {authUser.Email}",
+                    $"✓ OAuth user profile created for: {authUser.Email} with role: user",
                     LogLevel.Info
                 );
             }
