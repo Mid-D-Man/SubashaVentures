@@ -1,4 +1,4 @@
-// Services/Authorization/PermissionService.cs - FIXED WITH AUTO PROFILE CREATION
+// Services/Authorization/PermissionService.cs - UPDATED FOR SINGLE ROLE FIELD
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Domain.User;
@@ -74,7 +74,6 @@ public class PermissionService : IPermissionService
                 return false;
             }
             
-            // ✅ CRITICAL FIX: Better account status checking with auto-profile creation
             var accountCheckResult = await CheckAccountStatusAsync();
             if (!accountCheckResult.IsActive)
             {
@@ -83,7 +82,6 @@ public class PermissionService : IPermissionService
                     LogLevel.Warning
                 );
                 
-                // If profile doesn't exist, this is likely a new OAuth user - create profile
                 if (accountCheckResult.Reason.Contains("profile not found", StringComparison.OrdinalIgnoreCase) ||
                     accountCheckResult.Reason.Contains("User ID not found", StringComparison.OrdinalIgnoreCase))
                 {
@@ -103,7 +101,6 @@ public class PermissionService : IPermissionService
                                 LogLevel.Info
                             );
                             
-                            // Retry account check after profile creation
                             accountCheckResult = await CheckAccountStatusAsync();
                             if (accountCheckResult.IsActive)
                             {
@@ -177,10 +174,9 @@ public class PermissionService : IPermissionService
             var authState = await _authStateProvider.GetAuthenticationStateAsync();
             var hasRole = authState.User?.IsInRole(role) ?? false;
             
-            // ✅ DEBUG: Log all role claims
             var roleClaims = authState.User?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList() ?? new List<string>();
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 Role check '{role}': {(hasRole ? "✅ HAS ROLE" : "❌ NO ROLE")} | User roles: [{string.Join(", ", roleClaims)}]",
+                $"🔍 Role check '{role}': {(hasRole ? "✅ HAS ROLE" : "❌ NO ROLE")} | User role: {string.Join(", ", roleClaims)}",
                 LogLevel.Info
             );
             
@@ -439,7 +435,6 @@ public class PermissionService : IPermissionService
                 };
             }
             
-            // Check account status
             if (user.AccountStatus != "Active")
             {
                 var reason = user.AccountStatus switch

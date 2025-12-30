@@ -1,10 +1,11 @@
-// Models/Supabase/WishlistModel.cs - UPDATED
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using Newtonsoft.Json;
 
 namespace SubashaVentures.Models.Supabase;
 
+/// <summary>
+/// Wishlist model - UPDATED to use UUID for user_id
+/// </summary>
 [Table("wishlist")]
 public class WishlistModel : BaseModel
 {
@@ -13,7 +14,7 @@ public class WishlistModel : BaseModel
     public Guid Id { get; set; }
     
     [Column("user_id")]
-    public string UserId { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty; // UUID as string
     
     [Column("product_id")]
     public string ProductId { get; set; } = string.Empty;

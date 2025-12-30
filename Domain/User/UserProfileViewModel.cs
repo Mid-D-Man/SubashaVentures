@@ -1,11 +1,10 @@
-// Domain/User/UserProfileViewModel.cs - UPDATED FOR ROLES WITH CONVERSION
 namespace SubashaVentures.Domain.User;
 
 using SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// View model for user profile information - matches Supabase Auth + extended profile
-/// Updated: Added Roles property for role-based authorization
+/// View model for user profile information
+/// UPDATED: Role is now a single field, not a list
 /// </summary>
 public class UserProfileViewModel
 {
@@ -47,7 +46,14 @@ public class UserProfileViewModel
     public DateTime? UpdatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
     
-    public List<string> Roles { get; set; } = new();
+    // ==================== ROLE (SINGLE FIELD) ====================
+    
+    /// <summary>
+    /// User role: 'user' or 'superior_admin'
+    /// </summary>
+    public string Role { get; set; } = "user";
+    
+    // ==================== COMPUTED PROPERTIES ====================
     
     public string FullName => $"{FirstName} {LastName}".Trim();
     public string DisplayName => string.IsNullOrEmpty(FullName) ? Email : FullName;
@@ -59,28 +65,18 @@ public class UserProfileViewModel
     public string DisplayTotalSpent => $"₦{TotalSpent:N0}";
     public string DisplayLoyaltyPoints => LoyaltyPoints.ToString("N0");
     
-    public bool IsSuperiorAdmin => Roles.Contains("superior_admin", StringComparer.OrdinalIgnoreCase);
-    public bool IsRegularUser => Roles.Contains("user", StringComparer.OrdinalIgnoreCase) || Roles.Count == 0;
-    public string RoleDisplay => Roles.Any() ? string.Join(", ", Roles) : "user";
+    public bool IsSuperiorAdmin => Role.Equals("superior_admin", StringComparison.OrdinalIgnoreCase);
+    public bool IsRegularUser => Role.Equals("user", StringComparison.OrdinalIgnoreCase);
+    public string RoleDisplay => Role == "superior_admin" ? "Superior Admin" : "User";
     
-    public bool HasRole(string role) => Roles.Contains(role, StringComparer.OrdinalIgnoreCase);
+    public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
     
-    public List<RoleBadge> RoleBadges => Roles.Select(role => new RoleBadge
+    public RoleBadge RoleBadge => new RoleBadge
     {
-        Role = role,
-        DisplayName = role switch
-        {
-            "superior_admin" => "Superior Admin",
-            "user" => "User",
-            _ => role
-        },
-        BadgeClass = role switch
-        {
-            "superior_admin" => "badge-danger",
-            "user" => "badge-info",
-            _ => "badge-secondary"
-        }
-    }).ToList();
+        Role = Role,
+        DisplayName = Role == "superior_admin" ? "Superior Admin" : "User",
+        BadgeClass = Role == "superior_admin" ? "badge-danger" : "badge-info"
+    };
     
     // ==================== CONVERSION METHODS ====================
     
@@ -116,9 +112,9 @@ public class UserProfileViewModel
             PhoneVerified = model.IsPhoneVerified,
             DateOfBirth = model.DateOfBirth,
             Gender = model.Gender,
-            Bio = null,
+            Bio = model.Bio,
             AccountStatus = model.AccountStatus,
-            SuspensionReason = null,
+            SuspensionReason = model.SuspensionReason,
             EmailNotifications = model.EmailNotifications,
             SmsNotifications = model.SmsNotifications,
             PreferredLanguage = model.PreferredLanguage,
@@ -131,7 +127,7 @@ public class UserProfileViewModel
             MembershipTier = tierEnum,
             UpdatedAt = model.UpdatedAt,
             LastLoginAt = model.LastLoginAt,
-            Roles = model.RoleStrings
+            Role = model.Role
         };
     }
     
@@ -150,9 +146,11 @@ public class UserProfileViewModel
             DateOfBirth = this.DateOfBirth,
             Gender = this.Gender,
             AvatarUrl = this.AvatarUrl,
+            Bio = this.Bio,
             IsEmailVerified = this.EmailVerified,
             IsPhoneVerified = this.PhoneVerified,
             AccountStatus = this.AccountStatus,
+            SuspensionReason = this.SuspensionReason,
             EmailNotifications = this.EmailNotifications,
             SmsNotifications = this.SmsNotifications,
             PreferredLanguage = this.PreferredLanguage,
@@ -164,7 +162,8 @@ public class UserProfileViewModel
             CreatedAt = this.CreatedAt,
             CreatedBy = "system",
             UpdatedAt = this.UpdatedAt,
-            LastLoginAt = this.LastLoginAt
+            LastLoginAt = this.LastLoginAt,
+            Role = this.Role
         };
     }
 }

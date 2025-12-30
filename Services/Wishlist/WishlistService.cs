@@ -9,6 +9,7 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Wishlist;
 
+
 public class WishlistService : IWishlistService
 {
     private readonly Client _supabaseClient;
