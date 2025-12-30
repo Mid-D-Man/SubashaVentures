@@ -1,9 +1,11 @@
-// Models/Supabase/CartModel.cs - UPDATED
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
 
+/// <summary>
+/// Cart model - UPDATED to use UUID for user_id
+/// </summary>
 [Table("cart")]
 public class CartModel : BaseModel
 {
@@ -12,7 +14,7 @@ public class CartModel : BaseModel
     public string Id { get; set; } = string.Empty;
     
     [Column("user_id")]
-    public string UserId { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty; // UUID as string
     
     [Column("product_id")]
     public string ProductId { get; set; } = string.Empty;
