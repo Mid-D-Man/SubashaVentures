@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Dec 30 04:39:19 UTC 2025
+Generated: Wed Dec 31 00:09:26 UTC 2025
 Repository: Mid-D-Man/SubashaVentures
-Commit: 8dd0945f367b8a75f8bf9ba3dc9483a6172c2ee4
+Commit: 32e87ed71b1e70076dddb1bd0d7a1312517d9dc8
 Branch: master
 ==================================
 
@@ -67,6 +67,8 @@ Domain/Enums/ProductEnums.cs
 Domain/Enums/SystemEnums.cs
 Domain/Miscellaneous/PromoCodeViewModel.cs
 Domain/Miscellaneous/ShippingMethodViewModel.cs
+Domain/Order/OrderSummaryDto.cs
+Domain/Order/OrderViewModel.cs
 Domain/Product/CategoryViewModel.cs
 Domain/Product/ProductCardDto.cs
 Domain/Product/ProductViewModel.cs
@@ -75,8 +77,6 @@ Domain/Shop/FilterState.cs
 Domain/Statistics/StatisticsViewModel.cs
 Domain/User/AddressViewModel.cs
 Domain/User/MembershipTier.cs
-Domain/User/Order/OrderSummaryDto.cs
-Domain/User/Order/OrderViewModel.cs
 Domain/User/UserProfileViewModel.cs
 Domain/User/WishlistItemViewModel.cs
 Domain/ValueObjects/SystemData.cs
@@ -323,11 +323,11 @@ Directory Structure:
 ./  Checkout
 ./  Enums
 ./  Miscellaneous
+./  Order
 ./  Product
 ./  Shop
 ./  Statistics
 ./  User
-./    Order
 ./  ValueObjects
 ./Layout
 ./  Admin
