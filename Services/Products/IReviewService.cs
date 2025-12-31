@@ -1,4 +1,4 @@
-// Services/Products/IReviewService.cs
+// Services/Products/IReviewService.cs - UPDATED with admin methods
 
 using SubashaVentures.Models.Firebase;
 
@@ -9,8 +9,10 @@ namespace SubashaVentures.Services.Products;
 /// </summary>
 public interface IReviewService
 {
+    // ==================== USER METHODS ====================
+    
     /// <summary>
-    /// Get all reviews for a product
+    /// Get all approved reviews for a product
     /// </summary>
     Task<List<ReviewModel>> GetProductReviewsAsync(string productId);
     
@@ -25,7 +27,7 @@ public interface IReviewService
     Task<List<ReviewModel>> GetUserReviewsAsync(string userId);
     
     /// <summary>
-    /// Create a new review
+    /// Create a new review (starts as pending approval)
     /// </summary>
     Task<string> CreateReviewAsync(CreateReviewRequest request);
     
@@ -53,6 +55,48 @@ public interface IReviewService
     /// Get review statistics for a product
     /// </summary>
     Task<ReviewStatistics> GetReviewStatisticsAsync(string productId);
+    
+    // ==================== ADMIN METHODS ====================
+    
+    /// <summary>
+    /// Get ALL reviews (admin only)
+    /// </summary>
+    Task<List<ReviewAdminDto>> GetAllReviewsAdminAsync();
+    
+    /// <summary>
+    /// Get pending reviews (admin only)
+    /// </summary>
+    Task<List<ReviewAdminDto>> GetPendingReviewsAsync();
+    
+    /// <summary>
+    /// Get approved reviews (admin only)
+    /// </summary>
+    Task<List<ReviewAdminDto>> GetApprovedReviewsAsync();
+    
+    /// <summary>
+    /// Get reviews by approval status (admin only)
+    /// </summary>
+    Task<List<ReviewAdminDto>> GetReviewsByStatusAsync(bool isApproved);
+    
+    /// <summary>
+    /// Approve a review (admin only)
+    /// </summary>
+    Task<bool> ApproveReviewAsync(string reviewId, string approvedBy);
+    
+    /// <summary>
+    /// Reject/delete a review with reason (admin only)
+    /// </summary>
+    Task<bool> RejectReviewAsync(string reviewId, string rejectionReason);
+    
+    /// <summary>
+    /// Get review counts by status (admin only)
+    /// </summary>
+    Task<ReviewStatusCounts> GetReviewStatusCountsAsync();
+    
+    /// <summary>
+    /// Get reviews for a specific product (admin - includes pending)
+    /// </summary>
+    Task<List<ReviewModel>> GetProductReviewsAdminAsync(string productId);
 }
 
 /// <summary>
@@ -106,4 +150,23 @@ public class ReviewStatistics
     public int ThreeStarPercentage => TotalReviews > 0 ? (ThreeStarCount * 100 / TotalReviews) : 0;
     public int TwoStarPercentage => TotalReviews > 0 ? (TwoStarCount * 100 / TotalReviews) : 0;
     public int OneStarPercentage => TotalReviews > 0 ? (OneStarCount * 100 / TotalReviews) : 0;
+}
+
+/// <summary>
+/// Review status counts for admin dashboard
+/// </summary>
+public class ReviewStatusCounts
+{
+    public int TotalReviews { get; set; }
+    public int PendingReviews { get; set; }
+    public int ApprovedReviews { get; set; }
+    public int RejectedReviews { get; set; }
+    
+    public string PendingPercentage => TotalReviews > 0 
+        ? $"{(PendingReviews * 100 / TotalReviews)}%" 
+        : "0%";
+    
+    public string ApprovedPercentage => TotalReviews > 0 
+        ? $"{(ApprovedReviews * 100 / TotalReviews)}%" 
+        : "0%";
 }
