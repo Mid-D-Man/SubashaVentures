@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Cart;
@@ -44,7 +45,18 @@ public partial class ProductDetails : ComponentBase
     private string? SelectedSize { get; set; }
     private string? SelectedColor { get; set; }
     private int Quantity { get; set; } = 1;
+    
+    // Cart and Wishlist states
     private bool IsFavorite { get; set; }
+    private bool IsInCart { get; set; }
+    private bool IsAddingToCart { get; set; }
+    private bool IsTogglingWishlist { get; set; }
+    private string? currentUserId;
+    
+    // Status messages
+    private string StatusMessage { get; set; } = "";
+    private string StatusMessageType { get; set; } = ""; // "success" or "error"
+    private System.Threading.Timer? statusMessageTimer;
     
     private bool ShowReviewForm { get; set; } = false;
     
@@ -68,6 +80,11 @@ public partial class ProductDetails : ComponentBase
         {
             await LoadProduct();
         }
+    }
+
+    public void Dispose()
+    {
+        statusMessageTimer?.Dispose();
     }
 
     #endregion
@@ -109,6 +126,9 @@ public partial class ProductDetails : ComponentBase
                 // Initialize default selections
                 InitializeDefaults();
                 
+                // Check cart and wishlist status if authenticated
+                await CheckCartAndWishlistStatus();
+                
                 // Load reviews
                 _ = LoadReviews();
                 
@@ -125,6 +145,42 @@ public partial class ProductDetails : ComponentBase
         {
             IsLoading = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task CheckCartAndWishlistStatus()
+    {
+        if (Product == null) return;
+
+        try
+        {
+            if (await PermissionService.IsAuthenticatedAsync())
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+                
+                if (!string.IsNullOrEmpty(currentUserId))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"Checking cart/wishlist status for user: {currentUserId}",
+                        LogLevel.Info
+                    );
+
+                    // Check wishlist
+                    IsFavorite = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
+                    
+                    // Check cart
+                    IsInCart = await CartService.IsInCartAsync(currentUserId, Product.Id.ToString());
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"Status: InWishlist={IsFavorite}, InCart={IsInCart}",
+                        LogLevel.Info
+                    );
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking cart/wishlist status");
         }
     }
 
@@ -307,110 +363,161 @@ public partial class ProductDetails : ComponentBase
     #region Action Handlers
 
     private async Task HandleAddToCart()
-{
-    if (Product == null || !Product.IsInStock) return;
-
-    await MID_HelperFunctions.DebugMessageAsync(
-        $"Add to cart: Product ID {Product.Id}, Quantity: {Quantity}, Size: {SelectedSize}, Color: {SelectedColor}",
-        LogLevel.Info
-    );
-
-    try
     {
-        // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-        {
-            return;
-        }
+        if (Product == null || !Product.IsInStock || IsAddingToCart) return;
 
-        var currentUserId = await PermissionService.GetCurrentUserIdAsync();
-        if (string.IsNullOrEmpty(currentUserId))
-        {
-            PermissionService.ShowAuthRequiredMessage("add items to cart");
-            return;
-        }
+        IsAddingToCart = true;
+        ClearStatusMessage();
+        StateHasChanged();
 
-        // Add to cart with selected variants
-        var success = await CartService.AddToCartAsync(
-            currentUserId,
-            Product.Id.ToString(),
-            Quantity,
-            SelectedSize,
-            SelectedColor
-        );
-
-        if (success)
+        try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Added {Product.Name} to cart (Qty: {Quantity}, Size: {SelectedSize}, Color: {SelectedColor})",
+                $"Add to cart: Product ID {Product.Id}, Quantity: {Quantity}, Size: {SelectedSize}, Color: {SelectedColor}",
                 LogLevel.Info
             );
 
-            // Show success message (you can implement a toast notification here)
-            Console.WriteLine($"✅ {Product.Name} added to cart!");
-        }
-        else
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"❌ Failed to add {Product.Name} to cart",
-                LogLevel.Error
+            // Check authentication
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("add items to cart");
+                return;
+            }
+
+            // Add to cart with selected variants and quantity
+            var success = await CartService.AddToCartAsync(
+                currentUserId,
+                Product.Id.ToString(),
+                Quantity,
+                SelectedSize,
+                SelectedColor
             );
-            
-            Console.WriteLine($"❌ Failed to add {Product.Name} to cart. Please try again.");
+
+            if (success)
+            {
+                IsInCart = true;
+                
+                ShowStatusMessage(
+                    $"✓ Added {Quantity} {Product.Name} to cart!", 
+                    "success"
+                );
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Added {Product.Name} to cart (Qty: {Quantity}, Size: {SelectedSize}, Color: {SelectedColor})",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                ShowStatusMessage(
+                    "Failed to add to cart. Please try again.", 
+                    "error"
+                );
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Failed to add {Product.Name} to cart",
+                    LogLevel.Error
+                );
+            }
         }
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to cart");
-        Console.WriteLine($"❌ Error: {ex.Message}");
-    }
-}
-
-private async Task HandleToggleFavorite()
-{
-    if (Product == null) return;
-
-    try
-    {
-        // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+        catch (Exception ex)
         {
-            return;
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to cart");
+            ShowStatusMessage(
+                $"Error: {ex.Message}", 
+                "error"
+            );
         }
-
-        var currentUserId = await PermissionService.GetCurrentUserIdAsync();
-        if (string.IsNullOrEmpty(currentUserId))
+        finally
         {
-            PermissionService.ShowAuthRequiredMessage("add items to wishlist");
-            return;
-        }
-
-        // Toggle wishlist
-        var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
-
-        if (success)
-        {
-            IsFavorite = !IsFavorite;
+            IsAddingToCart = false;
             StateHasChanged();
+        }
+    }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Toggled wishlist for {Product.Name}: {(IsFavorite ? "Added" : "Removed")}",
-                LogLevel.Info
-            );
-        }
-        else
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"❌ Failed to toggle wishlist for {Product.Name}",
-                LogLevel.Error
-            );
-        }
-    }
-    catch (Exception ex)
+    private async Task HandleToggleFavorite()
     {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling favorite");
+        if (Product == null || IsTogglingWishlist) return;
+
+        IsTogglingWishlist = true;
+        ClearStatusMessage();
+        StateHasChanged();
+
+        try
+        {
+            // Check authentication
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("add items to wishlist");
+                return;
+            }
+
+            // Toggle wishlist
+            var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
+
+            if (success)
+            {
+                IsFavorite = !IsFavorite;
+                
+                ShowStatusMessage(
+                    IsFavorite 
+                        ? $"✓ Added to wishlist!" 
+                        : "Removed from wishlist", 
+                    "success"
+                );
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Toggled wishlist for {Product.Name}: {(IsFavorite ? "Added" : "Removed")}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                ShowStatusMessage(
+                    "Failed to update wishlist. Please try again.", 
+                    "error"
+                );
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Failed to toggle wishlist for {Product.Name}",
+                    LogLevel.Error
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling favorite");
+            ShowStatusMessage(
+                $"Error: {ex.Message}", 
+                "error"
+            );
+        }
+        finally
+        {
+            IsTogglingWishlist = false;
+            StateHasChanged();
+        }
     }
-}
 
     private async Task HandleBuyNow()
     {
@@ -422,8 +529,13 @@ private async Task HandleToggleFavorite()
         );
 
         // TODO: Implement buy now functionality
-        // await CartService.AddToCartAsync(Product.Id, Quantity, SelectedSize, SelectedColor);
-        // NavigationService.NavigateTo("/checkout");
+        // This should add to cart and navigate to checkout
+        await HandleAddToCart();
+        
+        if (IsInCart)
+        {
+            NavigationManager.NavigateTo("/checkout");
+        }
     }
 
     private async Task HandleShare()
@@ -434,6 +546,34 @@ private async Task HandleToggleFavorite()
         );
 
         // TODO: Implement share functionality (Web Share API via JS Interop)
+        ShowStatusMessage("Share feature coming soon!", "success");
+    }
+
+    #endregion
+
+    #region Status Messages
+
+    private void ShowStatusMessage(string message, string type)
+    {
+        StatusMessage = message;
+        StatusMessageType = type;
+        StateHasChanged();
+
+        // Auto-clear after 5 seconds
+        statusMessageTimer?.Dispose();
+        statusMessageTimer = new System.Threading.Timer(
+            _ => ClearStatusMessage(), 
+            null, 
+            5000, 
+            System.Threading.Timeout.Infinite
+        );
+    }
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = "";
+        StatusMessageType = "";
+        StateHasChanged();
     }
 
     #endregion
@@ -456,6 +596,7 @@ private async Task HandleToggleFavorite()
     {
         ShowReviewForm = false;
         await LoadReviews();
+        ShowStatusMessage("Thank you for your review!", "success");
         StateHasChanged();
     }
 
@@ -472,6 +613,7 @@ private async Task HandleToggleFavorite()
             if (success)
             {
                 await LoadReviews();
+                ShowStatusMessage("Thank you for your feedback!", "success");
             }
         }
         catch (Exception ex)
