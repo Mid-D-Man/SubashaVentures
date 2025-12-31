@@ -1,6 +1,7 @@
-// Services/Products/ReviewService.cs - COMPLETE FILE
+// Services/Products/ReviewService.cs - COMPLETE with admin methods
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
+using SubashaVentures.Services.Products;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -9,16 +10,21 @@ namespace SubashaVentures.Services.Products;
 public class ReviewService : IReviewService
 {
     private readonly IFirestoreService _firestore;
+    private readonly IProductService _productService;
     private readonly ILogger<ReviewService> _logger;
     private const string COLLECTION = "reviews";
 
     public ReviewService(
         IFirestoreService firestore,
+        IProductService productService,
         ILogger<ReviewService> logger)
     {
         _firestore = firestore;
+        _productService = productService;
         _logger = logger;
     }
+
+    // ==================== USER METHODS ====================
 
     public async Task<List<ReviewModel>> GetProductReviewsAsync(string productId)
     {
@@ -31,13 +37,13 @@ public class ReviewService : IReviewService
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Fetching reviews for product: {productId}",
+                $"Fetching approved reviews for product: {productId}",
                 LogLevel.Info
             );
 
             var reviews = await _firestore.QueryCollectionAsync<ReviewModel>(
                 COLLECTION,
-                "ProductId",
+                productId, // Use camelCase to match Firestore field
                 productId
             );
 
@@ -50,13 +56,14 @@ public class ReviewService : IReviewService
                 return new List<ReviewModel>();
             }
 
+            // Only return approved reviews for public view
             var approvedReviews = reviews
                 .Where(r => r.IsApproved)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToList();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved {approvedReviews.Count} approved reviews",
+                $"✓ Retrieved {approvedReviews.Count} approved reviews out of {reviews.Count} total",
                 LogLevel.Info
             );
 
@@ -117,7 +124,7 @@ public class ReviewService : IReviewService
 
             var reviews = await _firestore.QueryCollectionAsync<ReviewModel>(
                 COLLECTION,
-                "UserId",
+                "userId", // Use camelCase to match Firestore field
                 userId
             );
 
@@ -153,11 +160,15 @@ public class ReviewService : IReviewService
             if (request.Rating < 1 || request.Rating > 5)
                 throw new ArgumentException("Rating must be between 1 and 5");
 
+            if (string.IsNullOrWhiteSpace(request.Comment) || request.Comment.Length < 10)
+                throw new ArgumentException("Comment must be at least 10 characters");
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Creating review: Product={request.ProductId}, User={request.UserId}, Rating={request.Rating}",
                 LogLevel.Info
             );
 
+            // Check if user already reviewed this product
             var existingReview = await HasUserReviewedProductAsync(request.UserId, request.ProductId);
             if (existingReview)
             {
@@ -181,9 +192,12 @@ public class ReviewService : IReviewService
                 Images = request.ImageUrls ?? new List<string>(),
                 IsVerifiedPurchase = request.IsVerifiedPurchase,
                 HelpfulCount = 0,
-                IsApproved = false,
+                IsApproved = false, // Requires admin approval
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = null
+                UpdatedAt = null,
+                ApprovedBy = null,
+                ApprovedAt = null,
+                RejectionReason = null
             };
 
             var id = await _firestore.AddDocumentAsync(COLLECTION, reviewModel, reviewModel.Id);
@@ -193,6 +207,13 @@ public class ReviewService : IReviewService
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"✓ Review created: {id} (pending approval)",
                     LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Failed to create review - Firestore returned empty ID",
+                    LogLevel.Error
                 );
             }
 
@@ -302,7 +323,7 @@ public class ReviewService : IReviewService
 
             var reviews = await _firestore.QueryCollectionAsync<ReviewModel>(
                 COLLECTION,
-                "UserId",
+                "userId",
                 userId
             );
 
@@ -383,6 +404,395 @@ public class ReviewService : IReviewService
             await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting review statistics: {productId}");
             _logger.LogError(ex, "Failed to get review statistics for product: {ProductId}", productId);
             return new ReviewStatistics { ProductId = productId };
+        }
+    }
+
+    // ==================== ADMIN METHODS ====================
+
+    public async Task<List<ReviewAdminDto>> GetAllReviewsAdminAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Fetching ALL reviews for admin",
+                LogLevel.Info
+            );
+
+            var reviews = await _firestore.GetCollectionAsync<ReviewModel>(COLLECTION);
+
+            if (reviews == null || !reviews.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No reviews found in system",
+                    LogLevel.Info
+                );
+                return new List<ReviewAdminDto>();
+            }
+
+            // Get unique product IDs
+            var productIds = reviews.Select(r => r.ProductId).Distinct().ToList();
+            
+            // Fetch product names (batch request)
+            var productNames = new Dictionary<string, string>();
+            foreach (var productId in productIds)
+            {
+                if (int.TryParse(productId, out var id))
+                {
+                    var product = await _productService.GetProductByIdAsync(id);
+                    if (product != null)
+                    {
+                        productNames[productId] = product.Name;
+                    }
+                    else
+                    {
+                        productNames[productId] = $"Product #{productId}";
+                    }
+                }
+                else
+                {
+                    productNames[productId] = $"Product #{productId}";
+                }
+            }
+
+            var adminDtos = reviews
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => ReviewAdminDto.FromReviewModel(
+                    r, 
+                    productNames.GetValueOrDefault(r.ProductId, "Unknown Product")
+                ))
+                .ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved {adminDtos.Count} reviews for admin",
+                LogLevel.Info
+            );
+
+            return adminDtos;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting all reviews for admin");
+            _logger.LogError(ex, "Failed to get all reviews for admin");
+            return new List<ReviewAdminDto>();
+        }
+    }
+
+    public async Task<List<ReviewAdminDto>> GetPendingReviewsAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Fetching pending reviews",
+                LogLevel.Info
+            );
+
+            var reviews = await _firestore.QueryCollectionAsync<ReviewModel>(
+                COLLECTION,
+                "isApproved",
+                false
+            );
+
+            if (reviews == null || !reviews.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No pending reviews found",
+                    LogLevel.Info
+                );
+                return new List<ReviewAdminDto>();
+            }
+
+            // Get product names
+            var productIds = reviews.Select(r => r.ProductId).Distinct().ToList();
+            var productNames = new Dictionary<string, string>();
+            
+            foreach (var productId in productIds)
+            {
+                if (int.TryParse(productId, out var id))
+                {
+                    var product = await _productService.GetProductByIdAsync(id);
+                    productNames[productId] = product?.Name ?? $"Product #{productId}";
+                }
+                else
+                {
+                    productNames[productId] = $"Product #{productId}";
+                }
+            }
+
+            var pendingDtos = reviews
+                .OrderBy(r => r.CreatedAt) // Oldest first for pending
+                .Select(r => ReviewAdminDto.FromReviewModel(
+                    r, 
+                    productNames.GetValueOrDefault(r.ProductId, "Unknown Product")
+                ))
+                .ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved {pendingDtos.Count} pending reviews",
+                LogLevel.Info
+            );
+
+            return pendingDtos;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting pending reviews");
+            _logger.LogError(ex, "Failed to get pending reviews");
+            return new List<ReviewAdminDto>();
+        }
+    }
+
+    public async Task<List<ReviewAdminDto>> GetApprovedReviewsAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Fetching approved reviews",
+                LogLevel.Info
+            );
+
+            var reviews = await _firestore.QueryCollectionAsync<ReviewModel>(
+                COLLECTION,
+                "isApproved",
+                true
+            );
+
+            if (reviews == null || !reviews.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No approved reviews found",
+                    LogLevel.Info
+                );
+                return new List<ReviewAdminDto>();
+            }
+
+            // Get product names
+            var productIds = reviews.Select(r => r.ProductId).Distinct().ToList();
+            var productNames = new Dictionary<string, string>();
+            
+            foreach (var productId in productIds)
+            {
+                if (int.TryParse(productId, out var id))
+                {
+                    var product = await _productService.GetProductByIdAsync(id);
+                    productNames[productId] = product?.Name ?? $"Product #{productId}";
+                }
+                else
+                {
+                    productNames[productId] = $"Product #{productId}";
+                }
+            }
+
+            var approvedDtos = reviews
+                .OrderByDescending(r => r.ApprovedAt ?? r.CreatedAt)
+                .Select(r => ReviewAdminDto.FromReviewModel(
+                    r, 
+                    productNames.GetValueOrDefault(r.ProductId, "Unknown Product")
+                ))
+                .ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved {approvedDtos.Count} approved reviews",
+                LogLevel.Info
+            );
+
+            return approvedDtos;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting approved reviews");
+            _logger.LogError(ex, "Failed to get approved reviews");
+            return new List<ReviewAdminDto>();
+        }
+    }
+
+    public async Task<List<ReviewAdminDto>> GetReviewsByStatusAsync(bool isApproved)
+    {
+        return isApproved 
+            ? await GetApprovedReviewsAsync() 
+            : await GetPendingReviewsAsync();
+    }
+
+    public async Task<bool> ApproveReviewAsync(string reviewId, string approvedBy)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(reviewId))
+                throw new ArgumentException("ReviewId is required");
+
+            if (string.IsNullOrWhiteSpace(approvedBy))
+                throw new ArgumentException("ApprovedBy is required");
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Approving review: {reviewId} by {approvedBy}",
+                LogLevel.Info
+            );
+
+            var review = await _firestore.GetDocumentAsync<ReviewModel>(COLLECTION, reviewId);
+
+            if (review == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Review not found: {reviewId}",
+                    LogLevel.Warning
+                );
+                return false;
+            }
+
+            var updated = review with
+            {
+                IsApproved = true,
+                ApprovedBy = approvedBy,
+                ApprovedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                RejectionReason = null // Clear any previous rejection
+            };
+
+            var success = await _firestore.UpdateDocumentAsync(COLLECTION, reviewId, updated);
+
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Review approved: {reviewId}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Failed to approve review: {reviewId}",
+                    LogLevel.Error
+                );
+            }
+
+            return success;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Approving review: {reviewId}");
+            _logger.LogError(ex, "Failed to approve review: {ReviewId}", reviewId);
+            return false;
+        }
+    }
+
+    public async Task<bool> RejectReviewAsync(string reviewId, string rejectionReason)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(reviewId))
+                throw new ArgumentException("ReviewId is required");
+
+            if (string.IsNullOrWhiteSpace(rejectionReason))
+                throw new ArgumentException("Rejection reason is required");
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Rejecting review: {reviewId} - Reason: {rejectionReason}",
+                LogLevel.Warning
+            );
+
+            // Delete the review (or you could mark it as rejected)
+            var success = await _firestore.DeleteDocumentAsync(COLLECTION, reviewId);
+
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Review rejected and deleted: {reviewId}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Failed to reject review: {reviewId}",
+                    LogLevel.Error
+                );
+            }
+
+            return success;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Rejecting review: {reviewId}");
+            _logger.LogError(ex, "Failed to reject review: {ReviewId}", reviewId);
+            return false;
+        }
+    }
+
+    public async Task<ReviewStatusCounts> GetReviewStatusCountsAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Fetching review status counts",
+                LogLevel.Info
+            );
+
+            var allReviews = await _firestore.GetCollectionAsync<ReviewModel>(COLLECTION);
+
+            if (allReviews == null || !allReviews.Any())
+            {
+                return new ReviewStatusCounts();
+            }
+
+            var counts = new ReviewStatusCounts
+            {
+                TotalReviews = allReviews.Count,
+                PendingReviews = allReviews.Count(r => !r.IsApproved),
+                ApprovedReviews = allReviews.Count(r => r.IsApproved),
+                RejectedReviews = 0 // We delete rejected reviews, so always 0
+            };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Review counts: Total={counts.TotalReviews}, Pending={counts.PendingReviews}, Approved={counts.ApprovedReviews}",
+                LogLevel.Info
+            );
+
+            return counts;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting review status counts");
+            _logger.LogError(ex, "Failed to get review status counts");
+            return new ReviewStatusCounts();
+        }
+    }
+
+    public async Task<List<ReviewModel>> GetProductReviewsAdminAsync(string productId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(productId))
+            {
+                _logger.LogWarning("GetProductReviewsAdmin called with empty productId");
+                return new List<ReviewModel>();
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Fetching ALL reviews (including pending) for product: {productId}",
+                LogLevel.Info
+            );
+
+            var reviews = await _firestore.QueryCollectionAsync<ReviewModel>(
+                COLLECTION,
+                "productId",
+                productId
+            );
+
+            var allReviews = reviews?
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList() ?? new List<ReviewModel>();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved {allReviews.Count} total reviews for product (admin view)",
+                LogLevel.Info
+            );
+
+            return allReviews;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting admin reviews for product: {productId}");
+            _logger.LogError(ex, "Failed to get admin reviews for product: {ProductId}", productId);
+            return new List<ReviewModel>();
         }
     }
 }
