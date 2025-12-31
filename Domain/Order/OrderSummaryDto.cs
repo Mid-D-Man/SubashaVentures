@@ -1,3 +1,5 @@
+using SubashaVentures.Domain.Order;
+
 namespace SubashaVentures.Domain.Order;
 
 using SubashaVentures.Models.Supabase;
@@ -25,7 +27,7 @@ public class OrderSummaryDto
             
         return new OrderSummaryDto
         {
-            Id = model.Id,
+            Id = model.Id.ToString(),
             OrderNumber = model.OrderNumber,
             CreatedAt = model.CreatedAt,
             Status = Enum.Parse<OrderStatus>(model.Status, true),

@@ -1,4 +1,4 @@
-// ===== Domain/Order/OrderViewModel.cs =====
+// ===== Domain/Order/OrderViewModel.cs ===== FIXED FOR GUID
 namespace SubashaVentures.Domain.Order;
 
 using SubashaVentures.Models.Supabase;
@@ -61,7 +61,7 @@ public class OrderViewModel
             
         return new OrderViewModel
         {
-            Id = model.Id,
+            Id = model.Id.ToString(), // ✅ FIXED: Convert Guid to string
             OrderNumber = model.OrderNumber,
             UserId = model.UserId,
             CustomerName = model.CustomerName,
@@ -99,7 +99,7 @@ public class OrderViewModel
     {
         return new OrderModel
         {
-            Id = this.Id,
+            Id = string.IsNullOrEmpty(this.Id) ? Guid.NewGuid() : Guid.Parse(this.Id), // ✅ FIXED: Convert string to Guid
             OrderNumber = this.OrderNumber,
             UserId = this.UserId,
             CustomerName = this.CustomerName,
@@ -134,6 +134,7 @@ public class OrderViewModel
 public class OrderItemViewModel
 {
     public string Id { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty; // ✅ ADDED: OrderId for reference
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
@@ -156,7 +157,8 @@ public class OrderItemViewModel
             
         return new OrderItemViewModel
         {
-            Id = model.Id,
+            Id = model.Id.ToString(), // ✅ FIXED: Convert Guid to string
+            OrderId = model.OrderId.ToString(), // ✅ FIXED: Convert Guid to string
             ProductId = model.ProductId,
             ProductName = model.ProductName,
             ImageUrl = model.ImageUrl,
@@ -175,8 +177,8 @@ public class OrderItemViewModel
     {
         return new OrderItemModel
         {
-            Id = this.Id,
-            OrderId = orderId,
+            Id = string.IsNullOrEmpty(this.Id) ? Guid.NewGuid() : Guid.Parse(this.Id), // ✅ FIXED: Convert string to Guid
+            OrderId = Guid.Parse(orderId), // ✅ FIXED: Convert string to Guid
             ProductId = this.ProductId,
             ProductName = this.ProductName,
             ProductSku = this.Sku,

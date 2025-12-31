@@ -4,14 +4,14 @@ using Supabase.Postgrest.Models;
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Order model - UPDATED to use UUID for user_id
+/// Order model - UPDATED to use UUID (Guid) for id
 /// </summary>
 [Table("orders")]
 public class OrderModel : BaseModel
 {
     [PrimaryKey("id", false)]
     [Column("id")]
-    public string Id { get; set; } = string.Empty;
+    public Guid Id { get; set; } // ✅ MUST BE GUID, NOT STRING
     
     [Column("order_number")]
     public string OrderNumber { get; set; } = string.Empty;
