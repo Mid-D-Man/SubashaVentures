@@ -57,6 +57,10 @@
                             {
                                 <span class="badge badge-featured">Featured</span>
                             }
+                            @if (IsInCart)
+                            {
+                                <span class="badge badge-in-cart">✓ In Cart</span>
+                            }
                         </div>
                         
                         @if (Product.IsOnSale && Product.Discount > 0)
@@ -207,29 +211,59 @@
 
                     @* Action Buttons - Sticky on mobile *@
                     <div class="action-buttons">
-                        <SecondaryButton 
-                            Variant="SecondaryButton.ButtonVariant.Outline"
-                            Size="SecondaryButton.ButtonSize.Large"
-                            OnClick="HandleAddToCart"
-                            IsDisabled="!Product.IsInStock"
-                            Icon="🛒"
-                            CssClass="btn-add-cart">
-                            Add to Cart
-                        </SecondaryButton>
+                        <button class="btn-add-to-cart @(IsAddingToCart ? "loading" : "") @(!Product.IsInStock ? "disabled" : "")"
+                                @onclick="HandleAddToCart"
+                                disabled="@(!Product.IsInStock || IsAddingToCart)">
+                            @if (IsAddingToCart)
+                            {
+                                <span class="btn-spinner"></span>
+                                <span>Adding to Cart...</span>
+                            }
+                            else if (IsInCart)
+                            {
+                                <span class="cart-icon">✓</span>
+                                <span>Added to Cart</span>
+                            }
+                            else if (Product.IsInStock)
+                            {
+                                <span class="cart-icon">🛒</span>
+                                <span>Add to Cart</span>
+                            }
+                            else
+                            {
+                                <span>Out of Stock</span>
+                            }
+                        </button>
                         
-                        <PrimaryButton 
-                            Size="PrimaryButton.ButtonSize.Large"
-                            OnClick="HandleBuyNow"
-                            IsDisabled="!Product.IsInStock"
-                            CssClass="btn-buy-now">
-                            Buy Now
-                        </PrimaryButton>
+                        <button class="btn-buy-now"
+                                @onclick="HandleBuyNow"
+                                disabled="@(!Product.IsInStock)">
+                            <span>Buy Now</span>
+                        </button>
                         
-                        <button class="btn-favorite @(IsFavorite ? "active" : "")"
-                                @onclick="HandleToggleFavorite">
-                            <span class="heart-icon">@(IsFavorite ? "♥" : "♡")</span>
+                        <button class="btn-favorite @(IsFavorite ? "active" : "") @(IsTogglingWishlist ? "loading" : "")"
+                                @onclick="HandleToggleFavorite"
+                                disabled="@IsTogglingWishlist"
+                                title="@(IsFavorite ? "Remove from wishlist" : "Add to wishlist")">
+                            @if (IsTogglingWishlist)
+                            {
+                                <span class="wishlist-spinner"></span>
+                            }
+                            else
+                            {
+                                <span class="heart-icon">@(IsFavorite ? "♥" : "♡")</span>
+                            }
                         </button>
                     </div>
+
+                    @* Success/Error Messages *@
+                    @if (!string.IsNullOrEmpty(StatusMessage))
+                    {
+                        <div class="status-message @StatusMessageType">
+                            <span class="status-icon">@(StatusMessageType == "success" ? "✓" : "✗")</span>
+                            <span>@StatusMessage</span>
+                        </div>
+                    }
 
                     @* Product Details *@
                     <div class="product-details">
