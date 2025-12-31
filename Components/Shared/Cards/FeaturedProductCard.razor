@@ -1,6 +1,5 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
-
 @using SubashaVentures.Services.Wishlist
 @using SubashaVentures.Services.Cart
 @using SubashaVentures.Services.Authorization
@@ -34,14 +33,26 @@
             {
                 <span class="badge sale-badge">-@Product.Discount%</span>
             }
+            @if (IsInCart)
+            {
+                <span class="badge cart-badge">✓ In Cart</span>
+            }
         </div>
         
         @* Wishlist Button *@
-        <button class="wishlist-btn @(isInWishlist ? "active" : "")" 
+        <button class="wishlist-btn @(isInWishlist ? "active" : "") @(IsTogglingWishlist ? "loading" : "")" 
                 @onclick="HandleWishlistToggle" 
                 @onclick:stopPropagation="true"
+                disabled="@IsTogglingWishlist"
                 title="@(isInWishlist ? "Remove from wishlist" : "Add to wishlist")">
-            <span class="heart-icon">@(isInWishlist ? "♥" : "♡")</span>
+            @if (IsTogglingWishlist)
+            {
+                <span class="spinner-icon"></span>
+            }
+            else
+            {
+                <span class="heart-icon">@(isInWishlist ? "♥" : "♡")</span>
+            }
         </button>
     </div>
     
@@ -80,11 +91,27 @@
         
         @* Action Buttons *@
         <div class="action-buttons-row">
-            <button class="add-to-cart-btn" 
+            <button class="add-to-cart-btn @(IsAddingToCart ? "loading" : "")" 
                     @onclick="HandleAddToCart" 
                     @onclick:stopPropagation="true"
-                    disabled="@(!Product.IsInStock)">
-                @(Product.IsInStock ? "🛒 Add to Cart" : "Out of Stock")
+                    disabled="@(!Product.IsInStock || IsAddingToCart)">
+                @if (IsAddingToCart)
+                {
+                    <span class="btn-spinner"></span>
+                    <span>Adding...</span>
+                }
+                else if (IsInCart)
+                {
+                    <span>✓ In Cart</span>
+                }
+                else if (Product.IsInStock)
+                {
+                    <span>🛒 Add to Cart</span>
+                }
+                else
+                {
+                    <span>Out of Stock</span>
+                }
             </button>
             <button class="view-details-btn" 
                     @onclick="HandleViewDetails" 
@@ -102,6 +129,9 @@
     [Parameter] public EventCallback<ProductViewModel> OnViewDetails { get; set; }
 
     private bool isInWishlist = false;
+    private bool IsInCart = false;
+    private bool IsAddingToCart = false;
+    private bool IsTogglingWishlist = false;
     private string? currentUserId;
 
     protected override async Task OnInitializedAsync()
@@ -113,6 +143,7 @@
             if (!string.IsNullOrEmpty(currentUserId))
             {
                 isInWishlist = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
+                IsInCart = await CartService.IsInCartAsync(currentUserId, Product.Id.ToString());
             }
         }
     }
@@ -131,68 +162,93 @@
 
     private async Task HandleWishlistToggle(MouseEventArgs e)
     {
-        // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-        {
-            return;
-        }
+        if (IsTogglingWishlist) return;
 
-        if (string.IsNullOrEmpty(currentUserId))
-        {
-            currentUserId = await PermissionService.GetCurrentUserIdAsync();
-        }
+        IsTogglingWishlist = true;
+        StateHasChanged();
 
-        if (string.IsNullOrEmpty(currentUserId))
+        try
         {
-            PermissionService.ShowAuthRequiredMessage("add items to wishlist");
-            return;
-        }
+            // Check authentication
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
 
-        // Toggle wishlist
-        var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
-        
-        if (success)
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("add items to wishlist");
+                return;
+            }
+
+            // Toggle wishlist
+            var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
+            
+            if (success)
+            {
+                isInWishlist = !isInWishlist;
+            }
+        }
+        finally
         {
-            isInWishlist = !isInWishlist;
+            IsTogglingWishlist = false;
             StateHasChanged();
         }
     }
 
     private async Task HandleAddToCart(MouseEventArgs e)
     {
-        // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-        {
-            return;
-        }
+        if (!Product.IsInStock || IsAddingToCart) return;
 
-        if (string.IsNullOrEmpty(currentUserId))
-        {
-            currentUserId = await PermissionService.GetCurrentUserIdAsync();
-        }
+        IsAddingToCart = true;
+        StateHasChanged();
 
-        if (string.IsNullOrEmpty(currentUserId))
+        try
         {
-            PermissionService.ShowAuthRequiredMessage("add items to cart");
-            return;
-        }
+            // Check authentication
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
 
-        if (!Product.IsInStock)
-        {
-            return;
-        }
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
 
-        // Add to cart
-        var success = await CartService.AddToCartAsync(
-            currentUserId, 
-            Product.Id.ToString(), 
-            quantity: 1
-        );
-        
-        if (success)
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("add items to cart");
+                return;
+            }
+
+            if (!Product.IsInStock)
+            {
+                return;
+            }
+
+            // Add to cart
+            var success = await CartService.AddToCartAsync(
+                currentUserId, 
+                Product.Id.ToString(), 
+                quantity: 1
+            );
+            
+            if (success)
+            {
+                IsInCart = true;
+                Console.WriteLine($"✓ Added {Product.Name} to cart");
+            }
+        }
+        finally
         {
-            // TODO: Show success notification
-            Console.WriteLine($"✓ Added {Product.Name} to cart");
+            IsAddingToCart = false;
+            StateHasChanged();
         }
     }
 }
