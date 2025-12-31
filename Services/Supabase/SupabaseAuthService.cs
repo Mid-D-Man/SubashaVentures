@@ -281,78 +281,79 @@ public class SupabaseAuthService : ISupabaseAuthService
     // ==================== SIGN UP ====================
     
     public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
+{
+    try
     {
-        try
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Attempting sign up for: {email}",
+            LogLevel.Info
+        );
+
+        var signUpOptions = new SignUpOptions
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Attempting sign up for: {email}",
-                LogLevel.Info
-            );
-
-            var signUpOptions = new SignUpOptions
+            Data = new Dictionary<string, object>
             {
-                Data = new Dictionary<string, object>
-                {
-                    { "first_name", userData.FirstName },
-                    { "last_name", userData.LastName },
-                    { "phone_number", userData.PhoneNumber ?? "" },
-                    { "avatar_url", userData.AvatarUrl ?? "" }
-                }
-            };
-
-            var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
-
-            if (session?.User == null)
-            {
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = "Sign up failed. Please try again.",
-                    ErrorCode = "SIGNUP_ERROR"
-                };
+                { "first_name", userData.FirstName },
+                { "last_name", userData.LastName },
+                { "phone_number", userData.PhoneNumber ?? "" },
+                { "avatar_url", userData.AvatarUrl ?? "" },
+                { "role", "user" } // ✅ ADD THIS - Include role in JWT metadata
             }
+        };
 
-            await CreateUserProfileAsync(session.User, userData);
+        var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User signed up successfully: {email}",
-                LogLevel.Info
-            );
-
-            return new SupabaseAuthResult
-            {
-                Success = true,
-                Message = "Registration successful! Please check your email to verify your account."
-            };
-        }
-        catch (GotrueException ex)
+        if (session?.User == null)
         {
-            var errorCode = GetErrorCode(ex.Message);
-            var errorMessage = GetFriendlyErrorMessage(errorCode);
-            
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
-            _logger.LogError(ex, "Sign up failed for {Email}", email);
-            
             return new SupabaseAuthResult
             {
                 Success = false,
-                Message = errorMessage,
-                ErrorCode = errorCode
+                Message = "Sign up failed. Please try again.",
+                ErrorCode = "SIGNUP_ERROR"
             };
         }
-        catch (Exception ex)
+
+        await CreateUserProfileAsync(session.User, userData);
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ User signed up successfully: {email}",
+            LogLevel.Info
+        );
+
+        return new SupabaseAuthResult
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
-            _logger.LogError(ex, "Unexpected error during sign up");
-            
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "An unexpected error occurred. Please try again.",
-                ErrorCode = "UNEXPECTED_ERROR"
-            };
-        }
+            Success = true,
+            Message = "Registration successful! Please check your email to verify your account."
+        };
     }
+    catch (GotrueException ex)
+    {
+        var errorCode = GetErrorCode(ex.Message);
+        var errorMessage = GetFriendlyErrorMessage(errorCode);
+        
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
+        _logger.LogError(ex, "Sign up failed for {Email}", email);
+        
+        return new SupabaseAuthResult
+        {
+            Success = false,
+            Message = errorMessage,
+            ErrorCode = errorCode
+        };
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
+        _logger.LogError(ex, "Unexpected error during sign up");
+        
+        return new SupabaseAuthResult
+        {
+            Success = false,
+            Message = "An unexpected error occurred. Please try again.",
+            ErrorCode = "UNEXPECTED_ERROR"
+        };
+    }
+}
 
     // ==================== SIGN OUT ====================
     
@@ -826,49 +827,62 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     private async Task EnsureUserProfileExistsAsync(User authUser)
+{
+    try
     {
-        try
-        {
-            var existingUser = await _supabase
-                .From<UserModel>()
-                .Where(u => u.Id == authUser.Id)
-                .Single();
+        var existingUser = await _supabase
+            .From<UserModel>()
+            .Where(u => u.Id == authUser.Id)
+            .Single();
 
-            if (existingUser == null)
+        if (existingUser == null)
+        {
+            var userProfile = new UserModel
             {
-                var userProfile = new UserModel
-                {
-                    Id = authUser.Id,
-                    Email = authUser.Email ?? "",
-                    FirstName = authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
-                    LastName = authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
-                    AvatarUrl = authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
-                    IsEmailVerified = authUser.EmailConfirmedAt != null,
-                    AccountStatus = "Active",
-                    EmailNotifications = true,
-                    SmsNotifications = false,
-                    PreferredLanguage = "en",
-                    Currency = "NGN",
-                    MembershipTier = "Bronze",
-                    Role = "user", // ✅ Default role
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = authUser.Id
-                };
+                Id = authUser.Id,
+                Email = authUser.Email ?? "",
+                FirstName = authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
+                LastName = authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
+                AvatarUrl = authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
+                IsEmailVerified = authUser.EmailConfirmedAt != null,
+                AccountStatus = "Active",
+                EmailNotifications = true,
+                SmsNotifications = false,
+                PreferredLanguage = "en",
+                Currency = "NGN",
+                MembershipTier = "Bronze",
+                Role = "user",
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = authUser.Id
+            };
 
-                await _supabase.From<UserModel>().Insert(userProfile);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ OAuth user profile created for: {authUser.Email} with role: user",
-                    LogLevel.Info
-                );
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring user profile exists");
-            _logger.LogError(ex, "Error ensuring user profile exists");
+            await _supabase.From<UserModel>().Insert(userProfile);
+            
+            // ✅ UPDATE JWT METADATA with role
+            var updates = new Dictionary<string, object>
+            {
+                { "role", "user" }
+            };
+
+            var attributes = new UserAttributes
+            {
+                Data = updates
+            };
+
+            await _supabase.Auth.Update(attributes);
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ OAuth user profile created for: {authUser.Email} with role in JWT",
+                LogLevel.Info
+            );
         }
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring user profile exists");
+        _logger.LogError(ex, "Error ensuring user profile exists");
+    }
+}
 
     private string GetErrorCode(string errorMessage)
     {

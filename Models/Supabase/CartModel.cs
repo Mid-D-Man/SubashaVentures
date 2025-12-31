@@ -1,7 +1,6 @@
 // Models/Supabase/CartModel.cs - REDESIGNED FOR JSONB
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using System.Text.Json;
 
 namespace SubashaVentures.Models.Supabase;
 

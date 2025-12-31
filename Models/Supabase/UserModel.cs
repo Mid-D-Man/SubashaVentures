@@ -1,3 +1,4 @@
+// Models/Supabase/UserModel.cs - UPDATED TABLE NAME
 using Newtonsoft.Json;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
@@ -5,10 +6,10 @@ using Supabase.Postgrest.Models;
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Supabase user model - linked to auth.users
-/// UPDATED: Role is now a direct field in users table (no separate user_roles table)
+/// Supabase user_data model - linked to auth.users
+/// UPDATED: Table renamed from 'users' to 'user_data' to avoid conflicts
 /// </summary>
-[Table("users")]
+[Table("user_data")]
 public class UserModel : BaseModel
 {
     [PrimaryKey("id", false)]
@@ -112,21 +113,7 @@ public class UserModel : BaseModel
     
     // ==================== HELPER METHODS ====================
     
-    /// <summary>
-    /// Check if user has a specific role
-    /// </summary>
-  
     public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
-    
-    /// <summary>
-    /// Check if user is superior admin
-    /// </summary>
-
     public bool IsSuperiorAdmin => HasRole("superior_admin");
-    
-    /// <summary>
-    /// Check if user is regular user
-    /// </summary>
-
     public bool IsRegularUser => HasRole("user");
 }
