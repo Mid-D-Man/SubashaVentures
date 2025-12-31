@@ -53,7 +53,8 @@ public class AddressService : IAddressService
             // Update cache
             _addressCountCache[userId] = addresses.Items.Count;
 
-            var viewModels = addresses.Items.Select(MapToViewModel).ToList();
+            // Use conversion method
+            var viewModels = AddressViewModel.FromAddressModel(addresses);
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"✅ Retrieved {viewModels.Count} addresses",
@@ -376,25 +377,5 @@ public class AddressService : IAddressService
             result.AddError("Country", "Country is required");
 
         return result;
-    }
-
-    // Helper method to map AddressItem to AddressViewModel
-    private AddressViewModel MapToViewModel(AddressItem item)
-    {
-        return new AddressViewModel
-        {
-            Id = item.Id,
-            FullName = item.FullName,
-            PhoneNumber = item.PhoneNumber,
-            AddressLine1 = item.AddressLine1,
-            AddressLine2 = item.AddressLine2,
-            City = item.City,
-            State = item.State,
-            PostalCode = item.PostalCode,
-            Country = item.Country,
-            IsDefault = item.IsDefault,
-            Type = Enum.TryParse<AddressType>(item.Type, out var type) ? type : AddressType.Shipping,
-            AddedAt = item.AddedAt
-        };
     }
 }
