@@ -1,71 +1,70 @@
-namespace SubashaVentures.Domain.User;
-
+// Domain/User/AddressViewModel.cs
 using SubashaVentures.Models.Supabase;
+
+namespace SubashaVentures.Domain.User;
 
 public class AddressViewModel
 {
     public string Id { get; set; } = string.Empty;
-    public string UserId { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string PhoneNumber { get; set; } = string.Empty;
     public string AddressLine1 { get; set; } = string.Empty;
     public string? AddressLine2 { get; set; }
-    public string City { get; set; } = string.Empty;
-    public string State { get; set; } = string.Empty;
-    public string PostalCode { get; set; } = string.Empty;
+    public string City { get; set; } = "Lagos";
+    public string State { get; set; } = "Lagos";
+    public string PostalCode { get; set; } = "100001";
     public string Country { get; set; } = "Nigeria";
     public bool IsDefault { get; set; }
     public AddressType Type { get; set; } = AddressType.Shipping;
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    
+    public DateTime AddedAt { get; set; }
+
+    // Display properties
     public string FullAddress => $"{AddressLine1}, {(!string.IsNullOrEmpty(AddressLine2) ? AddressLine2 + ", " : "")}{City}, {State} {PostalCode}, {Country}";
-    
+    public string ShortAddress => $"{AddressLine1}, {City}";
+    public string DisplayType => Type.ToString();
+
     // ==================== CONVERSION METHODS ====================
-    
+
     /// <summary>
-    /// Convert from Supabase AddressModel to AddressViewModel
+    /// Convert from Supabase AddressItem to AddressViewModel
     /// </summary>
-    public static AddressViewModel FromCloudModel(AddressModel model)
+    public static AddressViewModel FromAddressItem(AddressItem item)
     {
-        if (model == null)
-            throw new ArgumentNullException(nameof(model));
-            
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+
         // Parse AddressType from string
         AddressType addressType = AddressType.Shipping;
-        if (Enum.TryParse<AddressType>(model.Type, true, out var parsedType))
+        if (Enum.TryParse<AddressType>(item.Type, true, out var parsedType))
         {
             addressType = parsedType;
         }
-            
+
         return new AddressViewModel
         {
-            Id = model.Id,
-            UserId = model.UserId,
-            FullName = model.FullName,
-            PhoneNumber = model.PhoneNumber,
-            AddressLine1 = model.AddressLine1,
-            AddressLine2 = model.AddressLine2,
-            City = model.City,
-            State = model.State,
-            PostalCode = model.PostalCode,
-            Country = model.Country,
-            IsDefault = model.IsDefault,
+            Id = item.Id,
+            FullName = item.FullName,
+            PhoneNumber = item.PhoneNumber,
+            AddressLine1 = item.AddressLine1,
+            AddressLine2 = item.AddressLine2,
+            City = item.City,
+            State = item.State,
+            PostalCode = item.PostalCode,
+            Country = item.Country,
+            IsDefault = item.IsDefault,
             Type = addressType,
-            CreatedAt = model.CreatedAt,
-            UpdatedAt = model.UpdatedAt
+            AddedAt = item.AddedAt
         };
     }
-    
+
     /// <summary>
-    /// Convert from AddressViewModel to Supabase AddressModel
+    /// Convert from AddressViewModel to Supabase AddressItem
     /// </summary>
-    public AddressModel ToCloudModel()
+    public AddressItem ToAddressItem()
     {
-        return new AddressModel
+        return new AddressItem
         {
             Id = this.Id,
-            UserId = this.UserId,
             FullName = this.FullName,
             PhoneNumber = this.PhoneNumber,
             AddressLine1 = this.AddressLine1,
@@ -76,21 +75,30 @@ public class AddressViewModel
             Country = this.Country,
             IsDefault = this.IsDefault,
             Type = this.Type.ToString(),
-            CreatedAt = this.CreatedAt,
-            CreatedBy = this.UserId,
-            UpdatedAt = this.UpdatedAt
+            AddedAt = this.AddedAt
         };
     }
-    
+
     /// <summary>
-    /// Convert list of AddressModels to list of AddressViewModels
+    /// Convert list of AddressItems to list of AddressViewModels
     /// </summary>
-    public static List<AddressViewModel> FromCloudModels(IEnumerable<AddressModel> models)
+    public static List<AddressViewModel> FromAddressItems(IEnumerable<AddressItem> items)
     {
-        if (models == null)
+        if (items == null)
             return new List<AddressViewModel>();
-            
-        return models.Select(FromCloudModel).ToList();
+
+        return items.Select(FromAddressItem).ToList();
+    }
+
+    /// <summary>
+    /// Convert from AddressModel (with JSONB items) to list of AddressViewModels
+    /// </summary>
+    public static List<AddressViewModel> FromAddressModel(AddressModel model)
+    {
+        if (model == null || model.Items == null)
+            return new List<AddressViewModel>();
+
+        return FromAddressItems(model.Items);
     }
 }
 
