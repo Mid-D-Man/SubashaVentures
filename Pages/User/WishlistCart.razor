@@ -1,0 +1,446 @@
+@page "/user/wishlist-cart"
+@layout SubashaVentures.Layout.User.UserLayout
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Domain.Cart
+@using SubashaVentures.Domain.User
+
+<div class="wishlist-cart-page">
+    <div class="page-header">
+        <div>
+            <h1>@(ActiveTab == TabType.Wishlist ? "My Wishlist" : "Shopping Cart")</h1>
+            <p>@(ActiveTab == TabType.Wishlist ? "Save items for later" : "Review your cart before checkout")</p>
+        </div>
+        @if (ActiveTab == TabType.Cart && CartItems.Any())
+        {
+            <PrimaryButton OnClick="ProceedToCheckout" 
+                          Size="PrimaryButton.ButtonSize.Large"
+                          IsDisabled="!CanCheckout">
+                Checkout (@CartSummary.DisplayTotal)
+            </PrimaryButton>
+        }
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+        <button class="tab-btn @(ActiveTab == TabType.Wishlist ? "active" : "")"
+                @onclick="() => SwitchTab(TabType.Wishlist)">
+            <span class="tab-icon">💝</span>
+            <span class="tab-label">Wishlist</span>
+            @if (WishlistCount > 0)
+            {
+                <span class="tab-badge">@WishlistCount</span>
+            }
+        </button>
+        <button class="tab-btn @(ActiveTab == TabType.Cart ? "active" : "")"
+                @onclick="() => SwitchTab(TabType.Cart)">
+            <span class="tab-icon">🛒</span>
+            <span class="tab-label">Cart</span>
+            @if (CartCount > 0)
+            {
+                <span class="tab-badge">@CartCount</span>
+            }
+        </button>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="loading-container">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
+                          Message="@(ActiveTab == TabType.Wishlist ? "Loading wishlist..." : "Loading cart...")" />
+        </div>
+    }
+    else
+    {
+        @if (ActiveTab == TabType.Wishlist)
+        {
+            @if (!WishlistItems.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">💝</div>
+                    <h2>Your Wishlist is Empty</h2>
+                    <p>Save items you love for later</p>
+                    <PrimaryButton OnClick="NavigateToShop" Size="PrimaryButton.ButtonSize.Large">
+                        Start Shopping
+                    </PrimaryButton>
+                </div>
+            }
+            else
+            {
+                <!-- Wishlist Actions -->
+                <div class="list-actions">
+                    <div class="action-left">
+                        <span class="item-count">@TotalWishlistItems items</span>
+                        @if (SelectedWishlistItems.Any())
+                        {
+                            <span class="selected-count">@SelectedWishlistItems.Count selected</span>
+                        }
+                    </div>
+                    <div class="action-right">
+                        @if (SelectedWishlistItems.Any())
+                        {
+                            <SecondaryButton OnClick="MoveSelectedToCart" 
+                                           Size="SecondaryButton.ButtonSize.Small">
+                                Move to Cart (@SelectedWishlistItems.Count)
+                            </SecondaryButton>
+                            <SecondaryButton OnClick="RemoveSelectedFromWishlist" 
+                                           Size="SecondaryButton.ButtonSize.Small"
+                                           Variant="SecondaryButton.ButtonVariant.Outline">
+                                Remove (@SelectedWishlistItems.Count)
+                            </SecondaryButton>
+                        }
+                        <SecondaryButton OnClick="ClearWishlist" 
+                                       Size="SecondaryButton.ButtonSize.Small"
+                                       Variant="SecondaryButton.ButtonVariant.Outline">
+                            Clear All
+                        </SecondaryButton>
+                    </div>
+                </div>
+
+                <!-- Wishlist Grid -->
+                <div class="items-grid">
+                    @foreach (var item in PaginatedWishlistItems)
+                    {
+                        <div class="item-card wishlist-card">
+                            <div class="card-checkbox">
+                                <input type="checkbox" 
+                                       @bind="SelectedWishlistItems[item.Id]" />
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(item.ImageUrl))
+                            {
+                                <div class="card-image" @onclick="() => NavigateToProduct(item.ProductSlug)">
+                                    <img src="@item.ImageUrl" alt="@item.ProductName" />
+                                    @if (!item.IsInStock)
+                                    {
+                                        <div class="stock-overlay">Out of Stock</div>
+                                    }
+                                </div>
+                            }
+
+                            <div class="card-content">
+                                <h3 @onclick="() => NavigateToProduct(item.ProductSlug)">@item.ProductName</h3>
+                                <div class="card-price">
+                                    <span class="current-price">@item.DisplayPrice</span>
+                                    @if (item.OriginalPrice.HasValue && item.IsOnSale)
+                                    {
+                                        <span class="original-price">₦@item.OriginalPrice.Value.ToString("N0")</span>
+                                    }
+                                </div>
+                                <div class="card-status">
+                                    @if (item.IsInStock)
+                                    {
+                                        <span class="in-stock">✓ In Stock</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="out-of-stock">Out of Stock</span>
+                                    }
+                                </div>
+                                <span class="added-date">Added @item.AddedAt.ToString("MMM dd, yyyy")</span>
+                            </div>
+
+                            <div class="card-actions">
+                                @if (item.IsInStock)
+                                {
+                                    <PrimaryButton OnClick="() => MoveToCart(item.ProductId)" 
+                                                 Size="PrimaryButton.ButtonSize.Small"
+                                                 Icon="🛒">
+                                        Add to Cart
+                                    </PrimaryButton>
+                                }
+                                <SecondaryButton OnClick="() => RemoveFromWishlist(item.ProductId)" 
+                                               Size="SecondaryButton.ButtonSize.Small"
+                                               Variant="SecondaryButton.ButtonVariant.Outline"
+                                               Icon="🗑️">
+                                    Remove
+                                </SecondaryButton>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Wishlist Pagination -->
+                @if (TotalWishlistPages > 1)
+                {
+                    <div class="pagination">
+                        <button class="pagination-btn" 
+                                @onclick="() => ChangeWishlistPage(CurrentWishlistPage - 1)"
+                                disabled="@(CurrentWishlistPage == 1)">
+                            ← Previous
+                        </button>
+                        <div class="pagination-info">
+                            Page @CurrentWishlistPage of @TotalWishlistPages
+                        </div>
+                        <button class="pagination-btn" 
+                                @onclick="() => ChangeWishlistPage(CurrentWishlistPage + 1)"
+                                disabled="@(CurrentWishlistPage == TotalWishlistPages)">
+                            Next →
+                        </button>
+                    </div>
+                }
+            }
+        }
+        else
+        {
+            @if (!CartItems.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">🛒</div>
+                    <h2>Your Cart is Empty</h2>
+                    <p>Add items to your cart to start shopping</p>
+                    <PrimaryButton OnClick="NavigateToShop" Size="PrimaryButton.ButtonSize.Large">
+                        Start Shopping
+                    </PrimaryButton>
+                </div>
+            }
+            else
+            {
+                <div class="cart-layout">
+                    <!-- Cart Items -->
+                    <div class="cart-items-section">
+                        <div class="section-header">
+                            <h3>Cart Items (@CartCount)</h3>
+                            <SecondaryButton OnClick="ClearCart" 
+                                           Size="SecondaryButton.ButtonSize.Small"
+                                           Variant="SecondaryButton.ButtonVariant.Outline">
+                                Clear Cart
+                            </SecondaryButton>
+                        </div>
+
+                        <div class="cart-items-list">
+                            @foreach (var item in PaginatedCartItems)
+                            {
+                                <div class="cart-item">
+                                    <div class="item-image" @onclick="() => NavigateToProduct(item.Slug)">
+                                        <img src="@item.ImageUrl" alt="@item.Name" />
+                                    </div>
+
+                                    <div class="item-details">
+                                        <h4 @onclick="() => NavigateToProduct(item.Slug)">@item.Name</h4>
+                                        @if (!string.IsNullOrEmpty(item.Size) || !string.IsNullOrEmpty(item.Color))
+                                        {
+                                            <div class="item-variants">
+                                                @if (!string.IsNullOrEmpty(item.Size))
+                                                {
+                                                    <span class="variant">Size: @item.Size</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(item.Color))
+                                                {
+                                                    <span class="variant">Color: @item.Color</span>
+                                                }
+                                            </div>
+                                        }
+                                        <div class="item-price">
+                                            <span class="current-price">@item.DisplayPrice</span>
+                                            @if (item.OriginalPrice.HasValue)
+                                            {
+                                                <span class="original-price">₦@item.OriginalPrice.Value.ToString("N0")</span>
+                                            }
+                                        </div>
+                                        <div class="item-stock">
+                                            @if (item.IsInStock)
+                                            {
+                                                <span class="in-stock">✓ In Stock (@item.Stock available)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="out-of-stock">⚠️ Out of Stock</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="item-quantity">
+                                        <label>Quantity</label>
+                                        <div class="quantity-controls">
+                                            <button class="qty-btn" 
+                                                    @onclick="() => DecreaseQuantity(item.Id)"
+                                                    disabled="@(!item.CanDecreaseQuantity)">
+                                                −
+                                            </button>
+                                            <input type="number" 
+                                                   class="qty-input" 
+                                                   value="@item.Quantity"
+                                                   min="1"
+                                                   max="@item.MaxQuantity"
+                                                   @onchange="(e) => UpdateQuantity(item.Id, e.Value?.ToString())" />
+                                            <button class="qty-btn" 
+                                                    @onclick="() => IncreaseQuantity(item.Id)"
+                                                    disabled="@(!item.CanIncreaseQuantity)">
+                                                +
+                                            </button>
+                                        </div>
+                                        <span class="max-qty">Max: @item.MaxQuantity</span>
+                                    </div>
+
+                                    <div class="item-subtotal">
+                                        <label>Subtotal</label>
+                                        <span class="subtotal-value">@item.DisplaySubtotal</span>
+                                    </div>
+
+                                    <div class="item-actions">
+                                        <button class="action-btn" 
+                                                @onclick="() => SaveForLater(item.ProductId)"
+                                                title="Save for later">
+                                            💝
+                                        </button>
+                                        <button class="action-btn danger" 
+                                                @onclick="() => RemoveFromCart(item.Id)"
+                                                title="Remove">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Cart Pagination -->
+                        @if (TotalCartPages > 1)
+                        {
+                            <div class="pagination">
+                                <button class="pagination-btn" 
+                                        @onclick="() => ChangeCartPage(CurrentCartPage - 1)"
+                                        disabled="@(CurrentCartPage == 1)">
+                                    ← Previous
+                                </button>
+                                <div class="pagination-info">
+                                    Page @CurrentCartPage of @TotalCartPages
+                                </div>
+                                <button class="pagination-btn" 
+                                        @onclick="() => ChangeCartPage(CurrentCartPage + 1)"
+                                        disabled="@(CurrentCartPage == TotalCartPages)">
+                                    Next →
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Cart Summary -->
+                    <div class="cart-summary-section">
+                        <div class="summary-card">
+                            <h3>Order Summary</h3>
+
+                            <div class="summary-row">
+                                <span>Subtotal (@CartSummary.TotalItems items)</span>
+                                <span>@CartSummary.DisplaySubtotal</span>
+                            </div>
+
+                            <div class="summary-row">
+                                <span>Shipping</span>
+                                <span class="@(CartSummary.HasFreeShipping ? "free-shipping" : "")">
+                                    @CartSummary.DisplayShipping
+                                </span>
+                            </div>
+
+                            @if (CartSummary.PromoDiscount > 0)
+                            {
+                                <div class="summary-row discount">
+                                    <span>Discount (@CartSummary.PromoCode)</span>
+                                    <span>@CartSummary.DisplayDiscount</span>
+                                </div>
+                            }
+
+                            @if (CartSummary.TaxAmount > 0)
+                            {
+                                <div class="summary-row">
+                                    <span>Tax</span>
+                                    <span>@CartSummary.DisplayTax</span>
+                                </div>
+                            }
+
+                            <div class="summary-divider"></div>
+
+                            <div class="summary-row total">
+                                <span>Total</span>
+                                <span>@CartSummary.DisplayTotal</span>
+                            </div>
+
+                            @if (!CartSummary.QualifiesForFreeShipping && CartSummary.AmountToFreeShipping > 0)
+                            {
+                                <div class="free-shipping-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" 
+                                             style="width: @((CartSummary.Subtotal / CartSummary.FreeShippingThreshold * 100))%">
+                                        </div>
+                                    </div>
+                                    <p class="progress-text">
+                                        Add ₦@CartSummary.AmountToFreeShipping.ToString("N0") more for FREE shipping!
+                                    </p>
+                                </div>
+                            }
+                            else if (CartSummary.HasFreeShipping)
+                            {
+                                <div class="free-shipping-badge">
+                                    🎉 You qualify for FREE shipping!
+                                </div>
+                            }
+
+                            <PrimaryButton OnClick="ProceedToCheckout" 
+                                         Size="PrimaryButton.ButtonSize.Large"
+                                         IsDisabled="!CanCheckout"
+                                         class="checkout-btn">
+                                Proceed to Checkout
+                            </PrimaryButton>
+
+                            <SecondaryButton OnClick="NavigateToShop" 
+                                           Size="SecondaryButton.ButtonSize.Medium"
+                                           Variant="SecondaryButton.ButtonVariant.Outline"
+                                           class="continue-shopping-btn">
+                                Continue Shopping
+                            </SecondaryButton>
+                        </div>
+
+                        <!-- Promo Code Section -->
+                        <div class="promo-card">
+                            <h4>Have a promo code?</h4>
+                            <div class="promo-input-group">
+                                <input type="text" 
+                                       class="promo-input" 
+                                       placeholder="Enter code"
+                                       @bind="PromoCodeInput" />
+                                <SecondaryButton OnClick="ApplyPromoCode" 
+                                               Size="SecondaryButton.ButtonSize.Small"
+                                               IsDisabled="@IsApplyingPromo">
+                                    Apply
+                                </SecondaryButton>
+                            </div>
+                            @if (!string.IsNullOrEmpty(PromoMessage))
+                            {
+                                <div class="promo-message @PromoMessageType">
+                                    @PromoMessage
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Validation Issues -->
+                        @if (ValidationResult != null && ValidationResult.ItemIssues.Any())
+                        {
+                            <div class="validation-card">
+                                <h4>⚠️ Cart Issues</h4>
+                                @foreach (var issue in ValidationResult.ItemIssues)
+                                {
+                                    <div class="validation-issue">
+                                        <span class="issue-icon">⚠️</span>
+                                        <span class="issue-message">@issue.Message</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+<!-- Confirmation Modal -->
+<ConfirmationPopup @ref="ConfirmationPopup"
+                   Title="@ConfirmationTitle"
+                   Message="@ConfirmationMessage"
+                   ConfirmButtonText="@ConfirmButtonText"
+                   OnConfirm="ConfirmAction" />
+
+@code {
+    // See WishlistCart.razor.cs for implementation
+}
