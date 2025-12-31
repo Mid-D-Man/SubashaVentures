@@ -136,7 +136,9 @@
     right: 0;
     display: flex;
     justify-content: space-between;
+    flex-wrap: wrap;
     padding: 8px;
+    gap: 8px;
     z-index: 2;
 }
 
@@ -157,6 +159,21 @@
 .badge-sale {
     background: #ef4444;
     color: white;
+}
+
+.badge-in-cart {
+    background: #10b981;
+    color: white;
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
 }
 
 /* ===== PRODUCT DETAILS ===== */
@@ -283,20 +300,29 @@
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
-.btn-add-cart:hover:not(.disabled) {
+.btn-add-cart:hover:not(.disabled):not(.loading) {
     background: #f3f4f6;
     transform: translateY(-2px);
 }
 
-.btn-add-cart:active:not(.disabled) {
+.btn-add-cart:active:not(.disabled):not(.loading) {
     transform: translateY(0);
 }
 
 .btn-add-cart.disabled {
     background: #6b7280;
     color: #d1d5db;
+    cursor: not-allowed;
+}
+
+.btn-add-cart.loading {
+    background: #e5e7eb;
     cursor: not-allowed;
 }
 
@@ -314,13 +340,17 @@
     flex-shrink: 0;
 }
 
-.btn-favorite:hover {
+.btn-favorite:hover:not(.loading) {
     background: #374151;
     border-color: #6b7280;
 }
 
 .btn-favorite.active {
     background: #374151;
+}
+
+.btn-favorite.loading {
+    cursor: not-allowed;
 }
 
 .heart-icon {
@@ -331,6 +361,25 @@
 
 .btn-favorite.active .heart-icon {
     color: #f59e0b;
+}
+
+/* ===== LOADING SPINNER ===== */
+.spinner-small {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.btn-favorite .spinner-small {
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* ===== RESPONSIVE - ENHANCED WITH MORE BREAKPOINTS ===== */
@@ -710,7 +759,9 @@
     .product-image,
     .btn-add-cart,
     .btn-favorite,
-    .shop-product-card.featured {
+    .shop-product-card.featured,
+    .spinner-small,
+    .badge-in-cart {
         transition: none;
         animation: none;
     }
@@ -730,4 +781,4 @@
 .btn-favorite:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
-    }
+                          }
