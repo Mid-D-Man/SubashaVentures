@@ -1,10 +1,11 @@
-namespace SubashaVentures.Domain.User;
-
+// Domain/User/WishlistItemViewModel.cs - UPDATED FOR JSONB DESIGN
 using SubashaVentures.Models.Supabase;
+
+namespace SubashaVentures.Domain.User;
 
 public class WishlistItemViewModel
 {
-    public string Id { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty; // Composite: userId_productId
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string ProductSlug { get; set; } = string.Empty;
@@ -20,20 +21,23 @@ public class WishlistItemViewModel
     // ==================== CONVERSION METHODS ====================
     
     /// <summary>
-    /// Convert from Supabase WishlistModel to WishlistItemViewModel
-    /// Note: This requires product information
+    /// Convert from JSONB WishlistItem to WishlistItemViewModel
+    /// Note: This requires product information from the product service
     /// </summary>
-    public static WishlistItemViewModel FromCloudModel(WishlistModel model, string productName, 
-        string productSlug, string imageUrl, decimal price, decimal? originalPrice, 
-        bool isOnSale, bool isInStock)
+    public static WishlistItemViewModel FromWishlistItem(WishlistItem item, string userId, 
+        string productName, string productSlug, string imageUrl, decimal price, 
+        decimal? originalPrice, bool isOnSale, bool isInStock)
     {
-        if (model == null)
-            throw new ArgumentNullException(nameof(model));
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+            
+        // Create composite ID: userId_productId
+        var compositeId = $"{userId}_{item.product_id}";
             
         return new WishlistItemViewModel
         {
-            Id = model.Id.ToString(),
-            ProductId = model.ProductId,
+            Id = compositeId,
+            ProductId = item.product_id,
             ProductName = productName,
             ProductSlug = productSlug,
             ImageUrl = imageUrl,
@@ -41,23 +45,34 @@ public class WishlistItemViewModel
             OriginalPrice = originalPrice,
             IsOnSale = isOnSale,
             IsInStock = isInStock,
-            AddedAt = model.CreatedAt
+            AddedAt = item.added_at
         };
     }
     
     /// <summary>
-    /// Convert from WishlistItemViewModel to Supabase WishlistModel
+    /// Convert from WishlistItemViewModel to JSONB WishlistItem
     /// </summary>
-    public WishlistModel ToCloudModel(string userId)
+    public WishlistItem ToWishlistItem()
     {
-        return new WishlistModel
+        return new WishlistItem
         {
-            Id = Guid.Parse(this.Id),
-            UserId = userId,
-            ProductId = this.ProductId,
-            CreatedAt = this.AddedAt,
-            CreatedBy = userId,
-            IsDeleted = false
+            product_id = this.ProductId,
+            added_at = this.AddedAt
         };
+    }
+    
+    /// <summary>
+    /// Parse composite ID to extract components
+    /// Format: userId_productId
+    /// </summary>
+    public static (string userId, string productId) ParseCompositeId(string compositeId)
+    {
+        var parts = compositeId.Split('_');
+        if (parts.Length < 2)
+        {
+            throw new ArgumentException($"Invalid composite ID format: {compositeId}");
+        }
+        
+        return (parts[0], parts[1]);
     }
 }

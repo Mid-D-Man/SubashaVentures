@@ -1,4 +1,5 @@
 // Services/Cart/ICartService.cs
+// Services/Cart/ICartService.cs - UPDATED INTERFACE
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Cart;
 
@@ -27,10 +28,13 @@ public interface ICartService
     Task<bool> UpdateCartItemQuantityAsync(string userId, string cartItemId, int newQuantity);
     
     /// <summary>
-    /// Remove item from cart
+    /// Remove item from cart (with optional size/color specification)
     /// </summary>
-    Task<bool> RemoveFromCartAsync(string userId, string cartItemId);
-    
+    Task<bool> RemoveFromCartAsync(string userId, string productId, string? size = null, string? color = null);
+    /// <summary>
+    /// Remove item from cart using composite ID (backward compatibility)
+    /// </summary>
+    Task<bool> RemoveFromCartByIdAsync(string userId, string cartItemId);
     /// <summary>
     /// Clear entire cart
     /// </summary>

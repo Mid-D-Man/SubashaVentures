@@ -1,3 +1,4 @@
+// Domain/Cart/CartSummaryViewModel.cs - NO CHANGES NEEDED (already correct)
 namespace SubashaVentures.Domain.Cart;
 
 /// <summary>
@@ -36,9 +37,4 @@ public class CartSummaryViewModel
     public decimal FreeShippingThreshold { get; set; } = 50000;
     public decimal AmountToFreeShipping => FreeShippingThreshold - Subtotal;
     public bool QualifiesForFreeShipping => Subtotal >= FreeShippingThreshold;
-    
-    // ==================== CONVERSION METHODS ====================
-    // Note: CartSummaryViewModel is typically built from multiple sources,
-    // so there's no direct cloud model to convert from/to
-    // Instead, it's constructed from CartItemViewModels and other data
 }
