@@ -125,6 +125,8 @@ builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+// Add this to your Program.cs in the services section
+builder.Services.AddScoped<IAddressService, AddressService>();
 // Add these lines in Program.cs if missing
 
 // Cart Service
