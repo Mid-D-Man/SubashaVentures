@@ -2,12 +2,12 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @using SubashaVentures.Services.Categories
-@using SubashaVentures.Services.Storage
+@using SubashaVentures.Services.Shop
 @using SubashaVentures.Domain.Product
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ICategoryService CategoryService
-@inject IBlazorAppLocalStorageService LocalStorage
+@inject IShopFilterService FilterService
 @implements IDisposable
 
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
@@ -147,6 +147,7 @@
 </div>
 
 @code {
+    // Navigation constants
     private const string HomeDirectory = "/";
     private const string ShopDirectory = "shop";
     private const string DealsDirectory = "shop/deals";
@@ -162,8 +163,6 @@
     private const string SignUpDirectory = "signup";
     
     private const int MAX_CATEGORIES_TO_SHOW = 4;
-    // FIXED: Same key and structure as Shop page
-    private const string CATEGORY_FILTER_KEY = "shop_category_filter";
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
@@ -191,13 +190,11 @@
         await LoadAuthenticationState();
         await LoadTopCategories();
         
-        // Subscribe to auth state changes
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        // Only reload auth when panel opens
         if (IsOpen)
         {
             await LoadAuthenticationState();
@@ -301,15 +298,17 @@
     {
         try
         {
+            Console.WriteLine($"🔍 Category clicked: {category.Name}");
+            
             // Close panel first for immediate feedback
             await ClosePanel();
             
-            // FIXED: Store as List<string> to match FilterState structure
-            var categoryFilter = new List<string> { category.Name };
-            await LocalStorage.SetItemAsync(CATEGORY_FILTER_KEY, categoryFilter);
-            Console.WriteLine($"✓ Stored category filter: [{string.Join(", ", categoryFilter)}]");
+            // Update filters with the selected category using the filter service
+            await FilterService.UpdateCategoriesAsync(new List<string> { category.Name });
             
-            // Navigate to shop - the Shop page will check for pending filter after loading
+            Console.WriteLine($"✓ Updated filters with category: {category.Name}");
+            
+            // Navigate to shop page
             NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
             
             if (OnNavigate.HasDelegate)
@@ -321,17 +320,7 @@
         {
             Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
             
-            // Clean up on error
-            try
-            {
-                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-            }
-            catch
-            {
-                // Ignore cleanup errors
-            }
-            
-            // Still navigate even if filter storage failed
+            // Still navigate even if filter update failed
             await ClosePanel();
             NavigationManager.NavigateTo(ShopDirectory);
         }
@@ -383,15 +372,5 @@
     public void Dispose()
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
-        
-        // Clean up any pending filters on disposal
-        try
-        {
-            _ = LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-        }
-        catch
-        {
-            // Ignore cleanup errors
-        }
     }
 }
