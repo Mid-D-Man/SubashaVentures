@@ -14,11 +14,15 @@
         <button class="btn-mobile-filters mobile-only" @onclick="OpenMobileFilters">
             <span class="filter-icon">🔍</span>
             <span>Filters</span>
+            @if (HasActiveFilters)
+            {
+                <span class="filter-badge">@ActiveFilterCount</span>
+            }
         </button>
         
         @* Sort Dropdown *@
         <div class="sort-wrapper">
-            <select class="sort-select" @bind="SelectedSort" @bind:after="ApplySortAndUpdate">
+            <select class="sort-select" @bind="SelectedSort" @bind:after="HandleSortChanged">
                 <option value="default">Sort By</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
@@ -34,6 +38,12 @@
     {
         <div class="results-info">
             <p>Showing @GetResultsRange() of @FilteredProducts.Count products</p>
+            @if (HasActiveFilters)
+            {
+                <button class="clear-filters-btn" @onclick="ResetFilters">
+                    Clear Filters
+                </button>
+            }
         </div>
     }
 
@@ -118,7 +128,7 @@
                     <span class="close-icon">✕</span>
                 </button>
             </div>
-            <ShopFilterPanel OnFiltersChanged="HandleFiltersChanged" />
+            <ShopFilterPanel OnFiltersChanged="HandleFiltersChanged" CurrentFilters="@CurrentFilters" />
         </div>
     </div>
 }
