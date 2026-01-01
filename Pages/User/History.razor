@@ -1,21 +1,23 @@
 @page "/user/history"
 @layout UserLayout
-@inject IJSRuntime JS
-@inject NavigationManager Navigation
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Layout.User
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject IPermissionService PermissionService
+@inject IProductService ProductService
 
 <div class="history-page">
     <div class="page-header">
         <div>
             <h1>Browsing History</h1>
-            <p>Products you've recently viewed</p>
+            <p>Your recently viewed products and activity</p>
         </div>
-        @if (HistoryItems.Any())
+        @if (ViewedProducts.Any())
         {
-            <button class="btn-clear" @onclick="ClearHistory">
-                Clear All History
+            <button class="btn-clear" @onclick="ClearViewedProducts">
+                Clear Viewed Products
             </button>
         }
     </div>
@@ -26,144 +28,145 @@
             <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading history..." />
         </div>
     }
-    else if (!HistoryItems.Any())
-    {
-        <div class="empty-state">
-            <div class="empty-icon">🕒</div>
-            <h2>No Browsing History</h2>
-            <p>Products you view will appear here</p>
-        </div>
-    }
     else
     {
-        <div class="history-grid">
-            @foreach (var item in HistoryItems)
+        <!-- Tabs -->
+        <div class="history-tabs">
+            <button class="tab-button @(ActiveTab == "viewed" ? "active" : "")" 
+                    @onclick='() => ActiveTab = "viewed"'>
+                <span class="tab-icon">👁️</span>
+                Recently Viewed (@ViewedProducts.Count)
+            </button>
+            
+            @if (IsAuthenticated)
             {
-                <div class="history-card" @onclick="() => ViewProduct(item.ProductId)">
-                    <button class="btn-remove" @onclick="(e) => RemoveItem(item.ProductId, e)" @onclick:stopPropagation="true" title="Remove">
-                        ✕
-                    </button>
-                    <img src="@item.ImageUrl" alt="@item.ProductName" />
-                    <div class="card-content">
-                        <h3>@item.ProductName</h3>
-                        <p class="product-price">@item.Price.ToString("C0")</p>
-                        <span class="viewed-time">Viewed @item.ViewedTime</span>
+                <button class="tab-button @(ActiveTab == "orders" ? "active" : "")" 
+                        @onclick='() => ActiveTab = "orders"'>
+                    <span class="tab-icon">📦</span>
+                    Recent Orders (@RecentOrders.Count)
+                </button>
+                
+                <button class="tab-button @(ActiveTab == "wishlist" ? "active" : "")" 
+                        @onclick='() => ActiveTab = "wishlist"'>
+                    <span class="tab-icon">💝</span>
+                    Recent Wishlist (@RecentWishlistItems.Count)
+                </button>
+            }
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            @if (ActiveTab == "viewed")
+            {
+                @if (!ViewedProducts.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">🕒</div>
+                        <h2>No Browsing History</h2>
+                        <p>Products you view will appear here</p>
+                        <button class="btn-primary" @onclick="NavigateToShop">Browse Products</button>
                     </div>
-                </div>
+                }
+                else
+                {
+                    <div class="history-grid">
+                        @foreach (var product in ViewedProducts)
+                        {
+                            <div class="history-card" @onclick="() => ViewProduct(product.ProductId)">
+                                <button class="btn-remove" 
+                                        @onclick="(e) => RemoveViewedProduct(product.ProductId, e)" 
+                                        @onclick:stopPropagation="true" 
+                                        title="Remove">
+                                    ✕
+                                </button>
+                                <img src="@product.ImageUrl" alt="@product.ProductName" loading="lazy" />
+                                <div class="card-content">
+                                    <h3>@product.ProductName</h3>
+                                    <p class="product-price">₦@product.Price.ToString("N0")</p>
+                                    <span class="viewed-time">Viewed @product.ViewedTime</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else if (ActiveTab == "orders" && IsAuthenticated)
+            {
+                @if (!RecentOrders.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">📦</div>
+                        <h2>No Recent Orders</h2>
+                        <p>Your recent orders will appear here</p>
+                        <button class="btn-primary" @onclick="NavigateToShop">Start Shopping</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="orders-list">
+                        @foreach (var order in RecentOrders)
+                        {
+                            <div class="order-card" @onclick="() => ViewOrder(order.Id)">
+                                <div class="order-header">
+                                    <div>
+                                        <h3>Order #@order.OrderNumber</h3>
+                                        <span class="order-date">@order.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                    <span class="order-status status-@order.Status.ToString().ToLower()">
+                                        @order.Status
+                                    </span>
+                                </div>
+                                <div class="order-details">
+                                    <span class="order-items">@order.ItemCount item(s)</span>
+                                    <span class="order-total">@order.DisplayTotal</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else if (ActiveTab == "wishlist" && IsAuthenticated)
+            {
+                @if (!RecentWishlistItems.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">💝</div>
+                        <h2>No Wishlist Items</h2>
+                        <p>Your wishlist additions will appear here</p>
+                        <button class="btn-primary" @onclick="NavigateToWishlist">View Wishlist</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="history-grid">
+                        @foreach (var item in RecentWishlistItems)
+                        {
+                            <div class="history-card" @onclick="() => ViewProduct(item.ProductId)">
+                                <img src="@item.ImageUrl" alt="@item.ProductName" loading="lazy" />
+                                <div class="card-content">
+                                    <h3>@item.ProductName</h3>
+                                    <p class="product-price">₦@item.Price.ToString("N0")</p>
+                                    <span class="viewed-time">Added @item.AddedTime</span>
+                                    @if (!item.IsInStock)
+                                    {
+                                        <span class="out-of-stock">Out of Stock</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
             }
         </div>
     }
 </div>
 
 <ConfirmationPopup @ref="ClearConfirmation"
-                   Title="Clear History?"
-                   Message="Are you sure you want to clear your entire browsing history?"
+                   Title="Clear Viewed Products?"
+                   Message="Are you sure you want to clear your viewing history?"
                    ConfirmText="Clear All"
-                   OnConfirm="ConfirmClearHistory" />
+                   OnConfirm="ConfirmClearViewedProducts" />
 
 @code {
-    private ConfirmationPopup ClearConfirmation { get; set; } = default!;
-    private List<HistoryItem> HistoryItems = new();
-    private bool IsLoading = true;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadHistory();
-    }
-
-    private async Task LoadHistory()
-    {
-        IsLoading = true;
-        try
-        {
-            var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", "browsingHistory");
-            
-            if (!string.IsNullOrEmpty(historyJson))
-            {
-                HistoryItems = System.Text.Json.JsonSerializer.Deserialize<List<HistoryItem>>(historyJson) ?? new();
-            }
-            else
-            {
-                HistoryItems = new()
-                {
-                    new() 
-                    { 
-                        ProductId = "1", 
-                        ProductName = "Men's Cotton T-Shirt", 
-                        ImageUrl = "/images/placeholder.jpg",
-                        Price = 15000,
-                        ViewedAt = DateTime.Now.AddHours(-2)
-                    },
-                    new() 
-                    { 
-                        ProductId = "2", 
-                        ProductName = "Women's Summer Dress", 
-                        ImageUrl = "/images/placeholder.jpg",
-                        Price = 25000,
-                        ViewedAt = DateTime.Now.AddDays(-1)
-                    }
-                };
-            }
-
-            HistoryItems = HistoryItems.OrderByDescending(h => h.ViewedAt).ToList();
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    private async Task RemoveItem(string productId, MouseEventArgs e)
-    {
-        HistoryItems.RemoveAll(h => h.ProductId == productId);
-        await SaveHistory();
-        StateHasChanged();
-    }
-
-    private void ClearHistory()
-    {
-        ClearConfirmation.Open();
-    }
-
-    private async Task ConfirmClearHistory()
-    {
-        HistoryItems.Clear();
-        await SaveHistory();
-        StateHasChanged();
-    }
-
-    private async Task SaveHistory()
-    {
-        var historyJson = System.Text.Json.JsonSerializer.Serialize(HistoryItems);
-        await JS.InvokeVoidAsync("localStorage.setItem", "browsingHistory", historyJson);
-    }
-
-    private void ViewProduct(string productId)
-    {
-        Navigation.NavigateTo($"/products/{productId}");
-    }
-
-    private class HistoryItem
-    {
-        public string ProductId { get; set; } = "";
-        public string ProductName { get; set; } = "";
-        public string ImageUrl { get; set; } = "";
-        public decimal Price { get; set; }
-        public DateTime ViewedAt { get; set; }
-
-        public string ViewedTime
-        {
-            get
-            {
-                var timeSpan = DateTime.Now - ViewedAt;
-                if (timeSpan.TotalMinutes < 60)
-                    return $"{(int)timeSpan.TotalMinutes} min ago";
-                if (timeSpan.TotalHours < 24)
-                    return $"{(int)timeSpan.TotalHours} hours ago";
-                if (timeSpan.TotalDays < 7)
-                    return $"{(int)timeSpan.TotalDays} days ago";
-                return ViewedAt.ToString("MMM dd, yyyy");
-            }
-        }
-    }
+    // See History.razor.cs for implementation
 }
