@@ -19,7 +19,7 @@
                     <label class="filter-option">
                         <input 
                             type="checkbox" 
-                            checked="@SelectedCategories.Contains(category)"
+                            checked="@IsChecked(SelectedCategories, category)"
                             @onchange="@(() => ToggleCategory(category))" />
                         <span class="option-label">@category</span>
                     </label>
@@ -36,7 +36,7 @@
                     <label class="filter-option">
                         <input 
                             type="checkbox" 
-                            checked="@SelectedBrands.Contains(brand)"
+                            checked="@IsChecked(SelectedBrands, brand)"
                             @onchange="@(() => ToggleBrand(brand))" />
                         <span class="option-label">@brand</span>
                     </label>
@@ -53,12 +53,18 @@
                     int currentRating = rating;
                     <button 
                         class="rating-btn @(MinRating == currentRating ? "active" : "")"
-                        @onclick="@(() => MinRating = currentRating)">
+                        @onclick="@(() => SetMinRating(currentRating))">
                         @for (int i = 0; i < 5; i++)
                         {
                             <span class="star @(i < currentRating ? "filled" : "")">★</span>
                         }
                         <span class="rating-text">& Up</span>
+                    </button>
+                }
+                @if (MinRating > 0)
+                {
+                    <button class="rating-btn" @onclick="@(() => SetMinRating(0))">
+                        <span class="rating-text">Clear Rating</span>
                     </button>
                 }
             </div>
@@ -93,11 +99,11 @@
             <h3 class="section-title">Other</h3>
             <div class="filter-options">
                 <label class="filter-option">
-                    <input type="checkbox" @bind="OnSale" />
+                    <input type="checkbox" checked="@OnSale" @onchange="@(() => ToggleOnSale())" />
                     <span class="option-label">On Sale</span>
                 </label>
                 <label class="filter-option">
-                    <input type="checkbox" @bind="FreeShipping" />
+                    <input type="checkbox" checked="@FreeShipping" @onchange="@(() => ToggleFreeShipping())" />
                     <span class="option-label">Free Shipping</span>
                 </label>
             </div>
