@@ -128,6 +128,7 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 // Add this to your Program.cs in the services section
 builder.Services.AddScoped<IAddressService, AddressService>();
 // Add these lines in Program.cs if missing
+builder.Services.AddScoped<ProductViewTracker>();
 
 // Cart Service
 builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
