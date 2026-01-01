@@ -166,7 +166,21 @@
     font-weight: 600;
     border-radius: 4px;
 }
+/* Add this to the existing History.razor.css */
 
+.view-duration {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+.viewed-time {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
+}
 /* ===== ORDERS LIST ===== */
 .orders-list {
     display: flex;
