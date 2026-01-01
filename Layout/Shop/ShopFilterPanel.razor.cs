@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using SubashaVentures.Domain.Shop; // Use shared FilterState
+using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Utilities.HelperScripts;
@@ -10,6 +10,8 @@ namespace SubashaVentures.Layout.Shop;
 public partial class ShopFilterPanel : ComponentBase
 {
     [Parameter] public EventCallback<FilterState> OnFiltersChanged { get; set; }
+    [Parameter] public FilterState? CurrentFilters { get; set; }
+    
     [Inject] private ICategoryService CategoryService { get; set; } = null!;
     [Inject] private IBrandService BrandService { get; set; } = null!;
 
@@ -31,6 +33,28 @@ public partial class ShopFilterPanel : ComponentBase
     protected override async Task OnInitializedAsync()
     {
         await LoadFilterOptions();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Update UI to match CurrentFilters whenever it changes
+        if (CurrentFilters != null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📋 Updating filter panel UI to match current filters",
+                LogLevel.Debug
+            );
+            
+            SelectedCategories = new List<string>(CurrentFilters.Categories);
+            SelectedBrands = new List<string>(CurrentFilters.Brands);
+            MinRating = CurrentFilters.MinRating;
+            MinPriceText = CurrentFilters.MinPrice > 0 ? CurrentFilters.MinPrice.ToString() : "";
+            MaxPriceText = CurrentFilters.MaxPrice < 1000000 ? CurrentFilters.MaxPrice.ToString() : "";
+            OnSale = CurrentFilters.OnSale;
+            FreeShipping = CurrentFilters.FreeShipping;
+            
+            StateHasChanged();
+        }
     }
 
     private async Task LoadFilterOptions()
@@ -71,7 +95,7 @@ public partial class ShopFilterPanel : ComponentBase
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {Categories.Count} categories and {Brands.Count} brands",
+                $"✓ Loaded {Categories.Count} categories and {Brands.Count} brands for filter panel",
                 LogLevel.Info
             );
         }
@@ -98,6 +122,11 @@ public partial class ShopFilterPanel : ComponentBase
         }
     }
 
+    private bool IsChecked(List<string> list, string value)
+    {
+        return list.Contains(value);
+    }
+
     private void ToggleCategory(string category)
     {
         if (SelectedCategories.Contains(category))
@@ -118,6 +147,24 @@ public partial class ShopFilterPanel : ComponentBase
         StateHasChanged();
     }
 
+    private void SetMinRating(int rating)
+    {
+        MinRating = rating;
+        StateHasChanged();
+    }
+
+    private void ToggleOnSale()
+    {
+        OnSale = !OnSale;
+        StateHasChanged();
+    }
+
+    private void ToggleFreeShipping()
+    {
+        FreeShipping = !FreeShipping;
+        StateHasChanged();
+    }
+
     private async Task ApplyFilters()
     {
         var minPrice = 0m;
@@ -131,17 +178,19 @@ public partial class ShopFilterPanel : ComponentBase
 
         var filters = new FilterState
         {
-            Categories = SelectedCategories,
-            Brands = SelectedBrands,
+            Categories = new List<string>(SelectedCategories),
+            Brands = new List<string>(SelectedBrands),
             MinRating = MinRating,
             MinPrice = minPrice,
             MaxPrice = maxPrice,
             OnSale = OnSale,
-            FreeShipping = FreeShipping
+            FreeShipping = FreeShipping,
+            SearchQuery = CurrentFilters?.SearchQuery ?? "",
+            SortBy = CurrentFilters?.SortBy ?? "default"
         };
 
         await MID_HelperFunctions.DebugMessageAsync(
-            $"Applying filters: {SelectedCategories.Count} categories, {SelectedBrands.Count} brands",
+            $"✅ Applying filters: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
             LogLevel.Info
         );
 
@@ -169,8 +218,15 @@ public partial class ShopFilterPanel : ComponentBase
             MinPrice = 0,
             MaxPrice = 1000000,
             OnSale = false,
-            FreeShipping = false
+            FreeShipping = false,
+            SearchQuery = "",
+            SortBy = "default"
         };
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            "🔄 Resetting all filters",
+            LogLevel.Info
+        );
 
         if (OnFiltersChanged.HasDelegate)
         {
@@ -180,5 +236,3 @@ public partial class ShopFilterPanel : ComponentBase
         StateHasChanged();
     }
 }
-
-// REMOVED: FilterState class moved to Domain/Shop/FilterState.cs
