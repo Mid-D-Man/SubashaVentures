@@ -2,7 +2,6 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Cards
-@using SubashaVentures.Domain.Product
 @using SubashaVentures.Components.Shared.Forms
 
 <PageTitle>@(Product?.Name ?? "Product") - Subasha Ventures</PageTitle>
@@ -29,18 +28,23 @@
     }
     else
     {
-        @* Header - Mobile Optimized *@
+        @* Header *@
         <div class="product-header">
-            <button class="btn-back" @onclick="NavigateBack">
+            <button class="btn-back" @onclick="NavigateBack" title="Back to Shop">
                 <span class="back-icon">←</span>
             </button>
             <h1 class="header-title">Product Details</h1>
-            <button class="btn-share" @onclick="HandleShare">
-                <span class="share-icon">⤴</span>
-            </button>
+            <div class="header-actions">
+                <button class="btn-share" @onclick="HandleShare" title="Share Product">
+                    <span class="share-icon">⤴</span>
+                </button>
+                <button class="btn-to-top" @onclick="ScrollToTop" title="Scroll to Top">
+                    <span class="top-icon">↑</span>
+                </button>
+            </div>
         </div>
 
-        @* Main Content - Scrollable *@
+        @* Main Content *@
         <div class="product-content">
             <div class="product-layout">
                 
@@ -51,7 +55,6 @@
                              alt="@Product.Name" 
                              class="main-image" />
                         
-                        @* Badges *@
                         <div class="image-badges-left">
                             @if (Product.IsFeatured)
                             {
@@ -69,7 +72,6 @@
                         }
                     </div>
 
-                    @* Thumbnail Gallery *@
                     @if (Product.Images.Count > 1)
                     {
                         <div class="thumbnail-gallery">
@@ -90,7 +92,6 @@
                 @* Product Info *@
                 <div class="info-section">
                     
-                    @* Title and Category *@
                     <div class="product-meta">
                         <div class="meta-line">
                             <span class="category">@Product.Category</span>
@@ -104,7 +105,6 @@
                         <p class="product-description">@Product.Description</p>
                     </div>
 
-                    @* Rating & Reviews Summary *@
                     @if (Product.Rating > 0)
                     {
                         <div class="product-rating">
@@ -123,7 +123,6 @@
                         </div>
                     }
 
-                    @* Price *@
                     <div class="product-pricing">
                         <span class="current-price">₦@Product.Price.ToString("N2")</span>
                         @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
@@ -133,7 +132,6 @@
                         }
                     </div>
 
-                    @* Stock Status *@
                     <div class="stock-status">
                         <span class="badge @(Product.Stock > 5 ? "badge-in-stock" : "badge-low-stock")">
                             @Product.StockStatus
@@ -141,7 +139,6 @@
                         <span class="stock-text">@Product.Stock units available</span>
                     </div>
 
-                    @* Size Selection *@
                     @if (Product.Sizes.Any())
                     {
                         <div class="variant-section">
@@ -160,7 +157,6 @@
                         </div>
                     }
 
-                    @* Color Selection *@
                     @if (Product.Colors.Any())
                     {
                         <div class="variant-section">
@@ -179,7 +175,6 @@
                         </div>
                     }
 
-                    @* Quantity *@
                     <div class="quantity-section">
                         <label class="variant-label">Quantity</label>
                         <div class="quantity-controls">
@@ -197,7 +192,6 @@
                         </div>
                     </div>
 
-                    @* Trust Badges *@
                     <div class="trust-badges">
                         <div class="trust-item">
                             <span class="trust-icon">🚚</span>
@@ -209,7 +203,6 @@
                         </div>
                     </div>
 
-                    @* Action Buttons - Sticky on mobile *@
                     <div class="action-buttons">
                         <button class="btn-add-to-cart @(IsAddingToCart ? "loading" : "") @(!Product.IsInStock ? "disabled" : "")"
                                 @onclick="HandleAddToCart"
@@ -256,7 +249,6 @@
                         </button>
                     </div>
 
-                    @* Success/Error Messages *@
                     @if (!string.IsNullOrEmpty(StatusMessage))
                     {
                         <div class="status-message @StatusMessageType">
@@ -265,7 +257,6 @@
                         </div>
                     }
 
-                    @* Product Details *@
                     <div class="product-details">
                         <div class="details-section">
                             <h3 class="details-heading">Description</h3>
@@ -273,10 +264,6 @@
                         </div>
 
                         <div class="details-grid">
-                            <div class="detail-item">
-                                <span class="detail-label">SKU</span>
-                                <span class="detail-value">@Product.Sku</span>
-                            </div>
                             <div class="detail-item">
                                 <span class="detail-label">Category</span>
                                 <span class="detail-value">@Product.Category</span>
@@ -291,6 +278,10 @@
                             <div class="detail-item">
                                 <span class="detail-label">Brand</span>
                                 <span class="detail-value">@Product.Brand</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Availability</span>
+                                <span class="detail-value">@Product.StockStatus</span>
                             </div>
                         </div>
 
@@ -314,7 +305,6 @@
             <div class="reviews-section">
                 <h2 class="section-title">Customer Reviews</h2>
                 
-                @* Write Review Button/Form *@
                 @if (ShowReviewForm)
                 {
                     <ProductReviewForm ProductId="@Product.Id.ToString()"
@@ -330,7 +320,6 @@
                     </button>
                 }
 
-                @* Reviews List *@
                 @if (IsLoadingReviews)
                 {
                     <div class="reviews-loading">
@@ -359,11 +348,60 @@
                 }
             </div>
 
-            @* Related Products *@
-            <RelatedProducts Products="@RelatedProductsList"
-                           IsLoading="@IsLoadingRelated"
-                           OnAddToCart="HandleAddToCart"
-                           OnToggleFavorite="HandleToggleFavorite" />
+            @* Related Products Section *@
+            @if (RelatedProductsList.Any())
+            {
+                <div class="related-products-section">
+                    <h2 class="section-title">You May Also Like</h2>
+                    
+                    @if (IsLoadingRelated)
+                    {
+                        <div class="related-loading">
+                            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium" 
+                                          Message="Loading recommendations..." />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="related-products-grid">
+                            @foreach (var relatedProduct in RelatedProductsList)
+                            {
+                                <div class="related-product-card" @onclick="@(() => NavigationManager.NavigateTo($"/product/{relatedProduct.Slug}"))">
+                                    <div class="related-product-image">
+                                        <img src="@(relatedProduct.Images?.FirstOrDefault() ?? "/diverse-products-still-life.png")" 
+                                             alt="@relatedProduct.Name" 
+                                             loading="lazy" />
+                                        @if (relatedProduct.IsOnSale && relatedProduct.Discount > 0)
+                                        {
+                                            <span class="badge badge-sale-small">-@relatedProduct.Discount%</span>
+                                        }
+                                    </div>
+                                    <div class="related-product-info">
+                                        <h4 class="related-product-name">@relatedProduct.Name</h4>
+                                        <div class="related-product-rating">
+                                            <div class="rating-stars-small">
+                                                @for (int i = 0; i < 5; i++)
+                                                {
+                                                    int starIndex = i;
+                                                    <span class="star-small @(starIndex < Math.Floor(relatedProduct.Rating) ? "filled" : "")">★</span>
+                                                }
+                                            </div>
+                                            <span class="rating-count">(@relatedProduct.ReviewCount)</span>
+                                        </div>
+                                        <div class="related-product-price">
+                                            <span class="price-current">₦@relatedProduct.Price.ToString("N0")</span>
+                                            @if (relatedProduct.IsOnSale && relatedProduct.OriginalPrice.HasValue)
+                                            {
+                                                <span class="price-original">₦@relatedProduct.OriginalPrice.Value.ToString("N0")</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
         </div>
     }
 </div>
