@@ -1,1 +1,188 @@
-@CONFIG()
+@CONFIG(
+  version -> "1.0.0",
+  encoding -> "UTF-8",
+  author -> "Mid-D-Man",
+  created -> "2026-01-01T00:00:00Z"
+)
+
+@ENUMS(
+  LicenseType { CODE_OPEN = 0, DATA_PROPRIETARY = 1, CREDENTIALS_RESTRICTED = 2 },
+  ViolationSeverity { WARNING = 1, MINOR = 2, MAJOR = 3, CRITICAL = 4, LEGAL_ACTION = 5 }
+)
+
+@DATA(
+  // ============================================================
+  // PROPRIETARY SOFTWARE NOTICE
+  // ============================================================
+  
+  title<string> = "SubashaVentures - Proprietary Software Notice",
+  effective_date<date> = 2026-01-01,
+  jurisdiction<string> = "Nigeria",
+  
+  // COPYRIGHT INFORMATION
+  copyright.owner<string> = "Mid-D-Man (SubashaVentures)",
+  copyright.year<int> = 2026,
+  copyright.all_rights_reserved<bool> = true,
+  
+  // ============================================================
+  // LICENSE TERMS
+  // ============================================================
+  
+  // CODE USAGE - OPEN SOURCE
+  license.code_usage: type<enum> = LicenseType.CODE_OPEN,
+  license.code_usage:: 
+    "View and study source code",
+    "Learn from implementation examples",
+    "Fork for educational purposes",
+    "Modify for personal non-commercial use",
+    "Reference in tutorials with attribution",
+  
+  license.code_restrictions::
+    "Commercial redistribution requires written permission",
+    "Must maintain all copyright notices",
+    "No warranty or liability accepted",
+    "Cannot claim original authorship",
+    "Must comply with all stated terms",
+  
+  // PROHIBITED USAGE - PROPRIETARY DATA
+  license.prohibited: type<enum> = LicenseType.DATA_PROPRIETARY,
+  license.prohibited::
+    "FORBIDDEN: Use of Supabase database credentials",
+    "FORBIDDEN: Use of Firebase configuration keys",
+    "FORBIDDEN: Access to production databases",
+    "FORBIDDEN: Unauthorized API endpoint access",
+    "FORBIDDEN: Scraping or harvesting user data",
+    "FORBIDDEN: Replication of database schemas with existing data",
+    "FORBIDDEN: Use of authentication tokens or sessions",
+    "FORBIDDEN: Access to cloud storage buckets",
+  
+  // CREDENTIALS PROTECTION
+  license.credentials: type<enum> = LicenseType.CREDENTIALS_RESTRICTED,
+  license.credentials::
+    "Supabase URL and AnonKey (appsettings.json)",
+    "Firebase API credentials (appsettings.json)",
+    "OAuth client secrets and keys",
+    "Service account credentials",
+    "Database connection strings",
+    "Storage bucket access tokens",
+    "Third-party API keys",
+    "Encryption keys and security salts",
+  
+  // ============================================================
+  // LEGAL CONSEQUENCES
+  // ============================================================
+  
+  // UNAUTHORIZED ACCESS
+  legal.unauthorized_access: severity<enum> = ViolationSeverity.LEGAL_ACTION,
+  legal.unauthorized_access.description<string> = "Unauthorized access to proprietary databases, credentials, or protected resources constitutes a serious violation",
+  legal.unauthorized_access::
+    "Immediate cease and desist notice",
+    "Civil litigation for actual and statutory damages",
+    "Criminal prosecution under applicable computer fraud laws",
+    "Injunctive relief to prevent ongoing violations",
+    "Recovery of all legal fees and court costs",
+    "Permanent legal record and industry blacklisting",
+  
+  // DATA MISUSE
+  legal.data_misuse: severity<enum> = ViolationSeverity.CRITICAL,
+  legal.data_misuse.description<string> = "Unauthorized use, copying, distribution, or commercialization of proprietary data",
+  legal.data_misuse::
+    "Statutory damages per violation instance",
+    "Immediate account termination and IP ban",
+    "Reporting to law enforcement and regulatory authorities",
+    "GDPR/CCPA/NDPR violation penalties (up to 4% global revenue)",
+    "Mandatory data breach notifications",
+    "Permanent injunction against future violations",
+  
+  // CREDENTIAL THEFT
+  legal.credential_theft: severity<enum> = ViolationSeverity.LEGAL_ACTION,
+  legal.credential_theft.description<string> = "Theft, unauthorized use, or distribution of API keys, passwords, tokens, or access credentials",
+  legal.credential_theft::
+    "Criminal charges for computer fraud and identity theft",
+    "Federal/International prosecution under cybercrime laws",
+    "Maximum penalties including imprisonment and fines",
+    "Civil damages including treble and punitive damages",
+    "Permanent restraining orders and injunctions",
+    "Asset seizure and forfeiture where applicable",
+  
+  // ============================================================
+  // PERMITTED USE CASES
+  // ============================================================
+  
+  permitted.code_examples::
+    "Study Blazor WebAssembly architecture and patterns",
+    "Learn C# component design and lifecycle management",
+    "Understand service layer and dependency injection",
+    "Reference CSS styling and responsive design techniques",
+    "Examine state management and data flow approaches",
+    "Review authentication and authorization implementations",
+  
+  permitted.educational::
+    "Academic research and case studies",
+    "Tutorial creation with proper attribution",
+    "Code review and architectural analysis",
+    "Portfolio demonstration (with sanitized credentials)",
+    "Technical documentation examples",
+    "Open source contribution learning",
+  
+  permitted.requirements::
+    "MUST replace ALL credentials with your own valid credentials",
+    "MUST NOT connect to SubashaVentures production infrastructure",
+    "MUST maintain copyright and attribution notices",
+    "MUST NOT claim original authorship of the codebase",
+    "MUST comply with all license terms and restrictions",
+    "MUST create independent database instances and schemas",
+  
+  // ============================================================
+  // DEVELOPER GUIDELINES
+  // ============================================================
+  
+  guidelines.setup::
+    "Create your own Supabase project at supabase.com",
+    "Generate your own Firebase project at firebase.google.com",
+    "Set up independent PostgreSQL databases",
+    "Configure your own cloud storage solutions",
+    "Replace ALL credentials in wwwroot/appsettings.json",
+    "Use environment variables or user secrets for local development",
+    "NEVER commit real credentials to public repositories",
+  
+  guidelines.security::
+    "Implement proper .gitignore for sensitive configuration files",
+    "Use Azure Key Vault or similar secret management",
+    "Rotate API keys and tokens regularly (minimum quarterly)",
+    "Enable audit logging and access monitoring",
+    "Implement rate limiting and DDoS protection",
+    "Use HTTPS/TLS for all production communications",
+    "Follow OWASP security best practices",
+  
+  // ============================================================
+  // CONTACT & REPORTING
+  // ============================================================
+  
+  contact.legal<string> = "legal@subashaventures.com",
+  contact.security<string> = "security@subashaventures.com",
+  contact.general<string> = "info@subashaventures.com",
+  contact.github<string> = "https://github.com/Mid-D-Man/SubashaVentures",
+  contact.issues<string> = "https://github.com/Mid-D-Man/SubashaVentures/issues",
+  
+  // ============================================================
+  // DISCLAIMER
+  // ============================================================
+  
+  disclaimer.warranty<string> = "THIS SOFTWARE IS PROVIDED 'AS IS' WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.",
+  
+  disclaimer.liability<string> = "IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+  
+  disclaimer.data_protection<string> = "All databases, user data, API credentials, and proprietary information remain the exclusive property of SubashaVentures. Unauthorized access violates GDPR, CCPA, NDPR, and applicable international data protection and computer fraud laws.",
+  
+  disclaimer.jurisdiction<string> = "This agreement shall be governed by the laws of Nigeria. Any disputes shall be resolved in Nigerian courts with jurisdiction over Abuja, FCT.",
+  
+  // ============================================================
+  // METADATA
+  // ============================================================
+  
+  meta.last_updated<timestamp> = 2026-01-01T00:00:00Z,
+  meta.review_frequency<string> = "Quarterly",
+  meta.version<string> = "1.0.0",
+  meta.enforcement_active<bool> = true
+)
