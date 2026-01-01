@@ -1,5 +1,6 @@
-// Pages/User/History.razor.cs
+// Pages/User/History.razor.cs - FIXED NAMESPACES
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Services.Authorization;
@@ -64,10 +65,8 @@ public partial class History : ComponentBase
             IsLoading = true;
             StateHasChanged();
 
-            // Always load viewed products (local storage)
             await LoadViewedProducts();
 
-            // Load authenticated user data
             if (IsAuthenticated)
             {
                 await LoadRecentOrders();
@@ -108,7 +107,6 @@ public partial class History : ComponentBase
                 
                 if (items != null)
                 {
-                    // Filter to last 30 days and sort by most recent
                     var cutoffDate = DateTime.UtcNow.AddDays(-RECENT_DAYS_THRESHOLD);
                     ViewedProducts = items
                         .Where(i => i.ViewedAt >= cutoffDate)
@@ -116,7 +114,6 @@ public partial class History : ComponentBase
                         .Take(MAX_VIEWED_PRODUCTS)
                         .ToList();
 
-                    // If we filtered any items, save the cleaned list back
                     if (ViewedProducts.Count != items.Count)
                     {
                         await SaveViewedProducts();
@@ -146,24 +143,7 @@ public partial class History : ComponentBase
                 LogLevel.Info
             );
 
-            // TODO: Implement when OrderService is available
-            // For now, return empty list
             RecentOrders = new List<OrderSummaryDto>();
-
-            /* When OrderService is ready:
-            var userId = await PermissionService.GetCurrentUserIdAsync();
-            if (!string.IsNullOrEmpty(userId))
-            {
-                var allOrders = await OrderService.GetUserOrdersAsync(userId);
-                var cutoffDate = DateTime.UtcNow.AddDays(-RECENT_DAYS_THRESHOLD);
-                
-                RecentOrders = allOrders
-                    .Where(o => o.CreatedAt >= cutoffDate)
-                    .OrderByDescending(o => o.CreatedAt)
-                    .Take(10)
-                    .ToList();
-            }
-            */
         }
         catch (Exception ex)
         {
@@ -182,48 +162,7 @@ public partial class History : ComponentBase
                 LogLevel.Info
             );
 
-            // TODO: Implement when we have wishlist with timestamps
-            // For now, return empty list
             RecentWishlistItems = new List<WishlistHistoryItem>();
-
-            /* When WishlistService supports UpdatedAt:
-            var userId = await PermissionService.GetCurrentUserIdAsync();
-            if (!string.IsNullOrEmpty(userId))
-            {
-                var wishlistModels = await WishlistService.GetUserWishlistAsync(userId);
-                if (wishlistModels.Any())
-                {
-                    var cutoffDate = DateTime.UtcNow.AddDays(-RECENT_DAYS_THRESHOLD);
-                    var wishlist = wishlistModels.First();
-                    
-                    var recentItems = wishlist.Items
-                        .Where(i => i.added_at >= cutoffDate)
-                        .OrderByDescending(i => i.added_at)
-                        .Take(10)
-                        .ToList();
-
-                    foreach (var item in recentItems)
-                    {
-                        if (int.TryParse(item.product_id, out var productId))
-                        {
-                            var product = await ProductService.GetProductByIdAsync(productId);
-                            if (product != null)
-                            {
-                                RecentWishlistItems.Add(new WishlistHistoryItem
-                                {
-                                    ProductId = item.product_id,
-                                    ProductName = product.Name,
-                                    ImageUrl = product.Images?.FirstOrDefault() ?? "/images/placeholder.jpg",
-                                    Price = product.Price,
-                                    IsInStock = product.IsInStock,
-                                    AddedAt = item.added_at
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            */
         }
         catch (Exception ex)
         {
@@ -291,7 +230,7 @@ public partial class History : ComponentBase
 
     private void ViewProduct(string productId)
     {
-        Navigation.NavigateTo($"/products/{productId}");
+        Navigation.NavigateTo($"/product/{productId}");
     }
 
     private void ViewOrder(string orderId)
@@ -309,7 +248,6 @@ public partial class History : ComponentBase
         Navigation.NavigateTo("/user/wishlist");
     }
 
-    // Helper classes
     public class ViewedProductItem
     {
         public string ProductId { get; set; } = string.Empty;
@@ -317,6 +255,7 @@ public partial class History : ComponentBase
         public string ImageUrl { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public DateTime ViewedAt { get; set; }
+        public int DurationSeconds { get; set; }
 
         public string ViewedTime
         {
@@ -330,6 +269,20 @@ public partial class History : ComponentBase
                 if (span.TotalDays < 7)
                     return $"{(int)span.TotalDays}d ago";
                 return ViewedAt.ToString("MMM dd");
+            }
+        }
+
+        public string ViewDuration
+        {
+            get
+            {
+                if (DurationSeconds < 60)
+                    return $"{DurationSeconds}s";
+                var minutes = DurationSeconds / 60;
+                if (minutes < 60)
+                    return $"{minutes}m";
+                var hours = minutes / 60;
+                return $"{hours}h {minutes % 60}m";
             }
         }
     }
