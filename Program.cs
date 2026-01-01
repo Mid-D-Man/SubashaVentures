@@ -1,6 +1,4 @@
-
-
-// Program.cs - LOAD KEYS FROM CONFIGURATION
+// Program.cs - UPDATED SERVICES REGISTRATION
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -25,7 +23,6 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
-using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Services.SupaBase;
 using Supabase;
@@ -54,12 +51,10 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ==================== SUPABASE CLIENT - LOAD FROM CONFIG ====================
+// ==================== SUPABASE CLIENT ====================
 builder.Services.AddScoped<Client>(sp =>
 {
     var config = builder.Configuration;
-    
-    // Load from appsettings.json
     var url = config["Supabase:Url"];
     var key = config["Supabase:AnonKey"];
     
@@ -82,7 +77,7 @@ builder.Services.AddScoped<Client>(sp =>
     return new Client(url, key, options);
 });
 
-// ==================== AUTHENTICATION - C# ONLY ====================
+// ==================== AUTHENTICATION ====================
 builder.Services.AddAuthorizationCore(options =>
 {
     options.AddPolicy("SuperiorAdminOnly", policy =>
@@ -96,13 +91,12 @@ builder.Services.AddAuthorizationCore(options =>
 });
 builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
 
-// Register auth services
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<SupabaseAuthService>();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 
-// ==================== OTHER SERVICES ====================
+// ==================== CORE SERVICES ====================
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();
 builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
@@ -117,23 +111,25 @@ builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 
+// ==================== SHOP SERVICES - PROPER ORDER ====================
+builder.Services.AddScoped<IShopFilterService, SubashaVentures.Services.Shop.ShopFilterService>();
+builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
+
+// ==================== PRODUCT & CATALOG SERVICES ====================
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
-builder.Services.AddScoped<IBrandService, BrandService>();
-builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
-// Add this to your Program.cs in the services section
-builder.Services.AddScoped<IAddressService, AddressService>();
-// Add these lines in Program.cs if missing
 builder.Services.AddScoped<ProductViewTracker>();
 
-// Cart Service
-builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
+// ==================== USER SERVICES ====================
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAddressService, AddressService>();
 
-// Wishlist Service  
+// ==================== CART & WISHLIST ====================
+builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
 builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
 
 var host = builder.Build();
@@ -165,6 +161,6 @@ catch (Exception ex)
     Console.WriteLine($"❌ Failed to initialize Firebase: {ex.Message}");
 }
 
-Console.WriteLine("✓ All services initialized (C# authentication)");
+Console.WriteLine("✓ All services initialized with proper filter management");
 
 await host.RunAsync();
