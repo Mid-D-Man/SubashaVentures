@@ -3,10 +3,6 @@
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Layout.User
-@inject IJSRuntime JS
-@inject NavigationManager Navigation
-@inject IPermissionService PermissionService
-@inject IProductService ProductService
 
 <div class="history-page">
     <div class="page-header">
@@ -30,7 +26,6 @@
     }
     else
     {
-        <!-- Tabs -->
         <div class="history-tabs">
             <button class="tab-button @(ActiveTab == "viewed" ? "active" : "")" 
                     @onclick='() => ActiveTab = "viewed"'>
@@ -54,7 +49,6 @@
             }
         </div>
 
-        <!-- Tab Content -->
         <div class="tab-content">
             @if (ActiveTab == "viewed")
             {
@@ -83,7 +77,11 @@
                                 <div class="card-content">
                                     <h3>@product.ProductName</h3>
                                     <p class="product-price">₦@product.Price.ToString("N0")</p>
-                                    <span class="viewed-time">Viewed @product.ViewedTime</span>
+                                    <span class="viewed-time">@product.ViewedTime</span>
+                                    @if (product.DurationSeconds > 0)
+                                    {
+                                        <span class="view-duration">Viewed for @product.ViewDuration</span>
+                                    }
                                 </div>
                             </div>
                         }
@@ -168,5 +166,5 @@
                    OnConfirm="ConfirmClearViewedProducts" />
 
 @code {
-    // See History.razor.cs for implementation
+    // Implementation in History.razor.cs
 }
