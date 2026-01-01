@@ -2,8 +2,12 @@
 @layout SubashaVentures.Layout.User.UserLayout
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Models.Firebase
+@inject IReviewService ReviewService
+@inject IPermissionService PermissionService
+@inject IProductService ProductService
+@inject NavigationManager Navigation
 
 <div class="reviews-page">
     <div class="page-header">
@@ -16,7 +20,16 @@
     @if (IsLoading)
     {
         <div class="reviews-loading">
-            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading reviews..." />
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading your reviews..." />
+        </div>
+    }
+    else if (!IsAuthenticated)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <h2>Sign In Required</h2>
+            <p>Please sign in to view your reviews</p>
+            <button class="btn-primary" @onclick="NavigateToSignIn">Sign In</button>
         </div>
     }
     else if (!ReviewsList.Any())
@@ -25,6 +38,7 @@
             <div class="empty-icon">⭐</div>
             <h2>No Reviews Yet</h2>
             <p>Purchase products and leave reviews to help other shoppers</p>
+            <button class="btn-primary" @onclick="NavigateToShop">Browse Products</button>
         </div>
     }
     else
@@ -42,16 +56,21 @@
                 <span class="stat-value">@HelpfulCount</span>
                 <span class="stat-label">Helpful Votes</span>
             </div>
+            <div class="stat-card">
+                <span class="stat-value">@VerifiedCount</span>
+                <span class="stat-label">Verified Purchases</span>
+            </div>
         </div>
 
         <div class="reviews-list">
             @foreach (var review in ReviewsList)
             {
                 <div class="review-card">
-                    <div class="review-product">
-                        <img src="@review.ProductImage" alt="@review.ProductName" />
+                    <div class="review-product" @onclick="() => NavigateToProduct(review.ProductId)">
+                        <img src="@(ProductImages.GetValueOrDefault(review.ProductId, "/images/placeholder.jpg"))" 
+                             alt="@(ProductNames.GetValueOrDefault(review.ProductId, "Product"))" />
                         <div class="product-info">
-                            <h3>@review.ProductName</h3>
+                            <h3>@ProductNames.GetValueOrDefault(review.ProductId, "Product")</h3>
                             <span class="review-date">@review.CreatedAt.ToString("MMM dd, yyyy")</span>
                         </div>
                     </div>
@@ -61,31 +80,53 @@
                         {
                             <span class="star @(i <= review.Rating ? "filled" : "")">⭐</span>
                         }
+                        <span class="rating-text">@review.Rating out of 5</span>
                     </div>
 
+                    @if (!string.IsNullOrEmpty(review.Title))
+                    {
+                        <h4 class="review-title">@review.Title</h4>
+                    }
+
                     <div class="review-content">
-                        <h4>@review.Title</h4>
                         <p>@review.Comment</p>
                     </div>
 
-                    @if (review.Images.Any())
+                    @if (review.Images?.Any() == true)
                     {
                         <div class="review-images">
                             @foreach (var image in review.Images)
                             {
-                                <img src="@image" alt="Review image" />
+                                <img src="@image" alt="Review image" @onclick="() => ShowImagePreview(image)" />
                             }
                         </div>
                     }
 
                     <div class="review-footer">
-                        <span class="helpful-count">@review.HelpfulCount people found this helpful</span>
+                        <div class="review-meta">
+                            @if (review.IsVerifiedPurchase)
+                            {
+                                <span class="badge verified">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+                                    </svg>
+                                    Verified Purchase
+                                </span>
+                            }
+                            <span class="helpful-count">@review.HelpfulCount people found this helpful</span>
+                        </div>
+                        
                         <div class="review-actions">
-                            <button class="btn-icon" @onclick="() => EditReview(review)" title="Edit">
-                                ✏️
+                            <button class="btn-icon" @onclick="() => EditReview(review)" title="Edit Review">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-width="2"/>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-width="2"/>
+                                </svg>
                             </button>
-                            <button class="btn-icon danger" @onclick="() => ConfirmDelete(review.Id)" title="Delete">
-                                🗑️
+                            <button class="btn-icon danger" @onclick="() => ConfirmDelete(review.Id)" title="Delete Review">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2"/>
+                                </svg>
                             </button>
                         </div>
                     </div>
@@ -95,48 +136,64 @@
     }
 </div>
 
-<DynamicModal @ref="ReviewModal" 
-              Title="@ModalTitle"
-              IsOpen="@IsModalOpen"
-              OnConfirm="SaveReview"
-              OnCancel="CloseReviewModal">
-    <BodyContent>
-        <div class="review-form">
-            <div class="product-preview">
-                <img src="@EditingReview?.ProductImage" alt="@EditingReview?.ProductName" />
-                <h4>@EditingReview?.ProductName</h4>
-            </div>
-
-            <div class="form-field">
-                <label>Rating <span class="required">*</span></label>
-                <div class="rating-input">
-                    @for (int i = 1; i <= 5; i++)
-                    {
-                        int rating = i;
-                        <span class="star-input @(i <= EditingReview?.Rating ? "selected" : "")" 
-                              @onclick="() => SetRating(rating)">
-                            ⭐
-                        </span>
-                    }
+@if (EditingReview != null)
+{
+    <DynamicModal @ref="ReviewModal" 
+                  Title="Edit Review"
+                  IsOpen="@IsModalOpen"
+                  OnConfirm="SaveReview"
+                  OnCancel="CloseReviewModal"
+                  ConfirmText="Save Changes"
+                  CancelText="Cancel">
+        <BodyContent>
+            <div class="review-form">
+                <div class="product-preview">
+                    <img src="@(ProductImages.GetValueOrDefault(EditingReview.ProductId, "/images/placeholder.jpg"))" 
+                         alt="@(ProductNames.GetValueOrDefault(EditingReview.ProductId, "Product"))" />
+                    <h4>@ProductNames.GetValueOrDefault(EditingReview.ProductId, "Product")</h4>
                 </div>
-            </div>
 
-            <div class="form-field">
-                <label>Review Title <span class="required">*</span></label>
-                <InputField @bind-Value="EditingReview.Title" 
-                           Placeholder="Summarize your experience" />
-            </div>
+                <div class="form-field">
+                    <label>Rating <span class="required">*</span></label>
+                    <div class="rating-input">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            int rating = i;
+                            <span class="star-input @(i <= EditingReview.Rating ? "selected" : "")" 
+                                  @onclick="() => SetRating(rating)">
+                                ⭐
+                            </span>
+                        }
+                    </div>
+                </div>
 
-            <div class="form-field">
-                <label>Your Review <span class="required">*</span></label>
-                <textarea class="form-textarea" 
-                         @bind="EditingReview.Comment" 
-                         placeholder="Share your thoughts about this product..."
-                         rows="5"></textarea>
+                <div class="form-field">
+                    <label>Review Title</label>
+                    <InputField @bind-Value="EditingReview.Title" 
+                               Placeholder="Summarize your experience (optional)" />
+                </div>
+
+                <div class="form-field">
+                    <label>Your Review <span class="required">*</span></label>
+                    <textarea class="form-textarea" 
+                             @bind="EditingReview.Comment" 
+                             placeholder="Share your thoughts about this product..."
+                             rows="5"
+                             minlength="10"
+                             required></textarea>
+                    <small class="form-hint">Minimum 10 characters</small>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(ValidationError))
+                {
+                    <div class="validation-error">
+                        @ValidationError
+                    </div>
+                }
             </div>
-        </div>
-    </BodyContent>
-</DynamicModal>
+        </BodyContent>
+    </DynamicModal>
+}
 
 <ConfirmationPopup @ref="DeleteConfirmation"
                    Title="Delete Review?"
@@ -145,5 +202,5 @@
                    OnConfirm="DeleteReview" />
 
 @code {
-    // See Reviews.razor.cs for code
+    // See Reviews.razor.cs for implementation
 }
