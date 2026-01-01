@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Cart;
@@ -7,11 +7,12 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Navigation;
 using SubashaVentures.Services.Wishlist;
 using SubashaVentures.Utilities.HelperScripts;
+using System.Text.Json;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Product;
 
-public partial class ProductDetails : ComponentBase
+public partial class ProductDetails : ComponentBase, IDisposable
 {
     #region Injected Services
     
@@ -22,6 +23,7 @@ public partial class ProductDetails : ComponentBase
     [Inject] private IReviewService ReviewService { get; set; } = null!;
     [Inject] private INavigationService NavigationService { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+    [Inject] private IJSRuntime JS { get; set; } = null!;
     
     #endregion
 
@@ -46,19 +48,21 @@ public partial class ProductDetails : ComponentBase
     private string? SelectedColor { get; set; }
     private int Quantity { get; set; } = 1;
     
-    // Cart and Wishlist states
     private bool IsFavorite { get; set; }
     private bool IsInCart { get; set; }
     private bool IsAddingToCart { get; set; }
     private bool IsTogglingWishlist { get; set; }
     private string? currentUserId;
     
-    // Status messages
     private string StatusMessage { get; set; } = "";
-    private string StatusMessageType { get; set; } = ""; // "success" or "error"
+    private string StatusMessageType { get; set; } = "";
     private System.Threading.Timer? statusMessageTimer;
     
     private bool ShowReviewForm { get; set; } = false;
+    
+    // View tracking
+    private DateTime pageLoadTime;
+    private const string VIEWED_PRODUCTS_KEY = "viewed_products_history";
     
     #endregion
 
@@ -66,6 +70,8 @@ public partial class ProductDetails : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        pageLoadTime = DateTime.UtcNow;
+        
         await MID_HelperFunctions.DebugMessageAsync(
             $"ProductDetails page initializing for slug: {Slug}", 
             LogLevel.Info
@@ -78,6 +84,7 @@ public partial class ProductDetails : ComponentBase
     {
         if (!string.IsNullOrEmpty(Slug))
         {
+            pageLoadTime = DateTime.UtcNow;
             await LoadProduct();
         }
     }
@@ -85,6 +92,91 @@ public partial class ProductDetails : ComponentBase
     public void Dispose()
     {
         statusMessageTimer?.Dispose();
+        _ = TrackProductViewDuration();
+    }
+
+    #endregion
+
+    #region View Tracking
+
+    private async Task TrackProductView()
+    {
+        if (Product == null) return;
+
+        try
+        {
+            var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", VIEWED_PRODUCTS_KEY);
+            var history = new List<ViewedProductItem>();
+
+            if (!string.IsNullOrEmpty(historyJson))
+            {
+                history = JsonSerializer.Deserialize<List<ViewedProductItem>>(historyJson) ?? new();
+            }
+
+            history.RemoveAll(h => h.ProductId == Product.Id.ToString());
+
+            history.Insert(0, new ViewedProductItem
+            {
+                ProductId = Product.Id.ToString(),
+                ProductName = Product.Name,
+                ImageUrl = Product.Images?.FirstOrDefault() ?? "/diverse-products-still-life.png",
+                Price = Product.Price,
+                ViewedAt = DateTime.UtcNow,
+                DurationSeconds = 0
+            });
+
+            if (history.Count > 50)
+            {
+                history = history.Take(50).ToList();
+            }
+
+            var json = JsonSerializer.Serialize(history);
+            await JS.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Tracked view for product: {Product.Name}",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Tracking product view");
+        }
+    }
+
+    private async Task TrackProductViewDuration()
+    {
+        if (Product == null) return;
+
+        try
+        {
+            var durationSeconds = (int)(DateTime.UtcNow - pageLoadTime).TotalSeconds;
+            
+            var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", VIEWED_PRODUCTS_KEY);
+            
+            if (string.IsNullOrEmpty(historyJson)) return;
+
+            var history = JsonSerializer.Deserialize<List<ViewedProductItem>>(historyJson);
+            if (history == null) return;
+
+            var item = history.FirstOrDefault(h => h.ProductId == Product.Id.ToString());
+            if (item != null)
+            {
+                item.DurationSeconds = durationSeconds;
+                
+                var json = JsonSerializer.Serialize(history);
+                await JS.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Updated view duration: {durationSeconds}s for {Product.Name}",
+                    LogLevel.Info
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Tracking view duration");
+        }
     }
 
     #endregion
@@ -103,7 +195,6 @@ public partial class ProductDetails : ComponentBase
                 LogLevel.Info
             );
 
-            // Get all products and find by slug
             var products = await ProductService.GetAllProductsAsync();
             Product = products.FirstOrDefault(p => 
                 p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase)
@@ -123,16 +214,11 @@ public partial class ProductDetails : ComponentBase
                     LogLevel.Info
                 );
 
-                // Initialize default selections
                 InitializeDefaults();
-                
-                // Check cart and wishlist status if authenticated
                 await CheckCartAndWishlistStatus();
+                await TrackProductView();
                 
-                // Load reviews
                 _ = LoadReviews();
-                
-                // Load related products
                 _ = LoadRelatedProducts();
             }
         }
@@ -165,10 +251,7 @@ public partial class ProductDetails : ComponentBase
                         LogLevel.Info
                     );
 
-                    // Check wishlist
                     IsFavorite = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
-                    
-                    // Check cart
                     IsInCart = await CartService.IsInCartAsync(currentUserId, Product.Id.ToString());
 
                     await MID_HelperFunctions.DebugMessageAsync(
@@ -198,7 +281,6 @@ public partial class ProductDetails : ComponentBase
                 LogLevel.Info
             );
 
-            // Get Firebase ReviewModels and convert to ReviewViewModels
             var reviewModels = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
             Reviews = ReviewViewModel.FromCloudModels(reviewModels);
 
@@ -233,7 +315,6 @@ public partial class ProductDetails : ComponentBase
                 LogLevel.Info
             );
 
-            // Get products from same category, excluding current product
             var allProducts = await ProductService.GetProductsByCategoryAsync(Product.CategoryId);
             
             RelatedProductsList = allProducts
@@ -243,7 +324,6 @@ public partial class ProductDetails : ComponentBase
                 .Take(6)
                 .ToList();
 
-            // If not enough products from category, add products from same brand
             if (RelatedProductsList.Count < 4 && !string.IsNullOrEmpty(Product.Brand))
             {
                 var brandProducts = await ProductService.GetAllProductsAsync();
@@ -282,13 +362,11 @@ public partial class ProductDetails : ComponentBase
     {
         if (Product == null) return;
 
-        // Set default size
         if (Product.Sizes.Any())
         {
             SelectedSize = Product.Sizes.First();
         }
 
-        // Set default color
         if (Product.Colors.Any())
         {
             SelectedColor = Product.Colors.First();
@@ -326,16 +404,12 @@ public partial class ProductDetails : ComponentBase
     {
         SelectedSize = size;
         StateHasChanged();
-
-        MID_HelperFunctions.DebugMessage($"Size selected: {size}", LogLevel.Info);
     }
 
     private void SelectColor(string color)
     {
         SelectedColor = color;
         StateHasChanged();
-
-        MID_HelperFunctions.DebugMessage($"Color selected: {color}", LogLevel.Info);
     }
 
     #endregion
@@ -345,7 +419,6 @@ public partial class ProductDetails : ComponentBase
     private void IncreaseQuantity()
     {
         if (Product == null || Quantity >= Product.Stock) return;
-
         Quantity++;
         StateHasChanged();
     }
@@ -353,7 +426,6 @@ public partial class ProductDetails : ComponentBase
     private void DecreaseQuantity()
     {
         if (Quantity <= 1) return;
-
         Quantity--;
         StateHasChanged();
     }
@@ -372,12 +444,6 @@ public partial class ProductDetails : ComponentBase
 
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Add to cart: Product ID {Product.Id}, Quantity: {Quantity}, Size: {SelectedSize}, Color: {SelectedColor}",
-                LogLevel.Info
-            );
-
-            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
                 return;
@@ -394,7 +460,6 @@ public partial class ProductDetails : ComponentBase
                 return;
             }
 
-            // Add to cart with selected variants and quantity
             var success = await CartService.AddToCartAsync(
                 currentUserId,
                 Product.Id.ToString(),
@@ -406,37 +471,17 @@ public partial class ProductDetails : ComponentBase
             if (success)
             {
                 IsInCart = true;
-                
-                ShowStatusMessage(
-                    $"✓ Added {Quantity} {Product.Name} to cart!", 
-                    "success"
-                );
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Added {Product.Name} to cart (Qty: {Quantity}, Size: {SelectedSize}, Color: {SelectedColor})",
-                    LogLevel.Info
-                );
+                ShowStatusMessage($"✓ Added {Quantity} {Product.Name} to cart!", "success");
             }
             else
             {
-                ShowStatusMessage(
-                    "Failed to add to cart. Please try again.", 
-                    "error"
-                );
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ Failed to add {Product.Name} to cart",
-                    LogLevel.Error
-                );
+                ShowStatusMessage("Failed to add to cart. Please try again.", "error");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to cart");
-            ShowStatusMessage(
-                $"Error: {ex.Message}", 
-                "error"
-            );
+            ShowStatusMessage($"Error: {ex.Message}", "error");
         }
         finally
         {
@@ -455,7 +500,6 @@ public partial class ProductDetails : ComponentBase
 
         try
         {
-            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
                 return;
@@ -472,45 +516,22 @@ public partial class ProductDetails : ComponentBase
                 return;
             }
 
-            // Toggle wishlist
             var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
 
             if (success)
             {
                 IsFavorite = !IsFavorite;
-                
-                ShowStatusMessage(
-                    IsFavorite 
-                        ? $"✓ Added to wishlist!" 
-                        : "Removed from wishlist", 
-                    "success"
-                );
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Toggled wishlist for {Product.Name}: {(IsFavorite ? "Added" : "Removed")}",
-                    LogLevel.Info
-                );
+                ShowStatusMessage(IsFavorite ? "✓ Added to wishlist!" : "Removed from wishlist", "success");
             }
             else
             {
-                ShowStatusMessage(
-                    "Failed to update wishlist. Please try again.", 
-                    "error"
-                );
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ Failed to toggle wishlist for {Product.Name}",
-                    LogLevel.Error
-                );
+                ShowStatusMessage("Failed to update wishlist. Please try again.", "error");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling favorite");
-            ShowStatusMessage(
-                $"Error: {ex.Message}", 
-                "error"
-            );
+            ShowStatusMessage($"Error: {ex.Message}", "error");
         }
         finally
         {
@@ -522,14 +543,7 @@ public partial class ProductDetails : ComponentBase
     private async Task HandleBuyNow()
     {
         if (Product == null) return;
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Buy now: Product ID {Product.Id}, Quantity: {Quantity}",
-            LogLevel.Info
-        );
-
-        // TODO: Implement buy now functionality
-        // This should add to cart and navigate to checkout
+        
         await HandleAddToCart();
         
         if (IsInCart)
@@ -540,13 +554,36 @@ public partial class ProductDetails : ComponentBase
 
     private async Task HandleShare()
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Share product: {Product?.Name}",
-            LogLevel.Info
-        );
+        if (Product == null) return;
 
-        // TODO: Implement share functionality (Web Share API via JS Interop)
-        ShowStatusMessage("Share feature coming soon!", "success");
+        try
+        {
+            var shareData = new
+            {
+                title = Product.Name,
+                text = Product.Description,
+                url = NavigationManager.Uri
+            };
+
+            await JS.InvokeVoidAsync("navigator.share", shareData);
+        }
+        catch
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", NavigationManager.Uri);
+            ShowStatusMessage("Link copied to clipboard!", "success");
+        }
+    }
+
+    private async Task ScrollToTop()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("window.scrollTo", new { top = 0, behavior = "smooth" });
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Scrolling to top");
+        }
     }
 
     #endregion
@@ -559,7 +596,6 @@ public partial class ProductDetails : ComponentBase
         StatusMessageType = type;
         StateHasChanged();
 
-        // Auto-clear after 5 seconds
         statusMessageTimer?.Dispose();
         statusMessageTimer = new System.Threading.Timer(
             _ => ClearStatusMessage(), 
@@ -602,11 +638,6 @@ public partial class ProductDetails : ComponentBase
 
     private async Task HandleHelpfulClick(ReviewViewModel review)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Mark review helpful: {review.Id}",
-            LogLevel.Info
-        );
-
         try
         {
             var success = await ReviewService.MarkReviewHelpfulAsync(review.Id);
@@ -624,12 +655,7 @@ public partial class ProductDetails : ComponentBase
 
     private async Task HandleReviewImageClick(string imageUrl)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Review image clicked: {imageUrl}",
-            LogLevel.Info
-        );
-
-        // TODO: Open image in lightbox/modal
+        await MID_HelperFunctions.DebugMessageAsync($"Review image clicked: {imageUrl}", LogLevel.Info);
     }
 
     #endregion
@@ -647,4 +673,14 @@ public partial class ProductDetails : ComponentBase
     }
 
     #endregion
+
+    public class ViewedProductItem
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public DateTime ViewedAt { get; set; }
+        public int DurationSeconds { get; set; }
+    }
 }
