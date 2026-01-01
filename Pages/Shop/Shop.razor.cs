@@ -1,11 +1,9 @@
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Product;
+using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Shop;
-using SubashaVentures.Services.Storage;
-using SubashaVentures.Layout.Shop;
 using SubashaVentures.Utilities.HelperScripts;
-using SubashaVentures.Domain.Shop;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Shop;
@@ -13,32 +11,24 @@ namespace SubashaVentures.Pages.Shop;
 public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = null!;
+    [Inject] private IShopFilterService FilterService { get; set; } = null!;
     [Inject] private ShopStateService ShopState { get; set; } = null!;
-    [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
-
-    private const string CATEGORY_FILTER_KEY = "shop_category_filter";
     
+    // Data
     private List<ProductViewModel> AllProducts { get; set; } = new();
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
     private List<ProductViewModel> CurrentPageProducts { get; set; } = new();
     
+    // State
     private bool IsLoading { get; set; } = true;
     private bool HasError { get; set; }
     private string ErrorMessage { get; set; } = "";
+    private bool IsInitialized { get; set; } = false;
     
-    // Search and Sort
-    private string SearchQuery { get; set; } = "";
+    // Current Filters
+    private FilterState CurrentFilters { get; set; } = FilterState.CreateDefault();
     private string SelectedSort { get; set; } = "default";
-    
-    // Active Filters (matches FilterState structure)
-    private List<string> ActiveCategories = new();
-    private List<string> ActiveBrands = new();
-    private int ActiveMinRating = 0;
-    private decimal ActiveMinPrice = 0;
-    private decimal ActiveMaxPrice = 1000000;
-    private bool ActiveOnSale = false;
-    private bool ActiveFreeShipping = false;
     
     // Pagination
     private int CurrentPage { get; set; } = 1;
@@ -48,56 +38,63 @@ public partial class Shop : ComponentBase, IDisposable
     // Mobile Filter State
     public bool ShowMobileFilters { get; set; }
     
-    // Data loading flags
-    private bool ProductsLoaded = false;
-    private bool IsInitialized = false;
+    // Helper Properties
+    private bool HasActiveFilters => CurrentFilters != null && !CurrentFilters.IsEmpty;
+    private int ActiveFilterCount
+    {
+        get
+        {
+            if (CurrentFilters == null) return 0;
+            int count = 0;
+            count += CurrentFilters.Categories.Count;
+            count += CurrentFilters.Brands.Count;
+            if (CurrentFilters.MinRating > 0) count++;
+            if (CurrentFilters.MinPrice > 0 || CurrentFilters.MaxPrice < 1000000) count++;
+            if (CurrentFilters.OnSale) count++;
+            if (CurrentFilters.FreeShipping) count++;
+            if (!string.IsNullOrEmpty(CurrentFilters.SearchQuery)) count++;
+            return count;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to shop state events
-        ShopState.OnSearchChanged += HandleSearchChanged;
-        ShopState.OnFiltersChanged += HandleFiltersChanged;
+        await MID_HelperFunctions.DebugMessageAsync(
+            "🚀 Shop page initializing",
+            LogLevel.Info
+        );
         
+        // Subscribe to state service events
+        ShopState.OnSearchChanged += HandleSearchChanged;
+        ShopState.OnFiltersChanged += HandleFiltersChangedFromState;
+        
+        // STEP 1: Load products first
         await LoadProducts();
         
-        IsInitialized = true;
-    }
-
-    // FIXED: Check for pending filters after render (when DOM is ready)
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && ProductsLoaded)
-        {
-            await CheckAndApplyPendingCategoryFilter();
-        }
+        // STEP 2: Load saved filters
+        await LoadSavedFilters();
         
-        // CRITICAL FIX: Also check on every render if products are loaded
-        // This handles the case where user is already on shop page
-        if (!firstRender && ProductsLoaded && IsInitialized)
-        {
-            var hasPendingFilter = await LocalStorage.ContainsKeyAsync(CATEGORY_FILTER_KEY);
-            if (hasPendingFilter)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Found pending filter on subsequent render, applying now",
-                    LogLevel.Info
-                );
-                await CheckAndApplyPendingCategoryFilter();
-            }
-        }
+        // STEP 3: Apply filters (products are already loaded)
+        await ApplyFilters();
+        
+        IsInitialized = true;
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            "✓ Shop page initialized successfully",
+            LogLevel.Info
+        );
     }
 
     private async Task LoadProducts()
     {
         IsLoading = true;
         HasError = false;
-        ProductsLoaded = false;
         StateHasChanged();
 
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Loading all products for shop page",
+                "📦 Loading all products",
                 LogLevel.Info
             );
 
@@ -107,11 +104,6 @@ public partial class Shop : ComponentBase, IDisposable
                 $"✓ Loaded {AllProducts.Count} products",
                 LogLevel.Info
             );
-
-            ProductsLoaded = true;
-            
-            // FIXED: Don't apply filters here - let OnAfterRenderAsync handle it
-            // This ensures pending category filter is checked first
         }
         catch (Exception ex)
         {
@@ -126,158 +118,116 @@ public partial class Shop : ComponentBase, IDisposable
         }
     }
 
-    /// <summary>
-    /// Check localStorage for pending category filter from SidePanel navigation
-    /// </summary>
-    private async Task CheckAndApplyPendingCategoryFilter()
+    private async Task LoadSavedFilters()
     {
         try
         {
-            // Check if there's a pending category filter
-            var hasPendingFilter = await LocalStorage.ContainsKeyAsync(CATEGORY_FILTER_KEY);
-            
-            if (!hasPendingFilter)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "No pending category filter found, applying default filters",
-                    LogLevel.Debug
-                );
-                
-                // No pending filter, just apply default filters
-                await ApplyFilters();
-                return;
-            }
-
-            // Read as List<string> to match FilterState structure
-            var categoryFilter = await LocalStorage.GetItemAsync<List<string>>(CATEGORY_FILTER_KEY);
-            
-            if (categoryFilter == null || !categoryFilter.Any())
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Pending category filter is empty",
-                    LogLevel.Warning
-                );
-                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-                await ApplyFilters();
-                return;
-            }
-
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Found pending category filter: [{string.Join(", ", categoryFilter)}]",
+                "🔍 Loading saved filters",
                 LogLevel.Info
             );
-
-            // Verify at least one category exists in our products
-            var validCategories = categoryFilter
-                .Where(cat => AllProducts.Any(p => 
-                    !string.IsNullOrEmpty(p.Category) && 
-                    p.Category.Equals(cat, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            if (!validCategories.Any())
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"None of the filter categories exist in products, ignoring filter",
-                    LogLevel.Warning
-                );
-                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-                await ApplyFilters();
-                return;
-            }
-
-            // Apply the category filter
-            ActiveCategories.Clear();
-            ActiveCategories.AddRange(validCategories);
+            
+            CurrentFilters = await FilterService.GetCurrentFiltersAsync();
+            SelectedSort = CurrentFilters.SortBy;
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Applied category filter: [{string.Join(", ", ActiveCategories)}]",
+                $"✓ Loaded filters - Categories: [{string.Join(", ", CurrentFilters.Categories)}], Search: '{CurrentFilters.SearchQuery}'",
                 LogLevel.Info
             );
-
-            // Remove the pending filter from storage
-            await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-            
-            // Reset to page 1 and apply filters
-            CurrentPage = 1;
-            await ApplyFilters();
-            StateHasChanged();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking pending category filter");
-            
-            // Clean up on error and apply default filters
-            try
-            {
-                await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-            }
-            catch
-            {
-                // Ignore cleanup errors
-            }
-            
-            await ApplyFilters();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading saved filters");
+            CurrentFilters = FilterState.CreateDefault();
         }
     }
 
     private async Task HandleFiltersChanged(FilterState filters)
     {
-        if (!ProductsLoaded)
+        if (!IsInitialized || !AllProducts.Any())
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Ignoring filter change - products not loaded yet",
+                "⚠ Ignoring filter change - not initialized or no products",
                 LogLevel.Warning
             );
             return;
         }
 
         await MID_HelperFunctions.DebugMessageAsync(
-            $"Filters changed: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
+            $"🔧 Filters changed: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
             LogLevel.Info
         );
 
-        ActiveCategories = new List<string>(filters.Categories);
-        ActiveBrands = new List<string>(filters.Brands);
-        ActiveMinRating = filters.MinRating;
-        ActiveMinPrice = filters.MinPrice;
-        ActiveMaxPrice = filters.MaxPrice;
-        ActiveOnSale = filters.OnSale;
-        ActiveFreeShipping = filters.FreeShipping;
+        CurrentFilters = filters.Clone();
+        SelectedSort = CurrentFilters.SortBy;
+        
+        // Save filters
+        await FilterService.SaveFiltersAsync(CurrentFilters);
         
         CurrentPage = 1;
         await ApplyFilters();
         CloseMobileFilters();
     }
 
+    private async Task HandleFiltersChangedFromState(FilterState filters)
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            "🔄 Filters changed from state service",
+            LogLevel.Info
+        );
+        
+        await HandleFiltersChanged(filters);
+    }
+
     private async Task HandleSearchChanged(string query)
     {
-        if (!ProductsLoaded)
+        if (!IsInitialized || !AllProducts.Any())
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Ignoring search change - products not loaded yet",
+                "⚠ Ignoring search change - not initialized or no products",
                 LogLevel.Warning
             );
             return;
         }
 
         await MID_HelperFunctions.DebugMessageAsync(
-            $"Search query: '{query}'",
+            $"🔍 Search query changed: '{query}'",
             LogLevel.Info
         );
 
-        SearchQuery = query ?? "";
+        CurrentFilters.SearchQuery = query ?? "";
+        await FilterService.SaveFiltersAsync(CurrentFilters);
+        
         CurrentPage = 1;
         await ApplyFilters();
     }
 
-    // FIXED: Made async Task
+    private async Task HandleSortChanged()
+    {
+        if (!IsInitialized || !AllProducts.Any())
+        {
+            return;
+        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"📊 Sort changed to: {SelectedSort}",
+            LogLevel.Info
+        );
+        
+        CurrentFilters.SortBy = SelectedSort;
+        await FilterService.SaveFiltersAsync(CurrentFilters);
+        
+        ApplySorting();
+        UpdateCurrentPageProducts();
+        StateHasChanged();
+    }
+
     private async Task ApplyFilters()
     {
-        // Safety check - don't apply filters if products aren't loaded
-        if (!ProductsLoaded || !AllProducts.Any())
+        if (!AllProducts.Any())
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Cannot apply filters - products not loaded",
+                "⚠ Cannot apply filters - no products loaded",
                 LogLevel.Debug
             );
             FilteredProducts = new List<ProductViewModel>();
@@ -286,7 +236,7 @@ public partial class Shop : ComponentBase, IDisposable
         }
 
         await MID_HelperFunctions.DebugMessageAsync(
-            $"Applying filters - Categories: [{string.Join(", ", ActiveCategories)}], Search: '{SearchQuery}'",
+            $"🎯 Applying filters - Categories: [{string.Join(", ", CurrentFilters.Categories)}], Search: '{CurrentFilters.SearchQuery}'",
             LogLevel.Info
         );
 
@@ -301,9 +251,9 @@ public partial class Shop : ComponentBase, IDisposable
         );
 
         // Apply search filter
-        if (!string.IsNullOrWhiteSpace(SearchQuery))
+        if (!string.IsNullOrWhiteSpace(CurrentFilters.SearchQuery))
         {
-            var query = SearchQuery.ToLower().Trim();
+            var query = CurrentFilters.SearchQuery.ToLower().Trim();
             FilteredProducts = FilteredProducts.Where(p =>
                 (p.Name?.ToLower().Contains(query) ?? false) ||
                 (p.Description?.ToLower().Contains(query) ?? false) ||
@@ -318,11 +268,11 @@ public partial class Shop : ComponentBase, IDisposable
         }
 
         // Apply category filter
-        if (ActiveCategories.Any())
+        if (CurrentFilters.Categories.Any())
         {
             FilteredProducts = FilteredProducts
                 .Where(p => !string.IsNullOrEmpty(p.Category) && 
-                           ActiveCategories.Any(ac => ac.Equals(p.Category, StringComparison.OrdinalIgnoreCase)))
+                           CurrentFilters.Categories.Any(ac => ac.Equals(p.Category, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -332,11 +282,11 @@ public partial class Shop : ComponentBase, IDisposable
         }
 
         // Apply brand filter
-        if (ActiveBrands.Any())
+        if (CurrentFilters.Brands.Any())
         {
             FilteredProducts = FilteredProducts
                 .Where(p => !string.IsNullOrEmpty(p.Brand) && 
-                           ActiveBrands.Contains(p.Brand))
+                           CurrentFilters.Brands.Contains(p.Brand))
                 .ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -346,20 +296,20 @@ public partial class Shop : ComponentBase, IDisposable
         }
 
         // Apply rating filter
-        if (ActiveMinRating > 0)
+        if (CurrentFilters.MinRating > 0)
         {
             FilteredProducts = FilteredProducts
-                .Where(p => p.Rating >= ActiveMinRating)
+                .Where(p => p.Rating >= CurrentFilters.MinRating)
                 .ToList();
         }
 
         // Apply price filter
         FilteredProducts = FilteredProducts
-            .Where(p => p.Price >= ActiveMinPrice && p.Price <= ActiveMaxPrice)
+            .Where(p => p.Price >= CurrentFilters.MinPrice && p.Price <= CurrentFilters.MaxPrice)
             .ToList();
 
         // Apply sale filter
-        if (ActiveOnSale)
+        if (CurrentFilters.OnSale)
         {
             FilteredProducts = FilteredProducts
                 .Where(p => p.IsOnSale)
@@ -367,7 +317,7 @@ public partial class Shop : ComponentBase, IDisposable
         }
 
         // Apply free shipping filter
-        if (ActiveFreeShipping)
+        if (CurrentFilters.FreeShipping)
         {
             FilteredProducts = FilteredProducts
                 .Where(p => p.Price >= 50000)
@@ -399,18 +349,6 @@ public partial class Shop : ComponentBase, IDisposable
             "newest" => FilteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
             _ => FilteredProducts
         };
-    }
-
-    private async Task ApplySortAndUpdate()
-    {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Sort changed to: {SelectedSort}",
-            LogLevel.Info
-        );
-        
-        ApplySorting();
-        UpdateCurrentPageProducts();
-        StateHasChanged();
     }
 
     private void UpdateCurrentPageProducts()
@@ -467,42 +405,30 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async Task HandleAddToCart(int productId)
     {
-        await MID_HelperFunctions.DebugMessageAsync($"Add to cart: {productId}", LogLevel.Info);
+        await MID_HelperFunctions.DebugMessageAsync($"🛒 Add to cart: {productId}", LogLevel.Info);
     }
 
     private async Task HandleToggleFavorite(int productId)
     {
-        await MID_HelperFunctions.DebugMessageAsync($"Toggle favorite: {productId}", LogLevel.Info);
+        await MID_HelperFunctions.DebugMessageAsync($"❤️ Toggle favorite: {productId}", LogLevel.Info);
     }
 
     private async Task ResetFilters()
     {
-        SearchQuery = "";
-        ActiveCategories.Clear();
-        ActiveBrands.Clear();
-        ActiveMinRating = 0;
-        ActiveMinPrice = 0;
-        ActiveMaxPrice = 1000000;
-        ActiveOnSale = false;
-        ActiveFreeShipping = false;
+        await MID_HelperFunctions.DebugMessageAsync(
+            "🔄 Resetting filters",
+            LogLevel.Info
+        );
+        
+        await FilterService.ResetFiltersAsync();
+        CurrentFilters = FilterState.CreateDefault();
         SelectedSort = "default";
         CurrentPage = 1;
-        
-        // Clear any pending category filter
-        try
-        {
-            await LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-        }
-        catch
-        {
-            // Ignore errors
-        }
         
         await ApplyFilters();
         StateHasChanged();
     }
 
-    // Mobile filter controls
     public void OpenMobileFilters()
     {
         ShowMobileFilters = true;
@@ -518,15 +444,6 @@ public partial class Shop : ComponentBase, IDisposable
     public void Dispose()
     {
         ShopState.OnSearchChanged -= HandleSearchChanged;
-        ShopState.OnFiltersChanged -= HandleFiltersChanged;
-        
-        try
-        {
-            _ = LocalStorage.RemoveItemAsync(CATEGORY_FILTER_KEY);
-        }
-        catch
-        {
-            // Ignore cleanup errors
-        }
+        ShopState.OnFiltersChanged -= HandleFiltersChangedFromState;
     }
 }
