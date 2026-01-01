@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Thu Jan  1 00:32:36 UTC 2026
+Generated: Thu Jan  1 00:33:49 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 12220d94958a2afb62b47b52be89eedf2de8ac55
+Commit: c81c688b6510d02e6aeb178655d12571ff85eeed
 Branch: master
 ==================================
 
@@ -273,6 +273,7 @@ Utilities/HelperScripts/JsonHelper.cs
 Utilities/HelperScripts/MID_HelperFunctions.cs
 Utilities/Logging/Mid_Logger.cs
 Utilities/ObjectPooling/MID_ComponentObjectPool.cs
+Utilities/Tracking/ProductViewTracker.cs
 _Imports.razor
 firebase.json
 firestore.indexes.json
@@ -383,13 +384,14 @@ Directory Structure:
 ./  HelperScripts
 ./  Logging
 ./  ObjectPooling
+./  Tracking
 ./wwwroot
 ./  css
 ./  js
 
 File Count Summary:
 ==================
-.cs       : 132 files
+.cs       : 133 files
 .razor    : 68 files
 .csproj   : 1 files
 .sln      : 1 files
