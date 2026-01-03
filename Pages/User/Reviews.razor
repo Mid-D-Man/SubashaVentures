@@ -165,8 +165,10 @@
 
                 <div class="form-field">
                     <label>Review Title</label>
-                    <InputField @bind-Value="EditingReview.Title" 
-                               Placeholder="Summarize your experience (optional)" />
+                    <input type="text" 
+                           class="form-input" 
+                           @bind="EditingReview.Title"
+                           placeholder="Summarize your experience (optional)" />
                 </div>
 
                 <div class="form-field">
