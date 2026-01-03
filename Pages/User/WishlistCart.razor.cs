@@ -559,7 +559,7 @@ public partial class WishlistCart : IDisposable
     {
         if (PendingAction != null)
         {
-            await PendingAction.Invoke();
+             PendingAction.Invoke();
             PendingAction = null;
         }
     }
