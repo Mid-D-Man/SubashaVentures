@@ -1,13 +1,40 @@
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
 @inject IJSRuntime JSRuntime
+@inject IVisualElementsService VisualElementsService
 
 <a href="/" class="brand-link" @onclick="HandleLogoClick" @onclick:preventDefault="true">
     <div class="brand-logo">
-        <span class="brand-icon">🌟</span>
+        @if (!string.IsNullOrEmpty(iconUrl))
+        {
+            <img src="@iconUrl" alt="SubashaVentures" class="brand-icon-img" />
+        }
+        else
+        {
+            <span class="brand-icon">🌟</span>
+        }
         <span class="brand-text">Subasha Ventures</span>
     </div>
 </a>
 
 @code {
+    private string iconUrl = string.Empty;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Load the 152px icon (good size for navbar)
+            iconUrl = await VisualElementsService.GetIconAsync(IconType.SBV_ICON, IconSize.Size_152);
+            Console.WriteLine($"✓ BrandLogo: Icon loaded - {iconUrl}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ BrandLogo: Error loading icon - {ex.Message}");
+            // iconUrl remains empty, will show emoji fallback
+        }
+    }
+
     private async Task HandleLogoClick()
     {
         try 
