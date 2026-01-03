@@ -106,7 +106,8 @@ builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
 builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
-
+// Add this line in the CORE SERVICES section, after the other services:
+builder.Services.AddScoped<IVisualElementsService, VisualElementsService>();
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
