@@ -308,7 +308,7 @@
             
             // STEP 2: Close panel for immediate feedback
             await ClosePanel();
-            
+            await Task.Delay(50);
             // STEP 3: Navigate to shop page
             Console.WriteLine($"🚀 Navigating to {ShopDirectory}");
             NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
