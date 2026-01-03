@@ -27,6 +27,7 @@ using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Services.Shop;
 using SubashaVentures.Services.SupaBase;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Utilities.Tracking;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;

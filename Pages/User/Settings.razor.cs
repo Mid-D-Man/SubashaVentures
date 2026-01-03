@@ -418,7 +418,7 @@ namespace SubashaVentures.Pages.User
                 Console.WriteLine("User logged out");
                 
                 // Navigate to home or login page
-                NavigationManager?.NavigateTo("/", true);
+                NavigationManager?.NavigateTo("", true);
                 
                 await Task.CompletedTask;
             }
