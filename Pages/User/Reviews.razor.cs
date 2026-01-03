@@ -24,7 +24,8 @@ public partial class Reviews : ComponentBase
     private Dictionary<string, string> ProductNames = new();
     private Dictionary<string, string> ProductImages = new();
     
-    private ReviewModel? EditingReview;
+    // MUTABLE editing model
+    private ReviewEditModel? EditingReview;
     private string ValidationError = string.Empty;
     private bool IsLoading = true;
     private bool IsAuthenticated = false;
@@ -48,7 +49,6 @@ public partial class Reviews : ComponentBase
                 LogLevel.Info
             );
 
-            // Check authentication first
             IsAuthenticated = await PermissionService.IsAuthenticatedAsync();
             
             if (!IsAuthenticated)
@@ -86,7 +86,6 @@ public partial class Reviews : ComponentBase
                 LogLevel.Info
             );
 
-            // Get current user ID
             var userId = await PermissionService.GetCurrentUserIdAsync();
             
             if (string.IsNullOrEmpty(userId))
@@ -98,7 +97,6 @@ public partial class Reviews : ComponentBase
                 return;
             }
 
-            // Get user's reviews
             ReviewsList = await ReviewService.GetUserReviewsAsync(userId);
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -106,7 +104,6 @@ public partial class Reviews : ComponentBase
                 LogLevel.Info
             );
 
-            // Load product information for each review
             await LoadProductInformation();
         }
         catch (Exception ex)
@@ -176,21 +173,15 @@ public partial class Reviews : ComponentBase
     {
         try
         {
-            EditingReview = new ReviewModel
+            // Create mutable editing model
+            EditingReview = new ReviewEditModel
             {
                 Id = review.Id,
                 ProductId = review.ProductId,
-                UserId = review.UserId,
-                UserName = review.UserName,
-                UserAvatar = review.UserAvatar,
                 Rating = review.Rating,
-                Title = review.Title,
+                Title = review.Title ?? string.Empty,
                 Comment = review.Comment,
-                Images = new List<string>(review.Images),
-                IsVerifiedPurchase = review.IsVerifiedPurchase,
-                HelpfulCount = review.HelpfulCount,
-                IsApproved = review.IsApproved,
-                CreatedAt = review.CreatedAt
+                Images = new List<string>(review.Images)
             };
 
             ValidationError = string.Empty;
@@ -212,7 +203,7 @@ public partial class Reviews : ComponentBase
     {
         if (EditingReview != null)
         {
-            EditingReview = EditingReview with { Rating = rating };
+            EditingReview.Rating = rating;
             StateHasChanged();
         }
     }
@@ -251,7 +242,7 @@ public partial class Reviews : ComponentBase
             var updateRequest = new UpdateReviewRequest
             {
                 Rating = EditingReview.Rating,
-                Title = EditingReview.Title,
+                Title = string.IsNullOrWhiteSpace(EditingReview.Title) ? null : EditingReview.Title,
                 Comment = EditingReview.Comment,
                 ImageUrls = EditingReview.Images
             };
@@ -265,13 +256,8 @@ public partial class Reviews : ComponentBase
                     LogLevel.Info
                 );
 
-                // Update the review in the list
-                var existingReview = ReviewsList.FirstOrDefault(r => r.Id == EditingReview.Id);
-                if (existingReview != null)
-                {
-                    var index = ReviewsList.IndexOf(existingReview);
-                    ReviewsList[index] = EditingReview;
-                }
+                // Reload reviews to get updated data
+                await LoadReviews();
 
                 CloseReviewModal();
             }
@@ -352,7 +338,6 @@ public partial class Reviews : ComponentBase
 
     private void ShowImagePreview(string imageUrl)
     {
-        // TODO: Implement image preview modal
         Logger.LogInformation("Image preview clicked: {ImageUrl}", imageUrl);
     }
 
@@ -369,5 +354,16 @@ public partial class Reviews : ComponentBase
     private void NavigateToShop()
     {
         Navigation.NavigateTo("/shop");
+    }
+
+    // Mutable editing model
+    private class ReviewEditModel
+    {
+        public string Id { get; set; } = string.Empty;
+        public string ProductId { get; set; } = string.Empty;
+        public int Rating { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Comment { get; set; } = string.Empty;
+        public List<string> Images { get; set; } = new();
     }
 }
