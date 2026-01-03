@@ -228,59 +228,67 @@ public class ReviewService : IReviewService
     }
 
     public async Task<bool> UpdateReviewAsync(string reviewId, UpdateReviewRequest request)
+{
+    try
     {
-        try
+        if (string.IsNullOrWhiteSpace(reviewId))
+            throw new ArgumentException("ReviewId is required");
+
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        var existing = await _firestore.GetDocumentAsync<ReviewModel>(COLLECTION, reviewId);
+
+        if (existing == null)
         {
-            if (string.IsNullOrWhiteSpace(reviewId))
-                throw new ArgumentException("ReviewId is required");
-
-            if (request == null)
-                throw new ArgumentNullException(nameof(request));
-
-            var existing = await _firestore.GetDocumentAsync<ReviewModel>(COLLECTION, reviewId);
-
-            if (existing == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Review not found: {reviewId}",
-                    LogLevel.Warning
-                );
-                return false;
-            }
-
-            var updated = existing with
-            {
-                Rating = request.Rating ?? existing.Rating,
-                Title = request.Title ?? existing.Title,
-                Comment = request.Comment ?? existing.Comment,
-                Images = request.ImageUrls ?? existing.Images,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            if (updated.Rating < 1 || updated.Rating > 5)
-            {
-                throw new ArgumentException("Rating must be between 1 and 5");
-            }
-
-            var success = await _firestore.UpdateDocumentAsync(COLLECTION, reviewId, updated);
-
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Review updated: {reviewId}",
-                    LogLevel.Info
-                );
-            }
-
-            return success;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating review: {reviewId}");
-            _logger.LogError(ex, "Failed to update review: {ReviewId}", reviewId);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Review not found: {reviewId}",
+                LogLevel.Warning
+            );
             return false;
         }
+
+        // Use 'with' expression to create updated record
+        var updated = existing with
+        {
+            Rating = request.Rating ?? existing.Rating,
+            Title = request.Title ?? existing.Title,
+            Comment = request.Comment ?? existing.Comment,
+            Images = request.ImageUrls ?? existing.Images,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // Validate rating
+        if (updated.Rating < 1 || updated.Rating > 5)
+        {
+            throw new ArgumentException("Rating must be between 1 and 5");
+        }
+
+        // Validate comment length
+        if (string.IsNullOrWhiteSpace(updated.Comment) || updated.Comment.Length < 10)
+        {
+            throw new ArgumentException("Comment must be at least 10 characters");
+        }
+
+        var success = await _firestore.UpdateDocumentAsync(COLLECTION, reviewId, updated);
+
+        if (success)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Review updated: {reviewId}",
+                LogLevel.Info
+            );
+        }
+
+        return success;
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating review: {reviewId}");
+        _logger.LogError(ex, "Failed to update review: {ReviewId}", reviewId);
+        return false;
+    }
+}
 
     public async Task<bool> DeleteReviewAsync(string reviewId)
     {
