@@ -114,9 +114,8 @@ builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 
-// ==================== SHOP SERVICES - PROPER ORDER ====================
-builder.Services.AddScoped<IShopFilterService, SubashaVentures.Services.Shop.ShopFilterService>();
-builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
+// ==================== SHOP SERVICES - SIMPLIFIED ====================
+builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>(); // SINGLE SERVICE NOW
 
 // ==================== PRODUCT & CATALOG SERVICES ====================
 builder.Services.AddScoped<ICategoryService, CategoryService>();

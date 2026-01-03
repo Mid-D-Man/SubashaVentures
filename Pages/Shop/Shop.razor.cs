@@ -11,7 +11,6 @@ namespace SubashaVentures.Pages.Shop;
 public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = null!;
-    [Inject] private IShopFilterService FilterService { get; set; } = null!;
     [Inject] private ShopStateService ShopState { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
     
@@ -26,7 +25,7 @@ public partial class Shop : ComponentBase, IDisposable
     private string ErrorMessage { get; set; } = "";
     private bool IsInitialized { get; set; } = false;
     
-    // Current Filters
+    // Current Filters (IN-MEMORY ONLY)
     private FilterState CurrentFilters { get; set; } = FilterState.CreateDefault();
     private string SelectedSort { get; set; } = "default";
     
@@ -68,13 +67,19 @@ public partial class Shop : ComponentBase, IDisposable
         ShopState.OnSearchChanged += HandleSearchChanged;
         ShopState.OnFiltersChanged += HandleFiltersChangedFromState;
         
-        // STEP 1: Load products first
+        // STEP 1: Load filters from ShopState (might have category from navigation)
+        CurrentFilters = await ShopState.GetCurrentFiltersAsync();
+        SelectedSort = CurrentFilters.SortBy;
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"📋 Loaded filters: Categories=[{string.Join(", ", CurrentFilters.Categories)}], Search='{CurrentFilters.SearchQuery}'",
+            LogLevel.Info
+        );
+        
+        // STEP 2: Load products
         await LoadProducts();
         
-        // STEP 2: Load saved filters
-        await LoadSavedFilters();
-        
-        // STEP 3: Apply filters (products are already loaded)
+        // STEP 3: Apply filters
         await ApplyFilters();
         
         IsInitialized = true;
@@ -118,30 +123,6 @@ public partial class Shop : ComponentBase, IDisposable
         }
     }
 
-    private async Task LoadSavedFilters()
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "🔍 Loading saved filters",
-                LogLevel.Info
-            );
-            
-            CurrentFilters = await FilterService.GetCurrentFiltersAsync();
-            SelectedSort = CurrentFilters.SortBy;
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded filters - Categories: [{string.Join(", ", CurrentFilters.Categories)}], Search: '{CurrentFilters.SearchQuery}'",
-                LogLevel.Info
-            );
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading saved filters");
-            CurrentFilters = FilterState.CreateDefault();
-        }
-    }
-
     private async Task HandleFiltersChanged(FilterState filters)
     {
         if (!IsInitialized || !AllProducts.Any())
@@ -161,8 +142,8 @@ public partial class Shop : ComponentBase, IDisposable
         CurrentFilters = filters.Clone();
         SelectedSort = CurrentFilters.SortBy;
         
-        // Save filters
-        await FilterService.SaveFiltersAsync(CurrentFilters);
+        // Update ShopState
+        await ShopState.UpdateFiltersAsync(CurrentFilters);
         
         CurrentPage = 1;
         await ApplyFilters();
@@ -172,11 +153,18 @@ public partial class Shop : ComponentBase, IDisposable
     private async Task HandleFiltersChangedFromState(FilterState filters)
     {
         await MID_HelperFunctions.DebugMessageAsync(
-            "🔄 Filters changed from state service",
+            $"🔄 Filters changed from state: Categories=[{string.Join(", ", filters.Categories)}]",
             LogLevel.Info
         );
         
-        await HandleFiltersChanged(filters);
+        CurrentFilters = filters.Clone();
+        SelectedSort = CurrentFilters.SortBy;
+        
+        if (IsInitialized && AllProducts.Any())
+        {
+            CurrentPage = 1;
+            await ApplyFilters();
+        }
     }
 
     private async Task HandleSearchChanged(string query)
@@ -196,7 +184,6 @@ public partial class Shop : ComponentBase, IDisposable
         );
 
         CurrentFilters.SearchQuery = query ?? "";
-        await FilterService.SaveFiltersAsync(CurrentFilters);
         
         CurrentPage = 1;
         await ApplyFilters();
@@ -215,7 +202,7 @@ public partial class Shop : ComponentBase, IDisposable
         );
         
         CurrentFilters.SortBy = SelectedSort;
-        await FilterService.SaveFiltersAsync(CurrentFilters);
+        await ShopState.UpdateFiltersAsync(CurrentFilters);
         
         ApplySorting();
         UpdateCurrentPageProducts();
@@ -420,7 +407,7 @@ public partial class Shop : ComponentBase, IDisposable
             LogLevel.Info
         );
         
-        await FilterService.ResetFiltersAsync();
+        await ShopState.ResetFiltersAsync();
         CurrentFilters = FilterState.CreateDefault();
         SelectedSort = "default";
         CurrentPage = 1;

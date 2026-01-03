@@ -3,7 +3,7 @@ using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Utilities.HelperScripts;
-using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;//y
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Layout.Shop;
 
@@ -35,15 +35,12 @@ public partial class ShopFilterPanel : ComponentBase
         await LoadFilterOptions();
     }
 
-    protected override async Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        // Update UI to match CurrentFilters whenever it changes
+        // Update UI to match CurrentFilters whenever it changes (SYNCHRONOUS)
         if (CurrentFilters != null)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"📋 Updating filter panel UI to match current filters",
-                LogLevel.Debug
-            );
+            Console.WriteLine($"📋 Updating filter panel UI to match current filters");
             
             SelectedCategories = new List<string>(CurrentFilters.Categories);
             SelectedBrands = new List<string>(CurrentFilters.Brands);
@@ -80,8 +77,7 @@ public partial class ShopFilterPanel : ComponentBase
             {
                 Categories = new List<string> 
                 { 
-                    "Women Shoes", "Men Shoes", "Lifestyle", 
-                    "Skateboarding", "Running", "Sports" 
+                    "Womens Clothing", "Mens Clothing", "Kids Clothing", "Baby Essentials"
                 };
             }
 
@@ -89,8 +85,7 @@ public partial class ShopFilterPanel : ComponentBase
             {
                 Brands = new List<string> 
                 { 
-                    "Nike", "Adidas", "Puma", "New Balance", 
-                    "Converse", "Vans", "Reebok" 
+                    "SubashaVentures", "Premium Collection"
                 };
             }
 
@@ -105,14 +100,12 @@ public partial class ShopFilterPanel : ComponentBase
             
             Categories = new List<string> 
             { 
-                "Women Shoes", "Men Shoes", "Lifestyle", 
-                "Skateboarding", "Running", "Sports" 
+                "Womens Clothing", "Mens Clothing", "Kids Clothing", "Baby Essentials"
             };
             
             Brands = new List<string> 
             { 
-                "Nike", "Adidas", "Puma", "New Balance", 
-                "Converse", "Vans", "Reebok" 
+                "SubashaVentures", "Premium Collection"
             };
         }
         finally

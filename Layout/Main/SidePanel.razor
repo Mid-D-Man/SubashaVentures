@@ -4,10 +4,11 @@
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.Shop
 @using SubashaVentures.Domain.Product
+@using SubashaVentures.Utilities.HelperScripts
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ICategoryService CategoryService
-@inject IShopFilterService FilterService
+@inject ShopStateService ShopState
 @implements IDisposable
 
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
@@ -300,27 +301,26 @@
         {
             Console.WriteLine($"🔍 Category clicked: {category.Name}");
             
-            // Close panel first for immediate feedback
+            // STEP 1: Update filters via ShopState (NOT FilterService)
+            await ShopState.UpdateCategoriesAsync(new List<string> { category.Name });
+            
+            Console.WriteLine($"✓ Filters updated with category: {category.Name}");
+            
+            // STEP 2: Close panel for immediate feedback
             await ClosePanel();
             
-            // Update filters with the selected category using the filter service
-            await FilterService.UpdateCategoriesAsync(new List<string> { category.Name });
-            
-            Console.WriteLine($"✓ Updated filters with category: {category.Name}");
-            
-            // Navigate to shop page
+            // STEP 3: Navigate to shop page
+            Console.WriteLine($"🚀 Navigating to {ShopDirectory}");
             NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
             
-            if (OnNavigate.HasDelegate)
-            {
-                await OnNavigate.InvokeAsync(ShopDirectory);
-            }
+            Console.WriteLine($"✓ Navigation completed");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Navigating with category: {category.Name}");
             
-            // Still navigate even if filter update failed
+            // Still close panel and navigate even if filter update failed
             await ClosePanel();
             NavigationManager.NavigateTo(ShopDirectory);
         }
