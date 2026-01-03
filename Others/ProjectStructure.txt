@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Jan  3 16:10:51 UTC 2026
+Generated: Sat Jan  3 16:12:00 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: fecab3ff816567cdf87f2d82558f1d9b20d6772e
+Commit: 9438a2256e944a17c11dc5f8a7fdedd491cf04f7
 Branch: master
 ==================================
 
@@ -146,6 +146,7 @@ Pages/Admin/MiscManagement.razor.css
 Pages/Admin/ProductManagement.razor
 Pages/Admin/ProductManagement.razor.cs
 Pages/Admin/ProductManagement.razor.css
+Pages/Admin/ReviewManagement.razor
 Pages/Admin/Statistics.razor
 Pages/Admin/Statistics.razor.cs
 Pages/Admin/Statistics.razor.css
@@ -396,7 +397,7 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 135 files
-.razor    : 68 files
+.razor    : 69 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
