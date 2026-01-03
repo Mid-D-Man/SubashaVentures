@@ -29,29 +29,46 @@ public partial class ShopFilterPanel : ComponentBase
     private bool FreeShipping = false;
     
     private bool IsLoading = true;
+    private bool HasSyncedWithCurrentFilters = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadFilterOptions();
+        
+        // Sync with current filters after loading options
+        SyncWithCurrentFilters();
     }
 
     protected override void OnParametersSet()
     {
-        // Update UI to match CurrentFilters whenever it changes (SYNCHRONOUS)
-        if (CurrentFilters != null)
+        // Update UI whenever CurrentFilters changes
+        if (CurrentFilters != null && !IsLoading)
         {
-            Console.WriteLine($"📋 Updating filter panel UI to match current filters");
-            
-            SelectedCategories = new List<string>(CurrentFilters.Categories);
-            SelectedBrands = new List<string>(CurrentFilters.Brands);
-            MinRating = CurrentFilters.MinRating;
-            MinPriceText = CurrentFilters.MinPrice > 0 ? CurrentFilters.MinPrice.ToString() : "";
-            MaxPriceText = CurrentFilters.MaxPrice < 1000000 ? CurrentFilters.MaxPrice.ToString() : "";
-            OnSale = CurrentFilters.OnSale;
-            FreeShipping = CurrentFilters.FreeShipping;
-            
-            StateHasChanged();
+            SyncWithCurrentFilters();
         }
+    }
+
+    /// <summary>
+    /// Sync UI state with CurrentFilters
+    /// </summary>
+    private void SyncWithCurrentFilters()
+    {
+        if (CurrentFilters == null) return;
+        
+        Console.WriteLine($"🔄 Syncing filter panel with current filters");
+        Console.WriteLine($"   Categories: [{string.Join(", ", CurrentFilters.Categories)}]");
+        Console.WriteLine($"   Brands: [{string.Join(", ", CurrentFilters.Brands)}]");
+        
+        SelectedCategories = new List<string>(CurrentFilters.Categories);
+        SelectedBrands = new List<string>(CurrentFilters.Brands);
+        MinRating = CurrentFilters.MinRating;
+        MinPriceText = CurrentFilters.MinPrice > 0 ? CurrentFilters.MinPrice.ToString() : "";
+        MaxPriceText = CurrentFilters.MaxPrice < 1000000 ? CurrentFilters.MaxPrice.ToString() : "";
+        OnSale = CurrentFilters.OnSale;
+        FreeShipping = CurrentFilters.FreeShipping;
+        
+        HasSyncedWithCurrentFilters = true;
+        StateHasChanged();
     }
 
     private async Task LoadFilterOptions()
@@ -73,6 +90,7 @@ public partial class ShopFilterPanel : ComponentBase
                 .OrderBy(n => n)
                 .ToList();
 
+            // Fallback defaults
             if (!Categories.Any())
             {
                 Categories = new List<string> 
@@ -93,11 +111,15 @@ public partial class ShopFilterPanel : ComponentBase
                 $"✓ Loaded {Categories.Count} categories and {Brands.Count} brands for filter panel",
                 LogLevel.Info
             );
+            
+            Console.WriteLine($"📋 Available categories: [{string.Join(", ", Categories)}]");
+            Console.WriteLine($"📋 Available brands: [{string.Join(", ", Brands)}]");
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading filter options");
             
+            // Use fallback defaults
             Categories = new List<string> 
             { 
                 "Womens Clothing", "Mens Clothing", "Kids Clothing", "Baby Essentials"
@@ -111,50 +133,82 @@ public partial class ShopFilterPanel : ComponentBase
         finally
         {
             IsLoading = false;
+            
+            // Sync after loading
+            if (CurrentFilters != null)
+            {
+                SyncWithCurrentFilters();
+            }
+            
             StateHasChanged();
         }
     }
 
     private bool IsChecked(List<string> list, string value)
     {
-        return list.Contains(value);
+        return list.Contains(value, StringComparer.OrdinalIgnoreCase);
     }
 
     private void ToggleCategory(string category)
     {
-        if (SelectedCategories.Contains(category))
-            SelectedCategories.Remove(category);
-        else
-            SelectedCategories.Add(category);
+        // Case-insensitive toggle
+        var existing = SelectedCategories.FirstOrDefault(c => 
+            c.Equals(category, StringComparison.OrdinalIgnoreCase));
         
+        if (existing != null)
+        {
+            SelectedCategories.Remove(existing);
+            Console.WriteLine($"❌ Removed category: {category}");
+        }
+        else
+        {
+            SelectedCategories.Add(category);
+            Console.WriteLine($"✅ Added category: {category}");
+        }
+        
+        Console.WriteLine($"📂 Selected categories: [{string.Join(", ", SelectedCategories)}]");
         StateHasChanged();
     }
 
     private void ToggleBrand(string brand)
     {
-        if (SelectedBrands.Contains(brand))
-            SelectedBrands.Remove(brand);
-        else
-            SelectedBrands.Add(brand);
+        // Case-insensitive toggle
+        var existing = SelectedBrands.FirstOrDefault(b => 
+            b.Equals(brand, StringComparison.OrdinalIgnoreCase));
         
+        if (existing != null)
+        {
+            SelectedBrands.Remove(existing);
+            Console.WriteLine($"❌ Removed brand: {brand}");
+        }
+        else
+        {
+            SelectedBrands.Add(brand);
+            Console.WriteLine($"✅ Added brand: {brand}");
+        }
+        
+        Console.WriteLine($"🏷️ Selected brands: [{string.Join(", ", SelectedBrands)}]");
         StateHasChanged();
     }
 
     private void SetMinRating(int rating)
     {
         MinRating = rating;
+        Console.WriteLine($"⭐ Min rating set to: {rating}");
         StateHasChanged();
     }
 
     private void ToggleOnSale()
     {
         OnSale = !OnSale;
+        Console.WriteLine($"🔥 On sale filter: {OnSale}");
         StateHasChanged();
     }
 
     private void ToggleFreeShipping()
     {
         FreeShipping = !FreeShipping;
+        Console.WriteLine($"🚚 Free shipping filter: {FreeShipping}");
         StateHasChanged();
     }
 
@@ -186,6 +240,8 @@ public partial class ShopFilterPanel : ComponentBase
             $"✅ Applying filters: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
             LogLevel.Info
         );
+        
+        Console.WriteLine($"📤 Sending filters to Shop page: Categories=[{string.Join(", ", filters.Categories)}]");
 
         if (OnFiltersChanged.HasDelegate)
         {
