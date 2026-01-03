@@ -28,11 +28,17 @@ public partial class Shop : ComponentBase, IDisposable
     private bool HasError { get; set; }
     private string ErrorMessage { get; set; } = "";
     private bool IsInitialized { get; set; } = false;
+    
+    // ✅ FIX: Track initialization stages separately
+    private bool AreProductsLoaded { get; set; } = false;
     private bool AreFilterOptionsLoaded { get; set; } = false;
     
     // Current Filters (IN-MEMORY ONLY)
     private FilterState CurrentFilters { get; set; } = FilterState.CreateDefault();
     private string SelectedSort { get; set; } = "default";
+    
+    // ✅ FIX: Store pending filter update if it arrives during initialization
+    private FilterState? PendingFilterUpdate { get; set; }
     
     // Pagination
     private int CurrentPage { get; set; } = 1;
@@ -68,32 +74,54 @@ public partial class Shop : ComponentBase, IDisposable
             LogLevel.Info
         );
         
-        // Subscribe to state service events
+        // ✅ FIX: Subscribe to events FIRST, before loading anything
         ShopState.OnSearchChanged += HandleSearchChanged;
         ShopState.OnFiltersChanged += HandleFiltersChangedFromState;
         
-        // STEP 1: Load products FIRST (need to know what categories/brands exist)
+        // ✅ FIX: Get filters from state IMMEDIATELY (might have been set by navigation)
+        var stateFilters = await ShopState.GetCurrentFiltersAsync();
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"📋 Initial filters from state: Categories=[{string.Join(", ", stateFilters.Categories)}], Search='{stateFilters.SearchQuery}'",
+            LogLevel.Info
+        );
+        
+        // STEP 1: Load products FIRST
         await LoadProducts();
+        AreProductsLoaded = true;
         
         // STEP 2: Extract available categories/brands from products
         ExtractFilterOptionsFromProducts();
+        AreFilterOptionsLoaded = true;
         
-        // STEP 3: Load filters from ShopState
-        CurrentFilters = await ShopState.GetCurrentFiltersAsync();
+        // STEP 3: Now that options are loaded, set current filters
+        CurrentFilters = stateFilters;
         SelectedSort = CurrentFilters.SortBy;
         
         // STEP 4: Validate filters against available options
         ValidateAndFixFilters();
         
         await MID_HelperFunctions.DebugMessageAsync(
-            $"📋 Loaded filters: Categories=[{string.Join(", ", CurrentFilters.Categories)}], Search='{CurrentFilters.SearchQuery}'",
+            $"📋 Validated filters: Categories=[{string.Join(", ", CurrentFilters.Categories)}], Search='{CurrentFilters.SearchQuery}'",
             LogLevel.Info
         );
         
-        // STEP 5: Apply filters
+        // STEP 5: Apply the pending filter update if one arrived during init
+        if (PendingFilterUpdate != null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔄 Applying pending filter update: Categories=[{string.Join(", ", PendingFilterUpdate.Categories)}]",
+                LogLevel.Info
+            );
+            
+            CurrentFilters = PendingFilterUpdate;
+            PendingFilterUpdate = null;
+            ValidateAndFixFilters();
+        }
+        
+        // STEP 6: Apply filters
         await ApplyFilters();
         
-        AreFilterOptionsLoaded = true;
         IsInitialized = true;
         
         await MID_HelperFunctions.DebugMessageAsync(
@@ -221,13 +249,15 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async Task HandleFiltersChangedFromState(FilterState filters)
     {
-        // Don't apply if filter options aren't loaded yet
-        if (!AreFilterOptionsLoaded)
+        // ✅ FIX: If not ready yet, store as pending update
+        if (!AreFilterOptionsLoaded || !AreProductsLoaded)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "⏳ Filter options not loaded yet, deferring filter application",
-                LogLevel.Debug
+                $"⏳ Products/options not loaded yet, storing pending filter update: Categories=[{string.Join(", ", filters.Categories)}]",
+                LogLevel.Info
             );
+            
+            PendingFilterUpdate = filters.Clone();
             return;
         }
 
@@ -371,15 +401,6 @@ public partial class Shop : ComponentBase, IDisposable
                     $"⚠ No products matched categories: [{string.Join(", ", CurrentFilters.Categories)}]",
                     LogLevel.Warning
                 );
-                
-                // FALLBACK: If category filter returns nothing, show all products
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "🔄 Resetting to all products as fallback",
-                    LogLevel.Info
-                );
-                FilteredProducts = AllProducts
-                    .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
-                    .ToList();
             }
         }
 
