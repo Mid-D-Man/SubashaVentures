@@ -29,23 +29,51 @@ public partial class ShopFilterPanel : ComponentBase
     private bool FreeShipping = false;
     
     private bool IsLoading = true;
-    private bool HasSyncedWithCurrentFilters = false;
+    
+    // ✅ FIX: Track last synced state to avoid re-syncing unnecessarily
+    private FilterState? LastSyncedFilters = null;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadFilterOptions();
         
         // Sync with current filters after loading options
-        SyncWithCurrentFilters();
+        if (CurrentFilters != null)
+        {
+            SyncWithCurrentFilters();
+        }
     }
 
     protected override void OnParametersSet()
     {
-        // Update UI whenever CurrentFilters changes
+        // ✅ FIX: Only sync if CurrentFilters actually changed
         if (CurrentFilters != null && !IsLoading)
         {
-            SyncWithCurrentFilters();
+            // Check if filters actually changed
+            if (LastSyncedFilters == null || !FiltersAreEqual(LastSyncedFilters, CurrentFilters))
+            {
+                Console.WriteLine($"🔄 ShopFilterPanel: CurrentFilters changed, syncing UI");
+                SyncWithCurrentFilters();
+            }
         }
+    }
+
+    /// <summary>
+    /// Check if two filter states are equal
+    /// </summary>
+    private bool FiltersAreEqual(FilterState a, FilterState b)
+    {
+        if (a == null || b == null) return false;
+        
+        return a.Categories.SequenceEqual(b.Categories) &&
+               a.Brands.SequenceEqual(b.Brands) &&
+               a.MinRating == b.MinRating &&
+               a.MinPrice == b.MinPrice &&
+               a.MaxPrice == b.MaxPrice &&
+               a.OnSale == b.OnSale &&
+               a.FreeShipping == b.FreeShipping &&
+               a.SearchQuery == b.SearchQuery &&
+               a.SortBy == b.SortBy;
     }
 
     /// <summary>
@@ -67,7 +95,9 @@ public partial class ShopFilterPanel : ComponentBase
         OnSale = CurrentFilters.OnSale;
         FreeShipping = CurrentFilters.FreeShipping;
         
-        HasSyncedWithCurrentFilters = true;
+        // ✅ FIX: Store last synced state
+        LastSyncedFilters = CurrentFilters.Clone();
+        
         StateHasChanged();
     }
 
@@ -243,6 +273,9 @@ public partial class ShopFilterPanel : ComponentBase
         
         Console.WriteLine($"📤 Sending filters to Shop page: Categories=[{string.Join(", ", filters.Categories)}]");
 
+        // ✅ FIX: Update last synced state before invoking callback
+        LastSyncedFilters = filters.Clone();
+
         if (OnFiltersChanged.HasDelegate)
         {
             await OnFiltersChanged.InvokeAsync(filters);
@@ -276,6 +309,9 @@ public partial class ShopFilterPanel : ComponentBase
             "🔄 Resetting all filters",
             LogLevel.Info
         );
+
+        // ✅ FIX: Update last synced state before invoking callback
+        LastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
         {
