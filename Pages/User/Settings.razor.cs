@@ -1,21 +1,469 @@
+// Pages/User/Settings.razor.cs - COMPLETE IMPLEMENTATION
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
+using SubashaVentures.Components.Shared.Modals;
+using SubashaVentures.Domain.User;
+using SubashaVentures.Services.Authorization;
+using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Users;
+using SubashaVentures.Utilities.HelperScripts;
+using System.Text;
+using System.Text.Json;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
+namespace SubashaVentures.Pages.User;
 
-}
+public partial class Settings
+{
+    [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
+    [Inject] private ISupabaseStorageService StorageService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    // ==================== STATE ====================
+    private bool IsLoading = true;
+    private bool IsProcessing = false;
+    private string ProcessingMessage = "Processing...";
+    private UserProfileViewModel? UserProfile;
+    private string? CurrentUserId;
+
+    // ==================== PROFILE EDIT ====================
+    private DynamicModal? ProfileModal;
+    private bool IsProfileModalOpen = false;
+    private bool IsSavingProfile = false;
+    private bool IsUploadingAvatar = false;
+    
+    private string TempFirstName = "";
+    private string TempLastName = "";
+    private string TempNickname = "";
+    private string TempPhoneNumber = "";
+    private string TempAvatarUrl = "";
+    private DateTime? TempDateOfBirth;
+    private string TempGender = "";
+
+    // ==================== NOTIFICATIONS ====================
+    private bool EmailNotificationsEnabled = true;
+    private bool SmsNotificationsEnabled = false;
+
+    // ==================== PREFERENCES ====================
+    private DynamicModal? CurrencyModal;
+    private DynamicModal? LanguageModal;
+    private bool IsCurrencyModalOpen = false;
+    private bool IsLanguageModalOpen = false;
+    
+    private string SelectedCurrency = "NGN";
+    private string SelectedLanguage = "English";
+
+    private readonly List<CurrencyOption> AvailableCurrencies = new()
+    {
+        new CurrencyOption { Code = "NGN", Name = "Nigerian Naira (₦)" },
+        new CurrencyOption { Code = "USD", Name = "US Dollar ($)" },
+        new CurrencyOption { Code = "GBP", Name = "British Pound (£)" },
+        new CurrencyOption { Code = "EUR", Name = "Euro (€)" }
+    };
+
+    private readonly List<string> AvailableLanguages = new()
+    {
+        "English",
+        "Hausa",
+        "Yoruba",
+        "Igbo"
+    };
+
+    // ==================== SECURITY ====================
+    private DynamicModal? SecurityModal;
+    private bool IsSecurityModalOpen = false;
+    private bool IsChangingPassword = false;
+    
+    private string CurrentPassword = "";
+    private string NewPassword = "";
+    private string ConfirmPassword = "";
+    private string PasswordChangeError = "";
+
+    // ==================== MFA ====================
+    private DynamicModal? MfaModal;
+    private bool IsMfaModalOpen = false;
+    private bool IsMfaEnabled = false;
+    private bool IsProcessingMfa = false;
+    private int MfaEnrollmentStep = 0; // 0 = Info, 1 = Enrollment
+    
+    private string MfaQrCodeUrl = "";
+    private string MfaSecret = "";
+    private string MfaVerificationCode = "";
+    private string MfaEnrollmentError = "";
+    private string? MfaFactorId;
+
+    // ==================== LOGOUT ====================
+    private ConfirmationPopup? LogoutPopup;
+    private bool ShowLogoutPopup = false;
+
+    // ==================== LIFECYCLE ====================
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserSettings();
+    }
+
+    private async Task LoadUserSettings()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Get current user ID
+            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
+            
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "User not authenticated - redirecting to sign in",
+                    LogLevel.Warning
+                );
+                Navigation.NavigateTo("/signin");
+                return;
+            }
+
+            // Load user profile
+            UserProfile = await UserService.GetUserByIdAsync(CurrentUserId);
+            
+            if (UserProfile == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "User profile not found",
+                    LogLevel.Error
+                );
+                Navigation.NavigateTo("/");
+                return;
+            }
+
+            // Set initial values
+            EmailNotificationsEnabled = UserProfile.EmailNotifications;
+            SmsNotificationsEnabled = UserProfile.SmsNotifications;
+            SelectedCurrency = UserProfile.Currency;
+            SelectedLanguage = UserProfile.PreferredLanguage switch
+            {
+                "en" => "English",
+                "ha" => "Hausa",
+                "yo" => "Yoruba",
+                "ig" => "Igbo",
+                _ => "English"
+            };
+
+            // Check MFA status
+            await CheckMfaStatus();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Settings loaded for user: {UserProfile.Email}",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading settings");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== PROFILE METHODS ====================
+
+    private void OpenProfileModal()
+    {
+        if (UserProfile == null) return;
+
+        TempFirstName = UserProfile.FirstName;
+        TempLastName = UserProfile.LastName;
+        TempNickname = UserProfile.Nickname ?? "";
+        TempPhoneNumber = UserProfile.PhoneNumber ?? "";
+        TempAvatarUrl = UserProfile.AvatarUrl ?? "";
+        TempDateOfBirth = UserProfile.DateOfBirth;
+        TempGender = UserProfile.Gender ?? "";
+
+        IsProfileModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseProfileModal()
+    {
+        IsProfileModalOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleAvatarUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            
+            if (file == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No file selected",
+                    LogLevel.Warning
+                );
+                return;
+            }
+
+            // Validate file type
+            if (!file.ContentType.StartsWith("image/"))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Please select an image file");
+                return;
+            }
+
+            // Validate file size (5MB max)
+            const long maxFileSize = 5 * 1024 * 1024;
+            if (file.Size > maxFileSize)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Image must be less than 5MB");
+                return;
+            }
+
+            IsUploadingAvatar = true;
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Uploading avatar: {file.Name} ({file.Size} bytes)",
+                LogLevel.Info
+            );
+
+            // Upload to Supabase Storage
+            var result = await StorageService.UploadImageAsync(
+                file,
+                bucketName: "avatars",
+                folder: $"users/{CurrentUserId}",
+                enableCompression: true
+            );
+
+            if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
+            {
+                TempAvatarUrl = result.PublicUrl;
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Avatar uploaded successfully: {result.PublicUrl}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Upload failed: {result.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Uploading avatar");
+            await JSRuntime.InvokeVoidAsync("alert", "Failed to upload image");
+        }
+        finally
+        {
+            IsUploadingAvatar = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(TempFirstName) || string.IsNullOrWhiteSpace(TempLastName))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "First name and last name are required");
+                return;
+            }
+
+            IsSavingProfile = true;
+            StateHasChanged();
+
+            var updateRequest = new UpdateUserRequest
+            {
+                FirstName = TempFirstName.Trim(),
+                LastName = TempLastName.Trim(),
+                Nickname = string.IsNullOrWhiteSpace(TempNickname) ? null : TempNickname.Trim(),
+                PhoneNumber = string.IsNullOrWhiteSpace(TempPhoneNumber) ? null : TempPhoneNumber.Trim(),
+                AvatarUrl = string.IsNullOrWhiteSpace(TempAvatarUrl) ? null : TempAvatarUrl,
+                DateOfBirth = TempDateOfBirth,
+                Gender = string.IsNullOrWhiteSpace(TempGender) ? null : TempGender
+            };
+
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Profile updated successfully!");
+                
+                // Reload profile
+                await LoadUserSettings();
+                
+                CloseProfileModal();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to update profile");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving profile");
+            await JSRuntime.InvokeVoidAsync("alert", "An error occurred while saving");
+        }
+        finally
+        {
+            IsSavingProfile = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== NOTIFICATION METHODS ====================
+
+    private async Task ToggleEmailNotifications(ChangeEventArgs e)
+    {
+        try
+        {
+            var enabled = (bool)(e.Value ?? false);
+            
+            var updateRequest = new UpdateUserRequest
+            {
+                EmailNotifications = enabled
+            };
+
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+
+            if (success)
+            {
+                EmailNotificationsEnabled = enabled;
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Email notifications {(enabled ? "enabled" : "disabled")}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                // Revert toggle
+                EmailNotificationsEnabled = !enabled;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling email notifications");
+        }
+    }
+
+    private async Task ToggleSmsNotifications(ChangeEventArgs e)
+    {
+        try
+        {
+            var enabled = (bool)(e.Value ?? false);
+            
+            var updateRequest = new UpdateUserRequest
+            {
+                SmsNotifications = enabled
+            };
+
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+
+            if (success)
+            {
+                SmsNotificationsEnabled = enabled;
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"SMS notifications {(enabled ? "enabled" : "disabled")}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                // Revert toggle
+                SmsNotificationsEnabled = !enabled;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling SMS notifications");
+        }
+    }
+
+    // ==================== PREFERENCE METHODS ====================
+
+    private void OpenCurrencyModal()
+    {
+        IsCurrencyModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseCurrencyModal()
+    {
+        IsCurrencyModalOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task SelectCurrency(string currencyCode)
+    {
+        try
+        {
+            var updateRequest = new UpdateUserRequest
+            {
+                Currency = currencyCode
+            };
+
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+
+            if (success)
+            {
+                SelectedCurrency = currencyCode;
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Currency changed to: {currencyCode}",
+                    LogLevel.Info
+                );
+            }
+
+            CloseCurrencyModal();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Selecting currency");
+        }
+    }
+
+    private void OpenLanguageModal()
+    {
+        IsLanguageModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseLanguageModal()
+    {
+        IsLanguageModalOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task SelectLanguage(string language)
+    {
+        try
+        {
+            var languageCode = language switch
+            {
+                "English" => "en",
                 "Hausa" => "ha",
                 "Yoruba" => "yo",
                 "Igbo" => "ig",
                 _ => "en"
             };
 
-
             var updateRequest = new UpdateUserRequest
             {
                 PreferredLanguage = languageCode
             };
 
-
             var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
-
 
             if (success)
             {
@@ -26,7 +474,6 @@
                 );
             }
 
-
             CloseLanguageModal();
         }
         catch (Exception ex)
@@ -35,9 +482,7 @@
         }
     }
 
-
     // ==================== SECURITY METHODS ====================
-
 
     private void OpenSecurityModal()
     {
@@ -49,20 +494,17 @@
         StateHasChanged();
     }
 
-
     private void CloseSecurityModal()
     {
         IsSecurityModalOpen = false;
         StateHasChanged();
     }
 
-
     private async Task ChangePassword()
     {
         try
         {
             PasswordChangeError = "";
-
 
             // Validation
             if (string.IsNullOrWhiteSpace(CurrentPassword) || 
@@ -73,13 +515,11 @@
                 return;
             }
 
-
             if (NewPassword.Length < 8)
             {
                 PasswordChangeError = "New password must be at least 8 characters";
                 return;
             }
-
 
             if (NewPassword != ConfirmPassword)
             {
@@ -87,14 +527,11 @@
                 return;
             }
 
-
             IsChangingPassword = true;
             StateHasChanged();
 
-
             // Change password via Supabase Auth
             var result = await AuthService.ChangePasswordAsync(NewPassword);
-
 
             if (result.Success)
             {
@@ -529,10 +966,8 @@
         };
     }
 }
-
     // Continue to Response 3 for MFA methods...
 }
-
 
 public class CurrencyOption
 {
