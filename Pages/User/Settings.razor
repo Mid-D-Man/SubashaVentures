@@ -4,14 +4,17 @@
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Overlays
 @using SubashaVentures.Layout.User
+@using Microsoft.AspNetCore.Components.Forms
+
 <div class="settings-container">
     <div class="settings-header">
         <h1>Settings</h1>
         <p>Manage your account preferences and security</p>
     </div>
 
-    @if (isLoading)
+    @if (IsLoading)
     {
         <LoadingSpinner />
     }
@@ -26,20 +29,64 @@
             <div class="section-content">
                 <div class="profile-display" @onclick="OpenProfileModal">
                     <div class="profile-avatar">
-                        @if (!string.IsNullOrEmpty(profilePictureUrl))
+                        @if (!string.IsNullOrEmpty(UserProfile?.AvatarUrl))
                         {
-                            <img src="@profilePictureUrl" alt="Profile" />
+                            <img src="@UserProfile.AvatarUrl" alt="Profile" />
                         }
                         else
                         {
-                            <i class="fas fa-user"></i>
+                            <div class="avatar-initials">@UserProfile?.Initials</div>
                         }
                     </div>
                     <div class="profile-info">
-                        <h3>@username</h3>
-                        <p>@phoneNumber</p>
+                        <h3>@UserProfile?.DisplayName</h3>
+                        <p>@UserProfile?.Email</p>
+                        @if (!string.IsNullOrEmpty(UserProfile?.PhoneNumber))
+                        {
+                            <p class="phone-info">@UserProfile.PhoneNumber</p>
+                        }
                     </div>
                     <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <i class="fas fa-bell"></i>
+                <h2>Notifications</h2>
+            </div>
+            <div class="section-content">
+                <div class="settings-item">
+                    <div class="item-left">
+                        <i class="fas fa-envelope"></i>
+                        <div class="item-text">
+                            <span>Email Notifications</span>
+                            <small>Receive order updates via email</small>
+                        </div>
+                    </div>
+                    <div class="item-right">
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="EmailNotificationsEnabled" @onchange="ToggleEmailNotifications" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-item">
+                    <div class="item-left">
+                        <i class="fas fa-sms"></i>
+                        <div class="item-text">
+                            <span>SMS Notifications</span>
+                            <small>Receive order updates via SMS</small>
+                        </div>
+                    </div>
+                    <div class="item-right">
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="SmsNotificationsEnabled" @onchange="ToggleSmsNotifications" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -51,36 +98,24 @@
                 <h2>Preferences</h2>
             </div>
             <div class="section-content">
-                <div class="settings-item" @onclick="OpenLanguageModal">
-                    <div class="item-left">
-                        <i class="fas fa-language"></i>
-                        <span>Language</span>
-                    </div>
-                    <div class="item-right">
-                        <span class="item-value">@selectedLanguage</span>
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
-                </div>
                 <div class="settings-item" @onclick="OpenCurrencyModal">
                     <div class="item-left">
                         <i class="fas fa-money-bill-wave"></i>
                         <span>Currency</span>
                     </div>
                     <div class="item-right">
-                        <span class="item-value">@selectedCurrency</span>
+                        <span class="item-value">@SelectedCurrency</span>
                         <i class="fas fa-chevron-right"></i>
                     </div>
                 </div>
-                <div class="settings-item">
+                <div class="settings-item" @onclick="OpenLanguageModal">
                     <div class="item-left">
-                        <i class="fas fa-bell"></i>
-                        <span>Notifications</span>
+                        <i class="fas fa-language"></i>
+                        <span>Language</span>
                     </div>
                     <div class="item-right">
-                        <label class="toggle-switch">
-                            <input type="checkbox" @bind="notificationsEnabled" />
-                            <span class="toggle-slider"></span>
-                        </label>
+                        <span class="item-value">@SelectedLanguage</span>
+                        <i class="fas fa-chevron-right"></i>
                     </div>
                 </div>
             </div>
@@ -90,75 +125,110 @@
         <div class="settings-section">
             <div class="section-header">
                 <i class="fas fa-shield-alt"></i>
-                <h2>Security & Payment</h2>
+                <h2>Security</h2>
             </div>
             <div class="section-content">
-                <div class="settings-item" @onclick='() => NavigateTo("/user/payment")'>
-                    <div class="item-left">
-                        <i class="fas fa-credit-card"></i>
-                        <span>Payment Methods</span>
-                    </div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
                 <div class="settings-item" @onclick="OpenSecurityModal">
                     <div class="item-left">
-                        <i class="fas fa-lock"></i>
-                        <span>Account Security</span>
+                        <i class="fas fa-key"></i>
+                        <span>Change Password</span>
                     </div>
                     <i class="fas fa-chevron-right"></i>
                 </div>
-                <div class="settings-item" @onclick="OpenSafetyCenterModal">
+                <div class="settings-item" @onclick="OpenMfaModal">
                     <div class="item-left">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>Safety Center</span>
+                        <i class="fas fa-mobile-alt"></i>
+                        <div class="item-text">
+                            <span>Two-Factor Authentication</span>
+                            <small>@(IsMfaEnabled ? "Enabled" : "Not enabled")</small>
+                        </div>
                     </div>
-                    <i class="fas fa-chevron-right"></i>
+                    <div class="item-right">
+                        @if (IsMfaEnabled)
+                        {
+                            <span class="badge badge-success">Active</span>
+                        }
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- App Information Section -->
+        <!-- Account Information Section -->
         <div class="settings-section">
             <div class="section-header">
                 <i class="fas fa-info-circle"></i>
-                <h2>App Information</h2>
+                <h2>Account Information</h2>
             </div>
             <div class="section-content">
-                <div class="settings-item" @onclick="OpenAboutModal">
-                    <div class="item-left">
-                        <i class="fas fa-mobile-alt"></i>
-                        <span>About SubashaVentures</span>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Member Since</span>
+                        <span class="info-value">@UserProfile?.MemberSince</span>
                     </div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
-                <div class="settings-item" @onclick="OpenPoliciesModal">
-                    <div class="item-left">
-                        <i class="fas fa-file-alt"></i>
-                        <span>Policies</span>
+                    <div class="info-item">
+                        <span class="info-label">Last Login</span>
+                        <span class="info-value">@(UserProfile?.LastLoginAt?.ToString("MMM dd, yyyy") ?? "Never")</span>
                     </div>
-                    <i class="fas fa-chevron-right"></i>
-                </div>
-                <div class="settings-item" @onclick="OpenLegalModal">
-                    <div class="item-left">
-                        <i class="fas fa-gavel"></i>
-                        <span>Legal Terms</span>
+                    <div class="info-item">
+                        <span class="info-label">Email Status</span>
+                        <span class="info-value">
+                            @if (UserProfile?.IsEmailVerified == true)
+                            {
+                                <span class="badge badge-success">Verified</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-warning">Not Verified</span>
+                            }
+                        </span>
                     </div>
-                    <i class="fas fa-chevron-right"></i>
+                    <div class="info-item">
+                        <span class="info-label">Phone Status</span>
+                        <span class="info-value">
+                            @if (UserProfile?.IsPhoneVerified == true)
+                            {
+                                <span class="badge badge-success">Verified</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-warning">Not Verified</span>
+                            }
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Membership Tier</span>
+                        <span class="info-value">
+                            <span class="badge badge-@GetMembershipBadgeClass()">@UserProfile?.MembershipTier</span>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Total Orders</span>
+                        <span class="info-value">@UserProfile?.TotalOrders</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Total Spent</span>
+                        <span class="info-value">@UserProfile?.DisplayTotalSpent</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Loyalty Points</span>
+                        <span class="info-value">@UserProfile?.DisplayLoyaltyPoints</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Actions Section -->
+        <!-- Account Actions Section -->
         <div class="settings-section">
             <div class="section-header">
-                <i class="fas fa-share-alt"></i>
-                <h2>Share & Support</h2>
+                <i class="fas fa-cog"></i>
+                <h2>Account Actions</h2>
             </div>
             <div class="section-content">
-                <div class="settings-item" @onclick="ShareApp">
+                <div class="settings-item" @onclick="ExportMyData">
                     <div class="item-left">
-                        <i class="fas fa-share-nodes"></i>
-                        <span>Share App</span>
+                        <i class="fas fa-download"></i>
+                        <span>Export My Data</span>
                     </div>
                     <i class="fas fa-chevron-right"></i>
                 </div>
@@ -176,78 +246,123 @@
                 </div>
             </div>
         </div>
-
-        <div class="app-version">
-            <p>Version @appVersion</p>
-        </div>
     }
 
     <!-- Profile Edit Modal -->
-    <DynamicModal IsOpen="showProfileModal" OnClose="CloseProfileModal" Title="Edit Profile">
+    <DynamicModal @ref="ProfileModal" 
+                  IsOpen="IsProfileModalOpen" 
+                  Title="Edit Profile"
+                  Size="DynamicModal.ModalSize.Medium"
+                  ShowFooter="false"
+                  OnClose="CloseProfileModal">
         <BodyContent>
             <div class="modal-form">
+                <!-- Avatar Upload -->
                 <div class="profile-picture-upload">
                     <div class="current-picture">
-                        @if (!string.IsNullOrEmpty(tempProfilePictureUrl))
+                        @if (!string.IsNullOrEmpty(TempAvatarUrl))
                         {
-                            <img src="@tempProfilePictureUrl" alt="Profile" />
+                            <img src="@TempAvatarUrl" alt="Profile" />
                         }
                         else
                         {
-                            <i class="fas fa-user"></i>
+                            <div class="avatar-initials">@UserProfile?.Initials</div>
                         }
                     </div>
-                    <PrimaryButton OnClick="ChangePicture">Change Picture</PrimaryButton>
+                    <InputFile OnChange="HandleAvatarUpload" accept="image/*" class="file-input" id="avatar-upload" />
+                    <label for="avatar-upload" class="upload-btn">
+                        <i class="fas fa-camera"></i> Change Picture
+                    </label>
+                    @if (IsUploadingAvatar)
+                    {
+                        <small class="upload-status">Uploading...</small>
+                    }
                 </div>
-                <InputField 
-                    Label="Username" 
-                    @bind-Value="tempUsername" 
-                    Placeholder="Enter your username" />
-                <InputField 
-                    Label="Phone Number" 
-                    @bind-Value="tempPhoneNumber" 
-                    Placeholder="Enter your phone number" 
-                    Type="tel" />
-                <div class="modal-actions">
-                    <SecondaryButton OnClick="CloseProfileModal">Cancel</SecondaryButton>
-                    <PrimaryButton OnClick="SaveProfile">Save Changes</PrimaryButton>
-                </div>
-            </div>
-        </BodyContent>
-    </DynamicModal>
 
-    <!-- Language Modal -->
-    <DynamicModal IsOpen="showLanguageModal" OnClose="CloseLanguageModal" Title="Select Language">
-        <BodyContent>
-            <div class="modal-list">
-                @foreach (var language in availableLanguages)
-                {
-                    <div class="list-item @(language == selectedLanguage ? "selected" : "")" 
-                         @onclick="() => SelectLanguage(language)">
-                        <span>@language</span>
-                        @if (language == selectedLanguage)
-                        {
-                            <i class="fas fa-check"></i>
-                        }
-                    </div>
-                }
+                <!-- First Name -->
+                <InputField Label="First Name" 
+                           @bind-Value="TempFirstName" 
+                           Placeholder="Enter your first name"
+                           IsRequired="true"
+                           MaxLength="50" />
+
+                <!-- Last Name -->
+                <InputField Label="Last Name" 
+                           @bind-Value="TempLastName" 
+                           Placeholder="Enter your last name"
+                           IsRequired="true"
+                           MaxLength="50" />
+
+                <!-- Nickname -->
+                <InputField Label="Nickname (Display Name)" 
+                           @bind-Value="TempNickname" 
+                           Placeholder="Optional display name"
+                           HelperText="This will be shown instead of your real name"
+                           MaxLength="50"
+                           ShowCharacterCount="true" />
+
+                <!-- Phone Number -->
+                <InputField Label="Phone Number" 
+                           @bind-Value="TempPhoneNumber" 
+                           Placeholder="+234 XXX XXX XXXX"
+                           Type="tel"
+                           MaxLength="20" />
+
+                <!-- Date of Birth -->
+                <div class="input-field">
+                    <label class="input-label">Date of Birth</label>
+                    <input type="date" 
+                           class="input-control" 
+                           @bind="TempDateOfBirth"
+                           max="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <!-- Gender -->
+                <div class="input-field">
+                    <label class="input-label">Gender</label>
+                    <select class="input-control" @bind="TempGender">
+                        <option value="">Prefer not to say</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="modal-actions">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                                    OnClick="CloseProfileModal"
+                                    IsDisabled="IsSavingProfile">
+                        Cancel
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="SaveProfile" 
+                                  IsLoading="IsSavingProfile"
+                                  IsDisabled="IsSavingProfile">
+                        Save Changes
+                    </PrimaryButton>
+                </div>
             </div>
         </BodyContent>
     </DynamicModal>
 
     <!-- Currency Modal -->
-    <DynamicModal IsOpen="showCurrencyModal" OnClose="CloseCurrencyModal" Title="Select Currency">
+    <DynamicModal @ref="CurrencyModal" 
+                  IsOpen="IsCurrencyModalOpen" 
+                  Title="Select Currency"
+                  Size="DynamicModal.ModalSize.Small"
+                  ShowFooter="false"
+                  OnClose="CloseCurrencyModal">
         <BodyContent>
             <div class="modal-list">
-                @foreach (var currency in availableCurrencies)
+                @foreach (var currency in AvailableCurrencies)
                 {
-                    <div class="list-item @(currency.Code == selectedCurrency ? "selected" : "")" 
+                    <div class="list-item @(currency.Code == SelectedCurrency ? "selected" : "")" 
                          @onclick="() => SelectCurrency(currency.Code)">
                         <div class="currency-info">
                             <span class="currency-code">@currency.Code</span>
                             <span class="currency-name">@currency.Name</span>
                         </div>
-                        @if (currency.Code == selectedCurrency)
+                        @if (currency.Code == SelectedCurrency)
                         {
                             <i class="fas fa-check"></i>
                         }
@@ -257,56 +372,210 @@
         </BodyContent>
     </DynamicModal>
 
-    <!-- Security Modal -->
-    <DynamicModal IsOpen="showSecurityModal" OnClose="CloseSecurityModal" Title="Account Security">
+    <!-- Language Modal -->
+    <DynamicModal @ref="LanguageModal" 
+                  IsOpen="IsLanguageModalOpen" 
+                  Title="Select Language"
+                  Size="DynamicModal.ModalSize.Small"
+                  ShowFooter="false"
+                  OnClose="CloseLanguageModal">
         <BodyContent>
-            <div class="modal-content-text">
-                <div class="security-options">
-                    <div class="security-item" @onclick="ChangePassword">
-                        <i class="fas fa-key"></i>
-                        <div>
-                            <h4>Change Password</h4>
-                            <p>Update your account password</p>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
+            <div class="modal-list">
+                @foreach (var language in AvailableLanguages)
+                {
+                    <div class="list-item @(language == SelectedLanguage ? "selected" : "")" 
+                         @onclick="() => SelectLanguage(language)">
+                        <span>@language</span>
+                        @if (language == SelectedLanguage)
+                        {
+                            <i class="fas fa-check"></i>
+                        }
                     </div>
-                    <div class="security-item">
-                        <i class="fas fa-mobile-alt"></i>
-                        <div>
-                            <h4>Two-Factor Authentication</h4>
-                            <p>@(twoFactorEnabled ? "Enabled" : "Not enabled")</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" @bind="twoFactorEnabled" />
-                            <span class="toggle-slider"></span>
-                        </label>
+                }
+            </div>
+        </BodyContent>
+    </DynamicModal>
+
+    <!-- Change Password Modal -->
+    <DynamicModal @ref="SecurityModal" 
+                  IsOpen="IsSecurityModalOpen" 
+                  Title="Change Password"
+                  Size="DynamicModal.ModalSize.Small"
+                  ShowFooter="false"
+                  OnClose="CloseSecurityModal">
+        <BodyContent>
+            <div class="modal-form">
+                <InputField Label="Current Password" 
+                           @bind-Value="CurrentPassword" 
+                           Type="password"
+                           Placeholder="Enter current password"
+                           IsRequired="true" />
+
+                <InputField Label="New Password" 
+                           @bind-Value="NewPassword" 
+                           Type="password"
+                           Placeholder="Enter new password"
+                           IsRequired="true"
+                           HelperText="Minimum 8 characters" />
+
+                <InputField Label="Confirm New Password" 
+                           @bind-Value="ConfirmPassword" 
+                           Type="password"
+                           Placeholder="Confirm new password"
+                           IsRequired="true" />
+
+                @if (!string.IsNullOrEmpty(PasswordChangeError))
+                {
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        @PasswordChangeError
                     </div>
-                    <div class="security-item" @onclick="ManageDevices">
-                        <i class="fas fa-laptop"></i>
-                        <div>
-                            <h4>Manage Devices</h4>
-                            <p>View devices logged into your account</p>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
+                }
+
+                <div class="modal-actions">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                                    OnClick="CloseSecurityModal"
+                                    IsDisabled="IsChangingPassword">
+                        Cancel
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="ChangePassword" 
+                                  IsLoading="IsChangingPassword"
+                                  IsDisabled="IsChangingPassword">
+                        Change Password
+                    </PrimaryButton>
                 </div>
             </div>
         </BodyContent>
     </DynamicModal>
 
-    <!-- Other modals remain the same... -->
+    <!-- MFA Modal -->
+    <DynamicModal @ref="MfaModal" 
+                  IsOpen="IsMfaModalOpen" 
+                  Title="Two-Factor Authentication"
+                  Size="DynamicModal.ModalSize.Medium"
+                  ShowFooter="false"
+                  OnClose="CloseMfaModal">
+        <BodyContent>
+            <div class="modal-form mfa-content">
+                @if (IsMfaEnabled)
+                {
+                    <!-- MFA Already Enabled -->
+                    <div class="mfa-status enabled">
+                        <i class="fas fa-shield-check"></i>
+                        <h3>Two-Factor Authentication is Active</h3>
+                        <p>Your account is protected with TOTP authentication.</p>
+                    </div>
+
+                    <PrimaryButton Variant="PrimaryButton.ButtonVariant.Danger" 
+                                  OnClick="DisableMfa"
+                                  IsLoading="IsProcessingMfa">
+                        Disable Two-Factor Authentication
+                    </PrimaryButton>
+                }
+                else
+                {
+                    @if (MfaEnrollmentStep == 0)
+                    {
+                        <!-- Step 0: Info -->
+                        <div class="mfa-info">
+                            <i class="fas fa-mobile-alt"></i>
+                            <h3>Secure Your Account</h3>
+                            <p>Add an extra layer of security by requiring a code from your authenticator app when signing in.</p>
+                            
+                            <div class="mfa-features">
+                                <div class="feature-item">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>Works with any TOTP app</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>No phone number required</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>100% Free</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <PrimaryButton OnClick="StartMfaEnrollment" 
+                                      IsLoading="IsProcessingMfa">
+                            Enable Two-Factor Authentication
+                        </PrimaryButton>
+                    }
+                    else if (MfaEnrollmentStep == 1)
+                    {
+                        <!-- Step 1: Scan QR Code -->
+                        <div class="mfa-enrollment">
+                            <h4>Step 1: Scan QR Code</h4>
+                            <p>Open your authenticator app and scan this QR code:</p>
+                            
+                            @if (!string.IsNullOrEmpty(MfaQrCodeUrl))
+                            {
+                                <div class="qr-code-container">
+                                    <img src="@MfaQrCodeUrl" alt="QR Code" class="qr-code" />
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(MfaSecret))
+                            {
+                                <div class="manual-entry">
+                                    <p>Or enter this code manually:</p>
+                                    <code class="secret-code">@MfaSecret</code>
+                                </div>
+                            }
+
+                            <h4>Step 2: Enter Verification Code</h4>
+                            <InputField Label="6-digit code from your app" 
+                                       @bind-Value="MfaVerificationCode" 
+                                       Placeholder="000000"
+                                       MaxLength="6"
+                                       IsRequired="true" />
+
+                            @if (!string.IsNullOrEmpty(MfaEnrollmentError))
+                            {
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    @MfaEnrollmentError
+                                </div>
+                            }
+
+                            <div class="modal-actions">
+                                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                                                OnClick="CancelMfaEnrollment"
+                                                IsDisabled="IsProcessingMfa">
+                                    Cancel
+                                </SecondaryButton>
+                                <PrimaryButton OnClick="VerifyAndEnableMfa" 
+                                              IsLoading="IsProcessingMfa"
+                                              IsDisabled="IsProcessingMfa || string.IsNullOrEmpty(MfaVerificationCode)">
+                                    Verify & Enable
+                                </PrimaryButton>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </BodyContent>
+    </DynamicModal>
 
     <!-- Logout Confirmation -->
-    <ConfirmationPopup 
-        IsOpen="showLogoutConfirmation"
-        Title="Logout"
-        Message="Are you sure you want to logout?"
-        ConfirmText="Logout"
-        CancelText="Cancel"
-        OnConfirm="ConfirmLogout"
-        OnCancel="CancelLogout" />
+    <ConfirmationPopup @ref="LogoutPopup"
+                      IsOpen="ShowLogoutPopup"
+                      Title="Logout"
+                      Message="Are you sure you want to logout?"
+                      Variant="ConfirmationPopup.ConfirmationVariant.Warning"
+                      ConfirmButtonText="Logout"
+                      CancelButtonText="Cancel"
+                      OnConfirm="ConfirmLogout"
+                      OnCancel="CancelLogout" />
+
+    <!-- Global Backdrop for Loading States -->
+    <GlobalBackdrop IsVisible="IsProcessing" 
+                   ShowSpinner="true" 
+                   SpinnerText="@ProcessingMessage" />
 </div>
 
 @code {
-    // See Settings.razor.cs for code
+    // Code will be in Settings.razor.cs
 }
