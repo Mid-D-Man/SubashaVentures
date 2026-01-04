@@ -1,444 +1,541 @@
-using Microsoft.AspNetCore.Components;
 
-namespace SubashaVentures.Pages.User
+
+}
+                "Hausa" => "ha",
+                "Yoruba" => "yo",
+                "Igbo" => "ig",
+                _ => "en"
+            };
+
+
+            var updateRequest = new UpdateUserRequest
+            {
+                PreferredLanguage = languageCode
+            };
+
+
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+
+
+            if (success)
+            {
+                SelectedLanguage = language;
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Language changed to: {language}",
+                    LogLevel.Info
+                );
+            }
+
+
+            CloseLanguageModal();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Selecting language");
+        }
+    }
+
+
+    // ==================== SECURITY METHODS ====================
+
+
+    private void OpenSecurityModal()
+    {
+        CurrentPassword = "";
+        NewPassword = "";
+        ConfirmPassword = "";
+        PasswordChangeError = "";
+        IsSecurityModalOpen = true;
+        StateHasChanged();
+    }
+
+
+    private void CloseSecurityModal()
+    {
+        IsSecurityModalOpen = false;
+        StateHasChanged();
+    }
+
+
+    private async Task ChangePassword()
+    {
+        try
+        {
+            PasswordChangeError = "";
+
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(CurrentPassword) || 
+                string.IsNullOrWhiteSpace(NewPassword) || 
+                string.IsNullOrWhiteSpace(ConfirmPassword))
+            {
+                PasswordChangeError = "All fields are required";
+                return;
+            }
+
+
+            if (NewPassword.Length < 8)
+            {
+                PasswordChangeError = "New password must be at least 8 characters";
+                return;
+            }
+
+
+            if (NewPassword != ConfirmPassword)
+            {
+                PasswordChangeError = "Passwords do not match";
+                return;
+            }
+
+
+            IsChangingPassword = true;
+            StateHasChanged();
+
+
+            // Change password via Supabase Auth
+            var result = await AuthService.ChangePasswordAsync(NewPassword);
+
+
+            if (result.Success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Password changed successfully!");
+                CloseSecurityModal();
+            }
+            else
+            {
+                PasswordChangeError = result.Message ?? "Failed to change password";
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Changing password");
+            PasswordChangeError = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            IsChangingPassword = false;
+            StateHasChanged();
+        }
+    }
+// Pages/User/Settings.razor.cs - CONTINUATION (MFA & Helper Methods)
+// Add these methods to the existing partial class
+
+    // ==================== MFA METHODS ====================
+
+    private async Task CheckMfaStatus()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            // Check AAL (Authenticator Assurance Level) from JWT
+            var aalClaim = user?.FindFirst("aal")?.Value;
+            IsMfaEnabled = aalClaim == "aal2";
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"MFA Status: {(IsMfaEnabled ? "Enabled (aal2)" : "Disabled (aal1)")}",
+                LogLevel.Info
+            );
+
+            // Also check enrolled factors
+            var factors = await AuthService.GetMfaFactorsAsync();
+            if (factors != null && factors.Any())
+            {
+                IsMfaEnabled = true;
+                MfaFactorId = factors.FirstOrDefault()?.Id;
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Found {factors.Count} MFA factor(s) enrolled",
+                    LogLevel.Info
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking MFA status");
+        }
+    }
+
+    private void OpenMfaModal()
+    {
+        MfaEnrollmentStep = 0;
+        MfaVerificationCode = "";
+        MfaEnrollmentError = "";
+        IsMfaModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseMfaModal()
+    {
+        IsMfaModalOpen = false;
+        MfaEnrollmentStep = 0;
+        MfaQrCodeUrl = "";
+        MfaSecret = "";
+        MfaVerificationCode = "";
+        MfaEnrollmentError = "";
+        StateHasChanged();
+    }
+
+    private async Task StartMfaEnrollment()
+    {
+        try
+        {
+            IsProcessingMfa = true;
+            MfaEnrollmentError = "";
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Starting MFA enrollment...",
+                LogLevel.Info
+            );
+
+            // Enroll TOTP factor via Supabase Auth
+            var enrollResult = await AuthService.EnrollMfaAsync("totp");
+
+            if (enrollResult.Success && enrollResult.QrCodeUrl != null && enrollResult.Secret != null)
+            {
+                MfaQrCodeUrl = enrollResult.QrCodeUrl;
+                MfaSecret = enrollResult.Secret;
+                MfaFactorId = enrollResult.FactorId;
+                MfaEnrollmentStep = 1;
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"MFA enrollment initiated. Factor ID: {MfaFactorId}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                MfaEnrollmentError = enrollResult.ErrorMessage ?? "Failed to start MFA enrollment";
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"MFA enrollment failed: {MfaEnrollmentError}",
+                    LogLevel.Error
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Starting MFA enrollment");
+            MfaEnrollmentError = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            IsProcessingMfa = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerifyAndEnableMfa()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(MfaVerificationCode) || MfaVerificationCode.Length != 6)
+            {
+                MfaEnrollmentError = "Please enter a valid 6-digit code";
+                return;
+            }
+
+            if (string.IsNullOrEmpty(MfaFactorId))
+            {
+                MfaEnrollmentError = "Invalid enrollment state. Please restart.";
+                return;
+            }
+
+            IsProcessingMfa = true;
+            MfaEnrollmentError = "";
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Verifying MFA code for factor: {MfaFactorId}",
+                LogLevel.Info
+            );
+
+            // Verify and enable MFA
+            var verifyResult = await AuthService.VerifyMfaAsync(MfaFactorId, MfaVerificationCode);
+
+            if (verifyResult.Success)
+            {
+                IsMfaEnabled = true;
+                
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    "Two-Factor Authentication enabled successfully!\n\n" +
+                    "⚠️ IMPORTANT: Save your recovery codes in a safe place. " +
+                    "You'll need them if you lose access to your authenticator app.");
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "MFA enabled successfully",
+                    LogLevel.Info
+                );
+
+                CloseMfaModal();
+            }
+            else
+            {
+                MfaEnrollmentError = verifyResult.ErrorMessage ?? "Invalid verification code";
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"MFA verification failed: {MfaEnrollmentError}",
+                    LogLevel.Warning
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying MFA");
+            MfaEnrollmentError = "Verification failed. Please check your code and try again.";
+        }
+        finally
+        {
+            IsProcessingMfa = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelMfaEnrollment()
+    {
+        MfaEnrollmentStep = 0;
+        MfaQrCodeUrl = "";
+        MfaSecret = "";
+        MfaVerificationCode = "";
+        MfaEnrollmentError = "";
+        StateHasChanged();
+    }
+
+    private async Task DisableMfa()
+    {
+        try
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+                "Are you sure you want to disable Two-Factor Authentication?\n\n" +
+                "This will make your account less secure.");
+
+            if (!confirmed) return;
+
+            IsProcessingMfa = true;
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Disabling MFA...",
+                LogLevel.Warning
+            );
+
+            // Get all enrolled factors
+            var factors = await AuthService.GetMfaFactorsAsync();
+            
+            if (factors != null && factors.Any())
+            {
+                // Unenroll each factor
+                foreach (var factor in factors)
+                {
+                    var result = await AuthService.UnenrollMfaAsync(factor.Id);
+                    
+                    if (!result.Success)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", 
+                            $"Failed to disable MFA: {result.ErrorMessage}");
+                        return;
+                    }
+                }
+
+                IsMfaEnabled = false;
+                
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    "Two-Factor Authentication has been disabled.");
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "MFA disabled successfully",
+                    LogLevel.Warning
+                );
+
+                CloseMfaModal();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "No MFA factors found to disable.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Disabling MFA");
+            await JSRuntime.InvokeVoidAsync("alert", "Failed to disable MFA. Please try again.");
+        }
+        finally
+        {
+            IsProcessingMfa = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== EXPORT DATA ====================
+
+    private async Task ExportMyData()
+    {
+        try
+        {
+            IsProcessing = true;
+            ProcessingMessage = "Preparing your data...";
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Exporting data for user: {CurrentUserId}",
+                LogLevel.Info
+            );
+
+            if (UserProfile == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Unable to export data. Please try again.");
+                return;
+            }
+
+            // Create export data object
+            var exportData = new
+            {
+                ExportDate = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
+                UserProfile = new
+                {
+                    UserProfile.Id,
+                    UserProfile.Email,
+                    UserProfile.FirstName,
+                    UserProfile.LastName,
+                    UserProfile.Nickname,
+                    UserProfile.PhoneNumber,
+                    UserProfile.DateOfBirth,
+                    UserProfile.Gender,
+                    UserProfile.AccountStatus,
+                    UserProfile.MemberSince,
+                    UserProfile.LastLoginAt
+                },
+                Statistics = new
+                {
+                    UserProfile.TotalOrders,
+                    UserProfile.TotalSpent,
+                    UserProfile.LoyaltyPoints,
+                    UserProfile.MembershipTier
+                },
+                Preferences = new
+                {
+                    UserProfile.EmailNotifications,
+                    UserProfile.SmsNotifications,
+                    UserProfile.PreferredLanguage,
+                    UserProfile.Currency
+                },
+                Security = new
+                {
+                    UserProfile.IsEmailVerified,
+                    UserProfile.IsPhoneVerified,
+                    MfaEnabled = IsMfaEnabled
+                }
+            };
+
+            // Convert to JSON
+            var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+
+            // Download as file
+            var fileName = $"SubashaVentures_UserData_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+            var bytes = Encoding.UTF8.GetBytes(json);
+            var base64 = Convert.ToBase64String(bytes);
+
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "application/json");
+
+            await JSRuntime.InvokeVoidAsync("alert", "Your data has been exported successfully!");
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Data exported successfully",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Exporting user data");
+            await JSRuntime.InvokeVoidAsync("alert", "Failed to export data. Please try again.");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== LOGOUT ====================
+
+    private void ShowLogoutConfirmation()
+    {
+        ShowLogoutPopup = true;
+        StateHasChanged();
+    }
+
+    private void CancelLogout()
+    {
+        ShowLogoutPopup = false;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmLogout()
+    {
+        try
+        {
+            ShowLogoutPopup = false;
+            IsProcessing = true;
+            ProcessingMessage = "Logging out...";
+            StateHasChanged();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "User logging out...",
+                LogLevel.Info
+            );
+
+            // Sign out via Supabase Auth
+            await AuthService.SignOutAsync();
+
+            // Clear any local cached data if needed
+            // await LocalStorageService.ClearAllAsync();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "User logged out successfully",
+                LogLevel.Info
+            );
+
+            // Redirect to home page
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Logging out");
+            await JSRuntime.InvokeVoidAsync("alert", "Failed to logout. Please try again.");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    private string GetMembershipBadgeClass()
+    {
+        return UserProfile?.MembershipTier switch
+        {
+            MembershipTier.Platinum => "platinum",
+            MembershipTier.Gold => "gold",
+            MembershipTier.Silver => "silver",
+            MembershipTier.Bronze => "bronze",
+            _ => "secondary"
+        };
+    }
+}
+
+    // Continue to Response 3 for MFA methods...
+}
+
+
+public class CurrencyOption
 {
-    public partial class Settings
-    {
-        [Inject] private NavigationManager? NavigationManager { get; set; }
-        
-        // Loading state
-        private bool isLoading = true;
-
-        // Profile data
-        private string username = "John Doe";
-        private string phoneNumber = "+234 812 345 6789";
-        private string profilePictureUrl = "";
-        
-        // Temporary profile data for editing
-        private string tempUsername = "";
-        private string tempPhoneNumber = "";
-        private string tempProfilePictureUrl = "";
-
-        // Preferences
-        private string selectedLanguage = "English";
-        private string selectedCurrency = "NGN";
-        private bool notificationsEnabled = true;
-
-        // Security
-        private bool twoFactorEnabled = false;
-
-        // App info
-        private string appVersion = "1.0.0";
-
-        // Modal states
-        private bool showProfileModal = false;
-        private bool showLanguageModal = false;
-        private bool showCurrencyModal = false;
-        private bool showSecurityModal = false;
-        private bool showSafetyCenterModal = false;
-        private bool showAboutModal = false;
-        private bool showPoliciesModal = false;
-        private bool showLegalModal = false;
-        private bool showLogoutConfirmation = false;
-
-        // Available options
-        private List<string> availableLanguages = new()
-        {
-            "English",
-            "Hausa",
-            "Yoruba",
-            "Igbo"
-        };
-
-        private List<CurrencyOption> availableCurrencies = new()
-        {
-            new CurrencyOption { Code = "NGN", Name = "Nigerian Naira (₦)" },
-            new CurrencyOption { Code = "USD", Name = "US Dollar ($)" },
-            new CurrencyOption { Code = "GBP", Name = "British Pound (£)" },
-            new CurrencyOption { Code = "EUR", Name = "Euro (€)" }
-        };
-
-        protected override async Task OnInitializedAsync()
-        {
-            await LoadSettings();
-        }
-
-        private async Task LoadSettings()
-        {
-            try
-            {
-                isLoading = true;
-                
-                // Simulate loading user settings
-                await Task.Delay(500);
-                
-                // TODO: Load actual user settings from service
-                // var settings = await UserService.GetUserSettings();
-                // username = settings.Username;
-                // phoneNumber = settings.PhoneNumber;
-                // profilePictureUrl = settings.ProfilePictureUrl;
-                // selectedLanguage = settings.Language;
-                // selectedCurrency = settings.Currency;
-                // notificationsEnabled = settings.NotificationsEnabled;
-                // twoFactorEnabled = settings.TwoFactorEnabled;
-                
-                isLoading = false;
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading settings: {ex.Message}");
-                isLoading = false;
-            }
-        }
-
-        // Profile methods
-        private void OpenProfileModal()
-        {
-            tempUsername = username;
-            tempPhoneNumber = phoneNumber;
-            tempProfilePictureUrl = profilePictureUrl;
-            showProfileModal = true;
-        }
-
-        private void CloseProfileModal()
-        {
-            showProfileModal = false;
-        }
-
-        private async Task ChangePicture()
-        {
-            // TODO: Implement image picker/uploader
-            Console.WriteLine("Change picture clicked - implement image upload");
-            await Task.CompletedTask;
-        }
-
-        private async Task SaveProfile()
-        {
-            try
-            {
-                // Validate input
-                if (string.IsNullOrWhiteSpace(tempUsername))
-                {
-                    Console.WriteLine("Username is required");
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(tempPhoneNumber))
-                {
-                    Console.WriteLine("Phone number is required");
-                    return;
-                }
-
-                // TODO: Save to backend
-                // await UserService.UpdateProfile(tempUsername, tempPhoneNumber, tempProfilePictureUrl);
-                
-                username = tempUsername;
-                phoneNumber = tempPhoneNumber;
-                profilePictureUrl = tempProfilePictureUrl;
-                
-                CloseProfileModal();
-                StateHasChanged();
-                
-                Console.WriteLine("Profile updated successfully");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error saving profile: {ex.Message}");
-            }
-        }
-
-        // Language methods
-        private void OpenLanguageModal()
-        {
-            showLanguageModal = true;
-        }
-
-        private void CloseLanguageModal()
-        {
-            showLanguageModal = false;
-        }
-
-        private async Task SelectLanguage(string language)
-        {
-            try
-            {
-                selectedLanguage = language;
-                
-                // TODO: Save language preference
-                // await UserService.UpdateLanguage(language);
-                
-                CloseLanguageModal();
-                StateHasChanged();
-                
-                Console.WriteLine($"Language changed to: {language}");
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error changing language: {ex.Message}");
-            }
-        }
-
-        // Currency methods
-        private void OpenCurrencyModal()
-        {
-            showCurrencyModal = true;
-        }
-
-        private void CloseCurrencyModal()
-        {
-            showCurrencyModal = false;
-        }
-
-        private async Task SelectCurrency(string currencyCode)
-        {
-            try
-            {
-                selectedCurrency = currencyCode;
-                
-                // TODO: Save currency preference
-                // await UserService.UpdateCurrency(currencyCode);
-                
-                CloseCurrencyModal();
-                StateHasChanged();
-                
-                Console.WriteLine($"Currency changed to: {currencyCode}");
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error changing currency: {ex.Message}");
-            }
-        }
-
-        // Notifications methods
-        private async Task ToggleNotifications()
-        {
-            try
-            {
-                // TODO: Save notification preference
-                // await UserService.UpdateNotificationSettings(notificationsEnabled);
-                
-                StateHasChanged();
-                Console.WriteLine($"Notifications {(notificationsEnabled ? "enabled" : "disabled")}");
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error toggling notifications: {ex.Message}");
-            }
-        }
-
-        // Security methods
-        private void OpenSecurityModal()
-        {
-            showSecurityModal = true;
-        }
-
-        private void CloseSecurityModal()
-        {
-            showSecurityModal = false;
-        }
-
-        private async Task ChangePassword()
-        {
-            // TODO: Navigate to change password page or show modal
-            Console.WriteLine("Change password clicked");
-            await Task.CompletedTask;
-        }
-
-        private async Task Enable2FA()
-        {
-            // TODO: Navigate to 2FA setup or show modal
-            Console.WriteLine("Enable 2FA clicked");
-            await Task.CompletedTask;
-        }
-
-        private async Task Toggle2FA()
-        {
-            try
-            {
-                // TODO: Toggle 2FA
-                // if (twoFactorEnabled)
-                // {
-                //     await UserService.Enable2FA();
-                // }
-                // else
-                // {
-                //     await UserService.Disable2FA();
-                // }
-                
-                StateHasChanged();
-                Console.WriteLine($"2FA {(twoFactorEnabled ? "enabled" : "disabled")}");
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error toggling 2FA: {ex.Message}");
-            }
-        }
-
-        private async Task ManageDevices()
-        {
-            // TODO: Show devices list or navigate to devices page
-            Console.WriteLine("Manage devices clicked");
-            await Task.CompletedTask;
-        }
-
-        // Safety Center methods
-        private void OpenSafetyCenterModal()
-        {
-            showSafetyCenterModal = true;
-        }
-
-        private void CloseSafetyCenterModal()
-        {
-            showSafetyCenterModal = false;
-        }
-
-        private async Task ReportScam()
-        {
-            // TODO: Navigate to report form or show modal
-            Console.WriteLine("Report scam clicked");
-            CloseSafetyCenterModal();
-            await Task.CompletedTask;
-        }
-
-        // About methods
-        private void OpenAboutModal()
-        {
-            showAboutModal = true;
-        }
-
-        private void CloseAboutModal()
-        {
-            showAboutModal = false;
-        }
-
-        // Policies methods
-        private void OpenPoliciesModal()
-        {
-            showPoliciesModal = true;
-        }
-
-        private void ClosePoliciesModal()
-        {
-            showPoliciesModal = false;
-        }
-
-        private async Task ViewPrivacyPolicy()
-        {
-            // TODO: Navigate to privacy policy page
-            Console.WriteLine("View privacy policy clicked");
-            await Task.CompletedTask;
-        }
-
-        private async Task ViewReturnPolicy()
-        {
-            // TODO: Navigate to return policy page
-            Console.WriteLine("View return policy clicked");
-            await Task.CompletedTask;
-        }
-
-        private async Task ViewShippingPolicy()
-        {
-            // TODO: Navigate to shipping policy page
-            Console.WriteLine("View shipping policy clicked");
-            await Task.CompletedTask;
-        }
-
-        private async Task ViewSellerPolicy()
-        {
-            // TODO: Navigate to seller policy page
-            Console.WriteLine("View seller policy clicked");
-            await Task.CompletedTask;
-        }
-
-        // Legal methods
-        private void OpenLegalModal()
-        {
-            showLegalModal = true;
-        }
-
-        private void CloseLegalModal()
-        {
-            showLegalModal = false;
-        }
-
-        private async Task ViewFullTerms()
-        {
-            // TODO: Navigate to full terms page
-            Console.WriteLine("View full terms clicked");
-            await Task.CompletedTask;
-        }
-
-        // Share methods
-        private async Task ShareApp()
-        {
-            try
-            {
-                // TODO: Implement share functionality
-                var shareText = "Check out SubashaVentures - Nigeria's trusted e-commerce platform!";
-                var shareUrl = "https://subashaventures.com";
-                
-                Console.WriteLine($"Sharing: {shareText} - {shareUrl}");
-                
-                // For web, could open share dialog or copy link
-                // For mobile, use native share API
-                
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error sharing app: {ex.Message}");
-            }
-        }
-
-        // Logout methods
-        private void ShowLogoutConfirmation()
-        {
-            showLogoutConfirmation = true;
-        }
-
-        private void CancelLogout()
-        {
-            showLogoutConfirmation = false;
-        }
-
-        private async Task ConfirmLogout()
-        {
-            try
-            {
-                showLogoutConfirmation = false;
-                
-                // TODO: Clear auth state and redirect to login
-                // await AuthService.Logout();
-                
-                Console.WriteLine("User logged out");
-                
-                // Navigate to home or login page
-                NavigationManager?.NavigateTo("", true);
-                
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error logging out: {ex.Message}");
-            }
-        }
-
-        // Navigation helper
-        private void NavigateTo(string url)
-        {
-            NavigationManager?.NavigateTo(url);
-        }
-    }
-
-    // Currency option model
-    public class CurrencyOption
-    {
-        public string Code { get; set; } = "";
-        public string Name { get; set; } = "";
-    }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
 }
