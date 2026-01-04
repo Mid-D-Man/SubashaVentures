@@ -39,8 +39,8 @@
         }
 
         <!-- Google Sign In -->
-        <button type="button" 
-                class="social-btn google" 
+        <button type="button"
+                class="social-btn google"
                 @onclick="HandleGoogleSignIn"
                 disabled="@isLoading">
             <span class="social-icon">G</span>
@@ -55,7 +55,7 @@
         </div>
 
         <!-- Email Field -->
-        <InputField 
+        <InputField
             Label="Email Address"
             Type="email"
             @bind-Value="email"
@@ -68,7 +68,7 @@
             Size="InputField.InputSize.Medium" />
 
         <!-- Password Field -->
-        <InputField 
+        <InputField
             Label="Password"
             Type="@(showPassword ? "text" : "password")"
             @bind-Value="password"
@@ -85,13 +85,13 @@
                 <input type="checkbox" @bind="rememberMe" class="checkbox-input" />
                 <span class="checkbox-text">Remember me</span>
             </label>
-            
+
             <a href="forgot-password" class="forgot-link">Forgot Password?</a>
         </div>
 
         <!-- Sign In Button -->
-        <PrimaryButton 
-            Type="submit" 
+        <PrimaryButton
+            Type="submit"
             Size="PrimaryButton.ButtonSize.Large"
             IsDisabled="@isLoading"
             IsLoading="@isLoading"
@@ -104,7 +104,7 @@
             <p class="footer-question">Don't have an account?</p>
             <a href="signup" class="footer-link">Sign Up</a>
         </div>
-      
+
     </form>
 </div>
 

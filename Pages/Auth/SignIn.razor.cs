@@ -1,4 +1,4 @@
-// Pages/Auth/SignIn.razor.cs - FIXED REDIRECT
+// Pages/Auth/SignIn.razor.cs - FIXED: No auto-redirect on load
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Services.Storage;
@@ -39,19 +39,8 @@ public partial class SignIn : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User?.Identity?.IsAuthenticated ?? false)
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "User already authenticated, redirecting...",
-                LogLevel.Info
-            );
-
-            var destination = await DetermineRedirectDestinationAsync();
-            NavigationManager.NavigateTo(destination, forceLoad: false);
-            return;
-        }
-
+        // ✅ REMOVED: Auto-redirect check - let user sign in naturally
+        
         if (Registered)
         {
             successMessage = "Account created successfully! Please sign in.";
@@ -218,7 +207,7 @@ public partial class SignIn : ComponentBase
             var user = await AuthService.GetCurrentUserAsync();
             if (user == null)
             {
-                return ""; // ✅ FIXED: Empty string for home
+                return "";
             }
 
             // Get user profile with roles
@@ -230,7 +219,7 @@ public partial class SignIn : ComponentBase
                     "User profile not found, redirecting to home",
                     LogLevel.Warning
                 );
-                return ""; // ✅ FIXED: Empty string for home
+                return "";
             }
 
             // Check if user is superior admin
@@ -249,13 +238,13 @@ public partial class SignIn : ComponentBase
                 LogLevel.Info
             );
             
-            return ""; // ✅ FIXED: Empty string for home
+            return "";
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
             Logger.LogError(ex, "Error determining redirect destination");
-            return ""; // ✅ FIXED: Empty string for home on error
+            return "";
         }
     }
 

@@ -1,4 +1,3 @@
-// Pages/Auth/OAuthCallback.razor.cs - FIXED REDIRECT
 @page "/auth/callback"
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Auth
@@ -12,17 +11,41 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IUserService UserService
 
-<div class="oauth-callback-container">
-    <div class="loading-spinner">
-        <div class="spinner"></div>
-        <h3>@statusMessage</h3>
-        <p>@detailMessage</p>
+<div class="oauth-callback-page">
+    <div class="callback-container">
+        <!-- Logo/Brand -->
+        <div class="brand-section">
+            <div class="brand-icon">SV</div>
+            <h1 class="brand-name">SubashaVentures</h1>
+        </div>
+
+        <!-- Loading Animation -->
+        <div class="loading-section">
+            <div class="spinner-wrapper">
+                <div class="spinner"></div>
+            </div>
+            <h2 class="status-title">@statusMessage</h2>
+            <p class="status-detail">@detailMessage</p>
+        </div>
+
+        <!-- Progress Dots (optional visual feedback) -->
+        @if (!hasError)
+        {
+            <div class="progress-dots">
+                <span class="dot active"></span>
+                <span class="dot @(isProcessing ? "active" : "")"></span>
+                <span class="dot @(isComplete ? "active" : "")"></span>
+            </div>
+        }
     </div>
 </div>
 
 @code {
     private string statusMessage = "Completing sign in...";
     private string detailMessage = "Please wait while we authenticate your account.";
+    private bool hasError = false;
+    private bool isProcessing = true;
+    private bool isComplete = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -33,13 +56,23 @@
                 LogLevel.Info
             );
 
+            // Update status
+            statusMessage = "Processing authentication...";
+            detailMessage = "Exchanging authorization code for session.";
+            StateHasChanged();
+
+            await Task.Delay(500); // Brief pause for UI feedback
+
             // Handle the OAuth callback
             var result = await AuthService.HandleOAuthCallbackAsync();
 
             if (result.Success)
             {
+                isProcessing = false;
+                isComplete = true;
                 statusMessage = "Sign in successful!";
-                detailMessage = "Redirecting...";
+                detailMessage = "Redirecting you now...";
+                StateHasChanged();
 
                 // Notify auth state changed
                 if (AuthStateProvider is SupabaseAuthStateProvider provider)
@@ -47,9 +80,9 @@
                     provider.NotifyAuthenticationStateChanged();
                 }
 
-                await Task.Delay(500);
+                await Task.Delay(800); // Let user see success message
 
-                // ✅ ROLE-BASED REDIRECT
+                // ✅ ROLE-BASED REDIRECT (ONE TIME ONLY)
                 var destination = await DetermineRedirectDestinationAsync();
 
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -57,12 +90,15 @@
                     LogLevel.Info
                 );
 
-                NavigationManager.NavigateTo(destination, forceLoad: false);
+                NavigationManager.NavigateTo(destination, forceLoad: true); // Force reload to ensure auth state is fresh
             }
             else
             {
+                hasError = true;
+                isProcessing = false;
                 statusMessage = "Authentication failed";
-                detailMessage = result.Message;
+                detailMessage = result.Message ?? "Please try signing in again.";
+                StateHasChanged();
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"OAuth callback failed: {result.Message}",
@@ -75,8 +111,11 @@
         }
         catch (Exception ex)
         {
+            hasError = true;
+            isProcessing = false;
             statusMessage = "An error occurred";
             detailMessage = "Please try signing in again.";
+            StateHasChanged();
 
             await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
 
@@ -109,7 +148,7 @@
             var user = await AuthService.GetCurrentUserAsync();
             if (user == null)
             {
-                return ""; // ✅ FIXED: Empty string for home
+                return ""; // ✅ Home is empty string
             }
 
             // Get user profile with roles
@@ -121,7 +160,7 @@
                     "User profile not found, redirecting to home",
                     LogLevel.Warning
                 );
-                return ""; // ✅ FIXED: Empty string for home
+                return ""; // ✅ Home is empty string
             }
 
             // Check if user is superior admin
@@ -140,12 +179,12 @@
                 LogLevel.Info
             );
             
-            return ""; // ✅ FIXED: Empty string for home
+            return ""; // ✅ Home is empty string
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
-            return ""; // ✅ FIXED: Empty string for home on error
+            return ""; // ✅ Home is empty string on error
         }
     }
 }
