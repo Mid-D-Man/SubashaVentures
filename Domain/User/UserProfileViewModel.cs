@@ -1,10 +1,11 @@
+// Domain/User/UserProfileViewModel.cs - UPDATED WITH NICKNAME
 namespace SubashaVentures.Domain.User;
 
 using SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// View model for user profile information
-/// UPDATED: Role is now a single field, not a list
+/// UPDATED: Added nickname field
 /// </summary>
 public class UserProfileViewModel
 {
@@ -19,6 +20,7 @@ public class UserProfileViewModel
     
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
+    public string? Nickname { get; set; } // ✅ NEW
     public string? AvatarUrl { get; set; }
     public string? PhoneNumber { get; set; }
     public bool EmailVerified { get; set; }
@@ -46,17 +48,14 @@ public class UserProfileViewModel
     public DateTime? UpdatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
     
-    // ==================== ROLE (SINGLE FIELD) ====================
-    
-    /// <summary>
-    /// User role: 'user' or 'superior_admin'
-    /// </summary>
     public string Role { get; set; } = "user";
     
     // ==================== COMPUTED PROPERTIES ====================
     
     public string FullName => $"{FirstName} {LastName}".Trim();
-    public string DisplayName => string.IsNullOrEmpty(FullName) ? Email : FullName;
+    public string DisplayName => !string.IsNullOrWhiteSpace(Nickname) 
+        ? Nickname 
+        : (string.IsNullOrEmpty(FullName) ? Email : FullName);
     public string Initials => $"{FirstName.FirstOrDefault()}{LastName.FirstOrDefault()}".ToUpper();
     public bool IsVerified => EmailVerified;
     public bool IsEmailVerified => EmailVerified;
@@ -80,9 +79,6 @@ public class UserProfileViewModel
     
     // ==================== CONVERSION METHODS ====================
     
-    /// <summary>
-    /// Convert from Supabase UserModel to UserProfileViewModel
-    /// </summary>
     public static UserProfileViewModel FromCloudModel(UserModel model)
     {
         if (model == null)
@@ -106,6 +102,7 @@ public class UserProfileViewModel
             IsSsoUser = false,
             FirstName = model.FirstName,
             LastName = model.LastName,
+            Nickname = model.Nickname, // ✅ NEW
             AvatarUrl = model.AvatarUrl,
             PhoneNumber = model.PhoneNumber,
             EmailVerified = model.IsEmailVerified,
@@ -131,9 +128,6 @@ public class UserProfileViewModel
         };
     }
     
-    /// <summary>
-    /// Convert from UserProfileViewModel to Supabase UserModel
-    /// </summary>
     public UserModel ToCloudModel()
     {
         return new UserModel
@@ -142,6 +136,7 @@ public class UserProfileViewModel
             Email = this.Email,
             FirstName = this.FirstName,
             LastName = this.LastName,
+            Nickname = this.Nickname, // ✅ NEW
             PhoneNumber = this.PhoneNumber,
             DateOfBirth = this.DateOfBirth,
             Gender = this.Gender,
