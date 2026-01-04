@@ -1,4 +1,4 @@
-// Models/Firebase/ReviewModel.cs - UPDATED with proper serialization
+// Models/Firebase/ReviewModel.cs - FIXED with proper init properties
 using System.Text.Json.Serialization;
 
 namespace SubashaVentures.Models.Firebase;
@@ -91,11 +91,19 @@ public record ReviewAdminDto
 {
     public string Id { get; init; } = string.Empty;
     public string ProductId { get; init; } = string.Empty;
-    public string ProductName { get; init; } = string.Empty; // Fetched from product
+    public string ProductName { get; init; } = string.Empty;
     public string UserName { get; init; } = string.Empty;
+    public string? UserAvatar { get; init; }
     public int Rating { get; init; }
+    public string? Title { get; init; }
     public string CommentPreview { get; init; } = string.Empty;
+    public string Comment { get; init; } = string.Empty;
+    public List<string> Images { get; init; } = new();
+    public bool IsVerifiedPurchase { get; init; }
+    public int HelpfulCount { get; init; }
     public bool IsApproved { get; init; }
+    public string? ApprovedBy { get; init; }
+    public DateTime? ApprovedAt { get; init; }
     public DateTime CreatedAt { get; init; }
     public string TimeAgo { get; init; } = string.Empty;
     
@@ -111,9 +119,17 @@ public record ReviewAdminDto
             ProductId = review.ProductId,
             ProductName = productName,
             UserName = review.UserName,
+            UserAvatar = review.UserAvatar,
             Rating = review.Rating,
+            Title = review.Title,
             CommentPreview = commentPreview,
+            Comment = review.Comment,
+            Images = review.Images,
+            IsVerifiedPurchase = review.IsVerifiedPurchase,
+            HelpfulCount = review.HelpfulCount,
             IsApproved = review.IsApproved,
+            ApprovedBy = review.ApprovedBy,
+            ApprovedAt = review.ApprovedAt,
             CreatedAt = review.CreatedAt,
             TimeAgo = review.TimeAgo
         };

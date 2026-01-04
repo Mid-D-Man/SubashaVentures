@@ -1,4 +1,4 @@
-// ===== Domain/Order/OrderViewModel.cs ===== FIXED FOR GUID
+// ===== Domain/Order/OrderViewModel.cs ===== FIXED GUID CONVERSIONS
 namespace SubashaVentures.Domain.Order;
 
 using SubashaVentures.Models.Supabase;
@@ -61,9 +61,9 @@ public class OrderViewModel
             
         return new OrderViewModel
         {
-            Id = model.Id.ToString(), // ✅ FIXED: Convert Guid to string
+            Id = model.Id.ToString(), // ✅ Convert Guid to string
             OrderNumber = model.OrderNumber,
-            UserId = model.UserId,
+            UserId = model.UserId.ToString(), // ✅ Convert Guid to string
             CustomerName = model.CustomerName,
             CustomerEmail = model.CustomerEmail,
             CustomerPhone = model.CustomerPhone,
@@ -97,11 +97,28 @@ public class OrderViewModel
     /// </summary>
     public OrderModel ToCloudModel()
     {
+        // Parse string IDs to Guid
+        Guid orderId;
+        if (string.IsNullOrEmpty(this.Id))
+        {
+            orderId = Guid.NewGuid();
+        }
+        else if (!Guid.TryParse(this.Id, out orderId))
+        {
+            orderId = Guid.NewGuid();
+        }
+
+        Guid userId;
+        if (!Guid.TryParse(this.UserId, out userId))
+        {
+            throw new ArgumentException($"Invalid UserId format: {this.UserId}");
+        }
+
         return new OrderModel
         {
-            Id = string.IsNullOrEmpty(this.Id) ? Guid.NewGuid() : Guid.Parse(this.Id), // ✅ FIXED: Convert string to Guid
+            Id = orderId, // ✅ Use parsed Guid
             OrderNumber = this.OrderNumber,
-            UserId = this.UserId,
+            UserId = userId, // ✅ Use parsed Guid
             CustomerName = this.CustomerName,
             CustomerEmail = this.CustomerEmail,
             CustomerPhone = this.CustomerPhone,
@@ -134,7 +151,7 @@ public class OrderViewModel
 public class OrderItemViewModel
 {
     public string Id { get; set; } = string.Empty;
-    public string OrderId { get; set; } = string.Empty; // ✅ ADDED: OrderId for reference
+    public string OrderId { get; set; } = string.Empty; // ✅ OrderId for reference
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
@@ -157,8 +174,8 @@ public class OrderItemViewModel
             
         return new OrderItemViewModel
         {
-            Id = model.Id.ToString(), // ✅ FIXED: Convert Guid to string
-            OrderId = model.OrderId.ToString(), // ✅ FIXED: Convert Guid to string
+            Id = model.Id.ToString(), // ✅ Convert Guid to string
+            OrderId = model.OrderId.ToString(), // ✅ Convert Guid to string
             ProductId = model.ProductId,
             ProductName = model.ProductName,
             ImageUrl = model.ImageUrl,
@@ -175,10 +192,26 @@ public class OrderItemViewModel
     /// </summary>
     public OrderItemModel ToCloudModel(string orderId)
     {
+        // Parse string IDs to Guid
+        Guid itemId;
+        if (string.IsNullOrEmpty(this.Id))
+        {
+            itemId = Guid.NewGuid();
+        }
+        else if (!Guid.TryParse(this.Id, out itemId))
+        {
+            itemId = Guid.NewGuid();
+        }
+
+        if (!Guid.TryParse(orderId, out var orderGuid))
+        {
+            throw new ArgumentException($"Invalid OrderId format: {orderId}");
+        }
+
         return new OrderItemModel
         {
-            Id = string.IsNullOrEmpty(this.Id) ? Guid.NewGuid() : Guid.Parse(this.Id), // ✅ FIXED: Convert string to Guid
-            OrderId = Guid.Parse(orderId), // ✅ FIXED: Convert string to Guid
+            Id = itemId, // ✅ Use parsed Guid
+            OrderId = orderGuid, // ✅ Use parsed Guid
             ProductId = this.ProductId,
             ProductName = this.ProductName,
             ProductSku = this.Sku,

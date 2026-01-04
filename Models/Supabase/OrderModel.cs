@@ -1,25 +1,25 @@
+// Models/Supabase/OrderModel.cs - CONFIRMED CORRECT (user_id is UUID)
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Order model - UPDATED to use UUID (Guid) for id
+/// Order model - uses UUID (Guid) for id and user_id
 /// </summary>
 [Table("orders")]
 public class OrderModel : BaseModel
 {
     [PrimaryKey("id", false)]
     [Column("id")]
-    public Guid Id { get; set; } // ✅ MUST BE GUID, NOT STRING
+    public Guid Id { get; set; } // ✅ UUID
     
     [Column("order_number")]
     public string OrderNumber { get; set; } = string.Empty;
     
     [Column("user_id")]
-    public string UserId { get; set; } = string.Empty; // UUID as string
+    public Guid UserId { get; set; } // ✅ UUID references user_data(id)
     
-    // Customer Info
     [Column("customer_name")]
     public string CustomerName { get; set; } = string.Empty;
     

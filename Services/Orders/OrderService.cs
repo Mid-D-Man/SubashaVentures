@@ -1,4 +1,4 @@
-// Services/Orders/OrderService.cs
+// Services/Orders/OrderService.cs - FIXED to use filter queries for Guid
 using SubashaVentures.Domain.Order;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.SupaBase;
@@ -35,11 +35,21 @@ public class OrderService : IOrderService
                 LogLevel.Info
             );
 
-            // Get all delivered orders for this user
+            // Parse userId to Guid
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Invalid user ID format",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
+            // Get all orders for this user using filter
             var orders = await _database.GetWithFilterAsync<OrderModel>(
                 "user_id",
                 Constants.Operator.Equals,
-                userId
+                userId  // Use string directly for UUID comparison
             );
 
             if (!orders.Any())
@@ -109,6 +119,7 @@ public class OrderService : IOrderService
                 return new List<OrderSummaryDto>();
             }
 
+            // Use filter with string UUID
             var orders = await _database.GetWithFilterAsync<OrderModel>(
                 "user_id",
                 Constants.Operator.Equals,
@@ -141,12 +152,19 @@ public class OrderService : IOrderService
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(orderId) || !Guid.TryParse(orderId, out var orderGuid))
+            if (string.IsNullOrWhiteSpace(orderId))
             {
                 return null;
             }
 
-            var order = await _database.GetByIdAsync<OrderModel>(orderGuid);
+            // ✅ FIX: Use filter query instead of GetByIdAsync
+            var orders = await _database.GetWithFilterAsync<OrderModel>(
+                "id",
+                Constants.Operator.Equals,
+                orderId
+            );
+
+            var order = orders.FirstOrDefault();
 
             if (order == null)
             {
@@ -275,11 +293,18 @@ public class OrderService : IOrderService
             var now = DateTime.UtcNow;
             var orderNumber = GenerateOrderNumber();
 
+            // Parse userId to Guid
+            if (!Guid.TryParse(request.UserId, out var userGuid))
+            {
+                _logger.LogError("Invalid user ID format: {UserId}", request.UserId);
+                return string.Empty;
+            }
+
             var orderModel = new OrderModel
             {
                 Id = Guid.NewGuid(),
                 OrderNumber = orderNumber,
-                UserId = request.UserId,
+                UserId = userGuid,
                 CustomerName = request.CustomerName,
                 CustomerEmail = request.CustomerEmail,
                 CustomerPhone = request.CustomerPhone,
@@ -348,12 +373,19 @@ public class OrderService : IOrderService
     {
         try
         {
-            if (!Guid.TryParse(orderId, out var orderGuid))
+            if (string.IsNullOrWhiteSpace(orderId))
             {
                 return false;
             }
 
-            var order = await _database.GetByIdAsync<OrderModel>(orderGuid);
+            // ✅ FIX: Use filter query instead of GetByIdAsync
+            var orders = await _database.GetWithFilterAsync<OrderModel>(
+                "id",
+                Constants.Operator.Equals,
+                orderId
+            );
+
+            var order = orders.FirstOrDefault();
 
             if (order == null)
             {
