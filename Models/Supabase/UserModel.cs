@@ -1,4 +1,4 @@
-// Models/Supabase/UserModel.cs - UPDATED TABLE NAME
+// Models/Supabase/UserModel.cs - UPDATED WITH NICKNAME
 using Newtonsoft.Json;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
@@ -7,7 +7,7 @@ namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// Supabase user_data model - linked to auth.users
-/// UPDATED: Table renamed from 'users' to 'user_data' to avoid conflicts
+/// UPDATED: Added nickname field
 /// </summary>
 [Table("user_data")]
 public class UserModel : BaseModel
@@ -24,6 +24,10 @@ public class UserModel : BaseModel
     
     [Column("last_name")]
     public string LastName { get; set; } = string.Empty;
+    
+    // ✅ NEW: Nickname field
+    [Column("nickname")]
+    public string? Nickname { get; set; }
     
     [Column("phone_number")]
     public string? PhoneNumber { get; set; }
@@ -78,11 +82,6 @@ public class UserModel : BaseModel
     [Column("membership_tier")]
     public string MembershipTier { get; set; } = "Bronze";
     
-    // ==================== ROLE (SINGLE FIELD) ====================
-    
-    /// <summary>
-    /// User role: 'user' or 'superior_admin'
-    /// </summary>
     [Column("role")]
     public string Role { get; set; } = "user";
     
@@ -111,9 +110,13 @@ public class UserModel : BaseModel
     [Column("last_login_at")]
     public DateTime? LastLoginAt { get; set; }
     
-    // ==================== HELPER METHODS ====================
-    
+    // Helper methods
     public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
     public bool IsSuperiorAdmin => HasRole("superior_admin");
     public bool IsRegularUser => HasRole("user");
+    
+    // Display name with nickname support
+    public string DisplayName => !string.IsNullOrWhiteSpace(Nickname) 
+        ? Nickname 
+        : $"{FirstName} {LastName}".Trim();
 }
