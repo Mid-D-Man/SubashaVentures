@@ -10,6 +10,7 @@ using SubashaVentures.Services.Users;
 using SubashaVentures.Utilities.HelperScripts;
 using System.Text;
 using System.Text.Json;
+using Microsoft.JSInterop;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.User;
@@ -554,9 +555,6 @@ public partial class Settings
             StateHasChanged();
         }
     }
-// Pages/User/Settings.razor.cs - CONTINUATION (MFA & Helper Methods)
-// Add these methods to the existing partial class
-
     // ==================== MFA METHODS ====================
 
     private async Task CheckMfaStatus()
@@ -710,7 +708,7 @@ public partial class Settings
             }
             else
             {
-                MfaEnrollmentError = verifyResult.ErrorMessage ?? "Invalid verification code";
+                MfaEnrollmentError = verifyResult.Message ?? "Invalid verification code";
                 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"MFA verification failed: {MfaEnrollmentError}",
@@ -771,7 +769,7 @@ public partial class Settings
                     if (!result.Success)
                     {
                         await JSRuntime.InvokeVoidAsync("alert", 
-                            $"Failed to disable MFA: {result.ErrorMessage}");
+                            $"Failed to disable MFA: {result.Message}");
                         return;
                     }
                 }
@@ -966,9 +964,6 @@ public partial class Settings
         };
     }
 }
-    // Continue to Response 3 for MFA methods...
-}
-
 public class CurrencyOption
 {
     public string Code { get; set; } = "";

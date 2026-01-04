@@ -190,32 +190,61 @@ public partial class Shop : ComponentBase, IDisposable
     /// Validate filters and remove invalid categories/brands
     /// </summary>
     private void ValidateAndFixFilters()
+{
+    if (!AvailableCategories.Any() || !AvailableBrands.Any())
     {
-        var originalCategoryCount = CurrentFilters.Categories.Count;
-        var originalBrandCount = CurrentFilters.Brands.Count;
+        Console.WriteLine("⚠ Cannot validate - no available options loaded yet");
+        return; // ✅ Don't validate if options aren't loaded
+    }
+    
+    var originalCategoryCount = CurrentFilters.Categories.Count;
+    var originalBrandCount = CurrentFilters.Brands.Count;
+    
+    Console.WriteLine($"📊 Validating against: [{string.Join(", ", AvailableCategories)}]");
+    Console.WriteLine($"📊 Current categories: [{string.Join(", ", CurrentFilters.Categories)}]");
+    
+    // ✅ Remove categories that don't exist (CASE-INSENSITIVE + FLEXIBLE MATCHING)
+    var validatedCategories = new List<string>();
+    foreach (var filterCategory in CurrentFilters.Categories)
+    {
+        var matchedCategory = AvailableCategories.FirstOrDefault(ac => 
+            ac.Equals(filterCategory, StringComparison.OrdinalIgnoreCase) ||
+            ac.Replace(" ", "").Equals(filterCategory.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) ||
+            ac.Contains(filterCategory, StringComparison.OrdinalIgnoreCase) ||
+            filterCategory.Contains(ac, StringComparison.OrdinalIgnoreCase)
+        );
         
-        // Remove categories that don't exist in products
-        CurrentFilters.Categories = CurrentFilters.Categories
-            .Where(c => AvailableCategories.Any(ac => 
-                ac.Equals(c, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-        
-        // Remove brands that don't exist in products
-        CurrentFilters.Brands = CurrentFilters.Brands
-            .Where(b => AvailableBrands.Any(ab => 
-                ab.Equals(b, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-        
-        if (originalCategoryCount != CurrentFilters.Categories.Count)
+        if (matchedCategory != null)
         {
-            Console.WriteLine($"⚠ Removed {originalCategoryCount - CurrentFilters.Categories.Count} invalid categories");
+            validatedCategories.Add(matchedCategory); // Use the actual category name from products
+            Console.WriteLine($"✓ Matched '{filterCategory}' to '{matchedCategory}'");
         }
-        
-        if (originalBrandCount != CurrentFilters.Brands.Count)
+        else
         {
-            Console.WriteLine($"⚠ Removed {originalBrandCount - CurrentFilters.Brands.Count} invalid brands");
+            Console.WriteLine($"❌ No match found for '{filterCategory}'");
         }
     }
+    
+    CurrentFilters.Categories = validatedCategories;
+    
+    // ✅ Remove brands that don't exist (CASE-INSENSITIVE)
+    CurrentFilters.Brands = CurrentFilters.Brands
+        .Where(b => AvailableBrands.Any(ab => 
+            ab.Equals(b, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+    
+    if (originalCategoryCount != CurrentFilters.Categories.Count)
+    {
+        Console.WriteLine($"⚠ Removed {originalCategoryCount - CurrentFilters.Categories.Count} invalid categories");
+    }
+    
+    if (originalBrandCount != CurrentFilters.Brands.Count)
+    {
+        Console.WriteLine($"⚠ Removed {originalBrandCount - CurrentFilters.Brands.Count} invalid brands");
+    }
+    
+    Console.WriteLine($"✅ Validated categories: [{string.Join(", ", CurrentFilters.Categories)}]");
+}
 
     private async Task HandleFiltersChanged(FilterState filters)
     {

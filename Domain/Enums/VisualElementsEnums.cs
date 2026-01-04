@@ -5,12 +5,15 @@ namespace SubashaVentures.Domain.Enums;
 /// </summary>
 public enum IconSize
 {
+    Size_32 = 32,
+    Size_64 = 64,
     Size_72 = 72,
     Size_96 = 96,
     Size_128 = 128,
     Size_144 = 144,
     Size_152 = 152,
     Size_192 = 192,
+    Size_256 = 192,
     Size_384 = 384,
     Size_512 = 512,
     Size_1024 = 1024

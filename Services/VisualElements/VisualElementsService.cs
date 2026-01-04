@@ -57,44 +57,51 @@ public class VisualElementsService : IVisualElementsService
 
     // ===== ICON METHODS =====
     
+    // Services/VisualElements/VisualElementsService.cs - SIMPLIFIED INITIALIZATION
     public async Task<string> GetIconAsync(IconType iconType, IconSize size, bool useFallback = true)
     {
-        await EnsureInitializedAsync();
-        
         var cacheKey = $"{VisualElementsConstants.CACHE_KEY_PREFIX}icon_{iconType}_{(int)size}";
-        
+    
         // Check cache first
         if (_iconCache.TryGetValue(cacheKey, out var cachedUrl))
         {
             return cachedUrl;
         }
-        
-        // Try multiple case variations to handle different file systems
-        var pathVariations = GetIconPathVariations(iconType, size);
-        
-        foreach (var iconPath in pathVariations)
+    
+        // ✅ Use RELATIVE paths - HttpClient already has BaseAddress
+        var iconPath = VisualElementsConstants.GetIconPath(iconType, size);
+    
+        try
         {
-            var fullUrl = string.IsNullOrEmpty(_baseUrl) ? iconPath : $"{_baseUrl}/{iconPath}";
-            
-            try
+            // ✅ Try primary path first (UPPERCASE - matches actual files)
+            var response = await _httpClient.GetAsync(iconPath, HttpCompletionOption.ResponseHeadersRead);
+        
+            if (response.IsSuccessStatusCode)
             {
-                var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    _iconCache.TryAdd(cacheKey, fullUrl);
-                    _logger.LogDebug($"✓ Icon cached: {iconPath}");
-                    return fullUrl;
-                }
+                var fullUrl = $"{_httpClient.BaseAddress}{iconPath.TrimStart('/')}";
+                _iconCache.TryAdd(cacheKey, fullUrl);
+                _logger.LogDebug($"✓ Icon cached: {iconPath}");
+                return fullUrl;
             }
-            catch (Exception ex)
+        
+            // ✅ Fallback: try lowercase
+            var lowerPath = iconPath.Replace("SBV_ICON", "sbv_icon");
+            response = await _httpClient.GetAsync(lowerPath, HttpCompletionOption.ResponseHeadersRead);
+        
+            if (response.IsSuccessStatusCode)
             {
-                _logger.LogDebug($"❌ Failed to load icon variation {iconPath}: {ex.Message}");
+                var fullUrl = $"{_httpClient.BaseAddress}{lowerPath.TrimStart('/')}";
+                _iconCache.TryAdd(cacheKey, fullUrl);
+                _logger.LogDebug($"✓ Icon cached (lowercase): {lowerPath}");
+                return fullUrl;
             }
         }
-        
-        // None of the variations worked
-        _logger.LogWarning($"⚠ Icon not found for {iconType} at size {(int)size} (tried {pathVariations.Count} variations)");
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"❌ Failed to load icon {iconPath}: {ex.Message}");
+        }
+    
+        _logger.LogWarning($"⚠ Icon not found for {iconType} at size {(int)size}");
         return useFallback ? VisualElementsConstants.FALLBACK_ICON : string.Empty;
     }
     

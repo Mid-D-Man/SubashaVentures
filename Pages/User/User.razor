@@ -25,6 +25,13 @@
             <span class="card-arrow">→</span>
         </div>
 
+        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/wishlist-cart"))">
+            <div class="card-icon">📦</div>
+            <h3>Wishlist/Cart</h3>
+            <p>Check Your Wishlists and Cart</p>
+            <span class="card-arrow">→</span>
+        </div>
+
         <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/messages"))">
             <div class="card-icon">💬</div>
             <h3>Messages</h3>

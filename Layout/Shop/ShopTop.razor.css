@@ -128,6 +128,17 @@
     }
 }
 
+@media(max-width: 1024px){
+    .nav-container {
+        display: flex;
+        align-items: center;
+        gap: 180px;
+        padding: 12px 20px;
+        max-width: 1920px;
+        margin: 0 auto;
+    }
+}
+
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .shop-top-nav {
     background: var(--bg-surface);

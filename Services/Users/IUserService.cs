@@ -200,6 +200,7 @@ public class UpdateUserRequest
     public bool? SmsNotifications { get; set; }
     public string? PreferredLanguage { get; set; }
     public string? Currency { get; set; }
+    public string? Nickname { get; set; }
 }
 
 /// <summary>

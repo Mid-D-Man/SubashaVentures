@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - UPDATED FOR SINGLE ROLE FIELD
+// Services/Supabase/SupabaseAuthService.cs - COMPLETE WITH MFA & PASSWORD RESET
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
@@ -7,6 +7,7 @@ using Supabase.Gotrue.Exceptions;
 using Microsoft.AspNetCore.Components;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
+using Supabase.Gotrue.Mfa;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Client = Supabase.Client;
 
@@ -92,6 +93,83 @@ public class SupabaseAuthService : ISupabaseAuthService
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
             _logger.LogError(ex, "Unexpected error during sign in");
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "An unexpected error occurred. Please try again.",
+                ErrorCode = "UNEXPECTED_ERROR"
+            };
+        }
+    }
+
+    // ==================== SIGN UP ====================
+    
+    public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Attempting sign up for: {email}",
+                LogLevel.Info
+            );
+
+            var signUpOptions = new SignUpOptions
+            {
+                Data = new Dictionary<string, object>
+                {
+                    { "first_name", userData.FirstName },
+                    { "last_name", userData.LastName },
+                    { "phone_number", userData.PhoneNumber ?? "" },
+                    { "avatar_url", userData.AvatarUrl ?? "" },
+                    { "role", "user" }
+                }
+            };
+
+            var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
+
+            if (session?.User == null)
+            {
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "Sign up failed. Please try again.",
+                    ErrorCode = "SIGNUP_ERROR"
+                };
+            }
+
+            await CreateUserProfileAsync(session.User, userData);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ User signed up successfully: {email}",
+                LogLevel.Info
+            );
+
+            return new SupabaseAuthResult
+            {
+                Success = true,
+                Message = "Registration successful! Please check your email to verify your account."
+            };
+        }
+        catch (GotrueException ex)
+        {
+            var errorCode = GetErrorCode(ex.Message);
+            var errorMessage = GetFriendlyErrorMessage(errorCode);
+            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
+            _logger.LogError(ex, "Sign up failed for {Email}", email);
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = errorMessage,
+                ErrorCode = errorCode
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
+            _logger.LogError(ex, "Unexpected error during sign up");
             
             return new SupabaseAuthResult
             {
@@ -278,83 +356,6 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
     }
 
-    // ==================== SIGN UP ====================
-    
-    public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
-{
-    try
-    {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Attempting sign up for: {email}",
-            LogLevel.Info
-        );
-
-        var signUpOptions = new SignUpOptions
-        {
-            Data = new Dictionary<string, object>
-            {
-                { "first_name", userData.FirstName },
-                { "last_name", userData.LastName },
-                { "phone_number", userData.PhoneNumber ?? "" },
-                { "avatar_url", userData.AvatarUrl ?? "" },
-                { "role", "user" } // ✅ ADD THIS - Include role in JWT metadata
-            }
-        };
-
-        var session = await _supabase.Auth.SignUp(email, password, signUpOptions);
-
-        if (session?.User == null)
-        {
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Sign up failed. Please try again.",
-                ErrorCode = "SIGNUP_ERROR"
-            };
-        }
-
-        await CreateUserProfileAsync(session.User, userData);
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✓ User signed up successfully: {email}",
-            LogLevel.Info
-        );
-
-        return new SupabaseAuthResult
-        {
-            Success = true,
-            Message = "Registration successful! Please check your email to verify your account."
-        };
-    }
-    catch (GotrueException ex)
-    {
-        var errorCode = GetErrorCode(ex.Message);
-        var errorMessage = GetFriendlyErrorMessage(errorCode);
-        
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
-        _logger.LogError(ex, "Sign up failed for {Email}", email);
-        
-        return new SupabaseAuthResult
-        {
-            Success = false,
-            Message = errorMessage,
-            ErrorCode = errorCode
-        };
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
-        _logger.LogError(ex, "Unexpected error during sign up");
-        
-        return new SupabaseAuthResult
-        {
-            Success = false,
-            Message = "An unexpected error occurred. Please try again.",
-            ErrorCode = "UNEXPECTED_ERROR"
-        };
-    }
-}
-
     // ==================== SIGN OUT ====================
     
     public async Task<bool> SignOutAsync()
@@ -534,6 +535,8 @@ public class SupabaseAuthService : ISupabaseAuthService
                 LogLevel.Info
             );
 
+            var redirectUrl = $"{_navigationManager.BaseUri}reset-password";
+            
             await _supabase.Auth.ResetPasswordForEmail(email);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -617,18 +620,75 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
     }
 
-    // ==================== EMAIL VERIFICATION ====================
-    
-    public async Task<bool> VerifyEmailAsync(string token)
+    public async Task<SupabaseAuthResult> ChangePasswordAsync(string newPassword)
+    {
+        // Alias for UpdatePasswordAsync for consistency
+        return await UpdatePasswordAsync(newPassword);
+    }
+
+    public async Task<SupabaseAuthResult> ResetPasswordWithTokenAsync(string token, string newPassword)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Verifying email with token",
+                "Resetting password with token",
                 LogLevel.Info
             );
 
-            var session = await _supabase.Auth.VerifyOTP(token, token, Constants.EmailOtpType.Email);
+            // Verify token and set new password
+            var session = await _supabase.Auth.VerifyOTP(token, token, Constants.EmailOtpType.Recovery);
+            
+            if (session == null)
+            {
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "Invalid or expired reset token",
+                    ErrorCode = "INVALID_TOKEN"
+                };
+            }
+
+            // Now update password
+            var updateResult = await UpdatePasswordAsync(newPassword);
+            
+            if (updateResult.Success)
+            {
+                await StoreSessionAsync(session);
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ Password reset successfully",
+                    LogLevel.Info
+                );
+            }
+
+            return updateResult;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Resetting password with token");
+            _logger.LogError(ex, "Error resetting password");
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Failed to reset password. Please request a new reset link.",
+                ErrorCode = "RESET_ERROR"
+            };
+        }
+    }
+
+    // ==================== EMAIL VERIFICATION ====================
+    
+    public async Task<bool> VerifyEmailAsync(string email, string token)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Verifying email with token for: {email}",
+                LogLevel.Info
+            );
+
+            var session = await _supabase.Auth.VerifyOTP(email, token, Constants.EmailOtpType.Email);
             
             if (session != null)
             {
@@ -713,6 +773,337 @@ public class SupabaseAuthService : ISupabaseAuthService
             await MID_HelperFunctions.LogExceptionAsync(ex, "Updating user profile");
             _logger.LogError(ex, "Error updating user profile");
             return false;
+        }
+    }
+
+    // ==================== MFA (MULTI-FACTOR AUTHENTICATION) ====================
+
+    public async Task<MfaEnrollmentResult> EnrollMfaAsync(string factorType)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Enrolling MFA factor type: {factorType}",
+                LogLevel.Info
+            );
+
+            // Get current user
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return new MfaEnrollmentResult
+                {
+                    Success = false,
+                    ErrorMessage = "User not authenticated"
+                };
+            }
+
+            // Enroll TOTP factor
+            var enrollResponse = await _supabase.Auth.Enroll(new MfaEnrollParams
+            {
+                FactorType = factorType,
+                FriendlyName = $"{user.Email} - TOTP"
+            });
+
+            if (enrollResponse == null)
+            {
+                return new MfaEnrollmentResult
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to enroll MFA factor"
+                };
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ MFA factor enrolled: {enrollResponse.Id}",
+                LogLevel.Info
+            );
+
+            return new MfaEnrollmentResult
+            {
+                Success = true,
+                FactorId = enrollResponse.Id,
+                QrCodeUrl = enrollResponse.Totp?.QrCode,
+                Secret = enrollResponse.Totp?.Secret
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Enrolling MFA");
+            _logger.LogError(ex, "Error enrolling MFA");
+            
+            return new MfaEnrollmentResult
+            {
+                Success = false,
+                ErrorMessage = "Failed to enroll MFA factor"
+            };
+        }
+    }
+
+    public async Task<SupabaseAuthResult> VerifyMfaAsync(string factorId, string code)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Verifying MFA factor: {factorId}",
+                LogLevel.Info
+            );
+
+            // Challenge the factor
+            var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams
+            {
+                FactorId = factorId
+            });
+
+            if (challengeResponse == null || string.IsNullOrEmpty(challengeResponse.Id))
+            {
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "Failed to create MFA challenge",
+                    ErrorCode = "MFA_CHALLENGE_ERROR"
+                };
+            }
+
+            // Verify the code
+            var verifyResponse = await _supabase.Auth.Verify(new MfaVerifyParams
+            {
+                FactorId = factorId,
+                ChallengeId = challengeResponse.Id,
+                Code = code
+            });
+
+            if (verifyResponse?.User != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ MFA factor verified successfully",
+                    LogLevel.Info
+                );
+
+                return new SupabaseAuthResult
+                {
+                    Success = true,
+                    Message = "MFA enabled successfully"
+                };
+            }
+
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Invalid verification code",
+                ErrorCode = "INVALID_MFA_CODE"
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying MFA");
+            _logger.LogError(ex, "Error verifying MFA");
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Failed to verify MFA code",
+                ErrorCode = "MFA_VERIFY_ERROR"
+            };
+        }
+    }
+
+    public async Task<SupabaseAuthResult> UnenrollMfaAsync(string factorId)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Unenrolling MFA factor: {factorId}",
+                LogLevel.Warning
+            );
+
+            var response = await _supabase.Auth.Unenroll(new MfaUnenrollParams
+            {
+                FactorId = factorId
+            });
+
+            if (response != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ MFA factor unenrolled successfully",
+                    LogLevel.Warning
+                );
+
+                return new SupabaseAuthResult
+                {
+                    Success = true,
+                    Message = "MFA disabled successfully"
+                };
+            }
+
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Failed to disable MFA",
+                ErrorCode = "MFA_UNENROLL_ERROR"
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Unenrolling MFA");
+            _logger.LogError(ex, "Error unenrolling MFA");
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Failed to disable MFA",
+                ErrorCode = "MFA_UNENROLL_ERROR"
+            };
+        }
+    }
+
+    public async Task<List<MfaFactor>?> GetMfaFactorsAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Getting enrolled MFA factors",
+                LogLevel.Info
+            );
+
+            var factors = await _supabase.Auth.ListFactors();
+
+            if (factors == null || !factors.All.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No MFA factors enrolled",
+                    LogLevel.Info
+                );
+                return new List<MfaFactor>();
+            }
+
+            var mfaFactors = factors.All.Select(f => new MfaFactor
+            {
+                Id = f.Id,
+                Type = f.FactorType,
+                Status = f.Status,
+                FriendlyName = f.FriendlyName ?? "",
+                CreatedAt = f.CreatedAt,
+                UpdatedAt = f.UpdatedAt
+            }).ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Found {mfaFactors.Count} MFA factor(s)",
+                LogLevel.Info
+            );
+
+            return mfaFactors;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting MFA factors");
+            _logger.LogError(ex, "Error getting MFA factors");
+            return null;
+        }
+    }
+
+    public async Task<string?> ChallengeMfaAsync(string factorId)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Challenging MFA factor: {factorId}",
+                LogLevel.Info
+            );
+
+            var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams
+            {
+                FactorId = factorId
+            });
+
+            if (challengeResponse != null && !string.IsNullOrEmpty(challengeResponse.Id))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ MFA challenge created: {challengeResponse.Id}",
+                    LogLevel.Info
+                );
+
+                return challengeResponse.Id;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Challenging MFA");
+            _logger.LogError(ex, "Error challenging MFA");
+            return null;
+        }
+    }
+
+    public async Task<SupabaseAuthResult> VerifyMfaChallengeAsync(string factorId, string challengeId, string code)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Verifying MFA challenge: {challengeId}",
+                LogLevel.Info
+            );
+
+            var verifyResponse = await _supabase.Auth.Verify(new MfaVerifyParams
+            {
+                FactorId = factorId,
+                ChallengeId = challengeId,
+                Code = code
+            });
+
+            if (verifyResponse?.User != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ MFA challenge verified successfully",
+                    LogLevel.Info
+                );
+
+                // Store session if provided
+                if (verifyResponse.AccessToken != null)
+                {
+                    var session = new Session
+                    {
+                        AccessToken = verifyResponse.AccessToken,
+                        RefreshToken = verifyResponse.RefreshToken,
+                        User = verifyResponse.User
+                    };
+                    await StoreSessionAsync(session);
+                }
+
+                return new SupabaseAuthResult
+                {
+                    Success = true,
+                    Message = "MFA verification successful",
+                    Session = verifyResponse.AccessToken != null ? new SupabaseSessionInfo
+                    {
+                        AccessToken = verifyResponse.AccessToken,
+                        RefreshToken = verifyResponse.RefreshToken ?? "",
+                        UserId = verifyResponse.User.Id,
+                        UserEmail = verifyResponse.User.Email ?? "",
+                        ExpiresAt = DateTime.UtcNow.AddHours(1)
+                    } : null
+                };
+            }
+
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Invalid verification code",
+                ErrorCode = "INVALID_MFA_CODE"
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying MFA challenge");
+            _logger.LogError(ex, "Error verifying MFA challenge");
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = "Failed to verify MFA code",
+                ErrorCode = "MFA_VERIFY_ERROR"
+            };
         }
     }
 
@@ -807,7 +1198,7 @@ public class SupabaseAuthService : ISupabaseAuthService
                 PreferredLanguage = "en",
                 Currency = "NGN",
                 MembershipTier = "Bronze",
-                Role = "user", // ✅ Default role
+                Role = "user",
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = authUser.Id
             };
@@ -827,62 +1218,61 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     private async Task EnsureUserProfileExistsAsync(User authUser)
-{
-    try
     {
-        var existingUser = await _supabase
-            .From<UserModel>()
-            .Where(u => u.Id == authUser.Id)
-            .Single();
-
-        if (existingUser == null)
+        try
         {
-            var userProfile = new UserModel
-            {
-                Id = authUser.Id,
-                Email = authUser.Email ?? "",
-                FirstName = authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
-                LastName = authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
-                AvatarUrl = authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
-                IsEmailVerified = authUser.EmailConfirmedAt != null,
-                AccountStatus = "Active",
-                EmailNotifications = true,
-                SmsNotifications = false,
-                PreferredLanguage = "en",
-                Currency = "NGN",
-                MembershipTier = "Bronze",
-                Role = "user",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = authUser.Id
-            };
+            var existingUser = await _supabase
+                .From<UserModel>()
+                .Where(u => u.Id == authUser.Id)
+                .Single();
 
-            await _supabase.From<UserModel>().Insert(userProfile);
-            
-            // ✅ UPDATE JWT METADATA with role
-            var updates = new Dictionary<string, object>
+            if (existingUser == null)
             {
-                { "role", "user" }
-            };
+                var userProfile = new UserModel
+                {
+                    Id = authUser.Id,
+                    Email = authUser.Email ?? "",
+                    FirstName = authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
+                    LastName = authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
+                    AvatarUrl = authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
+                    IsEmailVerified = authUser.EmailConfirmedAt != null,
+                    AccountStatus = "Active",
+                    EmailNotifications = true,
+                    SmsNotifications = false,
+                    PreferredLanguage = "en",
+                    Currency = "NGN",
+                    MembershipTier = "Bronze",
+                    Role = "user",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = authUser.Id
+                };
 
-            var attributes = new UserAttributes
-            {
-                Data = updates
-            };
+                await _supabase.From<UserModel>().Insert(userProfile);
+                
+                var updates = new Dictionary<string, object>
+                {
+                    { "role", "user" }
+                };
 
-            await _supabase.Auth.Update(attributes);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ OAuth user profile created for: {authUser.Email} with role in JWT",
-                LogLevel.Info
-            );
+                var attributes = new UserAttributes
+                {
+                    Data = updates
+                };
+
+                await _supabase.Auth.Update(attributes);
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ OAuth user profile created for: {authUser.Email} with role in JWT",
+                    LogLevel.Info
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring user profile exists");
+            _logger.LogError(ex, "Error ensuring user profile exists");
         }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring user profile exists");
-        _logger.LogError(ex, "Error ensuring user profile exists");
-    }
-}
 
     private string GetErrorCode(string errorMessage)
     {

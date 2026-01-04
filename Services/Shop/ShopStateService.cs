@@ -1,4 +1,4 @@
-// Services/Shop/ShopStateService.cs - CONSOLIDATED STATE MANAGEMENT
+// Services/Shop/ShopStateService.cs - WITH LOCALSTORAGE PERSISTENCE
 using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
@@ -7,13 +7,16 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Shop;
 
 /// <summary>
-/// Centralized state management for shop with in-memory filters (no storage)
+/// Centralized state management for shop WITH LocalStorage persistence
 /// </summary>
 public class ShopStateService
 {
     private readonly IBlazorAppLocalStorageService _localStorage;
     private FilterState _currentFilters = FilterState.CreateDefault();
     private readonly SemaphoreSlim _lock = new(1, 1);
+    
+    private const string FILTERS_STORAGE_KEY = "shop_filters";
+    private bool _isInitialized = false;
     
     public event Func<string, Task>? OnSearchChanged;
     public event Func<FilterState, Task>? OnFiltersChanged;
@@ -24,10 +27,44 @@ public class ShopStateService
     }
     
     /// <summary>
-    /// Get current filter state (in-memory only)
+    /// Initialize from localStorage
+    /// </summary>
+    private async Task EnsureInitializedAsync()
+    {
+        if (_isInitialized) return;
+        
+        await _lock.WaitAsync();
+        try
+        {
+            if (_isInitialized) return;
+            
+            // Load from localStorage
+            var stored = await _localStorage.GetItemAsync<FilterState>(FILTERS_STORAGE_KEY);
+            
+            if (stored != null)
+            {
+                _currentFilters = stored;
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Loaded filters from localStorage: {_currentFilters.Categories.Count} categories",
+                    LogLevel.Info
+                );
+            }
+            
+            _isInitialized = true;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+    
+    /// <summary>
+    /// Get current filter state (with localStorage fallback)
     /// </summary>
     public async Task<FilterState> GetCurrentFiltersAsync()
     {
+        await EnsureInitializedAsync();
+        
         await _lock.WaitAsync();
         try
         {
@@ -44,18 +81,23 @@ public class ShopStateService
     }
     
     /// <summary>
-    /// Update filters and notify listeners
+    /// Update filters, save to localStorage, and notify listeners
     /// </summary>
     public async Task UpdateFiltersAsync(FilterState filters)
     {
+        await EnsureInitializedAsync();
+        
         await _lock.WaitAsync();
         try
         {
             _currentFilters = filters.Clone();
             _currentFilters.LastUpdated = DateTime.UtcNow;
             
+            // ✅ SAVE TO LOCALSTORAGE
+            await _localStorage.SetItemAsync(FILTERS_STORAGE_KEY, _currentFilters);
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Filters updated: {_currentFilters.Categories.Count} categories, {_currentFilters.Brands.Count} brands",
+                $"✅ Filters updated & saved: {_currentFilters.Categories.Count} categories, {_currentFilters.Brands.Count} brands",
                 LogLevel.Info
             );
             
@@ -76,14 +118,19 @@ public class ShopStateService
     /// </summary>
     public async Task UpdateCategoriesAsync(List<string> categories)
     {
+        await EnsureInitializedAsync();
+        
         await _lock.WaitAsync();
         try
         {
             _currentFilters.Categories = new List<string>(categories ?? new List<string>());
             _currentFilters.LastUpdated = DateTime.UtcNow;
             
+            // ✅ SAVE TO LOCALSTORAGE
+            await _localStorage.SetItemAsync(FILTERS_STORAGE_KEY, _currentFilters);
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Categories updated: [{string.Join(", ", _currentFilters.Categories)}]",
+                $"✅ Categories updated & saved: [{string.Join(", ", _currentFilters.Categories)}]",
                 LogLevel.Info
             );
             
@@ -104,14 +151,19 @@ public class ShopStateService
     /// </summary>
     public async Task NotifySearchChanged(string query)
     {
+        await EnsureInitializedAsync();
+        
         await _lock.WaitAsync();
         try
         {
             _currentFilters.SearchQuery = query ?? "";
             _currentFilters.LastUpdated = DateTime.UtcNow;
             
+            // ✅ SAVE TO LOCALSTORAGE
+            await _localStorage.SetItemAsync(FILTERS_STORAGE_KEY, _currentFilters);
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 Search updated: '{query}'",
+                $"🔍 Search updated & saved: '{query}'",
                 LogLevel.Info
             );
             
@@ -142,7 +194,7 @@ public class ShopStateService
     }
     
     /// <summary>
-    /// Reset filters to default
+    /// Reset filters to default and clear localStorage
     /// </summary>
     public async Task ResetFiltersAsync()
     {
@@ -151,8 +203,11 @@ public class ShopStateService
         {
             _currentFilters = FilterState.CreateDefault();
             
+            // ✅ CLEAR FROM LOCALSTORAGE
+            await _localStorage.RemoveItemAsync(FILTERS_STORAGE_KEY);
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                "🔄 Filters reset to default",
+                "🔄 Filters reset & cleared from storage",
                 LogLevel.Info
             );
             
