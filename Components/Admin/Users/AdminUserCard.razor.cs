@@ -1,4 +1,4 @@
-// Components/Admin/Users/AdminUserCard.razor.cs - FIXED
+// Components/Admin/Users/AdminUserCard.razor.cs
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.User;
 
@@ -10,7 +10,6 @@ public partial class AdminUserCard : ComponentBase
     [Parameter] public bool AllowSelection { get; set; }
     [Parameter] public bool IsSelected { get; set; }
     
-    // FIXED: Updated callback signatures
     [Parameter] public EventCallback<UserProfileViewModel> OnViewDetails { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnSendMessage { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnViewOrders { get; set; }
@@ -18,7 +17,6 @@ public partial class AdminUserCard : ComponentBase
     [Parameter] public EventCallback<(string userId, bool isSelected)> OnSelectionChanged { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnCardClick { get; set; }
     
-    // NEW: Separate callbacks for suspend/activate
     [Parameter] public EventCallback<UserProfileViewModel> OnSuspend { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnActivate { get; set; }
     [Parameter] public EventCallback<UserProfileViewModel> OnVerifyEmail { get; set; }

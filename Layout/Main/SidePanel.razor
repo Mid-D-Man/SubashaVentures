@@ -1,8 +1,7 @@
-@using SubashaVentures.Components.Shared.Buttons
+
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @using SubashaVentures.Services.Categories
-@using SubashaVentures.Services.Shop
 @using SubashaVentures.Domain.Product
 @using SubashaVentures.Utilities.HelperScripts
 @inject NavigationManager NavigationManager
@@ -17,7 +16,7 @@
             <div class="panel-header">
                 <div class="panel-title">
                     <span class="panel-icon">SV</span>
-                    <span class="panel-brand">SubashaVentures</span>
+                    <span class="panel-brand">Subasha</span>
                 </div>
                 <button class="panel-close" @onclick="ClosePanel" aria-label="Close menu">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -69,9 +68,7 @@
                     <a class="nav-link" @onclick="() => NavigateTo(ShopDirectory)">
                         <span class="nav-text">All Products</span>
                     </a>
-                    <a class="nav-link" @onclick="() => NavigateTo(DealsDirectory)">
-                        <span class="nav-text">Deals & Sales</span>
-                    </a>
+                  
                 </div>
 
                 <div class="nav-section">
@@ -149,17 +146,16 @@
 
 @code {
     // Navigation constants
-    private const string HomeDirectory = "/";
+    private const string HomeDirectory = "";
     private const string ShopDirectory = "shop";
-    private const string DealsDirectory = "shop/deals";
     private const string AboutDirectory = "about";
     private const string ContactDirectory = "contact";
     private const string HelpDirectory = "help";
-    private const string TrackOrderDirectory = "orders/track";
+    private const string TrackOrderDirectory = "user/orders/track";
     private const string UserDirectory = "user";
     private const string ProfileDirectory = "user/settings";
     private const string OrdersDirectory = "user/orders";
-    private const string WishlistDirectory = "wishlist";
+    private const string WishlistDirectory = "user/wishlist-cart";
     private const string SignInDirectory = "signin";
     private const string SignUpDirectory = "signup";
     
@@ -232,18 +228,18 @@
                     ? $"{firstName} {lastName}".Trim() 
                     : userEmail.Split('@')[0];
                 
-                Console.WriteLine($"✓ SidePanel: User authenticated - {userEmail}");
+                Console.WriteLine($" SidePanel: User authenticated - {userEmail}");
             }
             else
             {
                 userName = "";
                 userEmail = "";
-                Console.WriteLine("ℹ️ SidePanel: User not authenticated");
+                Console.WriteLine("SidePanel: User not authenticated");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ SidePanel: Error loading auth state - {ex.Message}");
+            Console.WriteLine($" SidePanel: Error loading auth state - {ex.Message}");
             isAuthenticated = false;
             userName = "";
             userEmail = "";
@@ -273,18 +269,18 @@
                 
                 HasMoreCategories = allCategories.Count > MAX_CATEGORIES_TO_SHOW;
                 
-                Console.WriteLine($"✓ Loaded {TopCategories.Count} categories for side panel");
+                Console.WriteLine($" Loaded {TopCategories.Count} categories for side panel");
             }
             else
             {
                 TopCategories = new List<CategoryViewModel>();
                 HasMoreCategories = false;
-                Console.WriteLine("⚠ No categories found");
+                Console.WriteLine(" No categories found");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error loading categories: {ex.Message}");
+            Console.WriteLine($" Error loading categories: {ex.Message}");
             TopCategories = new List<CategoryViewModel>();
             HasMoreCategories = false;
         }
@@ -299,7 +295,7 @@
     {
         try
         {
-            Console.WriteLine($"🔍 Category clicked: {category.Name}");
+            Console.WriteLine($" Category clicked: {category.Name}");
             
             // STEP 1: Update filters via ShopState (NOT FilterService)
             await ShopState.UpdateCategoriesAsync(new List<string> { category.Name });
@@ -308,16 +304,16 @@
             
             // STEP 2: Close panel for immediate feedback
             await ClosePanel();
-            await Task.Delay(50);
+            await Task.Delay(100);
             // STEP 3: Navigate to shop page
-            Console.WriteLine($"🚀 Navigating to {ShopDirectory}");
+            Console.WriteLine($" Navigating to {ShopDirectory}");
             NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
             
-            Console.WriteLine($"✓ Navigation completed");
+            Console.WriteLine($" Navigation completed");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
+            Console.WriteLine($" Error navigating with category: {ex.Message}");
             await MID_HelperFunctions.LogExceptionAsync(ex, $"Navigating with category: {category.Name}");
             
             // Still close panel and navigate even if filter update failed

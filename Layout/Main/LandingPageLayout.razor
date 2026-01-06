@@ -4,7 +4,6 @@
 
 @inherits LayoutComponentBase
 @inject INavigationService NavService
-@inject AuthenticationStateProvider AuthStateProvider
 @inject ISupabaseAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ILogger<LandingPageLayout> Logger
@@ -77,7 +76,7 @@
                 NavigationManager.NavigateTo("signup");
                 break;
             case SidePanel.ActionType.Profile:
-                NavigationManager.NavigateTo("user/settings");
+                NavigationManager.NavigateTo("user");
                 break;
             case SidePanel.ActionType.Logout:
                 await HandleLogout();
@@ -96,7 +95,7 @@
     {
         try
         {
-            Logger.LogInformation("📋 Showing logout confirmation");
+            Logger.LogInformation("Showing logout confirmation");
             NavService.SetSidePanelState(false);
             showLogoutConfirmation = true;
             StateHasChanged();
@@ -116,19 +115,19 @@
             isSigningOut = true;
             StateHasChanged();
             
-            Logger.LogInformation("🔴 Signing out user");
+            Logger.LogInformation("Signing out user");
             
             var success = await AuthService.SignOutAsync();
             
             if (success)
             {
-                Logger.LogInformation("✅ User signed out successfully");
+                Logger.LogInformation("User signed out successfully");
                 showLogoutConfirmation = false;
                 NavigationManager.NavigateTo("", forceLoad: true);
             }
             else
             {
-                Logger.LogError("❌ Sign out failed");
+                Logger.LogError("Sign out failed");
             }
         }
         catch (Exception ex)
@@ -146,7 +145,7 @@
     {
         try
         {
-            Logger.LogInformation("❌ Logout cancelled");
+            Logger.LogInformation("Logout cancelled");
             showLogoutConfirmation = false;
             StateHasChanged();
         }

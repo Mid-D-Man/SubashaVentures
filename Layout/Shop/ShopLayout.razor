@@ -24,7 +24,7 @@
 @code {
     [Parameter] public int CartItemCount { get; set; } = 0;
 
-    // FIXED: Use the state service to broadcast events
+    //use the state service to broadcast events
     private async Task HandleSearchFromNav(string query)
     {
         await ShopState.NotifySearchChanged(query);

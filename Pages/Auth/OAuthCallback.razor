@@ -16,7 +16,7 @@
         <!-- Logo/Brand -->
         <div class="brand-section">
             <div class="brand-icon">SV</div>
-            <h1 class="brand-name">SubashaVentures</h1>
+            <h1 class="brand-name">Subasha</h1>
         </div>
 
         <!-- Loading Animation -->
@@ -148,7 +148,7 @@
             var user = await AuthService.GetCurrentUserAsync();
             if (user == null)
             {
-                return ""; // ✅ Home is empty string
+                return ""; //  Home is empty string
             }
 
             // Get user profile with roles
@@ -160,7 +160,7 @@
                     "User profile not found, redirecting to home",
                     LogLevel.Warning
                 );
-                return ""; // ✅ Home is empty string
+                return ""; //  Home is empty string
             }
 
             // Check if user is superior admin
@@ -179,12 +179,12 @@
                 LogLevel.Info
             );
             
-            return ""; // ✅ Home is empty string
+            return ""; //  Home is empty string
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
-            return ""; // ✅ Home is empty string on error
+            return ""; // Home is empty string on error
         }
     }
 }

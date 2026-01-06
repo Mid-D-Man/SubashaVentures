@@ -117,7 +117,7 @@
     border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: var(--tier-color);
+    background: var(--dark-background-light);
     color: white;
     text-transform: uppercase;
     letter-spacing: 0.5px;

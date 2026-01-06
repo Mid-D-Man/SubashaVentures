@@ -33,4 +33,8 @@
       <Folder Include="Components\Client\" />
     </ItemGroup>
 
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Pages\Cart\Cart.razor" />
+    </ItemGroup>
+
 </Project>
