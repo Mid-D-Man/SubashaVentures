@@ -26,6 +26,7 @@ using SubashaVentures.Services.Addresses;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Auth;
+using SubashaVentures.Services.Orders;
 using SubashaVentures.Services.Shop;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.VisualElements;
@@ -136,7 +137,7 @@ builder.Services.AddScoped<IAddressService, AddressService>();
 // ==================== CART & WISHLIST ====================
 builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
 builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
-
+builder.Services.AddScoped<IOrderService, OrderService>();
 var host = builder.Build();
 
 try
