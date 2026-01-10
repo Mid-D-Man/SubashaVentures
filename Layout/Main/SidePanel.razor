@@ -71,43 +71,43 @@
                   
                 </div>
 
-                <div class="nav-section">
-                    <h4 class="section-title">Categories</h4>
-                    
-                    @if (IsLoadingCategories)
-                    {
-                        <div class="category-loading">
-                            <div class="loading-spinner-small"></div>
-                            <span class="loading-text">Loading categories...</span>
-                        </div>
-                    }
-                    else if (TopCategories.Any())
-                    {
-                        @foreach (var category in TopCategories)
-                        {
-                            <a class="nav-link" @onclick="() => NavigateToShopWithCategory(category)">
-                                @if (!string.IsNullOrEmpty(category.IconEmoji))
-                                {
-                                    <span class="category-icon">@category.IconEmoji</span>
-                                }
-                                <span class="nav-text">@category.Name</span>
-                            </a>
-                        }
-                        
-                        @if (HasMoreCategories)
-                        {
-                            <a class="nav-link view-all-link" @onclick="() => NavigateTo(ShopDirectory)">
-                                <span class="nav-text">View All Categories</span>
-                            </a>
-                        }
-                    }
-                    else
-                    {
-                        <div class="category-empty">
-                            <span class="empty-text">No categories available</span>
-                        </div>
-                    }
-                </div>
+     <div class="nav-section">
+    <h4 class="section-title">Categories</h4>
+    
+    @if (IsLoadingCategories)
+    {
+        <div class="category-loading">
+            <div class="loading-spinner-small"></div>
+            <span class="loading-text">Loading categories...</span>
+        </div>
+    }
+    else if (TopCategories.Any())
+    {
+        @foreach (var category in TopCategories)
+        {
+            <a class="nav-link" @onclick="() => NavigateToShopWithCategory(category)">
+                @if (!string.IsNullOrEmpty(category.IconEmoji))
+                {
+                    <span class="category-icon">@category.IconEmoji</span>
+                }
+                <span class="nav-text">@category.Name</span>
+            </a>
+        }
+        
+        @if (HasMoreCategories)
+        {
+            <a class="nav-link view-all-link" @onclick="() => NavigateTo(ShopDirectory)">
+                <span class="nav-text">View All Categories</span>
+            </a>
+        }
+    }
+    else
+    {
+        <div class="category-empty">
+            <span class="empty-text">No categories available</span>
+        </div>
+    }
+</div>
 
                 <div class="nav-section">
                     <h4 class="section-title">Support</h4>
@@ -292,35 +292,36 @@
     }
 
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
+{
+    try
     {
-        try
-        {
-            Console.WriteLine($" Category clicked: {category.Name}");
-            
-            // STEP 1: Update filters via ShopState (NOT FilterService)
-            await ShopState.UpdateCategoriesAsync(new List<string> { category.Name });
-            
-            Console.WriteLine($"✓ Filters updated with category: {category.Name}");
-            
-            // STEP 2: Close panel for immediate feedback
-            await ClosePanel();
-            await Task.Delay(100);
-            // STEP 3: Navigate to shop page
-            Console.WriteLine($" Navigating to {ShopDirectory}");
-            NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
-            
-            Console.WriteLine($" Navigation completed");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($" Error navigating with category: {ex.Message}");
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Navigating with category: {category.Name}");
-            
-            // Still close panel and navigate even if filter update failed
-            await ClosePanel();
-            NavigationManager.NavigateTo(ShopDirectory);
-        }
+        Console.WriteLine($"📂 Category clicked: {category.Name}");
+        
+        // ✅ STEP 1: Update filters via ShopState with EXACT category name from Firebase
+        await ShopState.UpdateCategoriesAsync(new List<string> { category.Name });
+        
+        Console.WriteLine($"✓ Filters updated with category: {category.Name}");
+        
+        // ✅ STEP 2: Close panel
+        await ClosePanel();
+        await Task.Delay(100);
+        
+        // ✅ STEP 3: Navigate to shop
+        Console.WriteLine($"🔄 Navigating to shop");
+        NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
+        
+        Console.WriteLine($"✓ Navigation completed");
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error navigating with category: {ex.Message}");
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Navigating with category: {category.Name}");
+        
+        // Still close panel and navigate
+        await ClosePanel();
+        NavigationManager.NavigateTo(ShopDirectory);
+    }
+}
 
     private async Task ClosePanel()
     {
