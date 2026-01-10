@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Products;
+using SubashaVentures.Services.Categories;
+using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.Shop;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -11,6 +13,8 @@ namespace SubashaVentures.Pages.Shop;
 public partial class Shop : ComponentBase, IDisposable
 {
     [Inject] private IProductService ProductService { get; set; } = null!;
+    [Inject] private ICategoryService CategoryService { get; set; } = null!;
+    [Inject] private IBrandService BrandService { get; set; } = null!;
     [Inject] private ShopStateService ShopState { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
     
@@ -19,7 +23,8 @@ public partial class Shop : ComponentBase, IDisposable
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
     private List<ProductViewModel> CurrentPageProducts { get; set; } = new();
     
-    // Available filter options (loaded from DB)
+    // ✅ FIREBASE AUTHORITATIVE SOURCES (NOT from products!)
+    private List<CategoryViewModel> FirebaseCategories { get; set; } = new();
     private List<string> AvailableCategories { get; set; } = new();
     private List<string> AvailableBrands { get; set; } = new();
     
@@ -29,16 +34,14 @@ public partial class Shop : ComponentBase, IDisposable
     private string ErrorMessage { get; set; } = "";
     private bool IsInitialized { get; set; } = false;
     
-    // ✅ FIX: Track initialization stages separately
+    // ✅ Explicit initialization stages
+    private bool AreCategoriesLoaded { get; set; } = false;
+    private bool AreBrandsLoaded { get; set; } = false;
     private bool AreProductsLoaded { get; set; } = false;
-    private bool AreFilterOptionsLoaded { get; set; } = false;
     
-    // Current Filters (IN-MEMORY ONLY)
+    // Current Filters
     private FilterState CurrentFilters { get; set; } = FilterState.CreateDefault();
     private string SelectedSort { get; set; } = "default";
-    
-    // ✅ FIX: Store pending filter update if it arrives during initialization
-    private FilterState? PendingFilterUpdate { get; set; }
     
     // Pagination
     private int CurrentPage { get; set; } = 1;
@@ -74,87 +77,54 @@ public partial class Shop : ComponentBase, IDisposable
             LogLevel.Info
         );
         
-        // ✅ FIX: Subscribe to events FIRST, before loading anything
-        ShopState.OnSearchChanged += HandleSearchChanged;
-        ShopState.OnFiltersChanged += HandleFiltersChangedFromState;
-        
-        // ✅ FIX: Get filters from state IMMEDIATELY (might have been set by navigation)
-        var stateFilters = await ShopState.GetCurrentFiltersAsync();
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"📋 Initial filters from state: Categories=[{string.Join(", ", stateFilters.Categories)}], Search='{stateFilters.SearchQuery}'",
-            LogLevel.Info
-        );
-        
-        // STEP 1: Load products FIRST
-        await LoadProducts();
-        AreProductsLoaded = true;
-        
-        // STEP 2: Extract available categories/brands from products
-        ExtractFilterOptionsFromProducts();
-        AreFilterOptionsLoaded = true;
-        
-        // STEP 3: Now that options are loaded, set current filters
-        CurrentFilters = stateFilters;
-        SelectedSort = CurrentFilters.SortBy;
-        
-        // STEP 4: Validate filters against available options
-        ValidateAndFixFilters();
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"📋 Validated filters: Categories=[{string.Join(", ", CurrentFilters.Categories)}], Search='{CurrentFilters.SearchQuery}'",
-            LogLevel.Info
-        );
-        
-        // STEP 5: Apply the pending filter update if one arrived during init
-        if (PendingFilterUpdate != null)
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Applying pending filter update: Categories=[{string.Join(", ", PendingFilterUpdate.Categories)}]",
-                LogLevel.Info
-            );
-            
-            CurrentFilters = PendingFilterUpdate;
-            PendingFilterUpdate = null;
-            ValidateAndFixFilters();
-        }
-        
-        // STEP 6: Apply filters
-        await ApplyFilters();
-        
-        IsInitialized = true;
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            "✓ Shop page initialized successfully",
-            LogLevel.Info
-        );
-    }
-
-    private async Task LoadProducts()
-    {
         IsLoading = true;
-        HasError = false;
-        StateHasChanged();
-
+        
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "📦 Loading all products",
-                LogLevel.Info
-            );
-
-            AllProducts = await ProductService.GetAllProductsAsync();
+            // ✅ STEP 1: Subscribe to events FIRST
+            ShopState.OnSearchChanged += HandleSearchChanged;
+            ShopState.OnFiltersChanged += HandleFiltersChangedFromState;
+            
+            // ✅ STEP 2: Load FIREBASE categories/brands FIRST (authoritative source)
+            await LoadFirebaseCategoriesAndBrands();
+            
+            // ✅ STEP 3: Load products
+            await LoadProducts();
+            
+            // ✅ STEP 4: NOW load filters from localStorage (categories are ready to validate against)
+            var stateFilters = await ShopState.GetCurrentFiltersAsync();
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {AllProducts.Count} products",
+                $"📋 Initial filters from state: Categories=[{string.Join(", ", stateFilters.Categories)}], Search='{stateFilters.SearchQuery}'",
+                LogLevel.Info
+            );
+            
+            CurrentFilters = stateFilters;
+            SelectedSort = CurrentFilters.SortBy;
+            
+            // ✅ STEP 5: Validate filters against FIREBASE categories (exact match only)
+            ValidateFiltersAgainstFirebase();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📋 Validated filters: Categories=[{string.Join(", ", CurrentFilters.Categories)}], Search='{CurrentFilters.SearchQuery}'",
+                LogLevel.Info
+            );
+            
+            // ✅ STEP 6: Apply filters
+            await ApplyFilters();
+            
+            IsInitialized = true;
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✓ Shop page initialized successfully",
                 LogLevel.Info
             );
         }
         catch (Exception ex)
         {
             HasError = true;
-            ErrorMessage = "Unable to load products. Please try again.";
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading products");
+            ErrorMessage = "Failed to initialize shop";
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Shop initialization");
         }
         finally
         {
@@ -164,94 +134,133 @@ public partial class Shop : ComponentBase, IDisposable
     }
 
     /// <summary>
-    /// Extract actual categories and brands that exist in products
+    /// ✅ Load categories and brands from FIREBASE (authoritative source)
     /// </summary>
-    private void ExtractFilterOptionsFromProducts()
+    private async Task LoadFirebaseCategoriesAndBrands()
     {
-        AvailableCategories = AllProducts
-            .Where(p => !string.IsNullOrWhiteSpace(p.Category))
-            .Select(p => p.Category.Trim())
-            .Distinct()
-            .OrderBy(c => c)
-            .ToList();
-        
-        AvailableBrands = AllProducts
-            .Where(p => !string.IsNullOrWhiteSpace(p.Brand))
-            .Select(p => p.Brand.Trim())
-            .Distinct()
-            .OrderBy(b => b)
-            .ToList();
-        
-        Console.WriteLine($"📊 Available categories: [{string.Join(", ", AvailableCategories)}]");
-        Console.WriteLine($"📊 Available brands: [{string.Join(", ", AvailableBrands)}]");
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "📦 Loading categories and brands from Firebase",
+                LogLevel.Info
+            );
+            
+            // Load from Firebase
+            FirebaseCategories = await CategoryService.GetAllCategoriesAsync();
+            var firebaseBrands = await BrandService.GetAllBrandsAsync();
+            
+            // Extract names (these are the CORRECT names like "Mens Clothing")
+            AvailableCategories = FirebaseCategories
+                .Where(c => c.IsActive)
+                .Select(c => c.Name.Trim())
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+            
+            AvailableBrands = firebaseBrands
+                .Where(b => b.IsActive)
+                .Select(b => b.Name.Trim())
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+            
+            AreCategoriesLoaded = true;
+            AreBrandsLoaded = true;
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {AvailableCategories.Count} Firebase categories: [{string.Join(", ", AvailableCategories)}]",
+                LogLevel.Info
+            );
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {AvailableBrands.Count} Firebase brands: [{string.Join(", ", AvailableBrands)}]",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading Firebase categories/brands");
+            
+            // NO FALLBACKS - if Firebase fails, we have bigger problems
+            AvailableCategories = new List<string>();
+            AvailableBrands = new List<string>();
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "📦 Loading all products",
+                LogLevel.Info
+            );
+
+            AllProducts = await ProductService.GetAllProductsAsync();
+            AreProductsLoaded = true;
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {AllProducts.Count} products",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading products");
+            AllProducts = new List<ProductViewModel>();
+        }
     }
 
     /// <summary>
-    /// Validate filters and remove invalid categories/brands
+    /// ✅ Validate filters against FIREBASE categories (EXACT match only, no fuzzy matching!)
     /// </summary>
-    private void ValidateAndFixFilters()
-{
-    if (!AvailableCategories.Any() || !AvailableBrands.Any())
+    private void ValidateFiltersAgainstFirebase()
     {
-        Console.WriteLine("⚠ Cannot validate - no available options loaded yet");
-        return; // ✅ Don't validate if options aren't loaded
-    }
-    
-    var originalCategoryCount = CurrentFilters.Categories.Count;
-    var originalBrandCount = CurrentFilters.Brands.Count;
-    
-    Console.WriteLine($"📊 Validating against: [{string.Join(", ", AvailableCategories)}]");
-    Console.WriteLine($"📊 Current categories: [{string.Join(", ", CurrentFilters.Categories)}]");
-    
-    // ✅ Remove categories that don't exist (CASE-INSENSITIVE + FLEXIBLE MATCHING)
-    var validatedCategories = new List<string>();
-    foreach (var filterCategory in CurrentFilters.Categories)
-    {
-        var matchedCategory = AvailableCategories.FirstOrDefault(ac => 
-            ac.Equals(filterCategory, StringComparison.OrdinalIgnoreCase) ||
-            ac.Replace(" ", "").Equals(filterCategory.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) ||
-            ac.Contains(filterCategory, StringComparison.OrdinalIgnoreCase) ||
-            filterCategory.Contains(ac, StringComparison.OrdinalIgnoreCase)
-        );
+        if (!AreCategoriesLoaded || !AreBrandsLoaded)
+        {
+            Console.WriteLine("⚠️ Cannot validate - Firebase data not loaded yet");
+            return;
+        }
         
-        if (matchedCategory != null)
+        var originalCategoryCount = CurrentFilters.Categories.Count;
+        var originalBrandCount = CurrentFilters.Brands.Count;
+        
+        Console.WriteLine($"📊 Validating against Firebase categories: [{string.Join(", ", AvailableCategories)}]");
+        Console.WriteLine($"📊 Current filter categories: [{string.Join(", ", CurrentFilters.Categories)}]");
+        
+        // ✅ EXACT MATCH ONLY - no fuzzy matching that corrupts category names!
+        var validatedCategories = CurrentFilters.Categories
+            .Where(filterCat => AvailableCategories.Any(fbCat => 
+                fbCat.Equals(filterCat, StringComparison.Ordinal))) // EXACT match
+            .ToList();
+        
+        var validatedBrands = CurrentFilters.Brands
+            .Where(filterBrand => AvailableBrands.Any(fbBrand => 
+                fbBrand.Equals(filterBrand, StringComparison.Ordinal))) // EXACT match
+            .ToList();
+        
+        CurrentFilters.Categories = validatedCategories;
+        CurrentFilters.Brands = validatedBrands;
+        
+        if (originalCategoryCount != CurrentFilters.Categories.Count)
         {
-            validatedCategories.Add(matchedCategory); // Use the actual category name from products
-            Console.WriteLine($"✓ Matched '{filterCategory}' to '{matchedCategory}'");
+            Console.WriteLine($"⚠️ Removed {originalCategoryCount - CurrentFilters.Categories.Count} invalid categories");
         }
-        else
+        
+        if (originalBrandCount != CurrentFilters.Brands.Count)
         {
-            Console.WriteLine($"❌ No match found for '{filterCategory}'");
+            Console.WriteLine($"⚠️ Removed {originalBrandCount - CurrentFilters.Brands.Count} invalid brands");
         }
+        
+        Console.WriteLine($"✅ Validated categories: [{string.Join(", ", CurrentFilters.Categories)}]");
     }
-    
-    CurrentFilters.Categories = validatedCategories;
-    
-    // ✅ Remove brands that don't exist (CASE-INSENSITIVE)
-    CurrentFilters.Brands = CurrentFilters.Brands
-        .Where(b => AvailableBrands.Any(ab => 
-            ab.Equals(b, StringComparison.OrdinalIgnoreCase)))
-        .ToList();
-    
-    if (originalCategoryCount != CurrentFilters.Categories.Count)
-    {
-        Console.WriteLine($"⚠ Removed {originalCategoryCount - CurrentFilters.Categories.Count} invalid categories");
-    }
-    
-    if (originalBrandCount != CurrentFilters.Brands.Count)
-    {
-        Console.WriteLine($"⚠ Removed {originalBrandCount - CurrentFilters.Brands.Count} invalid brands");
-    }
-    
-    Console.WriteLine($"✅ Validated categories: [{string.Join(", ", CurrentFilters.Categories)}]");
-}
 
     private async Task HandleFiltersChanged(FilterState filters)
     {
-        if (!IsInitialized || !AllProducts.Any())
+        if (!IsInitialized)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "⚠ Ignoring filter change - not initialized or no products",
+                "⚠️ Ignoring filter change - not initialized",
                 LogLevel.Warning
             );
             return;
@@ -265,10 +274,10 @@ public partial class Shop : ComponentBase, IDisposable
         CurrentFilters = filters.Clone();
         SelectedSort = CurrentFilters.SortBy;
         
-        // Validate before updating state
-        ValidateAndFixFilters();
+        // Validate against Firebase
+        ValidateFiltersAgainstFirebase();
         
-        // Update ShopState with validated filters
+        // Update ShopState
         await ShopState.UpdateFiltersAsync(CurrentFilters);
         
         CurrentPage = 1;
@@ -278,15 +287,12 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async Task HandleFiltersChangedFromState(FilterState filters)
     {
-        // ✅ FIX: If not ready yet, store as pending update
-        if (!AreFilterOptionsLoaded || !AreProductsLoaded)
+        if (!AreCategoriesLoaded || !AreBrandsLoaded)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"⏳ Products/options not loaded yet, storing pending filter update: Categories=[{string.Join(", ", filters.Categories)}]",
+                $"⏳ Firebase data not loaded yet, ignoring state update",
                 LogLevel.Info
             );
-            
-            PendingFilterUpdate = filters.Clone();
             return;
         }
 
@@ -298,10 +304,10 @@ public partial class Shop : ComponentBase, IDisposable
         CurrentFilters = filters.Clone();
         SelectedSort = CurrentFilters.SortBy;
         
-        // Validate filters
-        ValidateAndFixFilters();
+        // Validate against Firebase
+        ValidateFiltersAgainstFirebase();
         
-        if (IsInitialized && AllProducts.Any())
+        if (IsInitialized)
         {
             CurrentPage = 1;
             await ApplyFilters();
@@ -310,12 +316,8 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async Task HandleSearchChanged(string query)
     {
-        if (!IsInitialized || !AllProducts.Any())
+        if (!IsInitialized)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "⚠ Ignoring search change - not initialized or no products",
-                LogLevel.Warning
-            );
             return;
         }
 
@@ -332,7 +334,7 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async Task HandleSortChanged()
     {
-        if (!IsInitialized || !AllProducts.Any())
+        if (!IsInitialized)
         {
             return;
         }
@@ -352,10 +354,10 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async Task ApplyFilters()
     {
-        if (!AllProducts.Any())
+        if (!AreProductsLoaded)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "⚠ Cannot apply filters - no products loaded",
+                "⚠️ Cannot apply filters - products not loaded",
                 LogLevel.Debug
             );
             FilteredProducts = new List<ProductViewModel>();
@@ -391,20 +393,19 @@ public partial class Shop : ComponentBase, IDisposable
             ).ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 After search filter: {FilteredProducts.Count} products (filtered by '{query}')",
+                $"🔍 After search filter: {FilteredProducts.Count} products",
                 LogLevel.Debug
             );
         }
 
-        // Apply category filter (CASE-INSENSITIVE)
+        // ✅ Apply category filter - EXACT MATCH against Firebase categories
         if (CurrentFilters.Categories.Any())
         {
             var beforeCategoryFilter = FilteredProducts.Count;
             
             FilteredProducts = FilteredProducts
                 .Where(p => !string.IsNullOrEmpty(p.Category) && 
-                           CurrentFilters.Categories.Any(filterCategory => 
-                               p.Category.Equals(filterCategory, StringComparison.OrdinalIgnoreCase)))
+                           CurrentFilters.Categories.Contains(p.Category, StringComparer.Ordinal)) // EXACT match
                 .ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -412,7 +413,6 @@ public partial class Shop : ComponentBase, IDisposable
                 LogLevel.Debug
             );
             
-            // Log which categories matched
             if (FilteredProducts.Any())
             {
                 var matchedCategories = FilteredProducts
@@ -427,21 +427,20 @@ public partial class Shop : ComponentBase, IDisposable
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"⚠ No products matched categories: [{string.Join(", ", CurrentFilters.Categories)}]",
+                    $"⚠️ No products matched categories: [{string.Join(", ", CurrentFilters.Categories)}]",
                     LogLevel.Warning
                 );
             }
         }
 
-        // Apply brand filter (CASE-INSENSITIVE)
+        // Apply brand filter
         if (CurrentFilters.Brands.Any())
         {
             var beforeBrandFilter = FilteredProducts.Count;
             
             FilteredProducts = FilteredProducts
                 .Where(p => !string.IsNullOrEmpty(p.Brand) && 
-                           CurrentFilters.Brands.Any(filterBrand => 
-                               p.Brand.Equals(filterBrand, StringComparison.OrdinalIgnoreCase)))
+                           CurrentFilters.Brands.Contains(p.Brand, StringComparer.Ordinal)) // EXACT match
                 .ToList();
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -453,61 +452,33 @@ public partial class Shop : ComponentBase, IDisposable
         // Apply rating filter
         if (CurrentFilters.MinRating > 0)
         {
-            var beforeRatingFilter = FilteredProducts.Count;
-            
             FilteredProducts = FilteredProducts
                 .Where(p => p.Rating >= CurrentFilters.MinRating)
                 .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"⭐ After rating filter (>={CurrentFilters.MinRating}): {FilteredProducts.Count} products (was {beforeRatingFilter})",
-                LogLevel.Debug
-            );
         }
 
         // Apply price filter
         if (CurrentFilters.MinPrice > 0 || CurrentFilters.MaxPrice < 1000000)
         {
-            var beforePriceFilter = FilteredProducts.Count;
-            
             FilteredProducts = FilteredProducts
                 .Where(p => p.Price >= CurrentFilters.MinPrice && p.Price <= CurrentFilters.MaxPrice)
                 .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"💰 After price filter (₦{CurrentFilters.MinPrice}-₦{CurrentFilters.MaxPrice}): {FilteredProducts.Count} products (was {beforePriceFilter})",
-                LogLevel.Debug
-            );
         }
 
         // Apply sale filter
         if (CurrentFilters.OnSale)
         {
-            var beforeSaleFilter = FilteredProducts.Count;
-            
             FilteredProducts = FilteredProducts
                 .Where(p => p.IsOnSale)
                 .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔥 After sale filter: {FilteredProducts.Count} products (was {beforeSaleFilter})",
-                LogLevel.Debug
-            );
         }
 
         // Apply free shipping filter
         if (CurrentFilters.FreeShipping)
         {
-            var beforeShippingFilter = FilteredProducts.Count;
-            
             FilteredProducts = FilteredProducts
                 .Where(p => p.Price >= 50000)
                 .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🚚 After free shipping filter: {FilteredProducts.Count} products (was {beforeShippingFilter})",
-                LogLevel.Debug
-            );
         }
 
         await MID_HelperFunctions.DebugMessageAsync(
@@ -526,8 +497,6 @@ public partial class Shop : ComponentBase, IDisposable
 
     private void ApplySorting()
     {
-        var beforeSort = FilteredProducts.Count;
-        
         FilteredProducts = SelectedSort switch
         {
             "price-asc" => FilteredProducts.OrderBy(p => p.Price).ToList(),
@@ -535,10 +504,10 @@ public partial class Shop : ComponentBase, IDisposable
             "rating-desc" => FilteredProducts.OrderByDescending(p => p.Rating).ToList(),
             "name-asc" => FilteredProducts.OrderBy(p => p.Name).ToList(),
             "newest" => FilteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
-            _ => FilteredProducts.OrderBy(p => p.Id).ToList() // DEFAULT SORT
+            _ => FilteredProducts.OrderBy(p => p.Id).ToList()
         };
         
-        Console.WriteLine($"📊 Sorted {beforeSort} products by: {SelectedSort}");
+        Console.WriteLine($"📊 Sorted {FilteredProducts.Count} products by: {SelectedSort}");
     }
 
     private void UpdateCurrentPageProducts()
