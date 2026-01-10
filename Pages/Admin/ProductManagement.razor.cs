@@ -1162,13 +1162,13 @@ private string EscapeCsv(string value)
             Price = form.Price,
             OriginalPrice = form.OriginalPrice,
             Stock = form.Stock,
-            CategoryId = form.CategoryId,
-            Brand = form.Brand,
+            CategoryId = form.CategoryId, // ✅ INCLUDED
+            Brand = form.Brand,           // ✅ INCLUDED
             Tags = form.Tags,
             Sizes = form.Sizes,
             Colors = form.Colors,
-            ImageUrls = form.ImageUrls, // ✅ FIXED - Now included
-            VideoUrl = form.VideoUrl,    // ✅ FIXED - Now included
+            ImageUrls = form.ImageUrls,
+            VideoUrl = form.VideoUrl,
             IsFeatured = form.IsFeatured,
             IsActive = form.IsActive
         };

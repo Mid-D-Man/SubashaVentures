@@ -54,8 +54,8 @@ public class UpdateProductRequest
     public decimal? Price { get; set; }
     public decimal? OriginalPrice { get; set; }
     public int? Stock { get; set; }
-    public string? CategoryId { get; set; }
-    public string? Brand { get; set; }
+    public string? CategoryId { get; set; }  // ✅ PRESENT
+    public string? Brand { get; set; }        // ✅ PRESENT
     public List<string>? Tags { get; set; }
     public List<string>? Sizes { get; set; }
     public List<string>? Colors { get; set; }

@@ -351,178 +351,180 @@ public partial class Shop : ComponentBase, IDisposable
     }
 
     private async Task ApplyFilters()
+{
+    if (!AreProductsLoaded)
     {
-        if (!AllProducts.Any())
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "⚠ Cannot apply filters - no products loaded",
-                LogLevel.Debug
-            );
-            FilteredProducts = new List<ProductViewModel>();
-            CurrentPageProducts = new List<ProductViewModel>();
-            return;
-        }
-
         await MID_HelperFunctions.DebugMessageAsync(
-            $"🎯 Applying filters - Categories: [{string.Join(", ", CurrentFilters.Categories)}], Search: '{CurrentFilters.SearchQuery}'",
-            LogLevel.Info
-        );
-
-        // Start with all active products
-        FilteredProducts = AllProducts
-            .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
-            .ToList();
-
-        var startCount = FilteredProducts.Count;
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"📦 Starting with {startCount} active products",
+            "⚠️ Cannot apply filters - products not loaded",
             LogLevel.Debug
         );
-
-        // Apply search filter
-        if (!string.IsNullOrWhiteSpace(CurrentFilters.SearchQuery))
-        {
-            var query = CurrentFilters.SearchQuery.ToLower().Trim();
-            FilteredProducts = FilteredProducts.Where(p =>
-                (p.Name?.ToLower().Contains(query) ?? false) ||
-                (p.Description?.ToLower().Contains(query) ?? false) ||
-                (p.Brand?.ToLower().Contains(query) ?? false) ||
-                (p.Category?.ToLower().Contains(query) ?? false)
-            ).ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 After search filter: {FilteredProducts.Count} products (filtered by '{query}')",
-                LogLevel.Debug
-            );
-        }
-
-        // Apply category filter (CASE-INSENSITIVE)
-        if (CurrentFilters.Categories.Any())
-        {
-            var beforeCategoryFilter = FilteredProducts.Count;
-            
-            FilteredProducts = FilteredProducts
-                .Where(p => !string.IsNullOrEmpty(p.Category) && 
-                           CurrentFilters.Categories.Any(filterCategory => 
-                               p.Category.Equals(filterCategory, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"📂 After category filter: {FilteredProducts.Count} products (was {beforeCategoryFilter})",
-                LogLevel.Debug
-            );
-            
-            // Log which categories matched
-            if (FilteredProducts.Any())
-            {
-                var matchedCategories = FilteredProducts
-                    .Select(p => p.Category)
-                    .Distinct()
-                    .ToList();
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Matched categories: [{string.Join(", ", matchedCategories)}]",
-                    LogLevel.Debug
-                );
-            }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"⚠ No products matched categories: [{string.Join(", ", CurrentFilters.Categories)}]",
-                    LogLevel.Warning
-                );
-            }
-        }
-
-        // Apply brand filter (CASE-INSENSITIVE)
-        if (CurrentFilters.Brands.Any())
-        {
-            var beforeBrandFilter = FilteredProducts.Count;
-            
-            FilteredProducts = FilteredProducts
-                .Where(p => !string.IsNullOrEmpty(p.Brand) && 
-                           CurrentFilters.Brands.Any(filterBrand => 
-                               p.Brand.Equals(filterBrand, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🏷️ After brand filter: {FilteredProducts.Count} products (was {beforeBrandFilter})",
-                LogLevel.Debug
-            );
-        }
-
-        // Apply rating filter
-        if (CurrentFilters.MinRating > 0)
-        {
-            var beforeRatingFilter = FilteredProducts.Count;
-            
-            FilteredProducts = FilteredProducts
-                .Where(p => p.Rating >= CurrentFilters.MinRating)
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"⭐ After rating filter (>={CurrentFilters.MinRating}): {FilteredProducts.Count} products (was {beforeRatingFilter})",
-                LogLevel.Debug
-            );
-        }
-
-        // Apply price filter
-        if (CurrentFilters.MinPrice > 0 || CurrentFilters.MaxPrice < 1000000)
-        {
-            var beforePriceFilter = FilteredProducts.Count;
-            
-            FilteredProducts = FilteredProducts
-                .Where(p => p.Price >= CurrentFilters.MinPrice && p.Price <= CurrentFilters.MaxPrice)
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"💰 After price filter (₦{CurrentFilters.MinPrice}-₦{CurrentFilters.MaxPrice}): {FilteredProducts.Count} products (was {beforePriceFilter})",
-                LogLevel.Debug
-            );
-        }
-
-        // Apply sale filter
-        if (CurrentFilters.OnSale)
-        {
-            var beforeSaleFilter = FilteredProducts.Count;
-            
-            FilteredProducts = FilteredProducts
-                .Where(p => p.IsOnSale)
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔥 After sale filter: {FilteredProducts.Count} products (was {beforeSaleFilter})",
-                LogLevel.Debug
-            );
-        }
-
-        // Apply free shipping filter
-        if (CurrentFilters.FreeShipping)
-        {
-            var beforeShippingFilter = FilteredProducts.Count;
-            
-            FilteredProducts = FilteredProducts
-                .Where(p => p.Price >= 50000)
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🚚 After free shipping filter: {FilteredProducts.Count} products (was {beforeShippingFilter})",
-                LogLevel.Debug
-            );
-        }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✅ Final filtered products: {FilteredProducts.Count} (started with {startCount})",
-            LogLevel.Info
-        );
-
-        // Apply sorting
-        ApplySorting();
-        
-        // Update pagination
-        UpdateCurrentPageProducts();
-        
-        StateHasChanged();
+        FilteredProducts = new List<ProductViewModel>();
+        CurrentPageProducts = new List<ProductViewModel>();
+        return;
     }
+
+    await MID_HelperFunctions.DebugMessageAsync(
+        $"🎯 Applying filters - Categories: [{string.Join(", ", CurrentFilters.Categories)}], Search: '{CurrentFilters.SearchQuery}'",
+        LogLevel.Info
+    );
+
+    // Start with all active products
+    FilteredProducts = AllProducts
+        .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
+        .ToList();
+
+    var startCount = FilteredProducts.Count;
+    await MID_HelperFunctions.DebugMessageAsync(
+        $"📦 Starting with {startCount} active products",
+        LogLevel.Debug
+    );
+
+    // ✅ DEBUG: Show what categories exist in products
+    var productCategories = AllProducts
+        .Where(p => !string.IsNullOrWhiteSpace(p.Category))
+        .Select(p => p.Category)
+        .Distinct()
+        .OrderBy(c => c)
+        .ToList();
+    
+    Console.WriteLine($"🔍 DEBUG: Product categories in database: [{string.Join(", ", productCategories)}]");
+    
+    // ✅ DEBUG: Show exact comparison
+    if (CurrentFilters.Categories.Any())
+    {
+        Console.WriteLine($"🔍 DEBUG: Looking for exact match with: [{string.Join(", ", CurrentFilters.Categories)}]");
+        
+        foreach (var filterCat in CurrentFilters.Categories)
+        {
+            var matchingProducts = AllProducts
+                .Where(p => p.Category != null && p.Category.Equals(filterCat, StringComparison.Ordinal))
+                .ToList();
+            
+            Console.WriteLine($"🔍 DEBUG: '{filterCat}' matches {matchingProducts.Count} products");
+            
+            if (matchingProducts.Any())
+            {
+                Console.WriteLine($"   Sample product categories: [{string.Join(", ", matchingProducts.Take(3).Select(p => $"'{p.Category}'"))}]");
+            }
+        }
+    }
+
+    // Apply search filter
+    if (!string.IsNullOrWhiteSpace(CurrentFilters.SearchQuery))
+    {
+        var query = CurrentFilters.SearchQuery.ToLower().Trim();
+        FilteredProducts = FilteredProducts.Where(p =>
+            (p.Name?.ToLower().Contains(query) ?? false) ||
+            (p.Description?.ToLower().Contains(query) ?? false) ||
+            (p.Brand?.ToLower().Contains(query) ?? false) ||
+            (p.Category?.ToLower().Contains(query) ?? false)
+        ).ToList();
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"🔍 After search filter: {FilteredProducts.Count} products",
+            LogLevel.Debug
+        );
+    }
+
+    // Apply category filter - EXACT MATCH
+    if (CurrentFilters.Categories.Any())
+    {
+        var beforeCategoryFilter = FilteredProducts.Count;
+        
+        FilteredProducts = FilteredProducts
+            .Where(p => !string.IsNullOrEmpty(p.Category) && 
+                       CurrentFilters.Categories.Contains(p.Category, StringComparer.Ordinal))
+            .ToList();
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"📂 After category filter: {FilteredProducts.Count} products (was {beforeCategoryFilter})",
+            LogLevel.Debug
+        );
+        
+        if (FilteredProducts.Any())
+        {
+            var matchedCategories = FilteredProducts
+                .Select(p => p.Category)
+                .Distinct()
+                .ToList();
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Matched categories: [{string.Join(", ", matchedCategories)}]",
+                LogLevel.Debug
+            );
+        }
+        else
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"⚠️ No products matched categories: [{string.Join(", ", CurrentFilters.Categories)}]",
+                LogLevel.Warning
+            );
+            
+            // ✅ Show why they didn't match
+            Console.WriteLine($"❌ DEBUG: No exact matches found. Product categories: [{string.Join(", ", productCategories)}]");
+        }
+    }
+
+    // Apply brand filter
+    if (CurrentFilters.Brands.Any())
+    {
+        var beforeBrandFilter = FilteredProducts.Count;
+        
+        FilteredProducts = FilteredProducts
+            .Where(p => !string.IsNullOrEmpty(p.Brand) && 
+                       CurrentFilters.Brands.Contains(p.Brand, StringComparer.Ordinal))
+            .ToList();
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"🏷️ After brand filter: {FilteredProducts.Count} products (was {beforeBrandFilter})",
+            LogLevel.Debug
+        );
+    }
+
+    // Apply rating filter
+    if (CurrentFilters.MinRating > 0)
+    {
+        FilteredProducts = FilteredProducts
+            .Where(p => p.Rating >= CurrentFilters.MinRating)
+            .ToList();
+    }
+
+    // Apply price filter
+    if (CurrentFilters.MinPrice > 0 || CurrentFilters.MaxPrice < 1000000)
+    {
+        FilteredProducts = FilteredProducts
+            .Where(p => p.Price >= CurrentFilters.MinPrice && p.Price <= CurrentFilters.MaxPrice)
+            .ToList();
+    }
+
+    // Apply sale filter
+    if (CurrentFilters.OnSale)
+    {
+        FilteredProducts = FilteredProducts
+            .Where(p => p.IsOnSale)
+            .ToList();
+    }
+
+    // Apply free shipping filter
+    if (CurrentFilters.FreeShipping)
+    {
+        FilteredProducts = FilteredProducts
+            .Where(p => p.Price >= 50000)
+            .ToList();
+    }
+
+    await MID_HelperFunctions.DebugMessageAsync(
+        $"✅ Final filtered products: {FilteredProducts.Count} (started with {startCount})",
+        LogLevel.Info
+    );
+
+    // Apply sorting
+    ApplySorting();
+    
+    // Update pagination
+    UpdateCurrentPageProducts();
+    
+    StateHasChanged();
+}
 
     private void ApplySorting()
     {

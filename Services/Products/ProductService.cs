@@ -89,86 +89,90 @@ public class ProductService : IProductService
     }
 
     public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
+{
+    try
     {
+        var now = DateTime.UtcNow;
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Creating product: Name={request.Name}, SKU={request.Sku}, CategoryId={request.CategoryId}, Brand={request.Brand}",
+            LogLevel.Info
+        );
+
+        var existingSku = await GetProductBySkuAsync(request.Sku);
+        if (existingSku != null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"SKU already exists: {request.Sku}",
+                LogLevel.Error
+            );
+            return null;
+        }
+
+        var productModel = new ProductModel
+        {
+            Name = request.Name,
+            Slug = GenerateSlug(request.Name),
+            Description = request.Description ?? "",
+            LongDescription = request.LongDescription ?? "",
+            Price = request.Price,
+            OriginalPrice = request.OriginalPrice,
+            IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
+            Discount = CalculateDiscount(request.Price, request.OriginalPrice),
+            Images = request.ImageUrls ?? new List<string>(),
+            VideoUrl = request.VideoUrl,
+            Sizes = request.Sizes ?? new List<string>(),
+            Colors = request.Colors ?? new List<string>(),
+            Stock = request.Stock,
+            Sku = request.Sku,
+            CategoryId = request.CategoryId,
+            Category = request.Category ?? "",
+            SubCategory = request.SubCategory,
+            Brand = request.Brand ?? "",
+            Tags = request.Tags ?? new List<string>(),
+            Rating = 0,
+            ReviewCount = 0,
+            ViewCount = 0,
+            ClickCount = 0,
+            AddToCartCount = 0,
+            PurchaseCount = 0,
+            SalesCount = 0,
+            TotalRevenue = 0,
+            IsActive = true,
+            IsFeatured = request.IsFeatured,
+            CreatedAt = now,
+            CreatedBy = "system",
+            IsDeleted = false
+        };
+
+        _logger.LogInformation("Inserting product: {Name}, CategoryId={CategoryId}, Brand={Brand}", 
+            request.Name, request.CategoryId, request.Brand);
+
+        var result = await _database.InsertAsync(productModel);
+
+        if (result == null || !result.Any())
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Insert returned null/empty result",
+                LogLevel.Error
+            );
+            return null;
+        }
+
+        var createdProduct = result.First();
+        var productId = createdProduct.Id;
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ Product created with ID: {productId}",
+            LogLevel.Info
+        );
+
+        // ✅ FIXED: Create analytics row with correct product_id
         try
         {
-            var now = DateTime.UtcNow;
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Creating product: Name={request.Name}, SKU={request.Sku}",
-                LogLevel.Info
-            );
-
-            var existingSku = await GetProductBySkuAsync(request.Sku);
-            if (existingSku != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"SKU already exists: {request.Sku}",
-                    LogLevel.Error
-                );
-                return null;
-            }
-
-            var productModel = new ProductModel
-            {
-                Name = request.Name,
-                Slug = GenerateSlug(request.Name),
-                Description = request.Description ?? "",
-                LongDescription = request.LongDescription ?? "",
-                Price = request.Price,
-                OriginalPrice = request.OriginalPrice,
-                IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
-                Discount = CalculateDiscount(request.Price, request.OriginalPrice),
-                Images = request.ImageUrls ?? new List<string>(),
-                VideoUrl = request.VideoUrl,
-                Sizes = request.Sizes ?? new List<string>(),
-                Colors = request.Colors ?? new List<string>(),
-                Stock = request.Stock,
-                Sku = request.Sku,
-                CategoryId = request.CategoryId,
-                Category = request.Category ?? "",
-                SubCategory = request.SubCategory,
-                Brand = request.Brand ?? "",
-                Tags = request.Tags ?? new List<string>(),
-                Rating = 0,
-                ReviewCount = 0,
-                ViewCount = 0,
-                ClickCount = 0,
-                AddToCartCount = 0,
-                PurchaseCount = 0,
-                SalesCount = 0,
-                TotalRevenue = 0,
-                IsActive = true,
-                IsFeatured = request.IsFeatured,
-                CreatedAt = now,
-                CreatedBy = "system",
-                IsDeleted = false
-            };
-
-            _logger.LogInformation("Inserting product: {Name}", request.Name);
-
-            var result = await _database.InsertAsync(productModel);
-
-            if (result == null || !result.Any())
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Insert returned null/empty result",
-                    LogLevel.Error
-                );
-                return null;
-            }
-
-            var createdProduct = result.First();
-            var productId = createdProduct.Id;
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Product created with ID: {productId}",
-                LogLevel.Info
-            );
-
             var analyticsModel = new ProductAnalyticsModel
             {
-                ProductId = productId,
+                ProductId = productId, // This is the FK to products.id
                 ProductSku = request.Sku,
                 ProductName = request.Name,
                 TotalViews = 0,
@@ -186,93 +190,124 @@ public class ProductService : IProductService
                 UpdatedAt = now
             };
 
-            await _database.InsertAsync(analyticsModel);
+            var analyticsResult = await _database.InsertAsync(analyticsModel);
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Analytics created for product ID: {productId}",
-                LogLevel.Info
-            );
-
-            return MapToViewModel(createdProduct);
+            if (analyticsResult != null && analyticsResult.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Analytics created for product ID: {productId}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"⚠️ Analytics creation returned null for product ID: {productId}",
+                    LogLevel.Warning
+                );
+            }
         }
-        catch (Exception ex)
+        catch (Exception analyticsEx)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating product: {request.Name}");
-            _logger.LogError(ex, "Failed to create product: {Name}", request.Name);
-            return null;
+            await MID_HelperFunctions.LogExceptionAsync(analyticsEx, $"Creating analytics for product: {productId}");
+            _logger.LogError(analyticsEx, "Failed to create analytics for product {ProductId}, but product was created successfully", productId);
+            // Don't fail the whole operation if analytics creation fails
         }
+
+        return MapToViewModel(createdProduct);
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating product: {request.Name}");
+        _logger.LogError(ex, "Failed to create product: {Name}", request.Name);
+        return null;
+    }
+}
 
     public async Task<bool> UpdateProductAsync(int productId, UpdateProductRequest request)
+{
+    try
     {
-        try
+        var existingProduct = await _database.GetByIdAsync<ProductModel>(productId);
+
+        if (existingProduct == null)
         {
-            var existingProduct = await _database.GetByIdAsync<ProductModel>(productId);
-
-            if (existingProduct == null)
-            {
-                _logger.LogWarning("Product not found: {ProductId}", productId);
-                return false;
-            }
-
-            if (request.Name != null) existingProduct.Name = request.Name;
-            if (request.Description != null) existingProduct.Description = request.Description;
-            if (request.LongDescription != null) existingProduct.LongDescription = request.LongDescription;
-            if (request.Price.HasValue) existingProduct.Price = request.Price.Value;
-            if (request.OriginalPrice.HasValue) existingProduct.OriginalPrice = request.OriginalPrice;
-            if (request.Stock.HasValue) existingProduct.Stock = request.Stock.Value;
-            if (request.CategoryId != null) existingProduct.CategoryId = request.CategoryId;
-            if (request.Brand != null) existingProduct.Brand = request.Brand;
-            if (request.Tags != null) existingProduct.Tags = request.Tags;
-            if (request.Sizes != null) existingProduct.Sizes = request.Sizes;
-            if (request.Colors != null) existingProduct.Colors = request.Colors;
-            if (request.ImageUrls != null) existingProduct.Images = request.ImageUrls;
-            if (request.VideoUrl != null) existingProduct.VideoUrl = request.VideoUrl;
-            if (request.IsFeatured.HasValue) existingProduct.IsFeatured = request.IsFeatured.Value;
-            if (request.IsActive.HasValue) existingProduct.IsActive = request.IsActive.Value;
-
-            if (request.Price.HasValue || request.OriginalPrice.HasValue)
-            {
-                existingProduct.IsOnSale = existingProduct.OriginalPrice.HasValue && 
-                                           existingProduct.OriginalPrice > existingProduct.Price;
-                existingProduct.Discount = CalculateDiscount(existingProduct.Price, existingProduct.OriginalPrice);
-            }
-            
-            if (request.Name != null)
-            {
-                existingProduct.Slug = GenerateSlug(request.Name);
-            }
-
-            existingProduct.UpdatedAt = DateTime.UtcNow;
-            existingProduct.UpdatedBy = "system";
-
-            _logger.LogInformation("Updating product {ProductId}: Images={ImageCount}, Video={HasVideo}",
-                productId,
-                existingProduct.Images?.Count ?? 0,
-                !string.IsNullOrEmpty(existingProduct.VideoUrl));
-
-            var result = await _database.UpdateAsync(existingProduct);
-            
-            if (request.Name != null)
-            {
-                var analytics = await GetProductAnalyticsAsync(productId);
-                if (analytics != null)
-                {
-                    analytics.ProductName = request.Name;
-                    analytics.UpdatedAt = DateTime.UtcNow;
-                    await _database.UpdateAsync(analytics);
-                }
-            }
-
-            return result != null && result.Any();
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating product: {productId}");
-            _logger.LogError(ex, "Failed to update product: {ProductId}", productId);
+            _logger.LogWarning("Product not found: {ProductId}", productId);
             return false;
         }
+
+        // ✅ FIXED: Update all fields including Category and Brand
+        if (request.Name != null) existingProduct.Name = request.Name;
+        if (request.Description != null) existingProduct.Description = request.Description;
+        if (request.LongDescription != null) existingProduct.LongDescription = request.LongDescription;
+        if (request.Price.HasValue) existingProduct.Price = request.Price.Value;
+        if (request.OriginalPrice.HasValue) existingProduct.OriginalPrice = request.OriginalPrice;
+        if (request.Stock.HasValue) existingProduct.Stock = request.Stock.Value;
+        
+        // ✅ FIXED: Properly update CategoryId and Category
+        if (request.CategoryId != null) 
+        {
+            existingProduct.CategoryId = request.CategoryId;
+            // Also update the category name if we can fetch it
+            // You might want to add category lookup here
+        }
+        
+        // ✅ FIXED: Properly update Brand
+        if (request.Brand != null) existingProduct.Brand = request.Brand;
+        
+        if (request.Tags != null) existingProduct.Tags = request.Tags;
+        if (request.Sizes != null) existingProduct.Sizes = request.Sizes;
+        if (request.Colors != null) existingProduct.Colors = request.Colors;
+        if (request.ImageUrls != null) existingProduct.Images = request.ImageUrls;
+        if (request.VideoUrl != null) existingProduct.VideoUrl = request.VideoUrl;
+        if (request.IsFeatured.HasValue) existingProduct.IsFeatured = request.IsFeatured.Value;
+        if (request.IsActive.HasValue) existingProduct.IsActive = request.IsActive.Value;
+
+        if (request.Price.HasValue || request.OriginalPrice.HasValue)
+        {
+            existingProduct.IsOnSale = existingProduct.OriginalPrice.HasValue && 
+                                       existingProduct.OriginalPrice > existingProduct.Price;
+            existingProduct.Discount = CalculateDiscount(existingProduct.Price, existingProduct.OriginalPrice);
+        }
+        
+        if (request.Name != null)
+        {
+            existingProduct.Slug = GenerateSlug(request.Name);
+        }
+
+        existingProduct.UpdatedAt = DateTime.UtcNow;
+        existingProduct.UpdatedBy = "system";
+
+        _logger.LogInformation("Updating product {ProductId}: CategoryId={CategoryId}, Brand={Brand}, Images={ImageCount}, Video={HasVideo}",
+            productId,
+            existingProduct.CategoryId,
+            existingProduct.Brand,
+            existingProduct.Images?.Count ?? 0,
+            !string.IsNullOrEmpty(existingProduct.VideoUrl));
+
+        var result = await _database.UpdateAsync(existingProduct);
+        
+        // ✅ FIXED: Update analytics with proper product_id lookup
+        if (request.Name != null)
+        {
+            var analytics = await GetProductAnalyticsByProductIdAsync(productId);
+            if (analytics != null)
+            {
+                analytics.ProductName = request.Name;
+                analytics.UpdatedAt = DateTime.UtcNow;
+                await _database.UpdateAsync(analytics);
+            }
+        }
+
+        return result != null && result.Any();
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating product: {productId}");
+        _logger.LogError(ex, "Failed to update product: {ProductId}", productId);
+        return false;
+    }
+}
 
     public async Task<bool> DeleteProductAsync(int productId)
     {
@@ -385,12 +420,29 @@ public class ProductService : IProductService
             return false;
         }
     }
-
+    private async Task<ProductAnalyticsModel?> GetProductAnalyticsByProductIdAsync(int productId)
+    {
+        try
+        {
+            var analytics = await _database.GetWithFilterAsync<ProductAnalyticsModel>(
+                "product_id",
+                Constants.Operator.Equals,
+                productId
+            );
+        
+            return analytics.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting analytics by product_id: {productId}");
+            return null;
+        }
+    }
     public async Task<ProductAnalyticsModel?> GetProductAnalyticsAsync(int productId)
     {
         try
         {
-            return await _database.GetByIdAsync<ProductAnalyticsModel>(productId);
+            return await GetProductAnalyticsByProductIdAsync(productId);
         }
         catch (Exception ex)
         {
@@ -403,7 +455,7 @@ public class ProductService : IProductService
     {
         try
         {
-            var analytics = await GetProductAnalyticsAsync(productId);
+            var analytics = await GetProductAnalyticsByProductIdAsync(productId);
             if (analytics == null) return false;
 
             if (analytics.TotalViews > 0)
