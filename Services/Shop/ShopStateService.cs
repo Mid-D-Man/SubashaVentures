@@ -1,4 +1,4 @@
-// Services/Shop/ShopStateService.cs - WITH LOCALSTORAGE PERSISTENCE
+// Services/Shop/ShopStateService.cs - CONFIRMED CORRECT
 using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
@@ -6,16 +6,13 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Shop;
 
-/// <summary>
-/// Centralized state management for shop WITH LocalStorage persistence
-/// </summary>
 public class ShopStateService
 {
     private readonly IBlazorAppLocalStorageService _localStorage;
     private FilterState _currentFilters = FilterState.CreateDefault();
     private readonly SemaphoreSlim _lock = new(1, 1);
     
-    private const string FILTERS_STORAGE_KEY = "shop_filters";
+    private const string FILTERS_STORAGE_KEY = "SubashaVentures_shop_filters";
     private bool _isInitialized = false;
     
     public event Func<string, Task>? OnSearchChanged;
@@ -26,9 +23,6 @@ public class ShopStateService
         _localStorage = localStorage;
     }
     
-    /// <summary>
-    /// Initialize from localStorage
-    /// </summary>
     private async Task EnsureInitializedAsync()
     {
         if (_isInitialized) return;
@@ -38,7 +32,6 @@ public class ShopStateService
         {
             if (_isInitialized) return;
             
-            // Load from localStorage
             var stored = await _localStorage.GetItemAsync<FilterState>(FILTERS_STORAGE_KEY);
             
             if (stored != null)
@@ -58,9 +51,6 @@ public class ShopStateService
         }
     }
     
-    /// <summary>
-    /// Get current filter state (with localStorage fallback)
-    /// </summary>
     public async Task<FilterState> GetCurrentFiltersAsync()
     {
         await EnsureInitializedAsync();
@@ -80,9 +70,6 @@ public class ShopStateService
         }
     }
     
-    /// <summary>
-    /// Update filters, save to localStorage, and notify listeners
-    /// </summary>
     public async Task UpdateFiltersAsync(FilterState filters)
     {
         await EnsureInitializedAsync();
@@ -93,15 +80,13 @@ public class ShopStateService
             _currentFilters = filters.Clone();
             _currentFilters.LastUpdated = DateTime.UtcNow;
             
-            // ✅ SAVE TO LOCALSTORAGE
             await _localStorage.SetItemAsync(FILTERS_STORAGE_KEY, _currentFilters);
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Filters updated & saved: {_currentFilters.Categories.Count} categories, {_currentFilters.Brands.Count} brands",
+                $"✅ Filters updated & saved: [{string.Join(", ", _currentFilters.Categories)}]",
                 LogLevel.Info
             );
             
-            // Notify all listeners
             if (OnFiltersChanged != null)
             {
                 await OnFiltersChanged.Invoke(_currentFilters.Clone());
@@ -113,9 +98,6 @@ public class ShopStateService
         }
     }
     
-    /// <summary>
-    /// Update only categories
-    /// </summary>
     public async Task UpdateCategoriesAsync(List<string> categories)
     {
         await EnsureInitializedAsync();
@@ -126,7 +108,6 @@ public class ShopStateService
             _currentFilters.Categories = new List<string>(categories ?? new List<string>());
             _currentFilters.LastUpdated = DateTime.UtcNow;
             
-            // ✅ SAVE TO LOCALSTORAGE
             await _localStorage.SetItemAsync(FILTERS_STORAGE_KEY, _currentFilters);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -134,7 +115,6 @@ public class ShopStateService
                 LogLevel.Info
             );
             
-            // Notify listeners
             if (OnFiltersChanged != null)
             {
                 await OnFiltersChanged.Invoke(_currentFilters.Clone());
@@ -146,9 +126,6 @@ public class ShopStateService
         }
     }
     
-    /// <summary>
-    /// Update search query
-    /// </summary>
     public async Task NotifySearchChanged(string query)
     {
         await EnsureInitializedAsync();
@@ -159,7 +136,6 @@ public class ShopStateService
             _currentFilters.SearchQuery = query ?? "";
             _currentFilters.LastUpdated = DateTime.UtcNow;
             
-            // ✅ SAVE TO LOCALSTORAGE
             await _localStorage.SetItemAsync(FILTERS_STORAGE_KEY, _currentFilters);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -167,13 +143,11 @@ public class ShopStateService
                 LogLevel.Info
             );
             
-            // Notify search listeners
             if (OnSearchChanged != null)
             {
                 await OnSearchChanged.Invoke(query ?? "");
             }
             
-            // Also notify filter listeners
             if (OnFiltersChanged != null)
             {
                 await OnFiltersChanged.Invoke(_currentFilters.Clone());
@@ -185,17 +159,11 @@ public class ShopStateService
         }
     }
     
-    /// <summary>
-    /// Notify filters changed (for backward compatibility)
-    /// </summary>
     public async Task NotifyFiltersChanged(FilterState filters)
     {
         await UpdateFiltersAsync(filters);
     }
     
-    /// <summary>
-    /// Reset filters to default and clear localStorage
-    /// </summary>
     public async Task ResetFiltersAsync()
     {
         await _lock.WaitAsync();
@@ -203,7 +171,6 @@ public class ShopStateService
         {
             _currentFilters = FilterState.CreateDefault();
             
-            // ✅ CLEAR FROM LOCALSTORAGE
             await _localStorage.RemoveItemAsync(FILTERS_STORAGE_KEY);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -211,7 +178,6 @@ public class ShopStateService
                 LogLevel.Info
             );
             
-            // Notify listeners
             if (OnFiltersChanged != null)
             {
                 await OnFiltersChanged.Invoke(_currentFilters.Clone());
@@ -223,9 +189,6 @@ public class ShopStateService
         }
     }
     
-    /// <summary>
-    /// Check if filters are active
-    /// </summary>
     public bool HasActiveFilters()
     {
         return !_currentFilters.IsEmpty;
