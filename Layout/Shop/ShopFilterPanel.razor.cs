@@ -15,9 +15,11 @@ public partial class ShopFilterPanel : ComponentBase
     [Inject] private ICategoryService CategoryService { get; set; } = null!;
     [Inject] private IBrandService BrandService { get; set; } = null!;
 
+    // ✅ Lists from FIREBASE (authoritative source)
     private List<string> Categories = new();
     private List<string> Brands = new();
     
+    // UI state
     private List<string> SelectedCategories = new();
     private List<string> SelectedBrands = new();
     
@@ -30,14 +32,15 @@ public partial class ShopFilterPanel : ComponentBase
     
     private bool IsLoading = true;
     
-    // ✅ FIX: Track last synced state to avoid re-syncing unnecessarily
+    // ✅ Track last synced state to avoid re-syncing unnecessarily
     private FilterState? LastSyncedFilters = null;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadFilterOptions();
+        // ✅ Load from FIREBASE FIRST
+        await LoadFilterOptionsFromFirebase();
         
-        // Sync with current filters after loading options
+        // ✅ THEN sync with current filters
         if (CurrentFilters != null)
         {
             SyncWithCurrentFilters();
@@ -46,7 +49,7 @@ public partial class ShopFilterPanel : ComponentBase
 
     protected override void OnParametersSet()
     {
-        // ✅ FIX: Only sync if CurrentFilters actually changed
+        // ✅ Only sync if CurrentFilters actually changed
         if (CurrentFilters != null && !IsLoading)
         {
             // Check if filters actually changed
@@ -95,50 +98,49 @@ public partial class ShopFilterPanel : ComponentBase
         OnSale = CurrentFilters.OnSale;
         FreeShipping = CurrentFilters.FreeShipping;
         
-        // ✅ FIX: Store last synced state
+        // ✅ Store last synced state
         LastSyncedFilters = CurrentFilters.Clone();
         
         StateHasChanged();
     }
 
-    private async Task LoadFilterOptions()
+    /// <summary>
+    /// ✅ Load categories and brands from FIREBASE (authoritative source)
+    /// NO FALLBACKS - if Firebase fails, show empty lists
+    /// </summary>
+    private async Task LoadFilterOptionsFromFirebase()
     {
         IsLoading = true;
         StateHasChanged();
 
         try
         {
-            var categories = await CategoryService.GetAllCategoriesAsync();
-            Categories = categories
-                .Select(c => c.Name)
+            await MID_HelperFunctions.DebugMessageAsync(
+                "📦 Loading filter options from Firebase",
+                LogLevel.Info
+            );
+            
+            // ✅ Load from Firebase
+            var firebaseCategories = await CategoryService.GetAllCategoriesAsync();
+            var firebaseBrands = await BrandService.GetAllBrandsAsync();
+            
+            // ✅ Extract names (these are correct like "Mens Clothing", "Womens Clothing")
+            Categories = firebaseCategories
+                .Where(c => c.IsActive)
+                .Select(c => c.Name.Trim())
+                .Distinct()
                 .OrderBy(n => n)
                 .ToList();
 
-            var brands = await BrandService.GetAllBrandsAsync();
-            Brands = brands
-                .Select(b => b.Name)
+            Brands = firebaseBrands
+                .Where(b => b.IsActive)
+                .Select(b => b.Name.Trim())
+                .Distinct()
                 .OrderBy(n => n)
                 .ToList();
-
-            // Fallback defaults
-            if (!Categories.Any())
-            {
-                Categories = new List<string> 
-                { 
-                    "Womens Clothing", "Mens Clothing", "Kids Clothing", "Baby Essentials"
-                };
-            }
-
-            if (!Brands.Any())
-            {
-                Brands = new List<string> 
-                { 
-                    "SubashaVentures", "Premium Collection"
-                };
-            }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {Categories.Count} categories and {Brands.Count} brands for filter panel",
+                $"✓ Loaded {Categories.Count} categories and {Brands.Count} brands from Firebase",
                 LogLevel.Info
             );
             
@@ -147,18 +149,11 @@ public partial class ShopFilterPanel : ComponentBase
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading filter options");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading filter options from Firebase");
             
-            // Use fallback defaults
-            Categories = new List<string> 
-            { 
-                "Womens Clothing", "Mens Clothing", "Kids Clothing", "Baby Essentials"
-            };
-            
-            Brands = new List<string> 
-            { 
-                "SubashaVentures", "Premium Collection"
-            };
+            // ✅ NO FALLBACKS - if Firebase fails, we have bigger problems
+            Categories = new List<string>();
+            Brands = new List<string>();
         }
         finally
         {
@@ -176,18 +171,16 @@ public partial class ShopFilterPanel : ComponentBase
 
     private bool IsChecked(List<string> list, string value)
     {
-        return list.Contains(value, StringComparer.OrdinalIgnoreCase);
+        // ✅ EXACT match only
+        return list.Contains(value, StringComparer.Ordinal);
     }
 
     private void ToggleCategory(string category)
     {
-        // Case-insensitive toggle
-        var existing = SelectedCategories.FirstOrDefault(c => 
-            c.Equals(category, StringComparison.OrdinalIgnoreCase));
-        
-        if (existing != null)
+        // ✅ EXACT match toggle
+        if (SelectedCategories.Contains(category, StringComparer.Ordinal))
         {
-            SelectedCategories.Remove(existing);
+            SelectedCategories.Remove(category);
             Console.WriteLine($"❌ Removed category: {category}");
         }
         else
@@ -202,13 +195,10 @@ public partial class ShopFilterPanel : ComponentBase
 
     private void ToggleBrand(string brand)
     {
-        // Case-insensitive toggle
-        var existing = SelectedBrands.FirstOrDefault(b => 
-            b.Equals(brand, StringComparison.OrdinalIgnoreCase));
-        
-        if (existing != null)
+        // ✅ EXACT match toggle
+        if (SelectedBrands.Contains(brand, StringComparer.Ordinal))
         {
-            SelectedBrands.Remove(existing);
+            SelectedBrands.Remove(brand);
             Console.WriteLine($"❌ Removed brand: {brand}");
         }
         else
@@ -273,7 +263,7 @@ public partial class ShopFilterPanel : ComponentBase
         
         Console.WriteLine($"📤 Sending filters to Shop page: Categories=[{string.Join(", ", filters.Categories)}]");
 
-        // ✅ FIX: Update last synced state before invoking callback
+        // ✅ Update last synced state before invoking callback
         LastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
@@ -310,7 +300,7 @@ public partial class ShopFilterPanel : ComponentBase
             LogLevel.Info
         );
 
-        // ✅ FIX: Update last synced state before invoking callback
+        // ✅ Update last synced state before invoking callback
         LastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
