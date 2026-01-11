@@ -57,6 +57,8 @@ public partial class ReviewManagement : ComponentBase
                     LogLevel.Warning
                 );
                 ToastService.ShowError("Access denied. Admin permissions required.");
+                isLoading = false;
+                StateHasChanged();
                 return;
             }
 
@@ -66,10 +68,8 @@ public partial class ReviewManagement : ComponentBase
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing Review Management");
             ToastService.ShowError("Failed to initialize page. Please refresh.");
-        }
-        finally
-        {
             isLoading = false;
+            StateHasChanged();
         }
     }
 

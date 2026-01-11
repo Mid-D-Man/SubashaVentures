@@ -13,7 +13,7 @@
         <div class="nav-brand">
             @if (isExpanded || isMobileOpen)
             {
-                <BrandLogo />
+                <span class="brand-text">SubashaVentures</span>
             }
             else
             {
@@ -112,7 +112,7 @@
 
     <!-- Navigation Footer -->
     <div class="nav-footer">
-        <a href="/admin/settings" class="nav-item @(IsCurrentPath("/admin/settings") ? "active" : "")">
+        <a href="admin/settings" class="nav-item @(IsCurrentPath("admin/settings") ? "active" : "")">
             <span class="nav-item-icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/>
@@ -123,6 +123,7 @@
         </a>
     </div>
 </nav>
+
 <!-- Mobile Overlay -->
 @if (isMobileOpen)
 {

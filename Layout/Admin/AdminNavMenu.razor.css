@@ -37,6 +37,21 @@
     align-items: center;
     min-width: 0;
     overflow: hidden;
+    flex: 1;
+}
+
+.brand-text {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-color, #96994A);
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+.admin-nav-menu.collapsed .brand-text {
+    opacity: 0;
+    width: 0;
 }
 
 .brand-icon-only {
@@ -301,6 +316,10 @@
     border-color: rgba(184, 187, 106, 0.15);
 }
 
+[data-theme="dark"] .brand-text {
+    color: var(--primary-color, #B8BB6A);
+}
+
 [data-theme="dark"] .nav-toggle-btn,
 [data-theme="dark"] .nav-close-btn {
     background: rgba(184, 187, 106, 0.1);
@@ -339,7 +358,8 @@
 
     .admin-nav-menu .nav-item-label,
     .admin-nav-menu .nav-section-title,
-    .admin-nav-menu .nav-item-arrow {
+    .admin-nav-menu .nav-item-arrow,
+    .admin-nav-menu .brand-text {
         opacity: 1 !important;
         width: auto !important;
     }
@@ -376,7 +396,8 @@
     .nav-item-label,
     .nav-section-title,
     .nav-item-arrow,
-    .nav-item-children {
+    .nav-item-children,
+    .brand-text {
         transition: none;
     }
 }

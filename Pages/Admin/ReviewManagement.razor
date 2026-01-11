@@ -17,321 +17,323 @@
 @inject NavigationManager NavigationManager
 
 <div class="review-management">
-    <!-- Header -->
-    <div class="review-header">
-        <div class="header-left">
-            <h1 class="page-title">Review Management</h1>
-            <p class="page-subtitle">Manage and moderate customer reviews</p>
-        </div>
-        <div class="header-right">
-            <PrimaryButton Size="PrimaryButton.ButtonSize.Medium"
-                          Icon="🔄"
-                          OnClick="RefreshReviews"
-                          IsDisabled="isLoading">
-                Refresh
-            </PrimaryButton>
-        </div>
-    </div>
-
     @if (!hasPermission)
     {
+        <!-- Access Denied -->
         <div class="access-denied">
             <div class="access-denied-icon">🔒</div>
             <h2>Access Denied</h2>
             <p>You don't have permission to access this page.</p>
         </div>
-        return;
     }
-
-    <!-- Stats Cards -->
-    <div class="stats-grid">
-        <div class="stat-card total">
-            <div class="stat-icon">📊</div>
-            <div class="stat-content">
-                <span class="stat-label">Total Reviews</span>
-                <span class="stat-value">@statusCounts.TotalReviews</span>
+    else
+    {
+        <!-- Header -->
+        <div class="review-header">
+            <div class="header-left">
+                <h1 class="page-title">Review Management</h1>
+                <p class="page-subtitle">Manage and moderate customer reviews</p>
+            </div>
+            <div class="header-right">
+                <PrimaryButton Size="PrimaryButton.ButtonSize.Medium"
+                              Icon="🔄"
+                              OnClick="RefreshReviews"
+                              IsDisabled="isLoading">
+                    Refresh
+                </PrimaryButton>
             </div>
         </div>
 
-        <div class="stat-card pending">
-            <div class="stat-icon">⏳</div>
-            <div class="stat-content">
-                <span class="stat-label">Pending Approval</span>
-                <span class="stat-value">@statusCounts.PendingReviews</span>
-                <span class="stat-badge">@statusCounts.PendingPercentage</span>
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Reviews</span>
+                    <span class="stat-value">@statusCounts.TotalReviews</span>
+                </div>
+            </div>
+
+            <div class="stat-card pending">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-content">
+                    <span class="stat-label">Pending Approval</span>
+                    <span class="stat-value">@statusCounts.PendingReviews</span>
+                    <span class="stat-badge">@statusCounts.PendingPercentage</span>
+                </div>
+            </div>
+
+            <div class="stat-card approved">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <span class="stat-label">Approved</span>
+                    <span class="stat-value">@statusCounts.ApprovedReviews</span>
+                    <span class="stat-badge">@statusCounts.ApprovedPercentage</span>
+                </div>
+            </div>
+
+            <div class="stat-card verified">
+                <div class="stat-icon">🔒</div>
+                <div class="stat-content">
+                    <span class="stat-label">Verified Purchases</span>
+                    <span class="stat-value">@verifiedCount</span>
+                </div>
             </div>
         </div>
 
-        <div class="stat-card approved">
-            <div class="stat-icon">✅</div>
-            <div class="stat-content">
-                <span class="stat-label">Approved</span>
-                <span class="stat-value">@statusCounts.ApprovedReviews</span>
-                <span class="stat-badge">@statusCounts.ApprovedPercentage</span>
-            </div>
-        </div>
+        <!-- Toolbar -->
+        <div class="review-toolbar">
+            <div class="toolbar-left">
+                <!-- Tab Filter -->
+                <div class="tab-buttons">
+                    <button class="tab-btn @(currentTab == "all" ? "active" : "")"
+                            @onclick="@(() => SwitchTab("all"))">
+                        All (@allReviews.Count)
+                    </button>
+                    <button class="tab-btn @(currentTab == "pending" ? "active" : "")"
+                            @onclick="@(() => SwitchTab("pending"))">
+                        Pending (@statusCounts.PendingReviews)
+                    </button>
+                    <button class="tab-btn @(currentTab == "approved" ? "active" : "")"
+                            @onclick="@(() => SwitchTab("approved"))">
+                        Approved (@statusCounts.ApprovedReviews)
+                    </button>
+                </div>
 
-        <div class="stat-card verified">
-            <div class="stat-icon">🔒</div>
-            <div class="stat-content">
-                <span class="stat-label">Verified Purchases</span>
-                <span class="stat-value">@verifiedCount</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="review-toolbar">
-        <div class="toolbar-left">
-            <!-- Tab Filter -->
-            <div class="tab-buttons">
-                <button class="tab-btn @(currentTab == "all" ? "active" : "")"
-                        @onclick="@(() => SwitchTab("all"))">
-                    All (@allReviews.Count)
-                </button>
-                <button class="tab-btn @(currentTab == "pending" ? "active" : "")"
-                        @onclick="@(() => SwitchTab("pending"))">
-                    Pending (@statusCounts.PendingReviews)
-                </button>
-                <button class="tab-btn @(currentTab == "approved" ? "active" : "")"
-                        @onclick="@(() => SwitchTab("approved"))">
-                    Approved (@statusCounts.ApprovedReviews)
-                </button>
+                <!-- Search -->
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text"
+                           class="search-input"
+                           placeholder="Search by product, user, or comment..."
+                           @bind="searchQuery"
+                           @bind:event="oninput"
+                           @onkeyup="HandleSearch" />
+                    @if (!string.IsNullOrEmpty(searchQuery))
+                    {
+                        <button class="clear-search" @onclick="ClearSearch">✕</button>
+                    }
+                </div>
             </div>
 
-            <!-- Search -->
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text"
-                       class="search-input"
-                       placeholder="Search by product, user, or comment..."
-                       @bind="searchQuery"
-                       @bind:event="oninput"
-                       @onkeyup="HandleSearch" />
-                @if (!string.IsNullOrEmpty(searchQuery))
+            <div class="toolbar-right">
+                @if (currentTab == "pending" && filteredReviews.Any())
                 {
-                    <button class="clear-search" @onclick="ClearSearch">✕</button>
+                    <SecondaryButton Size="SecondaryButton.ButtonSize.Medium"
+                                   Variant="SecondaryButton.ButtonVariant.Outline"
+                                   Icon="🔍"
+                                   OnClick="AutoVerifyAndApproveAll"
+                                   IsDisabled="isProcessing">
+                        Auto-Verify & Approve All
+                    </SecondaryButton>
+
+                    <PrimaryButton Size="PrimaryButton.ButtonSize.Medium"
+                                  Icon="✅"
+                                  OnClick="ApproveAllPending"
+                                  IsDisabled="isProcessing">
+                        Approve All
+                    </PrimaryButton>
+                }
+
+                @if (selectedReviews.Any())
+                {
+                    <span class="selected-count">@selectedReviews.Count selected</span>
+                    
+                    <SecondaryButton Size="SecondaryButton.ButtonSize.Medium"
+                                   Variant="SecondaryButton.ButtonVariant.Outline"
+                                   OnClick="ApproveSelectedReviews"
+                                   IsDisabled="isProcessing">
+                        Approve Selected
+                    </SecondaryButton>
+
+                    <SecondaryButton Size="SecondaryButton.ButtonSize.Medium"
+                                   Variant="SecondaryButton.ButtonVariant.Outline"
+                                   OnClick="RejectSelectedReviews"
+                                   IsDisabled="isProcessing">
+                        Reject Selected
+                    </SecondaryButton>
                 }
             </div>
         </div>
 
-        <div class="toolbar-right">
-            @if (currentTab == "pending" && filteredReviews.Any())
-            {
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Medium"
-                               Variant="SecondaryButton.ButtonVariant.Outline"
-                               Icon="🔍"
-                               OnClick="AutoVerifyAndApproveAll"
-                               IsDisabled="isProcessing">
-                    Auto-Verify & Approve All
-                </SecondaryButton>
+        <!-- Loading State -->
+        @if (isLoading)
+        {
+            <div class="loading-container">
+                <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                              Variant="LoadingSpinner.SpinnerVariant.Circle"
+                              Message="Loading reviews..." />
+            </div>
+        }
+        else if (!filteredReviews.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📝</div>
+                <h3>@GetEmptyStateTitle()</h3>
+                <p>@GetEmptyStateMessage()</p>
+            </div>
+        }
+        else
+        {
+            <!-- Reviews List -->
+            <div class="reviews-list">
+                @foreach (var review in filteredReviews)
+                {
+                    <div class="review-card @(selectedReviews.Contains(review.Id) ? "selected" : "")">
+                        <!-- Selection Checkbox -->
+                        <div class="review-checkbox">
+                            <input type="checkbox"
+                                   checked="@selectedReviews.Contains(review.Id)"
+                                   @onchange="@(() => ToggleReviewSelection(review.Id))" />
+                        </div>
 
-                <PrimaryButton Size="PrimaryButton.ButtonSize.Medium"
-                              Icon="✅"
-                              OnClick="ApproveAllPending"
-                              IsDisabled="isProcessing">
-                    Approve All
-                </PrimaryButton>
-            }
-
-            @if (selectedReviews.Any())
-            {
-                <span class="selected-count">@selectedReviews.Count selected</span>
-                
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Medium"
-                               Variant="SecondaryButton.ButtonVariant.Outline"
-                               OnClick="ApproveSelectedReviews"
-                               IsDisabled="isProcessing">
-                    Approve Selected
-                </SecondaryButton>
-
-                <SecondaryButton Size="SecondaryButton.ButtonSize.Medium"
-                               Variant="SecondaryButton.ButtonVariant.Outline"
-                               OnClick="RejectSelectedReviews"
-                               IsDisabled="isProcessing">
-                    Reject Selected
-                </SecondaryButton>
-            }
-        </div>
-    </div>
-
-    <!-- Loading State -->
-    @if (isLoading)
-    {
-        <div class="loading-container">
-            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
-                          Variant="LoadingSpinner.SpinnerVariant.Circle"
-                          Message="Loading reviews..." />
-        </div>
-    }
-    else if (!filteredReviews.Any())
-    {
-        <div class="empty-state">
-            <div class="empty-icon">📝</div>
-            <h3>@GetEmptyStateTitle()</h3>
-            <p>@GetEmptyStateMessage()</p>
-        </div>
-    }
-    else
-    {
-        <!-- Reviews List -->
-        <div class="reviews-list">
-            @foreach (var review in filteredReviews)
-            {
-                <div class="review-card @(selectedReviews.Contains(review.Id) ? "selected" : "")">
-                    <!-- Selection Checkbox -->
-                    <div class="review-checkbox">
-                        <input type="checkbox"
-                               checked="@selectedReviews.Contains(review.Id)"
-                               @onchange="@(() => ToggleReviewSelection(review.Id))" />
-                    </div>
-
-                    <!-- Review Content -->
-                    <div class="review-content">
-                        <!-- Header -->
-                        <div class="review-header-row">
-                            <div class="review-user">
-                                @if (!string.IsNullOrEmpty(review.UserAvatar))
-                                {
-                                    <img src="@review.UserAvatar" alt="@review.UserName" class="user-avatar" />
-                                }
-                                else
-                                {
-                                    <div class="user-avatar-placeholder">
-                                        @GetInitials(review.UserName)
-                                    </div>
-                                }
-                                <div class="user-info">
-                                    <span class="user-name">@review.UserName</span>
-                                    @if (review.IsVerifiedPurchase)
+                        <!-- Review Content -->
+                        <div class="review-content">
+                            <!-- Header -->
+                            <div class="review-header-row">
+                                <div class="review-user">
+                                    @if (!string.IsNullOrEmpty(review.UserAvatar))
                                     {
-                                        <span class="verified-badge" title="Verified Purchase">
-                                            ✓ Verified Purchase
-                                        </span>
+                                        <img src="@review.UserAvatar" alt="@review.UserName" class="user-avatar" />
+                                    }
+                                    else
+                                    {
+                                        <div class="user-avatar-placeholder">
+                                            @GetInitials(review.UserName)
+                                        </div>
+                                    }
+                                    <div class="user-info">
+                                        <span class="user-name">@review.UserName</span>
+                                        @if (review.IsVerifiedPurchase)
+                                        {
+                                            <span class="verified-badge" title="Verified Purchase">
+                                                ✓ Verified Purchase
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="review-meta">
+                                    <span class="review-date" title="@review.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")">
+                                        @review.TimeAgo
+                                    </span>
+                                    @if (!review.IsApproved)
+                                    {
+                                        <span class="status-badge pending">Pending</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge approved">Approved</span>
                                     }
                                 </div>
                             </div>
 
-                            <div class="review-meta">
-                                <span class="review-date" title="@review.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")">
-                                    @review.TimeAgo
-                                </span>
-                                @if (!review.IsApproved)
+                            <!-- Product Info -->
+                            <div class="review-product">
+                                <span class="product-label">Product:</span>
+                                <span class="product-name">@GetProductName(review.ProductId)</span>
+                                <span class="product-id">(ID: @review.ProductId)</span>
+                            </div>
+
+                            <!-- Rating -->
+                            <div class="review-rating">
+                                @for (int i = 1; i <= 5; i++)
                                 {
-                                    <span class="status-badge pending">Pending</span>
+                                    <span class="star @(i <= review.Rating ? "filled" : "")">★</span>
                                 }
-                                else
+                                <span class="rating-text">@review.Rating/5</span>
+                            </div>
+
+                            <!-- Title -->
+                            @if (!string.IsNullOrEmpty(review.Title))
+                            {
+                                <h4 class="review-title">@review.Title</h4>
+                            }
+
+                            <!-- Comment -->
+                            <p class="review-comment">@review.Comment</p>
+
+                            <!-- Images -->
+                            @if (review.Images.Any())
+                            {
+                                <div class="review-images">
+                                    @foreach (var imageUrl in review.Images.Take(3))
+                                    {
+                                        <img src="@imageUrl" alt="Review image" class="review-image" />
+                                    }
+                                    @if (review.Images.Count > 3)
+                                    {
+                                        <div class="more-images">+@(review.Images.Count - 3) more</div>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Footer Stats -->
+                            <div class="review-footer">
+                                <span class="helpful-count">👍 @review.HelpfulCount helpful</span>
+                                @if (review.IsApproved && review.ApprovedBy != null)
                                 {
-                                    <span class="status-badge approved">Approved</span>
+                                    <span class="approved-by">
+                                        Approved by @review.ApprovedBy on @review.ApprovedAt?.ToString("MMM dd, yyyy")
+                                    </span>
                                 }
                             </div>
                         </div>
 
-                        <!-- Product Info -->
-                        <div class="review-product">
-                            <span class="product-label">Product:</span>
-                            <span class="product-name">@GetProductName(review.ProductId)</span>
-                            <span class="product-id">(ID: @review.ProductId)</span>
-                        </div>
-
-                        <!-- Rating -->
-                        <div class="review-rating">
-                            @for (int i = 1; i <= 5; i++)
+                        <!-- Actions -->
+                        <div class="review-actions">
+                            @if (!review.IsApproved)
                             {
-                                <span class="star @(i <= review.Rating ? "filled" : "")">★</span>
+                                <PrimaryButton Size="PrimaryButton.ButtonSize.Small"
+                                             OnClick="@(() => ShowApproveDialog(review))"
+                                             IsDisabled="isProcessing">
+                                    ✓ Approve
+                                </PrimaryButton>
+
+                                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                               Variant="SecondaryButton.ButtonVariant.Outline"
+                                               OnClick="@(() => ShowRejectDialog(review))"
+                                               IsDisabled="isProcessing">
+                                    ✕ Reject
+                                </SecondaryButton>
+
+                                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                               Variant="SecondaryButton.ButtonVariant.Ghost"
+                                               OnClick="@(() => AutoVerifyAndApprove(review))"
+                                               IsDisabled="isProcessing">
+                                    🔍 Auto-Verify
+                                </SecondaryButton>
                             }
-                            <span class="rating-text">@review.Rating/5</span>
-                        </div>
-
-                        <!-- Title -->
-                        @if (!string.IsNullOrEmpty(review.Title))
-                        {
-                            <h4 class="review-title">@review.Title</h4>
-                        }
-
-                        <!-- Comment -->
-                        <p class="review-comment">@review.Comment</p>
-
-                        <!-- Images -->
-                        @if (review.Images.Any())
-                        {
-                            <div class="review-images">
-                                @foreach (var imageUrl in review.Images.Take(3))
-                                {
-                                    <img src="@imageUrl" alt="Review image" class="review-image" />
-                                }
-                                @if (review.Images.Count > 3)
-                                {
-                                    <div class="more-images">+@(review.Images.Count - 3) more</div>
-                                }
-                            </div>
-                        }
-
-                        <!-- Footer Stats -->
-                        <div class="review-footer">
-                            <span class="helpful-count">👍 @review.HelpfulCount helpful</span>
-                            @if (review.IsApproved && review.ApprovedBy != null)
+                            else
                             {
-                                <span class="approved-by">
-                                    Approved by @review.ApprovedBy on @review.ApprovedAt?.ToString("MMM dd, yyyy")
-                                </span>
+                                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                               Variant="SecondaryButton.ButtonVariant.Outline"
+                                               OnClick="@(() => ShowDetailsDialog(review))">
+                                    📄 Details
+                                </SecondaryButton>
+
+                                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                               Variant="SecondaryButton.ButtonVariant.Outline"
+                                               OnClick="@(() => ShowDeleteDialog(review))"
+                                               IsDisabled="isProcessing">
+                                    🗑️ Delete
+                                </SecondaryButton>
                             }
                         </div>
                     </div>
+                }
+            </div>
+        }
 
-                    <!-- Actions -->
-                    <div class="review-actions">
-                        @if (!review.IsApproved)
-                        {
-                            <PrimaryButton Size="PrimaryButton.ButtonSize.Small"
-                                         OnClick="@(() => ShowApproveDialog(review))"
-                                         IsDisabled="isProcessing">
-                                ✓ Approve
-                            </PrimaryButton>
-
-                            <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                           Variant="SecondaryButton.ButtonVariant.Outline"
-                                           OnClick="@(() => ShowRejectDialog(review))"
-                                           IsDisabled="isProcessing">
-                                ✕ Reject
-                            </SecondaryButton>
-
-                            <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                           Variant="SecondaryButton.ButtonVariant.Ghost"
-                                           OnClick="@(() => AutoVerifyAndApprove(review))"
-                                           IsDisabled="isProcessing">
-                                🔍 Auto-Verify
-                            </SecondaryButton>
-                        }
-                        else
-                        {
-                            <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                           Variant="SecondaryButton.ButtonVariant.Outline"
-                                           OnClick="@(() => ShowDetailsDialog(review))">
-                                📄 Details
-                            </SecondaryButton>
-
-                            <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                           Variant="SecondaryButton.ButtonVariant.Outline"
-                                           OnClick="@(() => ShowDeleteDialog(review))"
-                                           IsDisabled="isProcessing">
-                                🗑️ Delete
-                            </SecondaryButton>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-    }
-
-    <!-- Pagination -->
-    @if (filteredReviews.Any() && !isLoading)
-    {
-        <div class="pagination">
-            <span class="pagination-info">
-                Showing @filteredReviews.Count of @GetTotalCount() reviews
-            </span>
-        </div>
+        <!-- Pagination -->
+        @if (filteredReviews.Any() && !isLoading)
+        {
+            <div class="pagination">
+                <span class="pagination-info">
+                    Showing @filteredReviews.Count of @GetTotalCount() reviews
+                </span>
+            </div>
+        }
     }
 </div>
 
