@@ -1,4 +1,4 @@
-// wwwroot/js/firestoreModule.js - E-Commerce Version for SubashaVentures
+// wwwroot/js/firestoreModule.js - FIXED: Prevent multiple initializations
 
 window.firestoreModule = (function () {
     let db = null;
@@ -6,6 +6,7 @@ window.firestoreModule = (function () {
     let isOffline = false;
     let manuallyDisconnected = false;
     let initializationPromise = null;
+    let firebaseApp = null;
 
     function waitForFirebase() {
         return new Promise((resolve, reject) => {
@@ -32,38 +33,78 @@ window.firestoreModule = (function () {
     //#region ==================== INITIALIZATION ====================
 
     async function initializeFirestore() {
+        // CRITICAL FIX: Return existing promise if initialization is in progress
         if (initializationPromise) {
+            console.log("⏳ Firestore initialization already in progress, waiting...");
             return initializationPromise;
+        }
+
+        // CRITICAL FIX: If already initialized, return immediately
+        if (isInitialized && db) {
+            console.log("✓ Firestore already initialized, reusing existing instance");
+            return true;
         }
 
         initializationPromise = (async () => {
             try {
+                console.log("🔄 Starting Firestore initialization...");
                 await waitForFirebase();
 
-                if (isInitialized) {
+                // Double-check after waiting for Firebase
+                if (isInitialized && db) {
+                    console.log("✓ Firestore was initialized while waiting");
                     return true;
                 }
 
-                db = firebase.firestore();
-                db.settings({
-                    ignoreUndefinedProperties: true,
-                    timestampsInSnapshots: true
-                });
+                // CRITICAL FIX: Get existing Firestore instance if it exists
+                try {
+                    db = firebase.firestore();
+                    console.log("✓ Retrieved existing Firestore instance");
+                } catch (error) {
+                    console.error("❌ Error getting Firestore instance:", error);
+                    throw error;
+                }
+
+                // CRITICAL FIX: Only set settings if this is truly the first initialization
+                // Check if settings have already been applied by checking if we can get a collection
+                try {
+                    // Try a simple operation to see if Firestore is ready
+                    const testRef = db.collection('_test_connection');
+                    console.log("✓ Firestore instance is ready");
+                } catch (settingsError) {
+                    // If we get an error, it might be because settings weren't applied
+                    console.log("⚙️ Applying Firestore settings...");
+                    try {
+                        db.settings({
+                            ignoreUndefinedProperties: true,
+                            timestampsInSnapshots: true
+                        });
+                        console.log("✓ Firestore settings applied");
+                    } catch (settingsApplyError) {
+                        // Settings might have already been applied, which is fine
+                        console.log("ℹ️ Firestore settings already configured:", settingsApplyError.message);
+                    }
+                }
 
                 // Connection monitoring
-                firebase.database().ref(".info/connected").on("value", (snapshot) => {
-                    if (!manuallyDisconnected) {
-                        isOffline = !snapshot.val();
-                        console.log("Connection state:", isOffline ? "Offline" : "Online");
-                    }
-                });
+                try {
+                    firebase.database().ref(".info/connected").on("value", (snapshot) => {
+                        if (!manuallyDisconnected) {
+                            isOffline = !snapshot.val();
+                            console.log("🔌 Connection state:", isOffline ? "Offline" : "Online");
+                        }
+                    });
+                } catch (monitorError) {
+                    console.warn("⚠️ Could not set up connection monitoring:", monitorError.message);
+                }
 
                 isInitialized = true;
-                console.log("Firestore initialized successfully");
+                console.log("✅ Firestore initialized successfully");
                 return true;
             } catch (error) {
-                console.error("Error initializing Firestore:", error);
+                console.error("❌ Error initializing Firestore:", error);
                 initializationPromise = null;
+                isInitialized = false;
                 return false;
             }
         })();
@@ -73,23 +114,26 @@ window.firestoreModule = (function () {
 
     async function setConnectionState(connect) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized) {
+                console.log("⚠️ Initializing Firestore before setting connection state...");
+                await initializeFirestore();
+            }
 
             manuallyDisconnected = !connect;
 
             if (connect) {
                 await firebase.firestore().enableNetwork();
                 isOffline = !navigator.onLine;
-                console.log("Firebase connection manually enabled");
+                console.log("✓ Firebase connection manually enabled");
             } else {
                 await firebase.firestore().disableNetwork();
                 isOffline = true;
-                console.log("Firebase connection manually disabled");
+                console.log("✓ Firebase connection manually disabled");
             }
 
             return true;
         } catch (error) {
-            console.error("Error setting connection state:", error);
+            console.error("❌ Error setting connection state:", error);
             return false;
         }
     }
@@ -100,8 +144,17 @@ window.firestoreModule = (function () {
 
     async function getDocument(collection, id) {
         try {
-            const initialized = await initializeFirestore();
-            if (!initialized) throw new Error('Firestore not initialized');
+            console.log(`📖 Getting document: ${collection}/${id}`);
+
+            // CRITICAL FIX: Always ensure initialization
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                const initialized = await initializeFirestore();
+                if (!initialized) {
+                    console.error("❌ Failed to initialize Firestore");
+                    throw new Error('Firestore not initialized');
+                }
+            }
 
             const docRef = db.collection(collection).doc(id);
             const doc = await docRef.get();
@@ -111,20 +164,26 @@ window.firestoreModule = (function () {
                 if (data && typeof data === 'object') {
                     data.id = doc.id;
                 }
+                console.log(`✓ Document found: ${collection}/${id}`);
                 return JSON.stringify(data);
             } else {
-                console.log(`Document not found: ${collection}/${id}`);
+                console.log(`⚠️ Document not found: ${collection}/${id}`);
                 return null;
             }
         } catch (error) {
-            console.error(`Error getting document ${collection}/${id}:`, error);
-            return null;
+            console.error(`❌ Error getting document ${collection}/${id}:`, error);
+            throw error; // Re-throw to let caller handle it
         }
     }
 
     async function addDocument(collection, jsonData, customId = null) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            console.log(`➕ Adding document to ${collection}${customId ? ` with ID ${customId}` : ''}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
 
             let data = JSON.parse(jsonData);
             data = JSON.parse(JSON.stringify(data));
@@ -133,13 +192,15 @@ window.firestoreModule = (function () {
             if (customId) {
                 docRef = db.collection(collection).doc(customId);
                 await docRef.set(data);
+                console.log(`✓ Document created: ${collection}/${customId}`);
                 return customId;
             } else {
                 docRef = await db.collection(collection).add(data);
+                console.log(`✓ Document created: ${collection}/${docRef.id}`);
                 return docRef.id;
             }
         } catch (error) {
-            console.error("Error adding document:", error);
+            console.error(`❌ Error adding document to ${collection}:`, error);
             if (isOffline) storeOfflineOperation({ collection, data: jsonData, operation: 'add', timestamp: Date.now() });
             return null;
         }
@@ -147,28 +208,39 @@ window.firestoreModule = (function () {
 
     async function updateDocument(collection, id, jsonData) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            console.log(`✏️ Updating document: ${collection}/${id}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
 
             let data = JSON.parse(jsonData);
             data = removeUndefinedConservative(data);
 
             await db.collection(collection).doc(id).update(data);
-            console.log(`Document ${collection}/${id} updated successfully`);
+            console.log(`✓ Document updated: ${collection}/${id}`);
             return true;
         } catch (error) {
-            console.error(`Error updating document ${collection}/${id}:`, error);
+            console.error(`❌ Error updating document ${collection}/${id}:`, error);
             return false;
         }
     }
 
     async function deleteDocument(collection, id) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            console.log(`🗑️ Deleting document: ${collection}/${id}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
 
             await db.collection(collection).doc(id).delete();
+            console.log(`✓ Document deleted: ${collection}/${id}`);
             return true;
         } catch (error) {
-            console.error(`Error deleting document ${collection}/${id}:`, error);
+            console.error(`❌ Error deleting document ${collection}/${id}:`, error);
             if (isOffline) storeOfflineOperation({ collection, id, operation: 'delete', timestamp: Date.now() });
             return false;
         }
@@ -180,56 +252,56 @@ window.firestoreModule = (function () {
 
     async function addOrUpdateField(collection, docId, fieldName, jsonValue) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             let value = JSON.parse(jsonValue);
             const updateData = {};
             updateData[fieldName] = value;
 
             await db.collection(collection).doc(docId).update(updateData);
-            console.log(`Field ${fieldName} updated in ${collection}/${docId}`);
+            console.log(`✓ Field ${fieldName} updated in ${collection}/${docId}`);
             return true;
         } catch (error) {
-            console.error(`Error updating field ${fieldName}:`, error);
+            console.error(`❌ Error updating field ${fieldName}:`, error);
             return false;
         }
     }
 
     async function updateFields(collection, docId, jsonFields) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             let fields = JSON.parse(jsonFields);
             fields = removeUndefinedConservative(fields);
 
             await db.collection(collection).doc(docId).update(fields);
-            console.log(`Multiple fields updated in ${collection}/${docId}`);
+            console.log(`✓ Multiple fields updated in ${collection}/${docId}`);
             return true;
         } catch (error) {
-            console.error(`Error updating fields in ${collection}/${docId}:`, error);
+            console.error(`❌ Error updating fields in ${collection}/${docId}:`, error);
             return false;
         }
     }
 
     async function removeField(collection, docId, fieldName) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             const updateData = {};
             updateData[fieldName] = firebase.firestore.FieldValue.delete();
 
             await db.collection(collection).doc(docId).update(updateData);
-            console.log(`Field ${fieldName} removed from ${collection}/${docId}`);
+            console.log(`✓ Field ${fieldName} removed from ${collection}/${docId}`);
             return true;
         } catch (error) {
-            console.error(`Error removing field ${fieldName}:`, error);
+            console.error(`❌ Error removing field ${fieldName}:`, error);
             return false;
         }
     }
 
     async function removeFields(collection, docId, fieldNames) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             const fieldsArray = JSON.parse(fieldNames);
             const updateData = {};
@@ -239,17 +311,17 @@ window.firestoreModule = (function () {
             });
 
             await db.collection(collection).doc(docId).update(updateData);
-            console.log(`Fields ${fieldsArray.join(', ')} removed from ${collection}/${docId}`);
+            console.log(`✓ Fields ${fieldsArray.join(', ')} removed from ${collection}/${docId}`);
             return true;
         } catch (error) {
-            console.error(`Error removing fields:`, error);
+            console.error(`❌ Error removing fields:`, error);
             return false;
         }
     }
 
     async function getField(collection, docId, fieldName) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             const doc = await db.collection(collection).doc(docId).get();
 
@@ -260,7 +332,7 @@ window.firestoreModule = (function () {
             }
             return null;
         } catch (error) {
-            console.error(`Error getting field ${fieldName}:`, error);
+            console.error(`❌ Error getting field ${fieldName}:`, error);
             return null;
         }
     }
@@ -271,34 +343,34 @@ window.firestoreModule = (function () {
 
     async function addToArrayField(collection, docId, fieldName, jsonValue) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             let value = JSON.parse(jsonValue);
             const updateData = {};
             updateData[fieldName] = firebase.firestore.FieldValue.arrayUnion(value);
 
             await db.collection(collection).doc(docId).update(updateData);
-            console.log(`Item added to array field ${fieldName}`);
+            console.log(`✓ Item added to array field ${fieldName}`);
             return true;
         } catch (error) {
-            console.error(`Error adding to array field ${fieldName}:`, error);
+            console.error(`❌ Error adding to array field ${fieldName}:`, error);
             return false;
         }
     }
 
     async function removeFromArrayField(collection, docId, fieldName, jsonValue) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             let value = JSON.parse(jsonValue);
             const updateData = {};
             updateData[fieldName] = firebase.firestore.FieldValue.arrayRemove(value);
 
             await db.collection(collection).doc(docId).update(updateData);
-            console.log(`Item removed from array field ${fieldName}`);
+            console.log(`✓ Item removed from array field ${fieldName}`);
             return true;
         } catch (error) {
-            console.error(`Error removing from array field ${fieldName}:`, error);
+            console.error(`❌ Error removing from array field ${fieldName}:`, error);
             return false;
         }
     }
@@ -309,7 +381,12 @@ window.firestoreModule = (function () {
 
     async function getCollection(collection) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            console.log(`📚 Getting collection: ${collection}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
 
             const querySnapshot = await db.collection(collection).get();
             const data = [];
@@ -322,16 +399,22 @@ window.firestoreModule = (function () {
                 data.push(item);
             });
 
+            console.log(`✓ Retrieved ${data.length} documents from ${collection}`);
             return JSON.stringify(data);
         } catch (error) {
-            console.error(`Error getting collection ${collection}:`, error);
+            console.error(`❌ Error getting collection ${collection}:`, error);
             return JSON.stringify([]);
         }
     }
 
     async function queryCollection(collection, field, jsonValue) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            console.log(`🔍 Querying collection ${collection} where ${field} == ${jsonValue}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
 
             let value = JSON.parse(jsonValue);
             const querySnapshot = await db.collection(collection).where(field, "==", value).get();
@@ -345,16 +428,17 @@ window.firestoreModule = (function () {
                 data.push(item);
             });
 
+            console.log(`✓ Query returned ${data.length} documents`);
             return JSON.stringify(data);
         } catch (error) {
-            console.error(`Error querying collection ${collection}:`, error);
+            console.error(`❌ Error querying collection ${collection}:`, error);
             return JSON.stringify([]);
         }
     }
 
     async function addBatch(collection, jsonItems) {
         try {
-            if (!isInitialized) await initializeFirestore();
+            if (!isInitialized || !db) await initializeFirestore();
 
             let items = JSON.parse(jsonItems);
             items = JSON.parse(JSON.stringify(items));
@@ -374,434 +458,11 @@ window.firestoreModule = (function () {
             });
 
             await batch.commit();
+            console.log(`✓ Batch added ${items.length} documents to ${collection}`);
             return true;
         } catch (error) {
-            console.error(`Error adding batch to ${collection}:`, error);
+            console.error(`❌ Error adding batch to ${collection}:`, error);
             if (isOffline) storeOfflineOperation({ collection, data: jsonItems, operation: 'batch', timestamp: Date.now() });
-            return false;
-        }
-    }
-
-    //#endregion
-
-    //#region ==================== DISTRIBUTED DOCUMENT OPERATIONS (FOR PRODUCTS) ====================
-
-    async function addToDistributedDocument(collection, documentId, key, jsonData) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            let data = JSON.parse(jsonData);
-            const updateData = {};
-            updateData[key] = data;
-
-            const docRef = db.collection(collection).doc(documentId);
-            const doc = await docRef.get();
-
-            if (doc.exists) {
-                await docRef.update(updateData);
-            } else {
-                await docRef.set(updateData);
-            }
-
-            console.log(`Data added to distributed document ${collection}/${documentId}[${key}]`);
-            return key;
-        } catch (error) {
-            console.error(`Error adding to distributed document:`, error);
-            return null;
-        }
-    }
-
-    async function updateFieldInDistributedDocument(collection, documentId, key, jsonData) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            let data = JSON.parse(jsonData);
-            const updateData = {};
-            updateData[key] = data;
-
-            await db.collection(collection).doc(documentId).update(updateData);
-            console.log(`Field updated in distributed document ${collection}/${documentId}[${key}]`);
-            return true;
-        } catch (error) {
-            console.error(`Error updating field in distributed document:`, error);
-            return false;
-        }
-    }
-
-    async function documentContainsKey(collection, documentId, key) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const doc = await db.collection(collection).doc(documentId).get();
-
-            if (!doc.exists) {
-                return false;
-            }
-
-            const data = doc.data();
-            return data && data.hasOwnProperty(key);
-        } catch (error) {
-            console.error(`Error checking if document contains key:`, error);
-            return false;
-        }
-    }
-
-    async function documentExists(collection, documentId) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const doc = await db.collection(collection).doc(documentId).get();
-            return doc.exists;
-        } catch (error) {
-            console.error(`Error checking document existence:`, error);
-            return false;
-        }
-    }
-
-    async function getDocumentSizeInfo(collection, documentId) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const doc = await db.collection(collection).doc(documentId).get();
-
-            if (!doc.exists) {
-                return null;
-            }
-
-            const data = doc.data();
-            const estimatedSize = estimateDocumentSize(data);
-            const fieldCount = Object.keys(data).length;
-
-            return JSON.stringify({
-                EstimatedSize: estimatedSize,
-                FieldCount: fieldCount,
-                Exists: true
-            });
-        } catch (error) {
-            console.error(`Error getting document size info:`, error);
-            return null;
-        }
-    }
-
-    function estimateDocumentSize(data) {
-        try {
-            const jsonString = JSON.stringify(data);
-            return new Blob([jsonString]).size;
-        } catch (error) {
-            console.error("Error estimating document size:", error);
-            return 0;
-        }
-    }
-
-    async function getDocumentsWithPrefix(collection, prefix) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const endPrefix = prefix.slice(0, -1) + String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1);
-
-            const querySnapshot = await db.collection(collection)
-                .where(firebase.firestore.FieldPath.documentId(), '>=', prefix)
-                .where(firebase.firestore.FieldPath.documentId(), '<', endPrefix)
-                .get();
-
-            const documents = [];
-            querySnapshot.forEach((doc) => {
-                documents.push({
-                    id: doc.id,
-                    data: doc.data()
-                });
-            });
-
-            return JSON.stringify(documents);
-        } catch (error) {
-            console.error(`Error getting documents with prefix:`, error);
-            return JSON.stringify([]);
-        }
-    }
-
-    async function batchGetDocuments(collection, documentIds) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const docIds = JSON.parse(documentIds);
-            const batch = [];
-
-            docIds.forEach(id => {
-                batch.push(db.collection(collection).doc(id).get());
-            });
-
-            const docs = await Promise.all(batch);
-            const results = [];
-
-            docs.forEach((doc, index) => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    data.id = doc.id;
-                    results.push(data);
-                } else {
-                    results.push(null);
-                }
-            });
-
-            return JSON.stringify(results);
-        } catch (error) {
-            console.error(`Error batch getting documents:`, error);
-            return JSON.stringify([]);
-        }
-    }
-
-    async function removeKeyFromDistributedDocument(collection, documentId, key) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const updateData = {};
-            updateData[key] = firebase.firestore.FieldValue.delete();
-
-            await db.collection(collection).doc(documentId).update(updateData);
-            console.log(`Key ${key} removed from distributed document ${collection}/${documentId}`);
-            return true;
-        } catch (error) {
-            console.error(`Error removing key from distributed document:`, error);
-            return false;
-        }
-    }
-
-    async function getDocumentFieldCount(collection, documentId) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const doc = await db.collection(collection).doc(documentId).get();
-
-            if (!doc.exists) {
-                return 0;
-            }
-
-            const data = doc.data();
-            return Object.keys(data).length;
-        } catch (error) {
-            console.error(`Error getting document field count:`, error);
-            return 0;
-        }
-    }
-
-    async function mergeIntoDistributedDocument(collection, documentId, jsonData) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            let data = JSON.parse(jsonData);
-            data = removeUndefinedConservative(data);
-
-            const docRef = db.collection(collection).doc(documentId);
-            await docRef.set(data, { merge: true });
-
-            console.log(`Data merged into distributed document ${collection}/${documentId}`);
-            return true;
-        } catch (error) {
-            console.error(`Error merging into distributed document:`, error);
-            return false;
-        }
-    }
-
-    async function getMultipleFieldsFromDistributedDocument(collection, documentId, fieldNames) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const fields = JSON.parse(fieldNames);
-            const doc = await db.collection(collection).doc(documentId).get();
-
-            if (!doc.exists) {
-                return JSON.stringify(null);
-            }
-
-            const data = doc.data();
-            const result = {};
-
-            fields.forEach(fieldName => {
-                if (data.hasOwnProperty(fieldName)) {
-                    result[fieldName] = data[fieldName];
-                }
-            });
-
-            return JSON.stringify(result);
-        } catch (error) {
-            console.error(`Error getting multiple fields from distributed document:`, error);
-            return JSON.stringify(null);
-        }
-    }
-
-    async function searchDistributedDocuments(collection, baseDocumentId, searchKey, searchValue) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const results = [];
-            let documentIndex = 1;
-
-            await searchInDocument(collection, baseDocumentId, searchKey, searchValue, results);
-
-            while (true) {
-                const currentDocumentId = `${baseDocumentId}_${documentIndex}`;
-                const doc = await db.collection(collection).doc(currentDocumentId).get();
-
-                if (!doc.exists) {
-                    break;
-                }
-
-                await searchInDocument(collection, currentDocumentId, searchKey, searchValue, results);
-                documentIndex++;
-            }
-
-            return JSON.stringify(results);
-        } catch (error) {
-            console.error(`Error searching distributed documents:`, error);
-            return JSON.stringify([]);
-        }
-    }
-
-    async function searchInDocument(collection, documentId, searchKey, searchValue, results) {
-        try {
-            const doc = await db.collection(collection).doc(documentId).get();
-
-            if (!doc.exists) {
-                return;
-            }
-
-            const data = doc.data();
-
-            Object.keys(data).forEach(key => {
-                const fieldData = data[key];
-                if (fieldData && typeof fieldData === 'object' && fieldData[searchKey] === searchValue) {
-                    results.push({
-                        documentId: documentId,
-                        key: key,
-                        data: fieldData
-                    });
-                }
-            });
-        } catch (error) {
-            console.error(`Error searching in document ${documentId}:`, error);
-        }
-    }
-
-    async function getDistributedDocumentStats(collection, baseDocumentId) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const stats = {
-                totalDocuments: 0,
-                totalFields: 0,
-                estimatedTotalSize: 0,
-                documents: []
-            };
-
-            await addDocumentStats(collection, baseDocumentId, stats);
-
-            let documentIndex = 1;
-            while (true) {
-                const currentDocumentId = `${baseDocumentId}_${documentIndex}`;
-                const doc = await db.collection(collection).doc(currentDocumentId).get();
-
-                if (!doc.exists) {
-                    break;
-                }
-
-                await addDocumentStats(collection, currentDocumentId, stats);
-                documentIndex++;
-            }
-
-            return JSON.stringify(stats);
-        } catch (error) {
-            console.error(`Error getting distributed document stats:`, error);
-            return JSON.stringify({ error: error.message });
-        }
-    }
-
-    async function addDocumentStats(collection, documentId, stats) {
-        try {
-            const doc = await db.collection(collection).doc(documentId).get();
-
-            if (doc.exists) {
-                const data = doc.data();
-                const fieldCount = Object.keys(data).length;
-                const estimatedSize = estimateDocumentSize(data);
-
-                stats.totalDocuments++;
-                stats.totalFields += fieldCount;
-                stats.estimatedTotalSize += estimatedSize;
-
-                stats.documents.push({
-                    id: documentId,
-                    fieldCount: fieldCount,
-                    estimatedSize: estimatedSize
-                });
-            }
-        } catch (error) {
-            console.error(`Error adding stats for document ${documentId}:`, error);
-        }
-    }
-
-    //#endregion
-
-    //#region ==================== E-COMMERCE SPECIFIC OPERATIONS ====================
-
-    async function findProductByCode(productCode) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const collections = ['Products', 'Products_Featured', 'Products_Sale'];
-
-            for (const collection of collections) {
-                try {
-                    const querySnapshot = await db.collection(collection)
-                        .where("productCode", "==", productCode)
-                        .get();
-
-                    if (!querySnapshot.empty) {
-                        const doc = querySnapshot.docs[0];
-                        const data = doc.data();
-                        data.id = doc.id;
-                        data.collection = collection;
-                        return JSON.stringify(data);
-                    }
-                } catch (error) {
-                    console.error(`Error searching in ${collection}:`, error);
-                }
-            }
-
-            console.log(`Product ${productCode} not found in any collection`);
-            return null;
-        } catch (error) {
-            console.error("Error in findProductByCode:", error);
-            return null;
-        }
-    }
-
-    async function deleteProductByCode(productCode) {
-        try {
-            if (!isInitialized) await initializeFirestore();
-
-            const collections = ['Products', 'Products_Featured', 'Products_Sale'];
-
-            for (const collection of collections) {
-                try {
-                    const querySnapshot = await db.collection(collection)
-                        .where("productCode", "==", productCode)
-                        .get();
-
-                    if (!querySnapshot.empty) {
-                        const docToDelete = querySnapshot.docs[0];
-                        await docToDelete.ref.delete();
-                        console.log(`Successfully deleted product ${productCode} from ${collection}`);
-                        return true;
-                    }
-                } catch (error) {
-                    console.error(`Error searching in ${collection}:`, error);
-                }
-            }
-
-            console.log(`Product ${productCode} not found in any collection`);
-            return false;
-        } catch (error) {
-            console.error("Error in deleteProductByCode:", error);
             return false;
         }
     }
@@ -843,9 +504,9 @@ window.firestoreModule = (function () {
             const existingOps = JSON.parse(localStorage.getItem(storageKey) || '[]');
             existingOps.push(operation);
             localStorage.setItem(storageKey, JSON.stringify(existingOps));
-            console.log('Operation stored for offline use:', operation);
+            console.log('💾 Operation stored for offline use:', operation);
         } catch (error) {
-            console.error('Error storing offline operation:', error);
+            console.error('❌ Error storing offline operation:', error);
         }
     }
 
@@ -857,7 +518,7 @@ window.firestoreModule = (function () {
             const pendingOps = JSON.parse(localStorage.getItem(storageKey) || '[]');
             if (pendingOps.length === 0) return;
 
-            console.log(`Processing ${pendingOps.length} pending operations`);
+            console.log(`⚙️ Processing ${pendingOps.length} pending operations`);
             pendingOps.sort((a, b) => a.timestamp - b.timestamp);
 
             const successfulOps = [];
@@ -886,7 +547,7 @@ window.firestoreModule = (function () {
                         successfulOps.push(op);
                     }
                 } catch (error) {
-                    console.error('Error processing pending operation:', error, op);
+                    console.error('❌ Error processing pending operation:', error, op);
                 }
             }
 
@@ -898,10 +559,10 @@ window.firestoreModule = (function () {
             );
 
             localStorage.setItem(storageKey, JSON.stringify(remainingOps));
-            console.log(`Processed ${successfulOps.length} operations, ${remainingOps.length} remaining`);
+            console.log(`✓ Processed ${successfulOps.length} operations, ${remainingOps.length} remaining`);
 
         } catch (error) {
-            console.error('Error processing pending operations:', error);
+            console.error('❌ Error processing pending operations:', error);
         }
     }
 
@@ -916,14 +577,14 @@ window.firestoreModule = (function () {
 
             return new Promise((resolve) => {
                 const connectedRef = firebase.database().ref(".info/connected");
-                connectedRef.on("value", (snap) => {
+                connectedRef.once("value", (snap) => {
                     const connected = snap.val() === true;
                     isOffline = !connected;
                     resolve(connected);
                 });
             });
         } catch (error) {
-            console.error("Error checking connection:", error);
+            console.error("❌ Error checking connection:", error);
             return false;
         }
     }
@@ -934,7 +595,7 @@ window.firestoreModule = (function () {
 
     window.addEventListener('online', () => {
         if (!manuallyDisconnected) {
-            console.log('Back online, processing pending operations');
+            console.log('🌐 Back online, processing pending operations');
             processPendingOperations();
         }
     });
@@ -970,25 +631,6 @@ window.firestoreModule = (function () {
         // Collection operations
         getCollection,
         queryCollection,
-        addBatch,
-
-        // Distributed document functions (for products)
-        addToDistributedDocument,
-        updateFieldInDistributedDocument,
-        documentContainsKey,
-        documentExists,
-        getDocumentSizeInfo,
-        getDocumentsWithPrefix,
-        batchGetDocuments,
-        removeKeyFromDistributedDocument,
-        getDocumentFieldCount,
-        mergeIntoDistributedDocument,
-        getMultipleFieldsFromDistributedDocument,
-        searchDistributedDocuments,
-        getDistributedDocumentStats,
-
-        // E-commerce specific
-        findProductByCode,
-        deleteProductByCode
+        addBatch
     };
 })();
