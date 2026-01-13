@@ -1,14 +1,14 @@
-// Domain/Cart/CartItemViewModel.cs - UPDATED FOR JSONB DESIGN
 using SubashaVentures.Models.Supabase;
 
 namespace SubashaVentures.Domain.Cart;
 
 /// <summary>
 /// View model for cart item in shopping cart
+/// UPDATED: Added variant key support
 /// </summary>
 public class CartItemViewModel
 {
-    public string Id { get; set; } = string.Empty; // Composite: userId_productId_size_color
+    public string Id { get; set; } = string.Empty;
     public string ProductId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
@@ -20,21 +20,30 @@ public class CartItemViewModel
     
     // Quantity
     public int Quantity { get; set; }
-    public int MaxQuantity { get; set; } // Stock limit
+    public int MaxQuantity { get; set; }
     
     // Selected Variants
     public string? Size { get; set; }
     public string? Color { get; set; }
     public string? ColorHex { get; set; }
     
+    // Variant Key (for efficient lookups)
+    public string? VariantKey { get; set; }
+    
     // Stock status
     public int Stock { get; set; }
     public bool IsInStock => Stock > 0;
+    
+    // Shipping
+    public decimal ShippingCost { get; set; }
+    public bool HasFreeShipping { get; set; }
+    public decimal Weight { get; set; }
     
     // Computed
     public decimal Subtotal => Price * Quantity;
     public string DisplayPrice => $"₦{Price:N0}";
     public string DisplaySubtotal => $"₦{Subtotal:N0}";
+    public string DisplayShipping => HasFreeShipping ? "FREE" : $"₦{ShippingCost:N0}";
     
     // Validation
     public bool CanIncreaseQuantity => Quantity < Stock && Quantity < MaxQuantity;
@@ -45,40 +54,60 @@ public class CartItemViewModel
     
     // ==================== CONVERSION METHODS ====================
     
-    /// <summary>
-    /// Convert from JSONB CartItem to CartItemViewModel
-    /// Note: This requires product information from the product service
-    /// </summary>
-    public static CartItemViewModel FromCartItem(CartItem item, string userId, string productName, 
-        string productSlug, string imageUrl, decimal price, decimal? originalPrice, int stock)
+    public static CartItemViewModel FromCartItem(CartItem item, string userId, ProductModel product)
     {
         if (item == null)
             throw new ArgumentNullException(nameof(item));
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
             
-        // Create composite ID: userId_productId_size_color
+        // Build variant key if size/color provided
+        var variantKey = !string.IsNullOrEmpty(item.size) || !string.IsNullOrEmpty(item.color)
+            ? ProductModelExtensions.BuildVariantKey(item.size, item.color)
+            : null;
+            
+        // Get variant-specific data
+        var price = product.GetVariantPrice(variantKey);
+        var image = product.GetVariantImage(variantKey);
+        var stock = product.GetVariantStock(variantKey);
+        var shipping = product.GetVariantShippingCost(variantKey);
+        var hasFreeShipping = product.VariantHasFreeShipping(variantKey);
+        var weight = product.GetVariantWeight(variantKey);
+        
+        // Get color hex if variant exists
+        string? colorHex = null;
+        if (!string.IsNullOrEmpty(variantKey) && 
+            product.Variants.TryGetValue(variantKey, out var variant))
+        {
+            colorHex = variant.ColorHex;
+        }
+            
+        // Create composite ID
         var compositeId = $"{userId}_{item.product_id}_{item.size ?? "null"}_{item.color ?? "null"}";
             
         return new CartItemViewModel
         {
             Id = compositeId,
             ProductId = item.product_id,
-            Name = productName,
-            Slug = productSlug,
-            ImageUrl = imageUrl,
+            Name = product.Name,
+            Slug = product.Slug,
+            ImageUrl = image,
             Price = price,
-            OriginalPrice = originalPrice,
+            OriginalPrice = product.OriginalPrice,
             Quantity = item.quantity,
             MaxQuantity = stock,
             Size = item.size,
             Color = item.color,
+            ColorHex = colorHex,
+            VariantKey = variantKey,
             Stock = stock,
+            ShippingCost = shipping,
+            HasFreeShipping = hasFreeShipping,
+            Weight = weight,
             AddedAt = item.added_at
         };
     }
     
-    /// <summary>
-    /// Convert from CartItemViewModel to JSONB CartItem
-    /// </summary>
     public CartItem ToCartItem()
     {
         return new CartItem
@@ -91,10 +120,6 @@ public class CartItemViewModel
         };
     }
     
-    /// <summary>
-    /// Parse composite ID to extract components
-    /// Format: userId_productId_size_color
-    /// </summary>
     public static (string userId, string productId, string? size, string? color) ParseCompositeId(string compositeId)
     {
         var parts = compositeId.Split('_');

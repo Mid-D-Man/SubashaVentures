@@ -27,6 +27,13 @@ public class ProductCardDto
     public bool IsFeatured { get; set; }
     public bool IsNew { get; set; }
     
+    // Partnership
+    public bool IsOwnedByStore { get; set; } = true;
+    public string? PartnerName { get; set; }
+    
+    // Shipping
+    public bool HasFreeShipping { get; set; }
+    
     public string DisplayPrice => $"₦{Price:N0}";
     public string DisplayOriginalPrice => OriginalPrice.HasValue 
         ? $"₦{OriginalPrice.Value:N0}" 
@@ -34,9 +41,6 @@ public class ProductCardDto
     
     // ==================== CONVERSION METHODS ====================
     
-    /// <summary>
-    /// Convert from Supabase ProductModel to ProductCardDto
-    /// </summary>
     public static ProductCardDto FromCloudModel(ProductModel model)
     {
         if (model == null)
@@ -58,13 +62,12 @@ public class ProductCardDto
             ReviewCount = model.ReviewCount,
             IsInStock = model.Stock > 0,
             IsFeatured = model.IsFeatured,
-            IsNew = (DateTime.UtcNow - model.CreatedAt).TotalDays <= 30
+            IsNew = (DateTime.UtcNow - model.CreatedAt).TotalDays <= 30,
+            IsOwnedByStore = model.IsOwnedByStore,
+            HasFreeShipping = model.HasFreeShipping
         };
     }
     
-    /// <summary>
-    /// Convert from ProductViewModel to ProductCardDto
-    /// </summary>
     public static ProductCardDto FromViewModel(ProductViewModel model)
     {
         if (model == null)
@@ -86,13 +89,12 @@ public class ProductCardDto
             ReviewCount = model.ReviewCount,
             IsInStock = model.IsInStock,
             IsFeatured = model.IsFeatured,
-            IsNew = (DateTime.UtcNow - model.CreatedAt).TotalDays <= 30
+            IsNew = (DateTime.UtcNow - model.CreatedAt).TotalDays <= 30,
+            IsOwnedByStore = model.IsOwnedByStore,
+            HasFreeShipping = model.HasFreeShipping
         };
     }
     
-    /// <summary>
-    /// Convert list of ProductModels to list of ProductCardDtos
-    /// </summary>
     public static List<ProductCardDto> FromCloudModels(IEnumerable<ProductModel> models)
     {
         if (models == null)
@@ -101,9 +103,6 @@ public class ProductCardDto
         return models.Select(FromCloudModel).ToList();
     }
     
-    /// <summary>
-    /// Convert list of ProductViewModels to list of ProductCardDtos
-    /// </summary>
     public static List<ProductCardDto> FromViewModels(IEnumerable<ProductViewModel> models)
     {
         if (models == null)

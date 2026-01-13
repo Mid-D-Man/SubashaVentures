@@ -1,10 +1,10 @@
-// Domain/Product/ProductViewModel.cs - SINGLE SOURCE OF TRUTH
 namespace SubashaVentures.Domain.Product;
 
 using SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// View model for displaying product information in the UI
+/// UPDATED: Added partnership and variant support
 /// </summary>
 public class ProductViewModel
 {
@@ -13,6 +13,12 @@ public class ProductViewModel
     public string Slug { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string LongDescription { get; set; } = string.Empty;
+    
+    // Partnership
+    public bool IsOwnedByStore { get; set; } = true;
+    public Guid? PartnerId { get; set; }
+    public string? PartnerName { get; set; }
+    public decimal? PartnerCommissionRate { get; set; }
     
     // Pricing 
     public decimal Price { get; set; }
@@ -24,13 +30,21 @@ public class ProductViewModel
     public List<string> Images { get; set; } = new();
     public string? VideoUrl { get; set; }
     
-    // Variants
+    // Variants (from JSONB)
+    public Dictionary<string, ProductVariant> Variants { get; set; } = new();
+    
+    // Auto-populated (read-only)
     public List<string> Sizes { get; set; } = new();
     public List<string> Colors { get; set; } = new();
     
     // Inventory
     public int Stock { get; set; }
     public string Sku { get; set; } = string.Empty;
+    
+    // Base Shipping
+    public decimal BaseWeight { get; set; } = 1.0m;
+    public decimal BaseShippingCost { get; set; } = 2000m;
+    public bool HasFreeShipping { get; set; } = false;
     
     // Classification
     public string CategoryId { get; set; } = string.Empty;
@@ -42,11 +56,10 @@ public class ProductViewModel
     // Rating & Reviews
     public float Rating { get; set; }
     public int ReviewCount { get; set; }
-
-    public int ViewCount { get; set; }
     
+    public int ViewCount { get; set; }
     public int SalesCount { get; set; }
-
+    
     // Metadata
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -74,9 +87,6 @@ public class ProductViewModel
     
     // ==================== CONVERSION METHODS ====================
     
-    /// <summary>
-    /// Convert from Supabase ProductModel to ProductViewModel
-    /// </summary>
     public static ProductViewModel FromCloudModel(ProductModel model)
     {
         if (model == null)
@@ -89,25 +99,43 @@ public class ProductViewModel
             Slug = model.Slug,
             Description = model.Description,
             LongDescription = model.LongDescription,
+            
+            // Partnership
+            IsOwnedByStore = model.IsOwnedByStore,
+            PartnerId = model.PartnerId,
+            
             Price = model.Price,
             OriginalPrice = model.OriginalPrice,
             IsOnSale = model.IsOnSale,
             Discount = model.Discount,
+            
             Images = model.Images ?? new List<string>(),
             VideoUrl = model.VideoUrl,
+            
+            // Variants
+            Variants = model.Variants ?? new Dictionary<string, ProductVariant>(),
             Sizes = model.Sizes ?? new List<string>(),
             Colors = model.Colors ?? new List<string>(),
+            
             Stock = model.Stock,
             Sku = model.Sku,
+            
+            // Shipping
+            BaseWeight = model.BaseWeight,
+            BaseShippingCost = model.BaseShippingCost,
+            HasFreeShipping = model.HasFreeShipping,
+            
             CategoryId = model.CategoryId,
             Category = model.Category,
             SubCategory = model.SubCategory,
             Brand = model.Brand,
             Tags = model.Tags ?? new List<string>(),
+            
             Rating = model.Rating,
             ReviewCount = model.ReviewCount,
             ViewCount = model.ViewCount,
             SalesCount = model.SalesCount,
+            
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,
             IsActive = model.IsActive,
@@ -115,9 +143,6 @@ public class ProductViewModel
         };
     }
     
-    /// <summary>
-    /// Convert from ProductViewModel to Supabase ProductModel
-    /// </summary>
     public ProductModel ToCloudModel()
     {
         return new ProductModel
@@ -127,25 +152,40 @@ public class ProductViewModel
             Slug = this.Slug,
             Description = this.Description,
             LongDescription = this.LongDescription,
+            
+            // Partnership
+            IsOwnedByStore = this.IsOwnedByStore,
+            PartnerId = this.PartnerId,
+            
             Price = this.Price,
             OriginalPrice = this.OriginalPrice,
             IsOnSale = this.IsOnSale,
             Discount = this.Discount,
+            
             Images = this.Images ?? new List<string>(),
             VideoUrl = this.VideoUrl,
-            Sizes = this.Sizes ?? new List<string>(),
-            Colors = this.Colors ?? new List<string>(),
-            Stock = this.Stock,
+            
+            // Variants (DO NOT set sizes/colors/stock - auto-populated)
+            Variants = this.Variants ?? new Dictionary<string, ProductVariant>(),
+            
             Sku = this.Sku,
+            
+            // Shipping
+            BaseWeight = this.BaseWeight,
+            BaseShippingCost = this.BaseShippingCost,
+            HasFreeShipping = this.HasFreeShipping,
+            
             CategoryId = this.CategoryId,
             Category = this.Category,
             SubCategory = this.SubCategory,
             Brand = this.Brand,
             Tags = this.Tags ?? new List<string>(),
+            
             Rating = this.Rating,
             ReviewCount = this.ReviewCount,
             ViewCount = this.ViewCount,
             SalesCount = this.SalesCount,
+            
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt,
             IsActive = this.IsActive,
@@ -153,9 +193,6 @@ public class ProductViewModel
         };
     }
     
-    /// <summary>
-    /// Convert list of ProductModels to list of ProductViewModels
-    /// </summary>
     public static List<ProductViewModel> FromCloudModels(IEnumerable<ProductModel> models)
     {
         if (models == null)
@@ -163,4 +200,17 @@ public class ProductViewModel
             
         return models.Select(FromCloudModel).ToList();
     }
+    
+    // Variant helper methods
+    public decimal GetVariantPrice(string? variantKey) => 
+        this.ToCloudModel().GetVariantPrice(variantKey);
+    
+    public decimal GetVariantShippingCost(string? variantKey) => 
+        this.ToCloudModel().GetVariantShippingCost(variantKey);
+    
+    public int GetVariantStock(string? variantKey) => 
+        this.ToCloudModel().GetVariantStock(variantKey);
+    
+    public string GetVariantImage(string? variantKey) => 
+        this.ToCloudModel().GetVariantImage(variantKey);
 }

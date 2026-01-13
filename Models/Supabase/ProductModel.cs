@@ -1,19 +1,21 @@
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using Newtonsoft.Json; //  Use Newtonsoft, not System.Text.Json
+using Newtonsoft.Json;
 
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Supabase product model with auto-increment ID and analytics
+/// Product model with proper variant structure
+/// IMPORTANT: Variants JSONB is the single source of truth
+/// - sizes/colors arrays are AUTO-POPULATED from variants by database trigger
+/// - stock is AUTO-CALCULATED from variants by database trigger
 /// </summary>
 [Table("products")]
 public class ProductModel : BaseModel
 {
-    // AUTO-INCREMENT PRIMARY KEY - Supabase handles this
-    [PrimaryKey("id", false)] // false = not client-generated
+    [PrimaryKey("id", false)]
     [Column("id")]
-    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)] // ✅ CRITICAL FIX: Don't send 0 to database
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public int Id { get; set; }
     
     [Column("name")]
@@ -28,7 +30,16 @@ public class ProductModel : BaseModel
     [Column("long_description")]
     public string LongDescription { get; set; } = string.Empty;
     
-    // Pricing
+    // ==================== PARTNERSHIP ====================
+    
+    [Column("is_owned_by_store")]
+    public bool IsOwnedByStore { get; set; } = true;
+    
+    [Column("partner_id")]
+    public Guid? PartnerId { get; set; }
+    
+    // ==================== PRICING ====================
+    
     [Column("price")]
     public decimal Price { get; set; }
     
@@ -41,28 +52,53 @@ public class ProductModel : BaseModel
     [Column("discount")]
     public int Discount { get; set; }
     
-    // Media (JSONB array)
+    // ==================== MEDIA ====================
+    
     [Column("images")]
     public List<string> Images { get; set; } = new();
     
     [Column("video_url")]
     public string? VideoUrl { get; set; }
     
-    // Variants (JSONB arrays)
+    // ==================== VARIANTS (SINGLE SOURCE OF TRUTH) ====================
+    
+    /// <summary>
+    /// Variant information stored as JSONB
+    /// This is the ONLY place you should manage variants
+    /// sizes/colors/stock are auto-populated from this by triggers
+    /// </summary>
+    [Column("variants")]
+    public Dictionary<string, ProductVariant> Variants { get; set; } = new();
+    
+    // ==================== AUTO-POPULATED (READ-ONLY) ====================
+    
     [Column("sizes")]
     public List<string> Sizes { get; set; } = new();
     
     [Column("colors")]
     public List<string> Colors { get; set; } = new();
     
-    // Inventory
     [Column("stock")]
     public int Stock { get; set; }
     
-    [Column("sku")]
-    public string Sku { get; set; } = string.Empty; // Unique identifier
+    // ==================== BASE SHIPPING INFO ====================
     
-    // Classification
+    [Column("base_weight")]
+    public decimal BaseWeight { get; set; } = 1.0m;
+    
+    [Column("base_shipping_cost")]
+    public decimal BaseShippingCost { get; set; } = 2000m;
+    
+    [Column("has_free_shipping")]
+    public bool HasFreeShipping { get; set; } = false;
+    
+    // ==================== INVENTORY ====================
+    
+    [Column("sku")]
+    public string Sku { get; set; } = string.Empty;
+    
+    // ==================== CLASSIFICATION ====================
+    
     [Column("category_id")]
     public string CategoryId { get; set; } = string.Empty;
     
@@ -78,14 +114,16 @@ public class ProductModel : BaseModel
     [Column("tags")]
     public List<string> Tags { get; set; } = new();
     
-    // Rating & Reviews
+    // ==================== RATING & REVIEWS ====================
+    
     [Column("rating")]
     public float Rating { get; set; }
     
     [Column("review_count")]
     public int ReviewCount { get; set; }
     
-    // Analytics (aggregated from product_analytics table)
+    // ==================== ANALYTICS ====================
+    
     [Column("view_count")]
     public int ViewCount { get; set; }
     
@@ -104,7 +142,8 @@ public class ProductModel : BaseModel
     [Column("total_revenue")]
     public decimal TotalRevenue { get; set; }
     
-    // Metadata
+    // ==================== METADATA ====================
+    
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
     
@@ -117,7 +156,8 @@ public class ProductModel : BaseModel
     [Column("last_purchased_at")]
     public DateTime? LastPurchasedAt { get; set; }
     
-    // ISecureEntity
+    // ==================== AUDIT FIELDS ====================
+    
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
     
@@ -138,4 +178,166 @@ public class ProductModel : BaseModel
     
     [Column("deleted_by")]
     public string? DeletedBy { get; set; }
+}
+
+/// <summary>
+/// Complete variant information stored in products.variants JSONB
+/// </summary>
+public class ProductVariant
+{
+    [System.Text.Json.Serialization.JsonPropertyName("sku")]
+    public string Sku { get; set; } = string.Empty;
+    
+    [System.Text.Json.Serialization.JsonPropertyName("size")]
+    public string? Size { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("color")]
+    public string? Color { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("color_hex")]
+    public string? ColorHex { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("stock")]
+    public int Stock { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("price_adjustment")]
+    public decimal PriceAdjustment { get; set; } = 0m;
+    
+    [System.Text.Json.Serialization.JsonPropertyName("weight")]
+    public decimal? Weight { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("length")]
+    public decimal? Length { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("width")]
+    public decimal? Width { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("height")]
+    public decimal? Height { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("shipping_cost")]
+    public decimal? ShippingCost { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("has_free_shipping")]
+    public bool HasFreeShipping { get; set; } = false;
+    
+    [System.Text.Json.Serialization.JsonPropertyName("image_url")]
+    public string? ImageUrl { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("is_available")]
+    public bool IsAvailable { get; set; } = true;
+    
+    [System.Text.Json.Serialization.JsonPropertyName("metadata")]
+    public Dictionary<string, object>? Metadata { get; set; }
+}
+
+public static class ProductModelExtensions
+{
+    public static decimal GetVariantPrice(this ProductModel product, string? variantKey)
+    {
+        if (string.IsNullOrEmpty(variantKey))
+            return product.Price;
+            
+        if (product.Variants.TryGetValue(variantKey, out var variant))
+        {
+            return product.Price + variant.PriceAdjustment;
+        }
+        
+        return product.Price;
+    }
+    
+    public static decimal GetVariantShippingCost(this ProductModel product, string? variantKey)
+    {
+        if (!string.IsNullOrEmpty(variantKey) && 
+            product.Variants.TryGetValue(variantKey, out var variant))
+        {
+            if (variant.HasFreeShipping)
+                return 0m;
+                
+            return variant.ShippingCost ?? product.BaseShippingCost;
+        }
+        
+        return product.HasFreeShipping ? 0m : product.BaseShippingCost;
+    }
+    
+    public static decimal GetVariantWeight(this ProductModel product, string? variantKey)
+    {
+        if (!string.IsNullOrEmpty(variantKey) && 
+            product.Variants.TryGetValue(variantKey, out var variant) &&
+            variant.Weight.HasValue)
+        {
+            return variant.Weight.Value;
+        }
+        
+        return product.BaseWeight;
+    }
+    
+    public static (decimal length, decimal width, decimal height) GetVariantDimensions(
+        this ProductModel product, string? variantKey)
+    {
+        if (!string.IsNullOrEmpty(variantKey) && 
+            product.Variants.TryGetValue(variantKey, out var variant))
+        {
+            return (
+                variant.Length ?? 30m,
+                variant.Width ?? 20m,
+                variant.Height ?? 10m
+            );
+        }
+        
+        return (30m, 20m, 10m);
+    }
+    
+    public static int GetVariantStock(this ProductModel product, string? variantKey)
+    {
+        if (string.IsNullOrEmpty(variantKey))
+            return product.Stock;
+            
+        if (product.Variants.TryGetValue(variantKey, out var variant))
+        {
+            return variant.Stock;
+        }
+        
+        return 0;
+    }
+    
+    public static bool IsVariantInStock(this ProductModel product, string? variantKey)
+    {
+        return product.GetVariantStock(variantKey) > 0;
+    }
+    
+    public static string GetVariantImage(this ProductModel product, string? variantKey)
+    {
+        if (!string.IsNullOrEmpty(variantKey) && 
+            product.Variants.TryGetValue(variantKey, out var variant) &&
+            !string.IsNullOrEmpty(variant.ImageUrl))
+        {
+            return variant.ImageUrl;
+        }
+        
+        return product.Images.FirstOrDefault() ?? string.Empty;
+    }
+    
+    public static bool VariantHasFreeShipping(this ProductModel product, string? variantKey)
+    {
+        if (!string.IsNullOrEmpty(variantKey) && 
+            product.Variants.TryGetValue(variantKey, out var variant))
+        {
+            return variant.HasFreeShipping;
+        }
+        
+        return product.HasFreeShipping;
+    }
+    
+    public static string BuildVariantKey(string? size, string? color)
+    {
+        if (string.IsNullOrEmpty(size) && string.IsNullOrEmpty(color))
+            return string.Empty;
+            
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(size)) parts.Add(size);
+        if (!string.IsNullOrEmpty(color)) parts.Add(color);
+        
+        return string.Join("_", parts);
+    }
 }

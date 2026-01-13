@@ -1,4 +1,3 @@
-// Domain/Cart/CartSummaryViewModel.cs - NO CHANGES NEEDED (already correct)
 namespace SubashaVentures.Domain.Cart;
 
 /// <summary>

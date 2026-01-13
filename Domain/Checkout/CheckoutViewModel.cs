@@ -1,7 +1,3 @@
-
-
-// ===== Domain/Checkout/CheckoutViewModel.cs =====
-
 using SubashaVentures.Domain.Order;
 
 namespace SubashaVentures.Domain.Checkout;
@@ -19,10 +15,18 @@ public class CheckoutViewModel
     public string ShippingMethod { get; set; } = "Standard";
     public decimal ShippingCost { get; set; }
     
+    // Shipping rate ID (from Terminal Africa or other provider)
+    public string? ShippingRateId { get; set; }
+    
     public PaymentMethod PaymentMethod { get; set; }
     
     public decimal Subtotal => Items.Sum(i => i.Subtotal);
     public decimal Total => Subtotal + ShippingCost - PromoDiscount;
+    
+    // Partner commission breakdown
+    public decimal StoreRevenue { get; set; }
+    public decimal PartnerCommissions { get; set; }
+    public Dictionary<Guid, decimal>? PartnerBreakdown { get; set; }
     
     public string? CustomerNotes { get; set; }
     
