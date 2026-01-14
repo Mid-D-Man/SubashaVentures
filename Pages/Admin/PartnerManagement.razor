@@ -1,0 +1,502 @@
+@page "/admin/partners"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Components.Admin.Users
+@layout AdminLayout
+
+<div class="partner-management">
+    <!-- Notification Component -->
+    <NotificationComponent @ref="notificationComponent" 
+                          Position="NotificationPosition.TopRight"
+                          AutoDismissTime="5000" />
+
+    <!-- Header -->
+    <div class="pm-header">
+        <div class="pm-header-left">
+            <h1 class="pm-title">Partner Management</h1>
+            <p class="pm-subtitle">Manage vendors and partners</p>
+        </div>
+        <div class="pm-header-right">
+            <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                           Size="SecondaryButton.ButtonSize.Medium"
+                           Icon="⬇"
+                           OnClick="HandleExport">
+                Export
+            </SecondaryButton>
+            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
+                          Size="PrimaryButton.ButtonSize.Medium"
+                          Icon="➕"
+                          OnClick="OpenCreatePartnerModal">
+                Add Partner
+            </PrimaryButton>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="pm-stats">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Partners</span>
+                <span class="stat-value">@totalPartners</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <span class="stat-label">Active Partners</span>
+                <span class="stat-value">@activePartners</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-info">
+                <span class="stat-label">Pending Verification</span>
+                <span class="stat-value">@pendingVerification</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Pending Payout</span>
+                <span class="stat-value">₦@totalPendingPayout.ToString("N0")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="pm-toolbar">
+        <div class="pm-filters">
+            <InputField Value="@searchQuery"
+                        ValueChanged="@((value) => { searchQuery = value; HandleSearch(); })"
+                        Placeholder="Search partners..."
+                        PrefixIcon="🔍"
+                        ShowClearButton="true"
+                        CssClass="search-input" />
+
+            <select class="filter-select" @onchange="HandleStatusFilter">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+
+            <select class="filter-select" @onchange="HandleVerificationFilter">
+                <option value="">All Verification</option>
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="rejected">Rejected</option>
+            </select>
+
+            <select class="filter-select" @onchange="HandleSortChange">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name-az">Name (A-Z)</option>
+                <option value="name-za">Name (Z-A)</option>
+                <option value="commission-high">Commission (High)</option>
+                <option value="commission-low">Commission (Low)</option>
+                <option value="payout-high">Pending Payout (High)</option>
+            </select>
+        </div>
+
+        <div class="pm-view-controls">
+            @if (selectedPartners.Any())
+            {
+                <span class="selection-count">@selectedPartners.Count selected</span>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkActivate">
+                    Activate
+                </SecondaryButton>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkDeactivate">
+                    Deactivate
+                </SecondaryButton>
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="HandleBulkDelete"
+                                CssClass="btn-danger">
+                    Delete
+                </SecondaryButton>
+            }
+
+            <button class="view-toggle @(viewMode == "grid" ? "active" : "")" 
+                    @onclick="@(() => viewMode = "grid")"
+                    title="Grid View">
+                ▦
+            </button>
+            <button class="view-toggle @(viewMode == "list" ? "active" : "")" 
+                    @onclick="@(() => viewMode = "list")"
+                    title="List View">
+                ☰
+            </button>
+        </div>
+    </div>
+
+    <!-- Content Area -->
+    @if (isLoading)
+    {
+        <div class="pm-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading partners...</p>
+        </div>
+    }
+    else if (!filteredPartners.Any())
+    {
+        <div class="pm-empty">
+            <div class="empty-icon">👥</div>
+            <h3>No partners found</h3>
+            <p>@(string.IsNullOrEmpty(searchQuery) ? "Start by adding your first partner" : "Try adjusting your search or filters")</p>
+            <PrimaryButton OnClick="OpenCreatePartnerModal">
+                Add Partner
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        @if (viewMode == "grid")
+        {
+            <div class="pm-grid">
+                @foreach (var partner in paginatedPartners)
+                {
+                    <AdminPartnerCard Partner="@partner"
+                                     AllowSelection="true"
+                                     IsSelected="@selectedPartners.Contains(partner.Id)"
+                                     OnEdit="@((p) => OpenEditPartnerModal(p))"
+                                     OnDelete="@((p) => HandleDeletePartner(p))"
+                                     OnToggleActive="@((args) => HandleToggleActive(args.partner, args.isActive))"
+                                     OnSelectionChanged="@((args) => HandleSelectionChanged(args.partnerId, args.isSelected))"
+                                     OnCardClick="@((p) => OpenEditPartnerModal(p))" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="pm-table-container">
+                <table class="pm-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" 
+                                       @onchange="HandleSelectAll"
+                                       checked="@(selectedPartners.Count == paginatedPartners.Count && paginatedPartners.Any())" />
+                            </th>
+                            <th>Partner</th>
+                            <th>Contact</th>
+                            <th>Commission Rate</th>
+                            <th>Total Sales</th>
+                            <th>Pending Payout</th>
+                            <th>Status</th>
+                            <th>Verification</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var partner in paginatedPartners)
+                        {
+                            <tr class="@(selectedPartners.Contains(partner.Id) ? "selected" : "")">
+                                <td>
+                                    <input type="checkbox"
+                                           checked="@selectedPartners.Contains(partner.Id)"
+                                           @onchange="@((e) => HandleSelectionChanged(partner.Id, (bool)e.Value))" />
+                                </td>
+                                <td>
+                                    <div class="table-partner-info">
+                                        <div>
+                                            <span class="partner-name">@partner.Name</span>
+                                            <span class="partner-id">@partner.UniquePartnerId</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="contact-info">
+                                        <span>@partner.Email</span>
+                                        @if (!string.IsNullOrEmpty(partner.PhoneNumber))
+                                        {
+                                            <span class="phone">@partner.PhoneNumber</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="commission-rate">@partner.CommissionRate%</span>
+                                </td>
+                                <td>
+                                    <span class="total-sales">₦@partner.TotalSales.ToString("N0")</span>
+                                </td>
+                                <td>
+                                    <span class="pending-payout @(partner.PendingPayout >= 10000 ? "high" : "")">
+                                        ₦@partner.PendingPayout.ToString("N0")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-badge @(partner.IsActive ? "active" : "inactive")">
+                                        @(partner.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="verification-badge @partner.VerificationStatus">
+                                        @partner.VerificationStatus
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <button class="action-btn" @onclick="@(() => OpenEditPartnerModal(partner))" title="Edit">
+                                            ✏️
+                                        </button>
+                                        <button class="action-btn danger" @onclick="@(() => HandleDeletePartner(partner))" title="Delete">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <!-- Pagination -->
+        <div class="pm-pagination">
+            <div class="pagination-info">
+                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredPartners.Count) of @filteredPartners.Count partners
+            </div>
+            <div class="pagination-controls">
+                <button class="page-btn" 
+                        @onclick="PreviousPage" 
+                        disabled="@(currentPage == 1)">
+                    ← Previous
+                </button>
+                
+                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                {
+                    var pageNumber = i;
+                    <button class="page-btn @(pageNumber == currentPage ? "active" : "")" 
+                            @onclick="@(() => GoToPage(pageNumber))">
+                        @pageNumber
+                    </button>
+                }
+                
+                <button class="page-btn" 
+                        @onclick="NextPage" 
+                        disabled="@(currentPage == totalPages)">
+                    Next →
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Create/Edit Partner Modal -->
+<DynamicModal @ref="partnerModal"
+              Title="@(isEditMode ? "Edit Partner" : "Create Partner")"
+              Size="DynamicModal.ModalSize.Large"
+              IsOpen="@isPartnerModalOpen"
+              ShowFooter="false"
+              IsScrollable="true"
+              OnClose="ClosePartnerModal">
+    <BodyContent>
+        <div class="partner-form">
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h3 class="section-title">Basic Information</h3>
+                
+                <InputField @bind-Value="partnerForm.Name"
+                           Label="Partner Name"
+                           Placeholder="Enter partner/vendor name"
+                           IsRequired="true"
+                           HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
+                           ErrorMessage="@validationErrors.GetValueOrDefault("Name")" />
+
+                <div class="form-row">
+                    <InputField @bind-Value="partnerForm.Email"
+                               Label="Email Address"
+                               Placeholder="partner@example.com"
+                               IsRequired="true"
+                               HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Email")))"
+                               ErrorMessage="@validationErrors.GetValueOrDefault("Email")" />
+
+                    <InputField @bind-Value="partnerForm.PhoneNumber"
+                               Label="Phone Number"
+                               Placeholder="+234 XXX XXX XXXX" />
+                </div>
+
+                <div class="form-row">
+                    <InputField @bind-Value="partnerForm.CompanyName"
+                               Label="Company Name"
+                               Placeholder="Company name (optional)" />
+
+                    <InputField @bind-Value="partnerForm.BusinessRegistrationNumber"
+                               Label="Business Registration Number"
+                               Placeholder="CAC registration number" />
+                </div>
+
+                <InputField @bind-Value="partnerForm.ContactPerson"
+                           Label="Contact Person"
+                           Placeholder="Primary contact person name" />
+            </div>
+
+            <!-- Financial Details -->
+            <div class="form-section">
+                <h3 class="section-title">Financial Details</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Commission Rate (%) *</label>
+                        <input type="number" 
+                               class="form-input"
+                               @bind="partnerForm.CommissionRate"
+                               @bind:event="oninput"
+                               placeholder="50.00"
+                               step="0.01"
+                               min="0"
+                               max="100" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Payment Method</label>
+                        <select class="form-select" @bind="partnerForm.PaymentMethod">
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="cash">Cash</option>
+                            <option value="check">Check</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Bank Details -->
+                <h4 class="subsection-title">Bank Details</h4>
+                
+                <InputField @bind-Value="partnerForm.BankAccountName"
+                           Label="Account Name"
+                           Placeholder="Account holder name" />
+
+                <div class="form-row">
+                    <InputField @bind-Value="partnerForm.BankAccountNumber"
+                               Label="Account Number"
+                               Placeholder="1234567890" />
+
+                    <InputField @bind-Value="partnerForm.BankName"
+                               Label="Bank Name"
+                               Placeholder="e.g., GTBank, Access Bank" />
+                </div>
+
+                <InputField @bind-Value="partnerForm.BankCode"
+                           Label="Bank Code (Optional)"
+                           Placeholder="Bank sort code" />
+            </div>
+
+            <!-- Address -->
+            <div class="form-section">
+                <h3 class="section-title">Address</h3>
+                
+                <InputField @bind-Value="partnerForm.Street"
+                           Label="Street Address"
+                           Placeholder="Street address" />
+
+                <div class="form-row">
+                    <InputField @bind-Value="partnerForm.City"
+                               Label="City"
+                               Placeholder="e.g., Lagos" />
+
+                    <InputField @bind-Value="partnerForm.State"
+                               Label="State"
+                               Placeholder="e.g., Lagos" />
+                </div>
+
+                <div class="form-row">
+                    <InputField @bind-Value="partnerForm.PostalCode"
+                               Label="Postal Code"
+                               Placeholder="100001" />
+
+                    <InputField @bind-Value="partnerForm.Country"
+                               Label="Country"
+                               Placeholder="Nigeria" />
+                </div>
+            </div>
+
+            <!-- Notes & Settings -->
+            <div class="form-section">
+                <h3 class="section-title">Additional Information</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-textarea"
+                             @bind="partnerForm.Notes"
+                             placeholder="Any additional notes about this partner"
+                             rows="4"></textarea>
+                </div>
+
+                @if (isEditMode)
+                {
+                    <div class="form-group">
+                        <label class="form-label">Verification Status</label>
+                        <select class="form-select" @bind="partnerForm.VerificationStatus">
+                            <option value="pending">Pending</option>
+                            <option value="verified">Verified</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" @bind="partnerForm.IsActive" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Active Status</span>
+                        </label>
+                    </div>
+                }
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <SecondaryButton OnClick="ClosePartnerModal"
+                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                Size="SecondaryButton.ButtonSize.Large">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="HandleSavePartner"
+                              Size="PrimaryButton.ButtonSize.Large"
+                              IsLoading="@isSaving"
+                              IsDisabled="@isSaving">
+                    @(isEditMode ? "Update Partner" : "Create Partner")
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Delete Confirmation Popup -->
+<ConfirmationPopup @ref="deleteConfirmationPopup"
+                  IsOpen="@showDeleteConfirmation"
+                  Title="@(partnersToDelete != null ? "Delete Multiple Partners?" : "Delete Partner?")"
+                  Message="@GetDeleteMessage()"
+                  WarningText="This action cannot be undone."
+                  Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                  ConfirmButtonText="Delete"
+                  CancelButtonText="Cancel"
+                  IsProcessing="@isSaving"
+                  OnConfirm="@(partnersToDelete != null ? ConfirmBulkDelete : ConfirmDeletePartner)"
+                  OnCancel="@(() => { showDeleteConfirmation = false; partnerToDelete = null; partnersToDelete = null; })"
+                  OnClose="@(() => { showDeleteConfirmation = false; partnerToDelete = null; partnersToDelete = null; })" />
+
+@code {
+    private string GetDeleteMessage()
+    {
+        if (partnersToDelete != null && partnersToDelete.Any())
+        {
+            return $"Are you sure you want to delete {partnersToDelete.Count} partner(s)?";
+        }
+        
+        if (partnerToDelete != null)
+        {
+            return $"Are you sure you want to delete '{partnerToDelete.Name}'?";
+        }
+        
+        return "Are you sure you want to proceed?";
+    }
+}

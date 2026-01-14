@@ -1,0 +1,583 @@
+/* Components/Admin/Partners/AdminPartnerCard.razor.css */
+
+/* ===== ADMIN PARTNER CARD ===== */
+.admin-partner-card {
+    position: relative;
+    background: var(--card-background, white);
+    border: 2px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.admin-partner-card:hover {
+    border-color: var(--primary-color, #96994A);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.admin-partner-card.selected {
+    border-color: var(--primary-color, #96994A);
+    background: linear-gradient(135deg,
+    rgba(150, 153, 74, 0.03) 0%,
+    var(--card-background, white) 100%);
+    box-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
+}
+
+/* ===== SELECTION CHECKBOX ===== */
+.partner-checkbox {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 20px;
+    height: 20px;
+    z-index: 3;
+    cursor: pointer;
+    accent-color: var(--primary-color, #96994A);
+}
+
+/* ===== HEADER SECTION ===== */
+.partner-header-section {
+    position: relative;
+    padding: 2rem 1.5rem 1rem;
+    background: linear-gradient(135deg, rgba(150, 153, 74, 0.08) 0%, rgba(150, 153, 74, 0.02) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.partner-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--primary-color, #96994A);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    box-shadow: 0 4px 12px rgba(150, 153, 74, 0.3);
+}
+
+.partner-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.badge.verified {
+    background: rgba(16, 185, 129, 0.95);
+    color: white;
+}
+
+.badge.pending {
+    background: rgba(245, 158, 11, 0.95);
+    color: white;
+}
+
+.badge.rejected {
+    background: rgba(239, 68, 68, 0.95);
+    color: white;
+}
+
+.badge.inactive {
+    background: rgba(107, 114, 128, 0.95);
+    color: white;
+}
+
+.badge.payout-due {
+    background: rgba(139, 92, 246, 0.95);
+    color: white;
+}
+
+/* ===== QUICK ACTIONS OVERLAY ===== */
+.quick-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-actions.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.action-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.action-btn svg {
+    color: white;
+}
+
+.action-btn.edit {
+    background: rgba(16, 185, 129, 0.9);
+}
+
+.action-btn.edit:hover {
+    background: rgba(16, 185, 129, 1);
+    transform: scale(1.1);
+}
+
+.action-btn.delete {
+    background: rgba(239, 68, 68, 0.9);
+}
+
+.action-btn.delete:hover {
+    background: rgba(239, 68, 68, 1);
+    transform: scale(1.1);
+}
+
+/* ===== INFO SECTION ===== */
+.partner-info-section {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.partner-name-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.partner-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary, #1f2937);
+    margin: 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.partner-id {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted, #9ca3af);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.company-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6b7280);
+    padding: 6px 12px;
+    background: var(--background-light, #f9fafb);
+    border-radius: 6px;
+    width: fit-content;
+}
+
+.company-name svg {
+    flex-shrink: 0;
+}
+
+/* ===== CONTACT INFO ===== */
+.contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6b7280);
+}
+
+.contact-item svg {
+    flex-shrink: 0;
+    color: var(--text-muted, #9ca3af);
+}
+
+.contact-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ===== METRICS SECTION ===== */
+.metrics-section {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+    background: var(--background-light, #f9fafb);
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: var(--text-muted, #9ca3af);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metric-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary, #1f2937);
+    font-family: 'Poppins', sans-serif;
+}
+
+.metric-value.commission {
+    color: var(--primary-color, #96994A);
+}
+
+.metric-value.sales {
+    color: #3b82f6;
+}
+
+.metric-value.commission-earned {
+    color: #10b981;
+}
+
+.metric-value.payout {
+    color: var(--text-primary, #1f2937);
+}
+
+.metric-value.payout.high {
+    color: #8b5cf6;
+    font-weight: 800;
+}
+
+/* ===== PRODUCT COUNT ===== */
+.product-count {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6b7280);
+    padding: 8px 12px;
+    background: var(--background-light, #f9fafb);
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.product-count svg {
+    flex-shrink: 0;
+    color: var(--text-muted, #9ca3af);
+}
+
+/* ===== DATES ===== */
+.partner-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.date-created {
+    font-size: 0.75rem;
+    color: var(--text-muted, #9ca3af);
+}
+
+/* ===== ACTIONS FOOTER ===== */
+.partner-actions-footer {
+    padding: 12px 16px;
+    background: var(--background-light, #f9fafb);
+    border-top: 1px solid var(--border-color, #e5e7eb);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* ===== TOGGLE SWITCH ===== */
+.toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.toggle-switch input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 42px;
+    height: 22px;
+    background: var(--gray-300, #d1d5db);
+    border-radius: 11px;
+    transition: background 0.3s ease;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider {
+    background: var(--primary-color, #96994A);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.toggle-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+}
+
+.toggle-switch:hover .toggle-label {
+    color: var(--text-primary, #1f2937);
+}
+
+/* ===== VERIFICATION STATUS ===== */
+.verification-status {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.verification-status.verified {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success-color, #10b981);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.verification-status.pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning-color, #f59e0b);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.verification-status.rejected {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color, #ef4444);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .admin-partner-card {
+    background: var(--dark-card-background, #1f2937);
+    border-color: var(--dark-border-color, #374151);
+}
+
+[data-theme="dark"] .admin-partner-card:hover,
+[data-theme="dark"] .admin-partner-card.selected {
+    border-color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .admin-partner-card.selected {
+    background: linear-gradient(135deg,
+    rgba(184, 187, 106, 0.05) 0%,
+    var(--dark-card-background, #1f2937) 100%);
+}
+
+[data-theme="dark"] .partner-header-section {
+    background: linear-gradient(135deg, rgba(184, 187, 106, 0.08) 0%, rgba(184, 187, 106, 0.02) 100%);
+}
+
+[data-theme="dark"] .partner-name {
+    color: var(--dark-text-primary, #f9fafb);
+}
+
+[data-theme="dark"] .metric-value {
+    color: var(--dark-text-primary, #f9fafb);
+}
+
+[data-theme="dark"] .company-name,
+[data-theme="dark"] .metrics-section,
+[data-theme="dark"] .product-count {
+    background: var(--dark-background-light, #374151);
+    border-color: var(--dark-border-color, #374151);
+    color: var(--dark-text-secondary, #d1d5db);
+}
+
+[data-theme="dark"] .partner-dates,
+[data-theme="dark"] .partner-actions-footer {
+    border-color: var(--dark-border-color, #374151);
+}
+
+[data-theme="dark"] .partner-actions-footer {
+    background: var(--dark-background-light, #374151);
+}
+
+[data-theme="dark"] .date-created {
+    color: var(--dark-text-muted, #9ca3af);
+}
+
+[data-theme="dark"] .toggle-label {
+    color: var(--dark-text-secondary, #d1d5db);
+}
+
+[data-theme="dark"] .toggle-switch:hover .toggle-label {
+    color: var(--dark-text-primary, #f9fafb);
+}
+
+[data-theme="dark"] .toggle-slider {
+    background: var(--gray-600, #4b5563);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .partner-header-section {
+        padding: 1.5rem 1rem 0.75rem;
+    }
+
+    .partner-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.25rem;
+    }
+
+    .partner-info-section {
+        padding: 1.25rem;
+        gap: 0.875rem;
+    }
+
+    .partner-name {
+        font-size: 1rem;
+    }
+
+    .metrics-section {
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .metric-value {
+        font-size: 0.94rem;
+    }
+
+    .action-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    .action-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .metrics-section {
+        grid-template-columns: 1fr;
+    }
+
+    .contact-text {
+        font-size: 0.8125rem;
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+.admin-partner-card:focus-visible {
+    outline: 2px solid var(--primary-color, #96994A);
+    outline-offset: 2px;
+}
+
+.action-btn:focus-visible,
+.toggle-switch:focus-visible {
+    outline: 2px solid var(--primary-color, #96994A);
+    outline-offset: 2px;
+    border-radius: 50%;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.admin-partner-card {
+    animation: fadeInScale 0.3s ease-out;
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+    .admin-partner-card,
+    .quick-actions,
+    .action-btn,
+    .toggle-slider::before {
+        transition: none;
+        animation: none;
+    }
+
+    .admin-partner-card:hover {
+        transform: none;
+    }
+}

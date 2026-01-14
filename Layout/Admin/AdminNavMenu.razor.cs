@@ -33,6 +33,7 @@ public partial class AdminNavMenu : ComponentBase
             {
                 new() { Id = "users", Label = "User Management", Path = "admin/users", Icon = "users" },
                 new() { Id = "products", Label = "Product Management", Path = "admin/products", Icon = "products" },
+                new() { Id = "partners", Label = "Partner Management", Path = "admin/partners", Icon = "partners" }, // ✅ ADDED
                 new() { Id = "images", Label = "Image Management", Path = "admin/images", Icon = "images" },
                 new() { Id = "categories", Label = "Category Management", Path = "admin/categories", Icon = "category" },
                 new() { Id = "reviews", Label = "Review Management", Path = "admin/reviews", Icon = "reviews" },
@@ -137,19 +138,16 @@ public partial class AdminNavMenu : ComponentBase
     {
         var currentPath = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "");
         
-        // Remove leading slash if present
         if (currentPath.StartsWith("/"))
         {
             currentPath = currentPath.Substring(1);
         }
         
-        // Exact match for root admin path
         if (path == "admin" && currentPath == "admin")
         {
             return true;
         }
         
-        // For other paths, check if it starts with the path (but not root)
         if (path != "admin" && currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -165,6 +163,7 @@ public partial class AdminNavMenu : ComponentBase
             "dashboard" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""11"" y=""2"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""2"" y=""11"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""11"" y=""11"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
             "users" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><circle cx=""7"" cy=""6"" r=""2.5"" stroke=""currentColor"" stroke-width=""1.5""/><circle cx=""13"" cy=""6"" r=""2.5"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M2 16C2 13.5 4 12 7 12C10 12 12 13.5 12 16M8 16C8 13.5 10 12 13 12C16 12 18 13.5 18 16"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
             "products" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""16"" height=""16"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M2 7H18M7 2V7M13 2V7"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
+            "partners" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M13 7C13 8.66 11.66 10 10 10C8.34 10 7 8.66 7 7C7 5.34 8.34 4 10 4C11.66 4 13 5.34 13 7Z"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M3 18C3 15.79 4.79 14 7 14H13C15.21 14 17 15.79 17 18"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M17 7C17 8.1 16.1 9 15 9"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M19 14C19 14 19 14 19 14C19.66 14.62 20 15.26 20 16"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M3 7C3 8.1 3.9 9 5 9"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M1 14C1 14 1 14 1 14C0.34 14.62 0 15.26 0 16"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
             "images" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""3"" width=""16"" height=""14"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><circle cx=""7"" cy=""8"" r=""1.5"" fill=""currentColor""/><path d=""M2 13L6 9L10 13L14 9L18 13"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
             "category" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""5"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""9"" y=""2"" width=""9"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""2"" y=""9"" width=""9"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""13"" y=""9"" width=""5"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
             "reviews" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M10 2L12.5 7L18 8L14 12L15 18L10 15L5 18L6 12L2 8L7.5 7L10 2Z"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/></svg>",
