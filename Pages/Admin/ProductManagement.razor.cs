@@ -3,10 +3,11 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Supabase;
-using SubashaVentures.Services.Brands; // ✅ ADDED
+using SubashaVentures.Services.Brands;
+using SubashaVentures.Services.Partners;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Models.Supabase;
-using SubashaVentures.Models.Firebase; // ✅ ADDED
+using SubashaVentures.Models.Firebase;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Popups;
 using SubashaVentures.Components.Shared.Notifications;
@@ -25,7 +26,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private ISupabaseDatabaseService SupabaseDatabaseService { get; set; } = default!;
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
-    [Inject] private IBrandService BrandService { get; set; } = default!; // ✅ ADDED
+    [Inject] private IBrandService BrandService { get; set; } = default!;
+    [Inject] private IPartnerService PartnerService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
@@ -37,15 +39,18 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     // Component state
     private bool isLoading = true;
     private bool isProductModalOpen = false;
+    private bool isVariantModalOpen = false;
     private bool isStockModalOpen = false;
     private bool isImageSelectorOpen = false;
     private bool isEditMode = false;
+    private bool isEditingVariant = false;
     private bool isSaving = false;
     private bool showDeleteConfirmation = false;
 
     private string viewMode = "grid";
     private string searchQuery = "";
     private string selectedCategory = "";
+    private string selectedOwnership = "";
     private string selectedStockStatus = "";
     private string selectedStatus = "";
     private string sortBy = "newest";
@@ -57,6 +62,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     // Stats
     private int totalProducts = 0;
     private int activeProducts = 0;
+    private int partnerProducts = 0;
     private int outOfStockProducts = 0;
     private int featuredProducts = 0;
 
@@ -69,7 +75,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private List<ProductViewModel> filteredProducts = new();
     private List<ProductViewModel> paginatedProducts = new();
     private List<CategoryViewModel> categories = new();
-    private List<BrandModel> brands = new(); // ✅ ADDED
+    private List<BrandModel> brands = new();
+    private List<PartnerModel> partners = new();
     private List<int> selectedProducts = new();
 
     // Template selection
@@ -79,11 +86,12 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     // Form state
     private ProductFormData productForm = new();
+    private VariantFormData variantForm = new();
+    private string? editingVariantKey = null;
     private Dictionary<string, string> validationErrors = new();
 
     // Stock management
     private ProductViewModel? selectedProductForStock = null;
-    private string newStockQuantity = "";
 
     // Delete confirmation
     private ProductViewModel? productToDelete = null;
@@ -91,6 +99,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     // Component references
     private DynamicModal? productModal;
+    private DynamicModal? variantModal;
     private DynamicModal? stockModal;
     private ImageSelectorPopup? imageSelectorPopup;
     private ConfirmationPopup? deleteConfirmationPopup;
@@ -121,7 +130,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             await Task.WhenAll(
                 LoadProductsAsync(),
                 LoadCategoriesAsync(),
-                LoadBrandsAsync(), // ✅ ADDED
+                LoadBrandsAsync(),
+                LoadPartnersAsync(),
                 LoadProductOfTheDayAsync()
             );
 
@@ -139,7 +149,27 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ==================== BRAND LOADING ====================
+    // ==================== DATA LOADING ====================
+
+    private async Task LoadPartnersAsync()
+    {
+        try
+        {
+            partners = await PartnerService.GetActivePartnersAsync();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {partners.Count} active partners",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading partners");
+            ShowErrorNotification("Failed to load partners");
+            partners = new List<PartnerModel>();
+        }
+    }
+
     private async Task LoadBrandsAsync()
     {
         try
@@ -158,8 +188,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             brands = new List<BrandModel>();
         }
     }
-
-    // ==================== PRODUCT OF THE DAY METHODS ====================
 
     private async Task LoadProductOfTheDayAsync()
     {
@@ -241,6 +269,16 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             allProducts = products ?? new List<ProductViewModel>();
             totalProducts = allProducts.Count;
 
+            // Load partner names for products
+            foreach (var product in allProducts.Where(p => !p.IsOwnedByStore && p.PartnerId.HasValue))
+            {
+                var partner = partners.FirstOrDefault(p => p.Id == product.PartnerId.Value);
+                if (partner != null)
+                {
+                    product.PartnerName = partner.Name;
+                }
+            }
+
             ApplyFiltersAndSort();
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -305,45 +343,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void AddTagFromTemplate(string tag)
-    {
-        if (productForm.Tags == null)
-            productForm.Tags = new List<string>();
-    
-        if (!productForm.Tags.Contains(tag))
-        {
-            productForm.Tags.Add(tag);
-            productForm.InitializeRawInputs();
-            StateHasChanged();
-        }
-    }
+    // ==================== FILTERING & SORTING ====================
 
-    private void AddSizeFromTemplate(string size)
-    {
-        if (productForm.Sizes == null)
-            productForm.Sizes = new List<string>();
-    
-        if (!productForm.Sizes.Contains(size))
-        {
-            productForm.Sizes.Add(size);
-            productForm.InitializeRawInputs();
-            StateHasChanged();
-        }
-    }
-
-    private void AddColorFromTemplate(string color)
-    {
-        if (productForm.Colors == null)
-            productForm.Colors = new List<string>();
-    
-        if (!productForm.Colors.Contains(color))
-        {
-            productForm.Colors.Add(color);
-            productForm.InitializeRawInputs();
-            StateHasChanged();
-        }
-    }
-    
     private void ApplyFiltersAndSort()
     {
         using var pooledList = _productListPool?.GetPooled();
@@ -355,6 +356,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
              p.Description.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
              p.Sku.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
             (string.IsNullOrEmpty(selectedCategory) || p.CategoryId == selectedCategory) &&
+            (string.IsNullOrEmpty(selectedOwnership) || FilterByOwnership(p, selectedOwnership)) &&
             (string.IsNullOrEmpty(selectedStockStatus) || FilterByStockStatus(p, selectedStockStatus)) &&
             (string.IsNullOrEmpty(selectedStatus) || FilterByStatus(p, selectedStatus))
         ));
@@ -374,6 +376,16 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
         currentPage = 1;
         UpdatePaginatedProducts();
+    }
+
+    private bool FilterByOwnership(ProductViewModel product, string ownership)
+    {
+        return ownership switch
+        {
+            "owned" => product.IsOwnedByStore,
+            "partner" => !product.IsOwnedByStore && product.PartnerId.HasValue,
+            _ => true
+        };
     }
 
     private bool FilterByStockStatus(ProductViewModel product, string status)
@@ -412,6 +424,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private void CalculateStats()
     {
         activeProducts = allProducts.Count(p => p.IsActive);
+        partnerProducts = allProducts.Count(p => !p.IsOwnedByStore && p.PartnerId.HasValue);
         outOfStockProducts = allProducts.Count(p => p.Stock == 0);
         featuredProducts = allProducts.Count(p => p.IsFeatured);
     }
@@ -424,6 +437,12 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private void HandleCategoryFilter(ChangeEventArgs e)
     {
         selectedCategory = e.Value?.ToString() ?? "";
+        ApplyFiltersAndSort();
+    }
+
+    private void HandleOwnershipFilter(ChangeEventArgs e)
+    {
+        selectedOwnership = e.Value?.ToString() ?? "";
         ApplyFiltersAndSort();
     }
 
@@ -444,6 +463,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         sortBy = e.Value?.ToString() ?? "newest";
         ApplyFiltersAndSort();
     }
+
+    // ==================== PRODUCT MODAL ====================
 
     private void OpenCreateProductModal()
     {
@@ -469,6 +490,19 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         productForm = new ProductFormData();
         validationErrors.Clear();
         StateHasChanged();
+    }
+
+    private void HandleOwnershipChange(ChangeEventArgs e)
+    {
+        if (e.Value is bool isOwned)
+        {
+            productForm.IsOwnedByStore = isOwned;
+            if (isOwned)
+            {
+                productForm.PartnerIdString = null;
+            }
+            StateHasChanged();
+        }
     }
 
     private void GenerateSku()
@@ -577,9 +611,9 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             validationErrors["CategoryId"] = "Category is required";
         }
 
-        if (productForm.Stock < 0)
+        if (!productForm.IsOwnedByStore && string.IsNullOrWhiteSpace(productForm.PartnerIdString))
         {
-            validationErrors["Stock"] = "Stock cannot be negative";
+            validationErrors["PartnerId"] = "Partner is required for partner products";
         }
 
         return !validationErrors.Any();
@@ -593,6 +627,141 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
         return 0;
     }
+
+    // ==================== VARIANT MODAL ====================
+
+    private void OpenVariantModal()
+    {
+        isEditingVariant = false;
+        editingVariantKey = null;
+        variantForm = new VariantFormData();
+        isVariantModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void EditVariant(string variantKey)
+    {
+        if (productForm.Variants != null && productForm.Variants.TryGetValue(variantKey, out var variant))
+        {
+            isEditingVariant = true;
+            editingVariantKey = variantKey;
+            variantForm = new VariantFormData
+            {
+                Sku = variant.Sku,
+                Size = variant.Size,
+                Color = variant.Color,
+                ColorHex = variant.ColorHex,
+                Stock = variant.Stock,
+                PriceAdjustment = variant.PriceAdjustment,
+                Weight = variant.Weight,
+                Length = variant.Length,
+                Width = variant.Width,
+                Height = variant.Height,
+                ShippingCost = variant.ShippingCost,
+                HasFreeShipping = variant.HasFreeShipping,
+                ImageUrl = variant.ImageUrl,
+                IsAvailable = variant.IsAvailable
+            };
+            isVariantModalOpen = true;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseVariantModal()
+    {
+        isVariantModalOpen = false;
+        isEditingVariant = false;
+        editingVariantKey = null;
+        variantForm = new VariantFormData();
+        StateHasChanged();
+    }
+
+    private void HandleSaveVariant()
+    {
+        try
+        {
+            // Generate variant key from size and color
+            var variantKey = GenerateVariantKey(variantForm.Size, variantForm.Color);
+
+            if (string.IsNullOrEmpty(variantKey))
+            {
+                ShowErrorNotification("Variant must have at least a size or color");
+                return;
+            }
+
+            // Check if variant key already exists (unless editing)
+            if (!isEditingVariant && productForm.Variants != null && productForm.Variants.ContainsKey(variantKey))
+            {
+                ShowErrorNotification($"Variant '{variantKey}' already exists");
+                return;
+            }
+
+            // Create ProductVariant
+            var variant = new ProductVariant
+            {
+                Sku = variantForm.Sku,
+                Size = variantForm.Size,
+                Color = variantForm.Color,
+                ColorHex = variantForm.ColorHex,
+                Stock = variantForm.Stock,
+                PriceAdjustment = variantForm.PriceAdjustment,
+                Weight = variantForm.Weight,
+                Length = variantForm.Length,
+                Width = variantForm.Width,
+                Height = variantForm.Height,
+                ShippingCost = variantForm.ShippingCost,
+                HasFreeShipping = variantForm.HasFreeShipping,
+                ImageUrl = variantForm.ImageUrl,
+                IsAvailable = variantForm.IsAvailable
+            };
+
+            // Initialize variants dictionary if null
+            if (productForm.Variants == null)
+            {
+                productForm.Variants = new Dictionary<string, ProductVariant>();
+            }
+
+            // If editing, remove old key first (if key changed)
+            if (isEditingVariant && editingVariantKey != null && editingVariantKey != variantKey)
+            {
+                productForm.Variants.Remove(editingVariantKey);
+            }
+
+            // Add or update variant
+            productForm.Variants[variantKey] = variant;
+
+            ShowSuccessNotification($"Variant '{variantKey}' {(isEditingVariant ? "updated" : "added")} successfully");
+            CloseVariantModal();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving variant");
+            ShowErrorNotification($"Error saving variant: {ex.Message}");
+        }
+    }
+
+    private void DeleteVariant(string variantKey)
+    {
+        if (productForm.Variants != null && productForm.Variants.Remove(variantKey))
+        {
+            ShowSuccessNotification($"Variant '{variantKey}' removed");
+            StateHasChanged();
+        }
+    }
+
+    private string GenerateVariantKey(string? size, string? color)
+    {
+        if (string.IsNullOrEmpty(size) && string.IsNullOrEmpty(color))
+            return string.Empty;
+
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(size)) parts.Add(size.Trim());
+        if (!string.IsNullOrEmpty(color)) parts.Add(color.Trim());
+
+        return string.Join("_", parts);
+    }
+
+    // ==================== IMAGE HANDLING ====================
 
     private void OpenImageSelector()
     {
@@ -621,6 +790,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             StateHasChanged();
         }
     }
+
+    // ==================== PRODUCT ACTIONS ====================
 
     private void HandleDeleteProduct(ProductViewModel product)
     {
@@ -709,7 +880,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private void OpenStockModal(ProductViewModel product)
     {
         selectedProductForStock = product;
-        newStockQuantity = product.Stock.ToString();
         isStockModalOpen = true;
         StateHasChanged();
     }
@@ -718,57 +888,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         isStockModalOpen = false;
         selectedProductForStock = null;
-        newStockQuantity = "";
         StateHasChanged();
-    }
-
-    private async Task HandleUpdateStock()
-    {
-        if (selectedProductForStock == null || !int.TryParse(newStockQuantity, out var quantity))
-        {
-            ShowErrorNotification("Invalid stock quantity");
-            return;
-        }
-
-        if (quantity < 0)
-        {
-            ShowErrorNotification("Stock quantity cannot be negative");
-            return;
-        }
-
-        try
-        {
-            isSaving = true;
-            StateHasChanged();
-
-            var success = await ProductService.UpdateProductStockAsync(selectedProductForStock.Id, quantity);
-
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Stock updated for: {selectedProductForStock.Name}",
-                    LogLevel.Info
-                );
-                ShowSuccessNotification($"Stock updated to {quantity} units");
-                await LoadProductsAsync();
-                CalculateStats();
-                CloseStockModal();
-            }
-            else
-            {
-                ShowErrorNotification("Failed to update stock");
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Updating stock");
-            ShowErrorNotification($"Error updating stock: {ex.Message}");
-        }
-        finally
-        {
-            isSaving = false;
-            StateHasChanged();
-        }
     }
 
     private async Task HandleToggleActive(ProductViewModel product, bool isActive)
@@ -820,6 +940,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             ShowErrorNotification("Error updating featured status");
         }
     }
+
+    // ==================== BULK ACTIONS ====================
 
     private void HandleSelectionChanged(int productId, bool isSelected)
     {
@@ -923,7 +1045,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     private async Task ConfirmBulkDelete()
     {
-        
         if (productsToDelete != null && productsToDelete.Any())
         {
             try
@@ -956,99 +1077,107 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-private async Task HandleExport()
-{
-    try
+    // ==================== EXPORT ====================
+
+    private async Task HandleExport()
     {
-        isLoading = true;
-        StateHasChanged();
-
-        var exportData = filteredProducts.Select(p => new
+        try
         {
-            ID = p.Id,
-            SKU = p.Sku,
-            Name = p.Name,
-            Category = p.Category,
-            Brand = p.Brand,
-            Price = p.Price,
-            OriginalPrice = p.OriginalPrice,
-            Discount = p.Discount,
-            Stock = p.Stock,
-            Status = p.IsActive ? "Active" : "Inactive",
-            Featured = p.IsFeatured ? "Yes" : "No",
-            OnSale = p.IsOnSale ? "Yes" : "No",
-            Rating = p.Rating,
-            Reviews = p.ReviewCount,
-            Views = p.ViewCount,
-            Sales = p.SalesCount,
-            CreatedAt = p.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-            UpdatedAt = p.UpdatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? ""
-        }).ToList();
+            isLoading = true;
+            StateHasChanged();
 
-        var csv = new StringBuilder();
-        
-        csv.AppendLine("ID,SKU,Name,Category,Brand,Price,Original Price,Discount %,Stock,Status,Featured,On Sale,Rating,Reviews,Views,Sales,Created At,Updated At");
-        
-        foreach (var item in exportData)
-        {
-            csv.AppendLine($"{item.ID}," +
-                          $"\"{EscapeCsv(item.SKU)}\"," +
-                          $"\"{EscapeCsv(item.Name)}\"," +
-                          $"\"{EscapeCsv(item.Category)}\"," +
-                          $"\"{EscapeCsv(item.Brand)}\"," +
-                          $"{item.Price}," +
-                          $"{item.OriginalPrice}," +
-                          $"{item.Discount}," +
-                          $"{item.Stock}," +
-                          $"{item.Status}," +
-                          $"{item.Featured}," +
-                          $"{item.OnSale}," +
-                          $"{item.Rating}," +
-                          $"{item.Reviews}," +
-                          $"{item.Views}," +
-                          $"{item.Sales}," +
-                          $"{item.CreatedAt}," +
-                          $"{item.UpdatedAt}");
+            var exportData = filteredProducts.Select(p => new
+            {
+                ID = p.Id,
+                SKU = p.Sku,
+                Name = p.Name,
+                Owner = p.IsOwnedByStore ? "Store" : p.PartnerName ?? "Partner",
+                Category = p.Category,
+                Brand = p.Brand,
+                Price = p.Price,
+                OriginalPrice = p.OriginalPrice,
+                Discount = p.Discount,
+                Stock = p.Stock,
+                VariantCount = p.Variants?.Count ?? 0,
+                Status = p.IsActive ? "Active" : "Inactive",
+                Featured = p.IsFeatured ? "Yes" : "No",
+                OnSale = p.IsOnSale ? "Yes" : "No",
+                Rating = p.Rating,
+                Reviews = p.ReviewCount,
+                Views = p.ViewCount,
+                Sales = p.SalesCount,
+                CreatedAt = p.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                UpdatedAt = p.UpdatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? ""
+            }).ToList();
+
+            var csv = new StringBuilder();
+            
+            csv.AppendLine("ID,SKU,Name,Owner,Category,Brand,Price,Original Price,Discount %,Stock,Variants,Status,Featured,On Sale,Rating,Reviews,Views,Sales,Created At,Updated At");
+            
+            foreach (var item in exportData)
+            {
+                csv.AppendLine($"{item.ID}," +
+                              $"\"{EscapeCsv(item.SKU)}\"," +
+                              $"\"{EscapeCsv(item.Name)}\"," +
+                              $"\"{EscapeCsv(item.Owner)}\"," +
+                              $"\"{EscapeCsv(item.Category)}\"," +
+                              $"\"{EscapeCsv(item.Brand)}\"," +
+                              $"{item.Price}," +
+                              $"{item.OriginalPrice}," +
+                              $"{item.Discount}," +
+                              $"{item.Stock}," +
+                              $"{item.VariantCount}," +
+                              $"{item.Status}," +
+                              $"{item.Featured}," +
+                              $"{item.OnSale}," +
+                              $"{item.Rating}," +
+                              $"{item.Reviews}," +
+                              $"{item.Views}," +
+                              $"{item.Sales}," +
+                              $"{item.CreatedAt}," +
+                              $"{item.UpdatedAt}");
+            }
+
+            var fileName = $"products_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+            var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
+            var base64 = Convert.ToBase64String(csvBytes);
+
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
+            
+            ShowSuccessNotification($"Exported {exportData.Count} products successfully!");
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Exported {exportData.Count} products to {fileName}",
+                LogLevel.Info
+            );
         }
-
-        var fileName = $"products_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-        var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
-        var base64 = Convert.ToBase64String(csvBytes);
-
-        await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
-        
-        ShowSuccessNotification($"Exported {exportData.Count} products successfully!");
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✓ Exported {exportData.Count} products to {fileName}",
-            LogLevel.Info
-        );
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Exporting products");
+            ShowErrorNotification($"Export failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
-    catch (Exception ex)
+
+    private string EscapeCsv(string value)
     {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Exporting products");
-        ShowErrorNotification($"Export failed: {ex.Message}");
-    }
-    finally
-    {
-        isLoading = false;
-        StateHasChanged();
-    }
-}
-
-private string EscapeCsv(string value)
-{
-    if (string.IsNullOrEmpty(value))
-        return "";
-    
-    if (value.Contains("\""))
-        value = value.Replace("\"", "\"\"");
-    
-    if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
+        if (string.IsNullOrEmpty(value))
+            return "";
+        
+        if (value.Contains("\""))
+            value = value.Replace("\"", "\"\"");
+        
+        if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
+            return value;
+        
         return value;
-    
-    return value;
-}
+    }
+
+    // ==================== PAGINATION ====================
 
     private string GetStockClass(int stock)
     {
@@ -1084,6 +1213,8 @@ private string EscapeCsv(string value)
         }
     }
 
+    // ==================== NOTIFICATIONS ====================
+
     private void ShowSuccessNotification(string message)
     {
         notificationComponent?.ShowSuccess(message);
@@ -1104,6 +1235,8 @@ private string EscapeCsv(string value)
         notificationComponent?.ShowInfo(message);
     }
 
+    // ==================== MAPPING ====================
+
     private ProductFormData MapToFormData(ProductViewModel product)
     {
         var form = new ProductFormData
@@ -1112,16 +1245,38 @@ private string EscapeCsv(string value)
             Name = product.Name,
             Description = product.Description,
             LongDescription = product.LongDescription,
+            
+            // Partnership
+            IsOwnedByStore = product.IsOwnedByStore,
+            PartnerIdString = product.PartnerId?.ToString(),
+            
+            // Pricing
             Price = product.Price,
             OriginalPrice = product.OriginalPrice,
-            Stock = product.Stock,
+            
+            // Shipping
+            BaseWeight = product.BaseWeight,
+            BaseShippingCost = product.BaseShippingCost,
+            HasFreeShipping = product.HasFreeShipping,
+            
+            // Inventory
             Sku = product.Sku,
+            
+            // Classification
             CategoryId = product.CategoryId,
             Brand = product.Brand,
             Tags = product.Tags?.ToList(),
-            Sizes = product.Sizes?.ToList(),
-            Colors = product.Colors?.ToList(),
+            
+            // Media
             ImageUrls = product.Images?.ToList(),
+            VideoUrl = product.VideoUrl,
+            
+            // Variants
+            Variants = product.Variants != null 
+                ? new Dictionary<string, ProductVariant>(product.Variants) 
+                : new Dictionary<string, ProductVariant>(),
+            
+            // Settings
             IsFeatured = product.IsFeatured,
             IsActive = product.IsActive
         };
@@ -1138,16 +1293,38 @@ private string EscapeCsv(string value)
             Name = form.Name,
             Description = form.Description,
             LongDescription = form.LongDescription,
+            
+            // Partnership
+            IsOwnedByStore = form.IsOwnedByStore,
+            PartnerId = string.IsNullOrEmpty(form.PartnerIdString) 
+                ? null 
+                : Guid.Parse(form.PartnerIdString),
+            
+            // Pricing
             Price = form.Price,
             OriginalPrice = form.OriginalPrice,
-            Stock = form.Stock,
+            
+            // Shipping
+            BaseWeight = form.BaseWeight,
+            BaseShippingCost = form.BaseShippingCost,
+            HasFreeShipping = form.HasFreeShipping,
+            
+            // Inventory
             Sku = form.Sku,
+            
+            // Classification
             CategoryId = form.CategoryId,
             Brand = form.Brand,
             Tags = form.Tags,
-            Sizes = form.Sizes,
-            Colors = form.Colors,
+            
+            // Media
             ImageUrls = form.ImageUrls,
+            VideoUrl = form.VideoUrl,
+            
+            // Variants
+            Variants = form.Variants,
+            
+            // Settings
             IsFeatured = form.IsFeatured
         };
     }
@@ -1159,16 +1336,35 @@ private string EscapeCsv(string value)
             Name = form.Name,
             Description = form.Description,
             LongDescription = form.LongDescription,
+            
+            // Partnership
+            IsOwnedByStore = form.IsOwnedByStore,
+            PartnerId = string.IsNullOrEmpty(form.PartnerIdString) 
+                ? null 
+                : Guid.Parse(form.PartnerIdString),
+            
+            // Pricing
             Price = form.Price,
             OriginalPrice = form.OriginalPrice,
-            Stock = form.Stock,
-            CategoryId = form.CategoryId, // ✅ INCLUDED
-            Brand = form.Brand,           // ✅ INCLUDED
+            
+            // Shipping
+            BaseWeight = form.BaseWeight,
+            BaseShippingCost = form.BaseShippingCost,
+            HasFreeShipping = form.HasFreeShipping,
+            
+            // Classification
+            CategoryId = form.CategoryId,
+            Brand = form.Brand,
             Tags = form.Tags,
-            Sizes = form.Sizes,
-            Colors = form.Colors,
+            
+            // Media
             ImageUrls = form.ImageUrls,
             VideoUrl = form.VideoUrl,
+            
+            // Variants
+            Variants = form.Variants,
+            
+            // Settings
             IsFeatured = form.IsFeatured,
             IsActive = form.IsActive
         };
@@ -1180,19 +1376,117 @@ private string EscapeCsv(string value)
         form.Name = "";
         form.Description = "";
         form.LongDescription = "";
+        form.IsOwnedByStore = true;
+        form.PartnerIdString = null;
         form.Price = 0;
         form.OriginalPrice = null;
-        form.Stock = 0;
+        form.BaseWeight = 1.0m;
+        form.BaseShippingCost = 2000m;
+        form.HasFreeShipping = false;
         form.Sku = "";
         form.CategoryId = "";
         form.Brand = "";
         form.Tags?.Clear();
-        form.Sizes?.Clear();
-        form.Colors?.Clear();
         form.ImageUrls?.Clear();
+        form.VideoUrl = null;
+        form.Variants?.Clear();
         form.IsFeatured = false;
         form.IsActive = true;
     }
+
+    // ==================== FORM DATA CLASSES ====================
+
+    public class ProductFormData
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string LongDescription { get; set; } = "";
+        
+        // Partnership
+        public bool IsOwnedByStore { get; set; } = true;
+        public string? PartnerIdString { get; set; }
+        
+        // Pricing
+        public decimal Price { get; set; }
+        public decimal? OriginalPrice { get; set; }
+        
+        // Shipping
+        public decimal BaseWeight { get; set; } = 1.0m;
+        public decimal BaseShippingCost { get; set; } = 2000m;
+        public bool HasFreeShipping { get; set; } = false;
+        
+        // Inventory
+        public string Sku { get; set; } = "";
+        
+        // Classification
+        public string CategoryId { get; set; } = "";
+        public string Brand { get; set; } = "";
+        public List<string>? Tags { get; set; }
+        
+        // Media
+        public List<string>? ImageUrls { get; set; }
+        public string? VideoUrl { get; set; }
+        
+        // Variants
+        public Dictionary<string, ProductVariant>? Variants { get; set; }
+        
+        // Settings
+        public bool IsFeatured { get; set; }
+        public bool IsActive { get; set; } = true;
+        
+        private string _tagsRawInput = "";
+        
+        public string TagsInput
+        {
+            get => _tagsRawInput;
+            set
+            {
+                _tagsRawInput = value ?? "";
+                Tags = ParseCommaSeparated(_tagsRawInput);
+            }
+        }
+        
+        private static List<string> ParseCommaSeparated(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return new List<string>();
+                
+            return input
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Distinct()
+                .ToList();
+        }
+        
+        public void InitializeRawInputs()
+        {
+            _tagsRawInput = Tags != null && Tags.Any() 
+                ? string.Join(", ", Tags) 
+                : "";
+        }
+    }
+
+    public class VariantFormData
+    {
+        public string Sku { get; set; } = "";
+        public string? Size { get; set; }
+        public string? Color { get; set; }
+        public string? ColorHex { get; set; }
+        public int Stock { get; set; }
+        public decimal PriceAdjustment { get; set; } = 0m;
+        public decimal? Weight { get; set; }
+        public decimal? Length { get; set; }
+        public decimal? Width { get; set; }
+        public decimal? Height { get; set; }
+        public decimal? ShippingCost { get; set; }
+        public bool HasFreeShipping { get; set; } = false;
+        public string? ImageUrl { get; set; }
+        public bool IsAvailable { get; set; } = true;
+    }
+
+    // ==================== DISPOSAL ====================
 
     public async ValueTask DisposeAsync()
     {
@@ -1211,88 +1505,4 @@ private string EscapeCsv(string value)
             Logger.LogError(ex, "Error disposing ProductManagement");
         }
     }
-
-   public class ProductFormData
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public string Description { get; set; } = "";
-    public string LongDescription { get; set; } = "";
-    public decimal Price { get; set; }
-    public decimal? OriginalPrice { get; set; }
-    public int Stock { get; set; }
-    public string Sku { get; set; } = "";
-    public string CategoryId { get; set; } = "";
-    public string Brand { get; set; } = "";
-    public List<string>? Tags { get; set; }
-    public List<string>? Sizes { get; set; }
-    public List<string>? Colors { get; set; }
-    public List<string>? ImageUrls { get; set; }
-    public string? VideoUrl { get; set; } // ✅ ADDED
-    public bool IsFeatured { get; set; }
-    public bool IsActive { get; set; } = true;
-    
-    private string _tagsRawInput = "";
-    private string _sizesRawInput = "";
-    private string _colorsRawInput = "";
-    
-    public string TagsInput
-    {
-        get => _tagsRawInput;
-        set
-        {
-            _tagsRawInput = value ?? "";
-            Tags = ParseCommaSeparated(_tagsRawInput);
-        }
-    }
-    
-    public string SizesInput
-    {
-        get => _sizesRawInput;
-        set
-        {
-            _sizesRawInput = value ?? "";
-            Sizes = ParseCommaSeparated(_sizesRawInput);
-        }
-    }
-    
-    public string ColorsInput
-    {
-        get => _colorsRawInput;
-        set
-        {
-            _colorsRawInput = value ?? "";
-            Colors = ParseCommaSeparated(_colorsRawInput);
-        }
-    }
-    
-    private static List<string> ParseCommaSeparated(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-            return new List<string>();
-            
-        return input
-            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Trim())
-            .Where(s => !string.IsNullOrEmpty(s))
-            .Distinct()
-            .ToList();
-    }
-    
-    public void InitializeRawInputs()
-    {
-        _tagsRawInput = Tags != null && Tags.Any() 
-            ? string.Join(", ", Tags) 
-            : "";
-            
-        _sizesRawInput = Sizes != null && Sizes.Any() 
-            ? string.Join(", ", Sizes) 
-            : "";
-            
-        _colorsRawInput = Colors != null && Colors.Any() 
-            ? string.Join(", ", Colors) 
-            : "";
-    }
-}
-
 }
