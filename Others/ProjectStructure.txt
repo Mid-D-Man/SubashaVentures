@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Tue Jan 13 01:19:49 UTC 2026
+Generated: Wed Jan 14 20:07:19 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 3665be21d5efe837f6e36e21e9bc9221c95c3e30
+Commit: 307279a3c2a22b3ff4e26628c398702a1083940b
 Branch: master
 ==================================
 
@@ -14,6 +14,8 @@ Components/Admin/Images/AdminImageCard.razor
 Components/Admin/Images/AdminImageCard.razor.css
 Components/Admin/Products/AdminProductCard.razor
 Components/Admin/Products/AdminProductCard.razor.css
+Components/Admin/Users/AdminPartnerCard.razor
+Components/Admin/Users/AdminPartnerCard.razor.css
 Components/Admin/Users/AdminUserCard.razor
 Components/Admin/Users/AdminUserCard.razor.cs
 Components/Admin/Users/AdminUserCard.razor.css
@@ -146,6 +148,9 @@ Pages/Admin/ImageManagement.razor.css
 Pages/Admin/MiscManagement.razor
 Pages/Admin/MiscManagement.razor.cs
 Pages/Admin/MiscManagement.razor.css
+Pages/Admin/PartnerManagement.razor
+Pages/Admin/PartnerManagement.razor.cs
+Pages/Admin/PartnerManagement.razor.css
 Pages/Admin/ProductManagement.razor
 Pages/Admin/ProductManagement.razor.cs
 Pages/Admin/ProductManagement.razor.css
@@ -234,6 +239,8 @@ Services/Navigation/INavigationService.cs
 Services/Navigation/NavigationService.cs
 Services/Orders/IOrderService.cs
 Services/Orders/OrderService.cs
+Services/Partners/IPartnerService.cs
+Services/Partners/PartnerService.cs
 Services/Products/IProductInteractionService.cs
 Services/Products/IProductOfTheDayService.cs
 Services/Products/IProductService.cs
@@ -376,6 +383,7 @@ Directory Structure:
 ./  Firebase
 ./  Navigation
 ./  Orders
+./  Partners
 ./  Products
 ./  Shop
 ./  Statistics
@@ -400,11 +408,11 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 141 files
-.razor    : 68 files
+.cs       : 144 files
+.razor    : 70 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
-.css      : 67 files
+.css      : 69 files
 .js       : 13 files
 .html     : 1 files
