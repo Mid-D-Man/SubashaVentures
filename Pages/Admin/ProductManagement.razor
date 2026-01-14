@@ -408,8 +408,8 @@
                 
                 <div class="partnership-toggle">
                     <label class="toggle-switch">
-                        <input type="checkbox" 
-                               @bind="productForm.IsOwnedByStore"
+                        <input type="checkbox"
+                               checked="@productForm.IsOwnedByStore"
                                @onchange="HandleOwnershipChange" />
                         <span class="toggle-slider"></span>
                         <span class="toggle-label">This product belongs to our store</span>
