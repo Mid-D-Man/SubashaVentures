@@ -1,8 +1,8 @@
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-
+using Newtonsoft.Json;
 namespace SubashaVentures.Models.Supabase;
-
+using JsonPropertyName = Newtonsoft.Json.JsonPropertyAttribute;
 /// <summary>
 /// Partner/Vendor model
 /// Has both UUID (internal) and base64 unique ID (external)
@@ -107,34 +107,34 @@ public class PartnerModel : BaseModel
 
 public class BankDetails
 {
-    [System.Text.Json.Serialization.JsonPropertyName("account_name")]
+    [JsonPropertyName("account_name")]
     public string AccountName { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("account_number")]
+    [JsonPropertyName("account_number")]
     public string AccountNumber { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("bank_name")]
+    [JsonPropertyName("bank_name")]
     public string BankName { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("bank_code")]
+    [JsonPropertyName("bank_code")]
     public string? BankCode { get; set; }
 }
 
 public class PartnerAddress
 {
-    [System.Text.Json.Serialization.JsonPropertyName("street")]
+    [JsonPropertyName("street")]
     public string Street { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("city")]
+    [JsonPropertyName("city")]
     public string City { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("state")]
+    [JsonPropertyName("state")]
     public string State { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("postal_code")]
+    [JsonPropertyName("postal_code")]
     public string PostalCode { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("country")]
+    [JsonPropertyName("country")]
     public string Country { get; set; } = "Nigeria";
 }
 

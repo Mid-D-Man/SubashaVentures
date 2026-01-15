@@ -1,7 +1,7 @@
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 using Newtonsoft.Json;
-
+using JsonPropertyName = Newtonsoft.Json.JsonPropertyAttribute;
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
@@ -185,49 +185,49 @@ public class ProductModel : BaseModel
 /// </summary>
 public class ProductVariant
 {
-    [System.Text.Json.Serialization.JsonPropertyName("sku")]
+    [JsonPropertyName("sku")]
     public string Sku { get; set; } = string.Empty;
     
-    [System.Text.Json.Serialization.JsonPropertyName("size")]
+    [JsonPropertyName("size")]
     public string? Size { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("color")]
+    [JsonPropertyName("color")]
     public string? Color { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("color_hex")]
+    [JsonPropertyName("color_hex")]
     public string? ColorHex { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("stock")]
+    [JsonPropertyName("stock")]
     public int Stock { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("price_adjustment")]
+    [JsonPropertyName("price_adjustment")]
     public decimal PriceAdjustment { get; set; } = 0m;
     
-    [System.Text.Json.Serialization.JsonPropertyName("weight")]
+    [JsonPropertyName("weight")]
     public decimal? Weight { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("length")]
+    [JsonPropertyName("length")]
     public decimal? Length { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("width")]
+    [JsonPropertyName("width")]
     public decimal? Width { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("height")]
+    [JsonPropertyName("height")]
     public decimal? Height { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("shipping_cost")]
+    [JsonPropertyName("shipping_cost")]
     public decimal? ShippingCost { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("has_free_shipping")]
+    [JsonPropertyName("has_free_shipping")]
     public bool HasFreeShipping { get; set; } = false;
     
-    [System.Text.Json.Serialization.JsonPropertyName("image_url")]
+    [JsonPropertyName("image_url")]
     public string? ImageUrl { get; set; }
     
-    [System.Text.Json.Serialization.JsonPropertyName("is_available")]
+    [JsonPropertyName("is_available")]
     public bool IsAvailable { get; set; } = true;
     
-    [System.Text.Json.Serialization.JsonPropertyName("metadata")]
+    [JsonPropertyName("metadata")]
     public Dictionary<string, object>? Metadata { get; set; }
 }
 
