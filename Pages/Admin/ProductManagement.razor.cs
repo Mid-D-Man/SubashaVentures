@@ -676,6 +676,24 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
+    // ✅ NEW: Handle variant image selection from dropdown
+    private void HandleVariantImageSelection(ChangeEventArgs e)
+    {
+        var selectedImageUrl = e.Value?.ToString() ?? "";
+        
+        if (!string.IsNullOrEmpty(selectedImageUrl))
+        {
+            variantForm.ImageUrl = selectedImageUrl;
+            
+            MID_HelperFunctions.DebugMessage(
+                $"Variant image selected from dropdown: {selectedImageUrl}",
+                LogLevel.Debug
+            );
+        }
+        
+        StateHasChanged();
+    }
+
     private void HandleSaveVariant()
     {
         try
@@ -711,7 +729,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                 Height = variantForm.Height,
                 ShippingCost = variantForm.ShippingCost,
                 HasFreeShipping = variantForm.HasFreeShipping,
-                ImageUrl = variantForm.ImageUrl,
+                ImageUrl = variantForm.ImageUrl, // ✅ This now comes from dropdown or fallback
                 IsAvailable = variantForm.IsAvailable
             };
 
