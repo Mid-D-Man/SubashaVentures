@@ -1,29 +1,33 @@
-// Utilities/Tracking/ProductViewTracker.cs - ENHANCED WITH DURATION
-using Microsoft.JSInterop;
+// Utilities/Tracking/ProductViewTracker.cs - UPDATED TO USE IBlazorAppLocalStorageService
 using SubashaVentures.Domain.Product;
-using System.Text.Json;
+using SubashaVentures.Services.Storage;
+using SubashaVentures.Utilities.HelperScripts;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Utilities.Tracking;
 
 /// <summary>
 /// Helper service to track product views in localStorage for history page with duration tracking
+/// Uses IBlazorAppLocalStorageService for storage operations
 /// </summary>
 public class ProductViewTracker
 {
-    private readonly IJSRuntime _jsRuntime;
+    private readonly IBlazorAppLocalStorageService _localStorage;
     private readonly ILogger<ProductViewTracker> _logger;
     
     private const string VIEWED_PRODUCTS_KEY = "viewed_products_history";
     private const int MAX_VIEWED_PRODUCTS = 50;
 
-    public ProductViewTracker(IJSRuntime jsRuntime, ILogger<ProductViewTracker> logger)
+    public ProductViewTracker(
+        IBlazorAppLocalStorageService localStorage, 
+        ILogger<ProductViewTracker> logger)
     {
-        _jsRuntime = jsRuntime;
+        _localStorage = localStorage;
         _logger = logger;
     }
 
     /// <summary>
-    /// Track a product view - call this from product detail page
+    /// Track a product view - call this when product detail page loads
     /// </summary>
     public async Task TrackProductViewAsync(ProductViewModel product)
     {
@@ -36,20 +40,10 @@ public class ProductViewTracker
             }
 
             // Get existing history
-            var historyJson = await _jsRuntime.InvokeAsync<string>(
-                "localStorage.getItem", 
-                VIEWED_PRODUCTS_KEY
-            );
+            var history = await _localStorage.GetItemAsync<List<ViewedProduct>>(VIEWED_PRODUCTS_KEY) 
+                ?? new List<ViewedProduct>();
 
-            var history = new List<ViewedProduct>();
-            
-            if (!string.IsNullOrEmpty(historyJson))
-            {
-                history = JsonSerializer.Deserialize<List<ViewedProduct>>(historyJson) 
-                    ?? new List<ViewedProduct>();
-            }
-
-            // Remove existing entry for this product
+            // Remove existing entry for this product (to move it to top)
             history.RemoveAll(h => h.ProductId == product.Id.ToString());
 
             // Add new entry at the beginning
@@ -70,38 +64,41 @@ public class ProductViewTracker
             }
 
             // Save back to localStorage
-            var json = JsonSerializer.Serialize(history);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+            await _localStorage.SetItemAsync(VIEWED_PRODUCTS_KEY, history);
 
-            _logger.LogInformation("✅ Tracked view for product: {ProductId} - {ProductName}", 
-                product.Id, product.Name);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Tracked view for product: {product.Id} - {product.Name}",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Tracking product view");
             _logger.LogError(ex, "Failed to track product view");
         }
     }
 
     /// <summary>
-    /// Update the duration for a product view
+    /// Update the duration for a product view - call this when user leaves the page
     /// </summary>
     public async Task UpdateViewDurationAsync(string productId, int durationSeconds)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(productId))
+            {
+                _logger.LogWarning("UpdateViewDuration called with empty productId");
+                return;
+            }
+
             // Get existing history
-            var historyJson = await _jsRuntime.InvokeAsync<string>(
-                "localStorage.getItem", 
-                VIEWED_PRODUCTS_KEY
-            );
-
-            if (string.IsNullOrEmpty(historyJson))
-                return;
-
-            var history = JsonSerializer.Deserialize<List<ViewedProduct>>(historyJson);
+            var history = await _localStorage.GetItemAsync<List<ViewedProduct>>(VIEWED_PRODUCTS_KEY);
             
-            if (history == null)
+            if (history == null || !history.Any())
+            {
+                _logger.LogWarning("No viewed products history found");
                 return;
+            }
 
             // Find and update the product
             var product = history.FirstOrDefault(h => h.ProductId == productId);
@@ -111,21 +108,27 @@ public class ProductViewTracker
                 product.DurationSeconds = durationSeconds;
 
                 // Save back to localStorage
-                var json = JsonSerializer.Serialize(history);
-                await _jsRuntime.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+                await _localStorage.SetItemAsync(VIEWED_PRODUCTS_KEY, history);
 
-                _logger.LogInformation("✅ Updated view duration for product {ProductId}: {Duration}s", 
-                    productId, durationSeconds);
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Updated view duration for product {productId}: {durationSeconds}s",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                _logger.LogWarning("Product {ProductId} not found in history", productId);
             }
         }
         catch (Exception ex)
         {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating view duration for: {productId}");
             _logger.LogError(ex, "Failed to update view duration");
         }
     }
 
     /// <summary>
-    /// Track a product view by ID and details (when full product not available)
+    /// Track a product view by individual properties (when full product not available)
     /// </summary>
     public async Task TrackProductViewAsync(
         string productId, 
@@ -135,19 +138,15 @@ public class ProductViewTracker
     {
         try
         {
-            // Get existing history
-            var historyJson = await _jsRuntime.InvokeAsync<string>(
-                "localStorage.getItem", 
-                VIEWED_PRODUCTS_KEY
-            );
-
-            var history = new List<ViewedProduct>();
-            
-            if (!string.IsNullOrEmpty(historyJson))
+            if (string.IsNullOrWhiteSpace(productId))
             {
-                history = JsonSerializer.Deserialize<List<ViewedProduct>>(historyJson) 
-                    ?? new List<ViewedProduct>();
+                _logger.LogWarning("TrackProductView called with empty productId");
+                return;
             }
+
+            // Get existing history
+            var history = await _localStorage.GetItemAsync<List<ViewedProduct>>(VIEWED_PRODUCTS_KEY) 
+                ?? new List<ViewedProduct>();
 
             // Remove existing entry for this product
             history.RemoveAll(h => h.ProductId == productId);
@@ -157,7 +156,7 @@ public class ProductViewTracker
             {
                 ProductId = productId,
                 ProductName = productName,
-                ImageUrl = imageUrl,
+                ImageUrl = imageUrl ?? "/images/placeholder.jpg",
                 Price = price,
                 ViewedAt = DateTime.UtcNow,
                 DurationSeconds = 0
@@ -170,13 +169,16 @@ public class ProductViewTracker
             }
 
             // Save back to localStorage
-            var json = JsonSerializer.Serialize(history);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+            await _localStorage.SetItemAsync(VIEWED_PRODUCTS_KEY, history);
 
-            _logger.LogInformation("✅ Tracked view for product: {ProductId}", productId);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Tracked view for product: {productId}",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Tracking product view");
             _logger.LogError(ex, "Failed to track product view");
         }
     }
@@ -188,23 +190,16 @@ public class ProductViewTracker
     {
         try
         {
-            var historyJson = await _jsRuntime.InvokeAsync<string>(
-                "localStorage.getItem", 
-                VIEWED_PRODUCTS_KEY
-            );
-
-            if (!string.IsNullOrEmpty(historyJson))
-            {
-                return JsonSerializer.Deserialize<List<ViewedProduct>>(historyJson) 
-                    ?? new List<ViewedProduct>();
-            }
+            var history = await _localStorage.GetItemAsync<List<ViewedProduct>>(VIEWED_PRODUCTS_KEY) 
+                ?? new List<ViewedProduct>();
+            
+            return history;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get viewed products");
+            return new List<ViewedProduct>();
         }
-
-        return new List<ViewedProduct>();
     }
 
     /// <summary>
@@ -214,8 +209,12 @@ public class ProductViewTracker
     {
         try
         {
-            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", VIEWED_PRODUCTS_KEY);
-            _logger.LogInformation("✅ Cleared viewed products history");
+            await _localStorage.RemoveItemAsync(VIEWED_PRODUCTS_KEY);
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✅ Cleared viewed products history",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
