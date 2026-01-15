@@ -615,6 +615,10 @@
                                                 @variant.Value.Color
                                             </span>
                                         }
+                                        @if (!string.IsNullOrEmpty(variant.Value.ImageUrl))
+                                        {
+                                            <span class="variant-tag image">🖼️ Has Image</span>
+                                        }
                                     </div>
                                     <div class="variant-item-actions">
                                         <span class="variant-stock">Stock: @variant.Value.Stock</span>
@@ -788,7 +792,7 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Variant Management Modal -->
+<!-- Variant Management Modal - UPDATED WITH IMAGE SELECTION -->
 <DynamicModal @ref="variantModal"
               Title="@(isEditingVariant ? "Edit Variant" : "Add Variant")"
               Size="DynamicModal.ModalSize.Large"
@@ -963,26 +967,60 @@
                 }
             </div>
 
-            <!-- Variant Image -->
+            <!-- Variant Image - UPDATED WITH DROPDOWN -->
             <div class="form-section">
                 <h3 class="section-title">Variant Image</h3>
                 
+                @if (productForm.ImageUrls != null && productForm.ImageUrls.Any())
+                {
+                    <div class="form-group">
+                        <label class="form-label">Select from Product Images</label>
+                        <select class="form-select variant-image-select" 
+                                @onchange="HandleVariantImageSelection">
+                            <option value="">Choose an image...</option>
+                            @for (int i = 0; i < productForm.ImageUrls.Count; i++)
+                            {
+                                var index = i;
+                                var imageUrl = productForm.ImageUrls[i];
+                                var isSelected = imageUrl == variantForm.ImageUrl;
+                                <option value="@imageUrl" selected="@isSelected">
+                                    Image @(i + 1) @(i == 0 ? "(Main)" : "")
+                                </option>
+                            }
+                        </select>
+                        <span class="helper-text">Select one of the product images for this variant</span>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(variantForm.ImageUrl))
+                    {
+                        <div class="variant-image-preview-section">
+                            <label class="form-label">Selected Image Preview</label>
+                            <div class="variant-image-preview">
+                                <img src="@variantForm.ImageUrl" alt="Variant image" />
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-product-images-warning">
+                        <p>⚠️ No product images added yet. Add product images first to select a variant image.</p>
+                    </div>
+                }
+
+                <!-- Fallback URL Input -->
                 <div class="form-group">
-                    <label class="form-label">Image URL</label>
+                    <label class="form-label">
+                        Or Enter Custom Image URL
+                        <span class="helper-text-inline">(Fallback option)</span>
+                    </label>
                     <input type="text" 
                            class="form-input"
                            @bind="variantForm.ImageUrl"
                            @bind:event="oninput"
-                           placeholder="https://..." />
-                    <span class="helper-text">Optional: Specific image for this variant</span>
+                           placeholder="https://example.com/image.jpg" />
+                    <span class="helper-text">Use this if you need a different image not in the product gallery</span>
                 </div>
-
-                @if (!string.IsNullOrEmpty(variantForm.ImageUrl))
-                {
-                    <div class="variant-image-preview">
-                        <img src="@variantForm.ImageUrl" alt="Variant image" />
-                    </div>
-                }
             </div>
 
             <!-- Availability -->
