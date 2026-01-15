@@ -5,6 +5,7 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.Partners;
+using SubashaVentures.Services.Categories;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Models.Firebase;
@@ -28,6 +29,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private IBrandService BrandService { get; set; } = default!;
     [Inject] private IPartnerService PartnerService { get; set; } = default!;
+    [Inject] private ICategoryService CategoryService { get; set; } = default!;
     [Inject] private ILogger<ProductManagement> Logger { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
@@ -189,6 +191,25 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            categories = await CategoryService.GetAllCategoriesAsync();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {categories.Count} categories from CategoryService",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
+            ShowErrorNotification("Failed to load categories");
+            categories = new List<CategoryViewModel>();
+        }
+    }
+
     private async Task LoadProductOfTheDayAsync()
     {
         try
@@ -296,50 +317,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         {
             isLoading = false;
             StateHasChanged();
-        }
-    }
-
-    private async Task LoadCategoriesAsync()
-    {
-        try
-        {
-            var categoryModels = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
-            
-            if (categoryModels != null && categoryModels.Any())
-            {
-                categories = categoryModels
-                    .Where(c => c.IsActive)
-                    .Select(c => new CategoryViewModel
-                    {
-                        Id = c.Id,
-                        Name = c.Name,
-                        Slug = c.Slug,
-                        Description = c.Description,
-                        ImageUrl = c.ImageUrl,
-                        IconEmoji = c.IconEmoji,
-                        ParentId = c.ParentId,
-                        ProductCount = c.ProductCount,
-                        DisplayOrder = c.DisplayOrder,
-                        IsActive = c.IsActive
-                    })
-                    .OrderBy(c => c.DisplayOrder)
-                    .ToList();
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Loaded {categories.Count} categories from Firebase",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                categories = new List<CategoryViewModel>();
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories from Firebase");
-            ShowErrorNotification("Failed to load categories");
-            categories = new List<CategoryViewModel>();
         }
     }
 
@@ -511,6 +488,27 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
+    // ✅ NEW: Generate variant SKU based on main product SKU
+    private void GenerateVariantSku()
+    {
+        if (string.IsNullOrEmpty(productForm.Sku))
+        {
+            ShowWarningNotification("Please generate main product SKU first");
+            return;
+        }
+
+        var variantIdentifier = new List<string>();
+        if (!string.IsNullOrEmpty(variantForm.Size)) variantIdentifier.Add(variantForm.Size);
+        if (!string.IsNullOrEmpty(variantForm.Color)) variantIdentifier.Add(variantForm.Color);
+
+        var suffix = variantIdentifier.Any() 
+            ? string.Join("-", variantIdentifier).ToUpperInvariant()
+            : Guid.NewGuid().ToString("N").Substring(0, 4).ToUpper();
+
+        variantForm.Sku = $"{productForm.Sku}-{suffix}";
+        StateHasChanged();
+    }
+
     private async Task HandleSaveProduct()
     {
         if (!ValidateProductForm())
@@ -627,14 +625,17 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
         return 0;
     }
-
-    // ==================== VARIANT MODAL ====================
+// ==================== VARIANT MODAL ====================
 
     private void OpenVariantModal()
     {
         isEditingVariant = false;
         editingVariantKey = null;
         variantForm = new VariantFormData();
+        // ✅ Inherit base product values for new variant
+        variantForm.Weight = productForm.BaseWeight;
+        variantForm.ShippingCost = productForm.BaseShippingCost;
+        variantForm.HasFreeShipping = productForm.HasFreeShipping;
         isVariantModalOpen = true;
         StateHasChanged();
     }
@@ -653,11 +654,11 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                 ColorHex = variant.ColorHex,
                 Stock = variant.Stock,
                 PriceAdjustment = variant.PriceAdjustment,
-                Weight = variant.Weight,
+                Weight = variant.Weight ?? productForm.BaseWeight,
                 Length = variant.Length,
                 Width = variant.Width,
                 Height = variant.Height,
-                ShippingCost = variant.ShippingCost,
+                ShippingCost = variant.ShippingCost ?? productForm.BaseShippingCost,
                 HasFreeShipping = variant.HasFreeShipping,
                 ImageUrl = variant.ImageUrl,
                 IsAvailable = variant.IsAvailable
@@ -676,7 +677,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // ✅ NEW: Handle variant image selection from dropdown
     private void HandleVariantImageSelection(ChangeEventArgs e)
     {
         var selectedImageUrl = e.Value?.ToString() ?? "";
@@ -714,7 +714,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // Create ProductVariant
+            // ✅ Create ProductVariant with inheritance from main product
             var variant = new ProductVariant
             {
                 Sku = variantForm.Sku,
@@ -723,13 +723,14 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                 ColorHex = variantForm.ColorHex,
                 Stock = variantForm.Stock,
                 PriceAdjustment = variantForm.PriceAdjustment,
-                Weight = variantForm.Weight,
+                // ✅ Only set if different from base product (null = inherit)
+                Weight = variantForm.Weight != productForm.BaseWeight ? variantForm.Weight : null,
                 Length = variantForm.Length,
                 Width = variantForm.Width,
                 Height = variantForm.Height,
-                ShippingCost = variantForm.ShippingCost,
+                ShippingCost = variantForm.ShippingCost != productForm.BaseShippingCost ? variantForm.ShippingCost : null,
                 HasFreeShipping = variantForm.HasFreeShipping,
-                ImageUrl = variantForm.ImageUrl, // ✅ This now comes from dropdown or fallback
+                ImageUrl = variantForm.ImageUrl,
                 IsAvailable = variantForm.IsAvailable
             };
 
@@ -1252,8 +1253,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         notificationComponent?.ShowInfo(message);
     }
-
-    // ==================== MAPPING ====================
+// ==================== MAPPING ====================
 
     private ProductFormData MapToFormData(ProductViewModel product)
     {

@@ -1,5 +1,6 @@
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Categories;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -11,6 +12,7 @@ namespace SubashaVentures.Services.Products;
 public class ProductService : IProductService
 {
     private readonly ISupabaseDatabaseService _database;
+    private readonly ICategoryService _categoryService;
     private readonly ILogger<ProductService> _logger;
 
     private static readonly List<string> CommonTags = new()
@@ -39,9 +41,11 @@ public class ProductService : IProductService
 
     public ProductService(
         ISupabaseDatabaseService database,
+        ICategoryService categoryService,
         ILogger<ProductService> logger)
     {
         _database = database;
+        _categoryService = categoryService;
         _logger = logger;
     }
 
@@ -131,6 +135,28 @@ public class ProductService : IProductService
                 return null;
             }
 
+            // ✅ FIX: Fetch category name from CategoryService
+            string categoryName = "";
+            if (!string.IsNullOrEmpty(request.CategoryId))
+            {
+                var category = await _categoryService.GetCategoryByIdAsync(request.CategoryId);
+                if (category != null)
+                {
+                    categoryName = category.Name;
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✓ Category resolved: {request.CategoryId} → {categoryName}",
+                        LogLevel.Info
+                    );
+                }
+                else
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"⚠️ Category not found: {request.CategoryId}",
+                        LogLevel.Warning
+                    );
+                }
+            }
+
             var productModel = new ProductModel
             {
                 Name = request.Name,
@@ -152,7 +178,7 @@ public class ProductService : IProductService
                 Images = request.ImageUrls ?? new List<string>(),
                 VideoUrl = request.VideoUrl,
                 
-                // Variants (ONLY set this - sizes/colors/stock auto-populated)
+                // Variants (ONLY set this - sizes/colors/stock auto-populated by triggers)
                 Variants = request.Variants ?? new Dictionary<string, ProductVariant>(),
                 
                 // Shipping
@@ -163,9 +189,9 @@ public class ProductService : IProductService
                 // Inventory
                 Sku = request.Sku,
                 
-                // Classification
+                // ✅ FIX: Set both category_id AND category name
                 CategoryId = request.CategoryId,
-                Category = request.Category ?? "",
+                Category = categoryName,
                 SubCategory = request.SubCategory,
                 Brand = request.Brand ?? "",
                 Tags = request.Tags ?? new List<string>(),
@@ -191,8 +217,8 @@ public class ProductService : IProductService
             };
 
             _logger.LogInformation(
-                "Inserting product: {Name}, Partnership: {IsOwnedByStore}/{PartnerId}", 
-                request.Name, request.IsOwnedByStore, request.PartnerId
+                "Inserting product: {Name}, Category: {CategoryId}/{Category}, Partnership: {IsOwnedByStore}/{PartnerId}", 
+                request.Name, request.CategoryId, categoryName, request.IsOwnedByStore, request.PartnerId
             );
 
             var result = await _database.InsertAsync(productModel);
@@ -210,7 +236,7 @@ public class ProductService : IProductService
             var productId = createdProduct.Id;
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Product created with ID: {productId}, Stock: {createdProduct.Stock} (auto-calculated)",
+                $"✓ Product created with ID: {productId}, Stock: {createdProduct.Stock} (auto-calculated from variants)",
                 LogLevel.Info
             );
 
@@ -307,8 +333,29 @@ public class ProductService : IProductService
             if (request.BaseShippingCost.HasValue) existingProduct.BaseShippingCost = request.BaseShippingCost.Value;
             if (request.HasFreeShipping.HasValue) existingProduct.HasFreeShipping = request.HasFreeShipping.Value;
             
-            // Classification
-            if (request.CategoryId != null) existingProduct.CategoryId = request.CategoryId;
+            // ✅ FIX: Category handling - fetch category name if category_id changed
+            if (request.CategoryId != null && request.CategoryId != existingProduct.CategoryId)
+            {
+                existingProduct.CategoryId = request.CategoryId;
+                
+                var category = await _categoryService.GetCategoryByIdAsync(request.CategoryId);
+                if (category != null)
+                {
+                    existingProduct.Category = category.Name;
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✓ Category updated: {request.CategoryId} → {category.Name}",
+                        LogLevel.Info
+                    );
+                }
+                else
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"⚠️ Category not found: {request.CategoryId}",
+                        LogLevel.Warning
+                    );
+                }
+            }
+            
             if (request.Brand != null) existingProduct.Brand = request.Brand;
             if (request.Tags != null) existingProduct.Tags = request.Tags;
             
@@ -334,8 +381,10 @@ public class ProductService : IProductService
             existingProduct.UpdatedBy = "system";
 
             _logger.LogInformation(
-                "Updating product {ProductId}: Partnership={IsOwnedByStore}/{PartnerId}",
+                "Updating product {ProductId}: Category={CategoryId}/{Category}, Partnership={IsOwnedByStore}/{PartnerId}",
                 productId,
+                existingProduct.CategoryId,
+                existingProduct.Category,
                 existingProduct.IsOwnedByStore,
                 existingProduct.PartnerId
             );

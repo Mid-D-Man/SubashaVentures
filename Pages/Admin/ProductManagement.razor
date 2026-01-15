@@ -553,7 +553,7 @@
                                class="form-input sku-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Sku")) ? "has-error" : "")"
                                @bind="productForm.Sku"
                                @bind:event="oninput"
-                               placeholder="PROD-20250514-XXXX"
+                               placeholder="PROD-20250115-XXXX"
                                readonly="@(!isEditMode)" />
                         @if (!isEditMode)
                         {
@@ -792,7 +792,7 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Variant Management Modal - UPDATED WITH IMAGE SELECTION -->
+<!-- Variant Management Modal -->
 <DynamicModal @ref="variantModal"
               Title="@(isEditingVariant ? "Edit Variant" : "Add Variant")"
               Size="DynamicModal.ModalSize.Large"
@@ -808,12 +808,20 @@
                 
                 <div class="form-group">
                     <label class="form-label">Variant SKU *</label>
-                    <input type="text" 
-                           class="form-input"
-                           @bind="variantForm.Sku"
-                           @bind:event="oninput"
-                           placeholder="PROD-VARIANT-001" />
-                    <span class="helper-text">Unique identifier for this variant</span>
+                    <div class="sku-input-group">
+                        <input type="text" 
+                               class="form-input sku-input"
+                               @bind="variantForm.Sku"
+                               @bind:event="oninput"
+                               placeholder="PROD-VARIANT-001" />
+                        <SecondaryButton OnClick="GenerateVariantSku"
+                                        Variant="SecondaryButton.ButtonVariant.Outline"
+                                        Size="SecondaryButton.ButtonSize.Small"
+                                        CssClass="generate-sku-btn">
+                            🎲 Generate
+                        </SecondaryButton>
+                    </div>
+                    <span class="helper-text">Click 'Generate' to auto-create SKU based on main product + size/color</span>
                 </div>
 
                 <div class="form-row">
@@ -839,6 +847,10 @@
                 <div class="form-group">
                     <label class="form-label">Color Hex Code</label>
                     <div class="color-input-group">
+                        <input type="color" 
+                               class="form-color-picker"
+                               @bind="variantForm.ColorHex"
+                               @bind:event="oninput" />
                         <input type="text" 
                                class="form-input color-input"
                                @bind="variantForm.ColorHex"
@@ -849,7 +861,7 @@
                             <div class="color-preview" style="background: @variantForm.ColorHex"></div>
                         }
                     </div>
-                    <span class="helper-text">Optional: Hex color code for visual display</span>
+                    <span class="helper-text">Use color picker or enter hex code manually</span>
                 </div>
             </div>
 
@@ -891,7 +903,7 @@
 
             <!-- Dimensions & Weight -->
             <div class="form-section">
-                <h3 class="section-title">Dimensions & Weight</h3>
+                <h3 class="section-title">Dimensions & Weight (Optional - Inherits from main product if empty)</h3>
                 
                 <div class="form-group">
                     <label class="form-label">Weight (kg)</label>
@@ -899,10 +911,10 @@
                            class="form-input"
                            @bind="variantForm.Weight"
                            @bind:event="oninput"
-                           placeholder="1.0"
+                           placeholder="@productForm.BaseWeight"
                            step="0.1"
                            min="0" />
-                    <span class="helper-text">Leave empty to use base product weight</span>
+                    <span class="helper-text">Leave empty to use base product weight (@productForm.BaseWeight kg)</span>
                 </div>
 
                 <div class="form-row">
@@ -943,7 +955,7 @@
 
             <!-- Shipping -->
             <div class="form-section">
-                <h3 class="section-title">Shipping</h3>
+                <h3 class="section-title">Shipping (Optional - Inherits from main product if empty)</h3>
                 
                 <label class="toggle-switch">
                     <input type="checkbox" @bind="variantForm.HasFreeShipping" />
@@ -959,17 +971,17 @@
                                class="form-input"
                                @bind="variantForm.ShippingCost"
                                @bind:event="oninput"
-                               placeholder="2000"
+                               placeholder="@productForm.BaseShippingCost"
                                step="100"
                                min="0" />
-                        <span class="helper-text">Leave empty to use base shipping cost</span>
+                        <span class="helper-text">Leave empty to use base shipping cost (₦@productForm.BaseShippingCost.ToString("N0"))</span>
                     </div>
                 }
             </div>
 
-            <!-- Variant Image - UPDATED WITH DROPDOWN -->
+            <!-- Variant Image -->
             <div class="form-section">
-                <h3 class="section-title">Variant Image</h3>
+                <h3 class="section-title">Variant Image (Optional)</h3>
                 
                 @if (productForm.ImageUrls != null && productForm.ImageUrls.Any())
                 {
