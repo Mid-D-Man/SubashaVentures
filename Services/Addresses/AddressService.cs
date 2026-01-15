@@ -1,4 +1,4 @@
-// Services/Addresses/AddressService.cs
+// Services/Addresses/AddressService.cs - UPDATED FOR JSONB
 using SubashaVentures.Domain.User;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -123,11 +123,22 @@ public class AddressService : IAddressService
                 LogLevel.Info
             );
 
+            // Generate new ID if not provided
+            if (string.IsNullOrEmpty(address.Id))
+            {
+                address.Id = Guid.NewGuid().ToString();
+            }
+
+            // Set added timestamp
+            address.AddedAt = DateTime.UtcNow;
+
             // Call Postgres function
             var result = await _supabaseClient.Rpc<List<AddressItem>>(
                 "add_address",
                 new
                 {
+                    p_user_id = userId,
+                    p_address_id = address.Id,
                     p_full_name = address.FullName,
                     p_phone_number = address.PhoneNumber,
                     p_address_line1 = address.AddressLine1,
@@ -193,6 +204,7 @@ public class AddressService : IAddressService
                 "update_address",
                 new
                 {
+                    p_user_id = userId,
                     p_address_id = address.Id,
                     p_full_name = address.FullName,
                     p_phone_number = address.PhoneNumber,
@@ -248,7 +260,11 @@ public class AddressService : IAddressService
             // Call Postgres function
             var result = await _supabaseClient.Rpc<List<AddressItem>>(
                 "remove_address",
-                new { p_address_id = addressId }
+                new 
+                { 
+                    p_user_id = userId,
+                    p_address_id = addressId 
+                }
             );
 
             if (result != null)
@@ -292,7 +308,11 @@ public class AddressService : IAddressService
             // Call Postgres function
             var result = await _supabaseClient.Rpc<List<AddressItem>>(
                 "set_default_address",
-                new { p_address_id = addressId }
+                new 
+                { 
+                    p_user_id = userId,
+                    p_address_id = addressId 
+                }
             );
 
             if (result != null)

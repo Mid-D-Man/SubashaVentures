@@ -1,4 +1,4 @@
-// Domain/User/AddressViewModel.cs
+// Domain/User/AddressViewModel.cs - UPDATED FOR JSONB
 using SubashaVentures.Models.Supabase;
 
 namespace SubashaVentures.Domain.User;

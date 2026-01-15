@@ -1,14 +1,17 @@
-// Models/Supabase/AddressModel.cs
+// Models/Supabase/AddressModel.cs - REDESIGNED FOR JSONB
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using System.Text.Json.Serialization;
-
+using JsonPropertyName = Newtonsoft.Json.JsonPropertyAttribute;
 namespace SubashaVentures.Models.Supabase;
 
+/// <summary>
+/// Address model - ONE ROW PER USER with JSONB items array
+/// </summary>
 [Table("addresses")]
 public class AddressModel : BaseModel
 {
     [PrimaryKey("user_id", false)]
+    [Column("user_id")]
     [JsonPropertyName("user_id")]
     public string UserId { get; set; } = string.Empty;
 
