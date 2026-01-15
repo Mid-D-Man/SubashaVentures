@@ -2,10 +2,12 @@
 @using SubashaVentures.Services.Wishlist
 @using SubashaVentures.Services.Cart
 @using SubashaVentures.Services.Authorization
+@using SubashaVentures.Services.Products
 @inject NavigationManager NavigationManager
 @inject IPermissionService PermissionService
 @inject ICartService CartService
 @inject IWishlistService WishlistService
+@inject IProductInteractionService InteractionService
 
 <div class="shop-product-card @(Product.IsFeatured ? "featured" : "")" @onclick="HandleCardClick">
     
@@ -179,8 +181,14 @@
         return string.Empty;
     }
 
-    private void HandleCardClick()
+    private async Task HandleCardClick()
     {
+        // ✅ Track click interaction
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            await InteractionService.TrackClickAsync(Product.Id, currentUserId);
+        }
+        
         NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
@@ -220,6 +228,9 @@
             if (success)
             {
                 IsInCart = true;
+                
+                // Track add to cart interaction
+                await InteractionService.TrackAddToCartAsync(Product.Id, currentUserId);
                 
                 // Invoke parent callback if provided
                 if (OnAddToCart.HasDelegate)
@@ -273,6 +284,12 @@
             if (success)
             {
                 IsFavorite = !IsFavorite;
+                
+                //Track wishlist interaction (only when adding)
+                if (IsFavorite)
+                {
+                    await InteractionService.TrackWishlistAsync(Product.Id, currentUserId);
+                }
                 
                 // Invoke parent callback if provided
                 if (OnToggleFavorite.HasDelegate)

@@ -1,407 +1,324 @@
 @page "/product/{slug}"
-@using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Domain.Product
+@layout MainLayout
 
-<PageTitle>@(Product?.Name ?? "Product") - Subasha Ventures</PageTitle>
-
-<div class="product-detail-page">
-    
+<div class="product-details-page">
     @if (IsLoading)
     {
         <div class="loading-container">
-            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
-                          Message="Loading product details..." />
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading product details..." />
         </div>
     }
     else if (Product == null)
     {
         <div class="error-container">
-            <div class="error-icon">❌</div>
-            <h2 class="error-title">Product Not Found</h2>
-            <p class="error-message">The product you're looking for doesn't exist.</p>
-            <PrimaryButton OnClick="NavigateToShop" CssClass="btn-back-shop">
-                Back to Shop
-            </PrimaryButton>
+            <div class="error-icon">📦</div>
+            <h2>Product Not Found</h2>
+            <p>The product you're looking for doesn't exist or has been removed.</p>
+            <button class="btn-primary" @onclick="NavigateToShop">Browse Products</button>
         </div>
     }
     else
     {
-        @* Header *@
-        <div class="product-header">
-            <button class="btn-back" @onclick="NavigateBack" title="Back to Shop">
-                <span class="back-icon">←</span>
-            </button>
-            <h1 class="header-title">Product Details</h1>
-            <div class="header-actions">
-                <button class="btn-share" @onclick="HandleShare" title="Share Product">
-                    <span class="share-icon">⤴</span>
-                </button>
-                <button class="btn-to-top" @onclick="ScrollToTop" title="Scroll to Top">
-                    <span class="top-icon">↑</span>
-                </button>
-            </div>
-        </div>
-
-        @* Main Content *@
-        <div class="product-content">
-            <div class="product-layout">
-                
-                @* Image Gallery *@
-                <div class="image-section">
-                    <div class="main-image-container">
-                        <img src="@GetCurrentImage()" 
-                             alt="@Product.Name" 
-                             class="main-image" />
-                        
-                        <div class="image-badges-left">
-                            @if (Product.IsFeatured)
-                            {
-                                <span class="badge badge-featured">Featured</span>
-                            }
-                            @if (IsInCart)
-                            {
-                                <span class="badge badge-in-cart">✓ In Cart</span>
-                            }
-                        </div>
-                        
-                        @if (Product.IsOnSale && Product.Discount > 0)
-                        {
-                            <span class="badge badge-sale">@Product.Discount% OFF</span>
-                        }
-                    </div>
-
-                    @if (Product.Images.Count > 1)
+        <div class="product-container">
+            @* Image Gallery Section *@
+            <div class="product-images">
+                <div class="main-image">
+                    @if (!string.IsNullOrEmpty(SelectedImage))
                     {
-                        <div class="thumbnail-gallery">
-                            @for (int i = 0; i < Product.Images.Count; i++)
-                            {
-                                int index = i;
-                                <button class="thumbnail @(SelectedImageIndex == index ? "active" : "")"
-                                        @onclick="@(() => SelectImage(index))">
-                                    <img src="@Product.Images[index]" 
-                                         alt="@Product.Name @(index + 1)" 
-                                         class="thumbnail-image" />
-                                </button>
-                            }
+                        <img src="@SelectedImage" alt="@Product.Name" />
+                    }
+                    else
+                    {
+                        <div class="image-placeholder">
+                            <span class="placeholder-icon">📦</span>
                         </div>
                     }
-                </div>
-
-                @* Product Info *@
-                <div class="info-section">
                     
-                    <div class="product-meta">
-                        <div class="meta-line">
-                            <span class="category">@Product.Category</span>
-                            @if (!string.IsNullOrEmpty(Product.Brand))
-                            {
-                                <span class="separator">•</span>
-                                <span class="brand">@Product.Brand</span>
-                            }
-                        </div>
-                        <h1 class="product-title">@Product.Name</h1>
-                        <p class="product-description">@Product.Description</p>
+                    @* Badges *@
+                    <div class="image-badges">
+                        @if (Product.IsFeatured)
+                        {
+                            <span class="badge badge-featured">⭐ Featured</span>
+                        }
+                        @if (Product.IsOnSale && Product.Discount > 0)
+                        {
+                            <span class="badge badge-sale">-@Product.Discount% OFF</span>
+                        }
+                        @if (!Product.IsInStock)
+                        {
+                            <span class="badge badge-out-of-stock">Out of Stock</span>
+                        }
                     </div>
+                </div>
+                
+                @if (Product.Images != null && Product.Images.Count > 1)
+                {
+                    <div class="thumbnail-gallery">
+                        @foreach (var image in Product.Images)
+                        {
+                            <div class="thumbnail @(image == SelectedImage ? "active" : "")" 
+                                 @onclick="() => SelectImage(image)">
+                                <img src="@image" alt="@Product.Name" />
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
 
+            @* Product Info Section *@
+            <div class="product-info">
+                <div class="product-header">
+                    <div class="category-breadcrumb">
+                        <span @onclick="NavigateToShop" class="breadcrumb-link">Shop</span>
+                        <span class="separator">/</span>
+                        <span @onclick="() => NavigateToCategory(Product.CategoryId)" class="breadcrumb-link">@Product.Category</span>
+                    </div>
+                    
+                    <h1 class="product-title">@Product.Name</h1>
+                    
+                    @* Brand *@
+                    @if (!string.IsNullOrEmpty(Product.Brand))
+                    {
+                        <p class="product-brand">by <strong>@Product.Brand</strong></p>
+                    }
+                    
+                    @* Rating *@
                     @if (Product.Rating > 0)
                     {
                         <div class="product-rating">
-                            <div class="rating-stars">
-                                @for (int i = 0; i < 5; i++)
+                            <div class="stars">
+                                @for (int i = 1; i <= 5; i++)
                                 {
-                                    int starIndex = i;
-                                    <span class="star @(starIndex < Math.Floor(Product.Rating) ? "filled" : "")">★</span>
+                                    <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
                                 }
                             </div>
-                            <span class="rating-text">
-                                @Product.DisplayRating (@Product.ReviewCount reviews)
-                            </span>
-                            <span class="separator">•</span>
-                            <span class="sales-count">@Product.SalesCount sold</span>
+                            <span class="rating-text">@Product.DisplayRating</span>
+                            <span class="review-count">(@Product.ReviewCount reviews)</span>
                         </div>
                     }
+                </div>
 
-                    <div class="product-pricing">
-                        <span class="current-price">₦@Product.Price.ToString("N2")</span>
+                @* Price Section *@
+                <div class="price-section">
+                    <div class="price-wrapper">
                         @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
                         {
-                            <span class="original-price">₦@Product.OriginalPrice.Value.ToString("N2")</span>
-                            <span class="badge badge-save">Save @Product.Discount%</span>
+                            <span class="original-price">@Product.DisplayOriginalPrice</span>
                         }
+                        <span class="current-price">@Product.DisplayPrice</span>
                     </div>
-
-                    <div class="stock-status">
-                        <span class="badge @(Product.Stock > 5 ? "badge-in-stock" : "badge-low-stock")">
-                            @Product.StockStatus
-                        </span>
-                        <span class="stock-text">@Product.Stock units available</span>
-                    </div>
-
-                    @if (Product.Sizes.Any())
+                    @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
                     {
-                        <div class="variant-section">
-                            <label class="variant-label">
-                                Size @(SelectedSize != null ? $"- {SelectedSize}" : "")
-                            </label>
-                            <div class="variant-options">
-                                @foreach (var size in Product.Sizes)
-                                {
-                                    <button class="variant-btn @(SelectedSize == size ? "active" : "")"
-                                            @onclick="@(() => SelectSize(size))">
-                                        @size
-                                    </button>
-                                }
-                            </div>
+                        var savings = Product.OriginalPrice.Value - Product.Price;
+                        <div class="savings-badge">
+                            You save ₦@savings.ToString("N0") (@Product.Discount% off)
                         </div>
                     }
-
-                    @if (Product.Colors.Any())
-                    {
-                        <div class="variant-section">
-                            <label class="variant-label">
-                                Color @(SelectedColor != null ? $"- {SelectedColor}" : "")
-                            </label>
-                            <div class="variant-options">
-                                @foreach (var color in Product.Colors)
-                                {
-                                    <button class="variant-btn @(SelectedColor == color ? "active" : "")"
-                                            @onclick="@(() => SelectColor(color))">
-                                        @color
-                                    </button>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    <div class="quantity-section">
-                        <label class="variant-label">Quantity</label>
-                        <div class="quantity-controls">
-                            <button class="quantity-btn" 
-                                    @onclick="DecreaseQuantity"
-                                    disabled="@(Quantity <= 1)">
-                                <span class="quantity-icon">−</span>
-                            </button>
-                            <span class="quantity-value">@Quantity</span>
-                            <button class="quantity-btn" 
-                                    @onclick="IncreaseQuantity"
-                                    disabled="@(Quantity >= Product.Stock)">
-                                <span class="quantity-icon">+</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="trust-badges">
-                        <div class="trust-item">
-                            <span class="trust-icon">🚚</span>
-                            <span class="trust-text">Free Shipping</span>
-                        </div>
-                        <div class="trust-item">
-                            <span class="trust-icon">🛡️</span>
-                            <span class="trust-text">Secure Payment</span>
-                        </div>
-                    </div>
-
-                    <div class="action-buttons">
-                        <button class="btn-add-to-cart @(IsAddingToCart ? "loading" : "") @(!Product.IsInStock ? "disabled" : "")"
-                                @onclick="HandleAddToCart"
-                                disabled="@(!Product.IsInStock || IsAddingToCart)">
-                            @if (IsAddingToCart)
-                            {
-                                <span class="btn-spinner"></span>
-                                <span>Adding to Cart...</span>
-                            }
-                            else if (IsInCart)
-                            {
-                                <span class="cart-icon">✓</span>
-                                <span>Added to Cart</span>
-                            }
-                            else if (Product.IsInStock)
-                            {
-                                <span class="cart-icon">🛒</span>
-                                <span>Add to Cart</span>
-                            }
-                            else
-                            {
-                                <span>Out of Stock</span>
-                            }
-                        </button>
-                        
-                        <button class="btn-buy-now"
-                                @onclick="HandleBuyNow"
-                                disabled="@(!Product.IsInStock)">
-                            <span>Buy Now</span>
-                        </button>
-                        
-                        <button class="btn-favorite @(IsFavorite ? "active" : "") @(IsTogglingWishlist ? "loading" : "")"
-                                @onclick="HandleToggleFavorite"
-                                disabled="@IsTogglingWishlist"
-                                title="@(IsFavorite ? "Remove from wishlist" : "Add to wishlist")">
-                            @if (IsTogglingWishlist)
-                            {
-                                <span class="wishlist-spinner"></span>
-                            }
-                            else
-                            {
-                                <span class="heart-icon">@(IsFavorite ? "♥" : "♡")</span>
-                            }
-                        </button>
-                    </div>
-
-                    @if (!string.IsNullOrEmpty(StatusMessage))
-                    {
-                        <div class="status-message @StatusMessageType">
-                            <span class="status-icon">@(StatusMessageType == "success" ? "✓" : "✗")</span>
-                            <span>@StatusMessage</span>
-                        </div>
-                    }
-
-                    <div class="product-details">
-                        <div class="details-section">
-                            <h3 class="details-heading">Description</h3>
-                            <p class="details-text">@Product.LongDescription</p>
-                        </div>
-
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <span class="detail-label">Category</span>
-                                <span class="detail-value">@Product.Category</span>
-                            </div>
-                            @if (!string.IsNullOrEmpty(Product.SubCategory))
-                            {
-                                <div class="detail-item">
-                                    <span class="detail-label">Type</span>
-                                    <span class="detail-value">@Product.SubCategory</span>
-                                </div>
-                            }
-                            <div class="detail-item">
-                                <span class="detail-label">Brand</span>
-                                <span class="detail-value">@Product.Brand</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Availability</span>
-                                <span class="detail-value">@Product.StockStatus</span>
-                            </div>
-                        </div>
-
-                        @if (Product.Tags.Any())
-                        {
-                            <div class="details-section">
-                                <h3 class="details-heading">Tags</h3>
-                                <div class="tags-container">
-                                    @foreach (var tag in Product.Tags)
-                                    {
-                                        <span class="tag">#@tag</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
                 </div>
-            </div>
 
-            @* Reviews Section *@
-            <div class="reviews-section">
-                <h2 class="section-title">Customer Reviews</h2>
-                
-                @if (ShowReviewForm)
-                {
-                    <ProductReviewForm ProductId="@Product.Id.ToString()"
-                                     ProductName="@Product.Name"
-                                     OnReviewSubmitted="HandleReviewSubmitted"
-                                     OnCancel="CloseReviewForm" />
-                }
-                else
-                {
-                    <button class="btn-write-review" @onclick="OpenReviewForm">
-                        <span class="review-icon">✍️</span>
-                        <span>Write a Review</span>
-                    </button>
-                }
-
-                @if (IsLoadingReviews)
-                {
-                    <div class="reviews-loading">
-                        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium" 
-                                      Message="Loading reviews..." />
-                    </div>
-                }
-                else if (Reviews.Any())
-                {
-                    <div class="reviews-list">
-                        @foreach (var review in Reviews)
-                        {
-                            <CustomerReviewCard Review="@review"
-                                              OnHelpfulClick="HandleHelpfulClick"
-                                              OnImageClick="HandleReviewImageClick" />
-                        }
-                    </div>
-                }
-                else
-                {
-                    <div class="reviews-empty">
-                        <div class="empty-icon">💭</div>
-                        <h3>No Reviews Yet</h3>
-                        <p>Be the first to review this product!</p>
-                    </div>
-                }
-            </div>
-
-            @* Related Products Section *@
-            @if (RelatedProductsList.Any())
-            {
-                <div class="related-products-section">
-                    <h2 class="section-title">You May Also Like</h2>
-                    
-                    @if (IsLoadingRelated)
+                @* Stock Status *@
+                <div class="stock-status @(Product.IsInStock ? "in-stock" : "out-of-stock")">
+                    <span class="status-icon">@(Product.IsInStock ? "✓" : "✗")</span>
+                    <span class="status-text">@Product.StockStatus</span>
+                    @if (Product.Stock > 0 && Product.Stock <= 10)
                     {
-                        <div class="related-loading">
-                            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium" 
-                                          Message="Loading recommendations..." />
+                        <span class="stock-count">Only @Product.Stock left!</span>
+                    }
+                </div>
+
+                @* Description *@
+                @if (!string.IsNullOrEmpty(Product.Description))
+                {
+                    <div class="product-description">
+                        <h3>Description</h3>
+                        <p>@Product.Description</p>
+                    </div>
+                }
+
+                @* Available Sizes (if any) *@
+                @if (Product.Sizes != null && Product.Sizes.Any())
+                {
+                    <div class="product-sizes">
+                        <h3>Available Sizes</h3>
+                        <div class="size-list">
+                            @foreach (var size in Product.Sizes)
+                            {
+                                <span class="size-badge">@size</span>
+                            }
+                        </div>
+                        <p class="variant-note">Select size during checkout</p>
+                    </div>
+                }
+
+                @* Available Colors (if any) *@
+                @if (Product.Colors != null && Product.Colors.Any())
+                {
+                    <div class="product-colors">
+                        <h3>Available Colors</h3>
+                        <div class="color-list">
+                            @foreach (var color in Product.Colors)
+                            {
+                                <span class="color-badge">@color</span>
+                            }
+                        </div>
+                        <p class="variant-note">Select color during checkout</p>
+                    </div>
+                }
+
+                @* Shipping Info *@
+                <div class="shipping-info">
+                    <h3>Shipping Information</h3>
+                    @if (Product.HasFreeShipping)
+                    {
+                        <div class="shipping-item free-shipping">
+                            <span class="shipping-icon">🚚</span>
+                            <span class="shipping-text">FREE Shipping</span>
                         </div>
                     }
                     else
                     {
-                        <div class="related-products-grid">
-                            @foreach (var relatedProduct in RelatedProductsList)
-                            {
-                                <div class="related-product-card" @onclick="@(() => NavigationManager.NavigateTo($"/product/{relatedProduct.Slug}"))">
-                                    <div class="related-product-image">
-                                        <img src="@(relatedProduct.Images?.FirstOrDefault() ?? "/diverse-products-still-life.png")" 
-                                             alt="@relatedProduct.Name" 
-                                             loading="lazy" />
-                                        @if (relatedProduct.IsOnSale && relatedProduct.Discount > 0)
-                                        {
-                                            <span class="badge badge-sale-small">-@relatedProduct.Discount%</span>
-                                        }
-                                    </div>
-                                    <div class="related-product-info">
-                                        <h4 class="related-product-name">@relatedProduct.Name</h4>
-                                        <div class="related-product-rating">
-                                            <div class="rating-stars-small">
-                                                @for (int i = 0; i < 5; i++)
-                                                {
-                                                    int starIndex = i;
-                                                    <span class="star-small @(starIndex < Math.Floor(relatedProduct.Rating) ? "filled" : "")">★</span>
-                                                }
-                                            </div>
-                                            <span class="rating-count">(@relatedProduct.ReviewCount)</span>
-                                        </div>
-                                        <div class="related-product-price">
-                                            <span class="price-current">₦@relatedProduct.Price.ToString("N0")</span>
-                                            @if (relatedProduct.IsOnSale && relatedProduct.OriginalPrice.HasValue)
-                                            {
-                                                <span class="price-original">₦@relatedProduct.OriginalPrice.Value.ToString("N0")</span>
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            }
+                        <div class="shipping-item">
+                            <span class="shipping-icon">🚚</span>
+                            <span class="shipping-text">Shipping: ₦@Product.BaseShippingCost.ToString("N0")</span>
                         </div>
                     }
+                    <div class="shipping-item">
+                        <span class="shipping-icon">⚖️</span>
+                        <span class="shipping-text">Weight: @Product.BaseWeight kg</span>
+                    </div>
+                </div>
+
+                @* Quantity Selector *@
+                @if (Product.IsInStock)
+                {
+                    <div class="quantity-section">
+                        <label>Quantity</label>
+                        <div class="quantity-selector">
+                            <button class="qty-btn" @onclick="DecreaseQuantity" disabled="@(SelectedQuantity <= 1)">−</button>
+                            <input type="number" class="qty-input" @bind="SelectedQuantity" min="1" max="@Product.Stock" />
+                            <button class="qty-btn" @onclick="IncreaseQuantity" disabled="@(SelectedQuantity >= Product.Stock)">+</button>
+                        </div>
+                    </div>
+                }
+
+                @* Action Buttons *@
+                <div class="action-buttons">
+                    <button class="btn-add-to-cart @(IsAddingToCart ? "loading" : "")" 
+                            @onclick="HandleAddToCart"
+                            disabled="@(!Product.IsInStock || IsAddingToCart)">
+                        @if (IsAddingToCart)
+                        {
+                            <span class="btn-spinner"></span>
+                            <span>Adding to Cart...</span>
+                        }
+                        else if (IsInCart)
+                        {
+                            <span>✓ Added to Cart</span>
+                        }
+                        else if (Product.IsInStock)
+                        {
+                            <span>🛒 Add to Cart (@SelectedQuantity)</span>
+                        }
+                        else
+                        {
+                            <span>Out of Stock</span>
+                        }
+                    </button>
+                    
+                    <button class="btn-wishlist @(IsInWishlist ? "active" : "") @(IsTogglingWishlist ? "loading" : "")" 
+                            @onclick="HandleWishlistToggle"
+                            disabled="@IsTogglingWishlist">
+                        @if (IsTogglingWishlist)
+                        {
+                            <span class="btn-spinner-small"></span>
+                        }
+                        else
+                        {
+                            <span class="heart-icon">@(IsInWishlist ? "♥" : "♡")</span>
+                            <span>@(IsInWishlist ? "In Wishlist" : "Add to Wishlist")</span>
+                        }
+                    </button>
+                </div>
+
+                @* Tags *@
+                @if (Product.Tags != null && Product.Tags.Any())
+                {
+                    <div class="product-tags">
+                        <h3>Tags</h3>
+                        <div class="tags-list">
+                            @foreach (var tag in Product.Tags)
+                            {
+                                <span class="tag">@tag</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Long Description *@
+        @if (!string.IsNullOrEmpty(Product.LongDescription))
+        {
+            <div class="long-description-section">
+                <h2>Product Details</h2>
+                <div class="long-description-content">
+                    @((MarkupString)Product.LongDescription)
+                </div>
+            </div>
+        }
+
+        @* Reviews Section *@
+        <div class="reviews-section">
+            <div class="reviews-header">
+                <h2>Customer Reviews</h2>
+                @if (IsAuthenticated)
+                {
+                    <button class="btn-write-review" @onclick="OpenReviewForm">
+                        ✍️ Write a Review
+                    </button>
+                }
+            </div>
+
+            @if (ShowReviewForm)
+            {
+                <div class="review-form-container">
+                    <ProductReviewForm ProductId="@Product.Id.ToString()"
+                                      OnReviewSubmitted="HandleReviewSubmitted"
+                                      OnCancel="CloseReviewForm" />
                 </div>
             }
+
+            <div class="reviews-list">
+                @if (Reviews.Any())
+                {
+                    @foreach (var review in Reviews)
+                    {
+                        <CustomerReviewCard Review="@review" />
+                    }
+                }
+                else
+                {
+                    <div class="no-reviews">
+                        <p>No reviews yet. Be the first to review this product!</p>
+                    </div>
+                }
+            </div>
         </div>
+
+        @* Related Products *@
+        @if (RelatedProducts.Any())
+        {
+            <div class="related-products-section">
+                <RelatedProducts Products="@RelatedProducts" />
+            </div>
+        }
     }
 </div>
+
+@code {
+    // Implementation in ProductDetails.razor.cs
+}

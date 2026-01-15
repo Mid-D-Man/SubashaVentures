@@ -1,4 +1,4 @@
-// Utilities/Tracking/ProductViewTracker.cs
+// Utilities/Tracking/ProductViewTracker.cs - ENHANCED WITH DURATION
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Product;
 using System.Text.Json;
@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace SubashaVentures.Utilities.Tracking;
 
 /// <summary>
-/// Helper service to track product views in localStorage for history page
+/// Helper service to track product views in localStorage for history page with duration tracking
 /// </summary>
 public class ProductViewTracker
 {
@@ -59,7 +59,8 @@ public class ProductViewTracker
                 ProductName = product.Name,
                 ImageUrl = product.Images?.FirstOrDefault() ?? "/images/placeholder.jpg",
                 Price = product.Price,
-                ViewedAt = DateTime.UtcNow
+                ViewedAt = DateTime.UtcNow,
+                DurationSeconds = 0 // Will be updated when user leaves
             });
 
             // Keep only last MAX_VIEWED_PRODUCTS items
@@ -78,6 +79,48 @@ public class ProductViewTracker
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to track product view");
+        }
+    }
+
+    /// <summary>
+    /// Update the duration for a product view
+    /// </summary>
+    public async Task UpdateViewDurationAsync(string productId, int durationSeconds)
+    {
+        try
+        {
+            // Get existing history
+            var historyJson = await _jsRuntime.InvokeAsync<string>(
+                "localStorage.getItem", 
+                VIEWED_PRODUCTS_KEY
+            );
+
+            if (string.IsNullOrEmpty(historyJson))
+                return;
+
+            var history = JsonSerializer.Deserialize<List<ViewedProduct>>(historyJson);
+            
+            if (history == null)
+                return;
+
+            // Find and update the product
+            var product = history.FirstOrDefault(h => h.ProductId == productId);
+            
+            if (product != null)
+            {
+                product.DurationSeconds = durationSeconds;
+
+                // Save back to localStorage
+                var json = JsonSerializer.Serialize(history);
+                await _jsRuntime.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+
+                _logger.LogInformation("✅ Updated view duration for product {ProductId}: {Duration}s", 
+                    productId, durationSeconds);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update view duration");
         }
     }
 
@@ -116,7 +159,8 @@ public class ProductViewTracker
                 ProductName = productName,
                 ImageUrl = imageUrl,
                 Price = price,
-                ViewedAt = DateTime.UtcNow
+                ViewedAt = DateTime.UtcNow,
+                DurationSeconds = 0
             });
 
             // Keep only last MAX_VIEWED_PRODUCTS items
@@ -190,6 +234,7 @@ public class ViewedProduct
     public string ImageUrl { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public DateTime ViewedAt { get; set; }
+    public int DurationSeconds { get; set; }
 
     public string ViewedTime
     {
@@ -203,6 +248,20 @@ public class ViewedProduct
             if (span.TotalDays < 7)
                 return $"{(int)span.TotalDays}d ago";
             return ViewedAt.ToString("MMM dd");
+        }
+    }
+
+    public string ViewDuration
+    {
+        get
+        {
+            if (DurationSeconds < 60)
+                return $"{DurationSeconds}s";
+            var minutes = DurationSeconds / 60;
+            if (minutes < 60)
+                return $"{minutes}m";
+            var hours = minutes / 60;
+            return $"{hours}h {minutes % 60}m";
         }
     }
 }

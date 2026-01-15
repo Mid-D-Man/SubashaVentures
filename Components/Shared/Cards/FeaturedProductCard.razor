@@ -3,10 +3,12 @@
 @using SubashaVentures.Services.Wishlist
 @using SubashaVentures.Services.Cart
 @using SubashaVentures.Services.Authorization
+@using SubashaVentures.Services.Products
 @inject NavigationManager NavigationManager
 @inject IPermissionService PermissionService
 @inject ICartService CartService
 @inject IWishlistService WishlistService
+@inject IProductInteractionService InteractionService
 
 <div class="featured-product-card @CssClass" @onclick="HandleCardClick">
     
@@ -148,14 +150,26 @@
         }
     }
 
-    private void HandleCardClick()
+    private async Task HandleCardClick()
     {
+        // ✅ Track click interaction
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            await InteractionService.TrackClickAsync(Product.Id, currentUserId);
+        }
+        
         // Navigate to product details page
         NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
-    private void HandleViewDetails(MouseEventArgs e)
+    private async Task HandleViewDetails(MouseEventArgs e)
     {
+        // ✅ Track click interaction
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            await InteractionService.TrackClickAsync(Product.Id, currentUserId);
+        }
+        
         // Navigate to product details page
         NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
@@ -192,6 +206,12 @@
             if (success)
             {
                 isInWishlist = !isInWishlist;
+                
+                // ✅ Track wishlist interaction (only when adding)
+                if (isInWishlist)
+                {
+                    await InteractionService.TrackWishlistAsync(Product.Id, currentUserId);
+                }
             }
         }
         finally
@@ -242,6 +262,10 @@
             if (success)
             {
                 IsInCart = true;
+                
+                //  Track add to cart interaction
+                await InteractionService.TrackAddToCartAsync(Product.Id, currentUserId);
+                
                 Console.WriteLine($"✓ Added {Product.Name} to cart");
             }
         }

@@ -1,487 +1,284 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 using SubashaVentures.Domain.Product;
+using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Cart;
-using SubashaVentures.Services.Products;
-using SubashaVentures.Services.Navigation;
 using SubashaVentures.Services.Wishlist;
+using SubashaVentures.Models.Firebase;
 using SubashaVentures.Utilities.HelperScripts;
-using System.Text.Json;
+using SubashaVentures.Utilities.Tracking;
+using System.Diagnostics;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Product;
 
 public partial class ProductDetails : ComponentBase, IDisposable
 {
-    #region Injected Services
-    
-    [Inject] private IProductService ProductService { get; set; } = null!;
-    [Inject] private IPermissionService PermissionService { get; set; } = null!;
-    [Inject] private ICartService CartService { get; set; } = null!;
-    [Inject] private IWishlistService WishlistService { get; set; } = null!;
-    [Inject] private IReviewService ReviewService { get; set; } = null!;
-    [Inject] private INavigationService NavigationService { get; set; } = null!;
-    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
-    [Inject] private IJSRuntime JS { get; set; } = null!;
-    
-    #endregion
+    [Parameter] public string Slug { get; set; } = string.Empty;
 
-    #region Parameters
-    
-    [Parameter] public string Slug { get; set; } = "";
-    
-    #endregion
+    [Inject] private IProductService ProductService { get; set; } = default!;
+    [Inject] private IReviewService ReviewService { get; set; } = default!;
+    [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private ICartService CartService { get; set; } = default!;
+    [Inject] private IWishlistService WishlistService { get; set; } = default!;
+    [Inject] private IProductInteractionService InteractionService { get; set; } = default!;
+    [Inject] private ProductViewTracker ViewTracker { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private ILogger<ProductDetails> Logger { get; set; } = default!;
 
-    #region State Properties
+    private ProductViewModel? Product;
+    private List<ReviewModel> Reviews = new();
+    private List<ProductViewModel> RelatedProducts = new();
     
-    private ProductViewModel? Product { get; set; }
-    private List<ReviewViewModel> Reviews { get; set; } = new();
-    private List<ProductViewModel> RelatedProductsList { get; set; } = new();
+    private bool IsLoading = true;
+    private bool IsAuthenticated = false;
+    private bool IsInCart = false;
+    private bool IsInWishlist = false;
+    private bool IsAddingToCart = false;
+    private bool IsTogglingWishlist = false;
+    private bool ShowReviewForm = false;
     
-    private bool IsLoading { get; set; } = true;
-    private bool IsLoadingReviews { get; set; } = false;
-    private bool IsLoadingRelated { get; set; } = false;
+    private string? CurrentUserId;
+    private string SelectedImage = string.Empty;
+    private int SelectedQuantity = 1;
     
-    private int SelectedImageIndex { get; set; } = 0;
-    private string? SelectedSize { get; set; }
-    private string? SelectedColor { get; set; }
-    private int Quantity { get; set; } = 1;
-    
-    private bool IsFavorite { get; set; }
-    private bool IsInCart { get; set; }
-    private bool IsAddingToCart { get; set; }
-    private bool IsTogglingWishlist { get; set; }
-    private string? currentUserId;
-    
-    private string StatusMessage { get; set; } = "";
-    private string StatusMessageType { get; set; } = "";
-    private System.Threading.Timer? statusMessageTimer;
-    
-    private bool ShowReviewForm { get; set; } = false;
-    
-    // View tracking
-    private DateTime pageLoadTime;
-    private const string VIEWED_PRODUCTS_KEY = "viewed_products_history";
-    
-    #endregion
-
-    #region Lifecycle Methods
+    // ✅ Track time spent on page
+    private Stopwatch? _pageViewStopwatch;
+    private DateTime _pageLoadTime;
 
     protected override async Task OnInitializedAsync()
     {
-        pageLoadTime = DateTime.UtcNow;
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"ProductDetails page initializing for slug: {Slug}", 
-            LogLevel.Info
-        );
-
-        await LoadProduct();
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (!string.IsNullOrEmpty(Slug))
-        {
-            pageLoadTime = DateTime.UtcNow;
-            await LoadProduct();
-        }
-    }
-
-    public void Dispose()
-    {
-        statusMessageTimer?.Dispose();
-        _ = TrackProductViewDuration();
-    }
-
-    #endregion
-
-    #region View Tracking
-
-    private async Task TrackProductView()
-    {
-        if (Product == null) return;
-
         try
         {
-            var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", VIEWED_PRODUCTS_KEY);
-            var history = new List<ViewedProductItem>();
-
-            if (!string.IsNullOrEmpty(historyJson))
-            {
-                history = JsonSerializer.Deserialize<List<ViewedProductItem>>(historyJson) ?? new();
-            }
-
-            history.RemoveAll(h => h.ProductId == Product.Id.ToString());
-
-            history.Insert(0, new ViewedProductItem
-            {
-                ProductId = Product.Id.ToString(),
-                ProductName = Product.Name,
-                ImageUrl = Product.Images?.FirstOrDefault() ?? "/diverse-products-still-life.png",
-                Price = Product.Price,
-                ViewedAt = DateTime.UtcNow,
-                DurationSeconds = 0
-            });
-
-            if (history.Count > 50)
-            {
-                history = history.Take(50).ToList();
-            }
-
-            var json = JsonSerializer.Serialize(history);
-            await JS.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
+            IsLoading = true;
+            _pageLoadTime = DateTime.UtcNow;
+            _pageViewStopwatch = Stopwatch.StartNew();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Tracked view for product: {Product.Name}",
-                LogLevel.Info
-            );
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Tracking product view");
-        }
-    }
-
-    private async Task TrackProductViewDuration()
-    {
-        if (Product == null) return;
-
-        try
-        {
-            var durationSeconds = (int)(DateTime.UtcNow - pageLoadTime).TotalSeconds;
-            
-            var historyJson = await JS.InvokeAsync<string>("localStorage.getItem", VIEWED_PRODUCTS_KEY);
-            
-            if (string.IsNullOrEmpty(historyJson)) return;
-
-            var history = JsonSerializer.Deserialize<List<ViewedProductItem>>(historyJson);
-            if (history == null) return;
-
-            var item = history.FirstOrDefault(h => h.ProductId == Product.Id.ToString());
-            if (item != null)
-            {
-                item.DurationSeconds = durationSeconds;
-                
-                var json = JsonSerializer.Serialize(history);
-                await JS.InvokeVoidAsync("localStorage.setItem", VIEWED_PRODUCTS_KEY, json);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Updated view duration: {durationSeconds}s for {Product.Name}",
-                    LogLevel.Info
-                );
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Tracking view duration");
-        }
-    }
-
-    #endregion
-
-    #region Data Loading
-
-    private async Task LoadProduct()
-    {
-        IsLoading = true;
-        StateHasChanged();
-
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Loading product with slug: {Slug}", 
+                $"🔄 Loading product details for slug: {Slug}",
                 LogLevel.Info
             );
 
-            var products = await ProductService.GetAllProductsAsync();
-            Product = products.FirstOrDefault(p => 
-                p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase)
+            IsAuthenticated = await PermissionService.IsAuthenticatedAsync();
+            if (IsAuthenticated)
+            {
+                CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            await LoadProductDetails();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing product details");
+            Logger.LogError(ex, "Failed to initialize product details page");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task LoadProductDetails()
+    {
+        try
+        {
+            // Get all products and find by slug
+            var allProducts = await ProductService.GetAllProductsAsync();
+            Product = allProducts.FirstOrDefault(p => 
+                p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase) && 
+                p.IsActive && 
+                !string.IsNullOrEmpty(p.Name)
             );
 
             if (Product == null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Product not found with slug: {Slug}", 
+                    $"❌ Product not found for slug: {Slug}",
                     LogLevel.Warning
                 );
+                return;
             }
-            else
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Product loaded: {Product.Name} (ID: {Product.Id})",
+                LogLevel.Info
+            );
+
+            // Set selected image
+            SelectedImage = Product.Images?.FirstOrDefault() ?? string.Empty;
+
+            // ✅ Track product view
+            if (!string.IsNullOrEmpty(CurrentUserId))
             {
+                await InteractionService.TrackViewAsync(Product.Id, CurrentUserId);
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Product loaded: {Product.Name}", 
+                    $"📊 Tracked view for product {Product.Id}",
                     LogLevel.Info
                 );
-
-                InitializeDefaults();
-                await CheckCartAndWishlistStatus();
-                await TrackProductView();
-                
-                _ = LoadReviews();
-                _ = LoadRelatedProducts();
             }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading product");
-            Product = null;
-        }
-        finally
-        {
-            IsLoading = false;
+
+            // ✅ Track in localStorage for history page
+            await ViewTracker.TrackProductViewAsync(Product);
+
+            // Load user-specific data
+            if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
+            {
+                IsInCart = await CartService.IsInCartAsync(CurrentUserId, Product.Id.ToString());
+                IsInWishlist = await WishlistService.IsInWishlistAsync(CurrentUserId, Product.Id.ToString());
+            }
+
+            // Load reviews
+            await LoadReviews();
+
+            // Load related products
+            await LoadRelatedProducts();
+
             StateHasChanged();
         }
-    }
-
-    private async Task CheckCartAndWishlistStatus()
-    {
-        if (Product == null) return;
-
-        try
-        {
-            if (await PermissionService.IsAuthenticatedAsync())
-            {
-                currentUserId = await PermissionService.GetCurrentUserIdAsync();
-                
-                if (!string.IsNullOrEmpty(currentUserId))
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"Checking cart/wishlist status for user: {currentUserId}",
-                        LogLevel.Info
-                    );
-
-                    IsFavorite = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
-                    IsInCart = await CartService.IsInCartAsync(currentUserId, Product.Id.ToString());
-
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"Status: InWishlist={IsFavorite}, InCart={IsInCart}",
-                        LogLevel.Info
-                    );
-                }
-            }
-        }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking cart/wishlist status");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading product details: {Slug}");
+            Logger.LogError(ex, "Failed to load product details");
         }
     }
 
     private async Task LoadReviews()
     {
-        if (Product == null) return;
-
-        IsLoadingReviews = true;
-        StateHasChanged();
-
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Loading reviews for product: {Product.Id}",
-                LogLevel.Info
-            );
+            if (Product == null) return;
 
-            var reviewModels = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
-            Reviews = ReviewViewModel.FromCloudModels(reviewModels);
-
+            Reviews = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
+            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {Reviews.Count} reviews",
+                $"✅ Loaded {Reviews.Count} reviews for product {Product.Id}",
                 LogLevel.Info
             );
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading reviews");
-            Reviews = new List<ReviewViewModel>();
-        }
-        finally
-        {
-            IsLoadingReviews = false;
-            StateHasChanged();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading product reviews");
+            Logger.LogError(ex, "Failed to load reviews");
+            Reviews = new List<ReviewModel>();
         }
     }
 
     private async Task LoadRelatedProducts()
     {
-        if (Product == null) return;
-
-        IsLoadingRelated = true;
-        StateHasChanged();
-
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Loading related products for category: {Product.Category}",
-                LogLevel.Info
-            );
+            if (Product == null) return;
 
-            var allProducts = await ProductService.GetProductsByCategoryAsync(Product.CategoryId);
+            // Get products from same category, excluding current product
+            var categoryProducts = await ProductService.GetProductsByCategoryAsync(Product.CategoryId);
             
-            RelatedProductsList = allProducts
-                .Where(p => p.Id != Product.Id && p.IsActive && p.Stock > 0)
-                .OrderByDescending(p => p.Rating)
-                .ThenByDescending(p => p.SalesCount)
-                .Take(6)
+            RelatedProducts = categoryProducts
+                .Where(p => p.Id != Product.Id && p.IsActive && p.IsInStock)
+                .OrderByDescending(p => p.IsFeatured)
+                .ThenByDescending(p => p.Rating)
+                .Take(4)
                 .ToList();
 
-            if (RelatedProductsList.Count < 4 && !string.IsNullOrEmpty(Product.Brand))
-            {
-                var brandProducts = await ProductService.GetAllProductsAsync();
-                var additionalProducts = brandProducts
-                    .Where(p => 
-                        p.Brand.Equals(Product.Brand, StringComparison.OrdinalIgnoreCase) &&
-                        p.Id != Product.Id &&
-                        !RelatedProductsList.Any(rp => rp.Id == p.Id) &&
-                        p.IsActive && 
-                        p.Stock > 0)
-                    .OrderByDescending(p => p.Rating)
-                    .Take(4 - RelatedProductsList.Count)
-                    .ToList();
-
-                RelatedProductsList.AddRange(additionalProducts);
-            }
-
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {RelatedProductsList.Count} related products",
+                $"✅ Loaded {RelatedProducts.Count} related products",
                 LogLevel.Info
             );
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading related products");
-            RelatedProductsList = new List<ProductViewModel>();
-        }
-        finally
-        {
-            IsLoadingRelated = false;
-            StateHasChanged();
+            Logger.LogError(ex, "Failed to load related products");
+            RelatedProducts = new List<ProductViewModel>();
         }
     }
 
-    private void InitializeDefaults()
+    private void SelectImage(string image)
     {
-        if (Product == null) return;
-
-        if (Product.Sizes.Any())
-        {
-            SelectedSize = Product.Sizes.First();
-        }
-
-        if (Product.Colors.Any())
-        {
-            SelectedColor = Product.Colors.First();
-        }
-    }
-
-    #endregion
-
-    #region Image Gallery
-
-    private string GetCurrentImage()
-    {
-        if (Product?.Images == null || !Product.Images.Any())
-        {
-            return "/diverse-products-still-life.png";
-        }
-
-        return Product.Images[SelectedImageIndex];
-    }
-
-    private void SelectImage(int index)
-    {
-        if (Product?.Images == null || index < 0 || index >= Product.Images.Count)
-            return;
-
-        SelectedImageIndex = index;
+        SelectedImage = image;
         StateHasChanged();
     }
-
-    #endregion
-
-    #region Variant Selection
-
-    private void SelectSize(string size)
-    {
-        SelectedSize = size;
-        StateHasChanged();
-    }
-
-    private void SelectColor(string color)
-    {
-        SelectedColor = color;
-        StateHasChanged();
-    }
-
-    #endregion
-
-    #region Quantity Controls
 
     private void IncreaseQuantity()
     {
-        if (Product == null || Quantity >= Product.Stock) return;
-        Quantity++;
-        StateHasChanged();
+        if (Product != null && SelectedQuantity < Product.Stock)
+        {
+            SelectedQuantity++;
+        }
     }
 
     private void DecreaseQuantity()
     {
-        if (Quantity <= 1) return;
-        Quantity--;
-        StateHasChanged();
+        if (SelectedQuantity > 1)
+        {
+            SelectedQuantity--;
+        }
     }
-
-    #endregion
-
-    #region Action Handlers
 
     private async Task HandleAddToCart()
     {
         if (Product == null || !Product.IsInStock || IsAddingToCart) return;
 
         IsAddingToCart = true;
-        ClearStatusMessage();
         StateHasChanged();
 
         try
         {
+            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
                 return;
             }
 
-            if (string.IsNullOrEmpty(currentUserId))
+            if (string.IsNullOrEmpty(CurrentUserId))
             {
-                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+                CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
             }
 
-            if (string.IsNullOrEmpty(currentUserId))
+            if (string.IsNullOrEmpty(CurrentUserId))
             {
                 PermissionService.ShowAuthRequiredMessage("add items to cart");
                 return;
             }
 
+            // ✅ Add to cart with user-specified quantity
             var success = await CartService.AddToCartAsync(
-                currentUserId,
+                CurrentUserId,
                 Product.Id.ToString(),
-                Quantity,
-                SelectedSize,
-                SelectedColor
+                quantity: SelectedQuantity
             );
 
             if (success)
             {
                 IsInCart = true;
-                ShowStatusMessage($"✓ Added {Quantity} {Product.Name} to cart!", "success");
+                
+                // ✅ Track add to cart interaction
+                await InteractionService.TrackAddToCartAsync(Product.Id, CurrentUserId);
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Added {SelectedQuantity}x {Product.Name} to cart",
+                    LogLevel.Info
+                );
+
+                // Reset quantity to 1 after adding
+                SelectedQuantity = 1;
+                StateHasChanged();
+
+                // Show success message for 2 seconds
+                await Task.Delay(2000);
+                IsInCart = false;
             }
             else
             {
-                ShowStatusMessage("Failed to add to cart. Please try again.", "error");
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Failed to add {Product.Name} to cart",
+                    LogLevel.Error
+                );
             }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to cart");
-            ShowStatusMessage($"Error: {ex.Message}", "error");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Adding product to cart");
+            Logger.LogError(ex, "Failed to add product to cart");
         }
         finally
         {
@@ -490,48 +287,55 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
-    private async Task HandleToggleFavorite()
+    private async Task HandleWishlistToggle()
     {
         if (Product == null || IsTogglingWishlist) return;
 
         IsTogglingWishlist = true;
-        ClearStatusMessage();
         StateHasChanged();
 
         try
         {
+            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
                 return;
             }
 
-            if (string.IsNullOrEmpty(currentUserId))
+            if (string.IsNullOrEmpty(CurrentUserId))
             {
-                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+                CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
             }
 
-            if (string.IsNullOrEmpty(currentUserId))
+            if (string.IsNullOrEmpty(CurrentUserId))
             {
                 PermissionService.ShowAuthRequiredMessage("add items to wishlist");
                 return;
             }
 
-            var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
+            // Toggle wishlist
+            var success = await WishlistService.ToggleWishlistAsync(CurrentUserId, Product.Id.ToString());
 
             if (success)
             {
-                IsFavorite = !IsFavorite;
-                ShowStatusMessage(IsFavorite ? "✓ Added to wishlist!" : "Removed from wishlist", "success");
-            }
-            else
-            {
-                ShowStatusMessage("Failed to update wishlist. Please try again.", "error");
+                IsInWishlist = !IsInWishlist;
+                
+                // ✅ Track wishlist interaction (only when adding)
+                if (IsInWishlist)
+                {
+                    await InteractionService.TrackWishlistAsync(Product.Id, CurrentUserId);
+                }
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ {(IsInWishlist ? "Added to" : "Removed from")} wishlist: {Product.Name}",
+                    LogLevel.Info
+                );
             }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling favorite");
-            ShowStatusMessage($"Error: {ex.Message}", "error");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling wishlist");
+            Logger.LogError(ex, "Failed to toggle wishlist");
         }
         finally
         {
@@ -540,147 +344,62 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
-    private async Task HandleBuyNow()
-    {
-        if (Product == null) return;
-        
-        await HandleAddToCart();
-        
-        if (IsInCart)
-        {
-            NavigationManager.NavigateTo("/checkout");
-        }
-    }
-
-    private async Task HandleShare()
-    {
-        if (Product == null) return;
-
-        try
-        {
-            var shareData = new
-            {
-                title = Product.Name,
-                text = Product.Description,
-                url = NavigationManager.Uri
-            };
-
-            await JS.InvokeVoidAsync("navigator.share", shareData);
-        }
-        catch
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", NavigationManager.Uri);
-            ShowStatusMessage("Link copied to clipboard!", "success");
-        }
-    }
-
-    private async Task ScrollToTop()
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("window.scrollTo", new { top = 0, behavior = "smooth" });
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Scrolling to top");
-        }
-    }
-
-    #endregion
-
-    #region Status Messages
-
-    private void ShowStatusMessage(string message, string type)
-    {
-        StatusMessage = message;
-        StatusMessageType = type;
-        StateHasChanged();
-
-        statusMessageTimer?.Dispose();
-        statusMessageTimer = new System.Threading.Timer(
-            _ => ClearStatusMessage(), 
-            null, 
-            5000, 
-            System.Threading.Timeout.Infinite
-        );
-    }
-
-    private void ClearStatusMessage()
-    {
-        StatusMessage = "";
-        StatusMessageType = "";
-        StateHasChanged();
-    }
-
-    #endregion
-
-    #region Review Handlers
-
     private void OpenReviewForm()
     {
         ShowReviewForm = true;
-        StateHasChanged();
     }
 
     private void CloseReviewForm()
     {
         ShowReviewForm = false;
-        StateHasChanged();
     }
 
     private async Task HandleReviewSubmitted()
     {
         ShowReviewForm = false;
         await LoadReviews();
-        ShowStatusMessage("Thank you for your review!", "success");
         StateHasChanged();
-    }
-
-    private async Task HandleHelpfulClick(ReviewViewModel review)
-    {
-        try
-        {
-            var success = await ReviewService.MarkReviewHelpfulAsync(review.Id);
-            if (success)
-            {
-                await LoadReviews();
-                ShowStatusMessage("Thank you for your feedback!", "success");
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Marking review helpful");
-        }
-    }
-
-    private async Task HandleReviewImageClick(string imageUrl)
-    {
-        await MID_HelperFunctions.DebugMessageAsync($"Review image clicked: {imageUrl}", LogLevel.Info);
-    }
-
-    #endregion
-
-    #region Navigation
-
-    private void NavigateBack()
-    {
-        NavigationManager.NavigateTo("shop");
     }
 
     private void NavigateToShop()
     {
-        NavigationManager.NavigateTo("shop");
+        Navigation.NavigateTo("shop");
     }
 
-    #endregion
-
-    public class ViewedProductItem
+    private void NavigateToCategory(string categoryId)
     {
-        public string ProductId { get; set; } = string.Empty;
-        public string ProductName { get; set; } = string.Empty;
-        public string ImageUrl { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public DateTime ViewedAt { get; set; }
-        public int DurationSeconds { get; set; }
+        Navigation.NavigateTo($"shop?category={categoryId}");
+    }
+
+   
+    public void Dispose()
+    {
+        //  Track total time spent on page when user leaves
+        if (_pageViewStopwatch != null && Product != null)
+        {
+            _pageViewStopwatch.Stop();
+            var durationSeconds = (int)_pageViewStopwatch.Elapsed.TotalSeconds;
+
+            // Save duration to localStorage for history page
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ViewTracker.UpdateViewDurationAsync(
+                        Product.Id.ToString(), 
+                        durationSeconds
+                    );
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"📊 User spent {durationSeconds}s ({_pageViewStopwatch.Elapsed:mm\\:ss}) on product {Product.Id}",
+                        LogLevel.Info
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to track page duration");
+                }
+            });
+        }
     }
 }

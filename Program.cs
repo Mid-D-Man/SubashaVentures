@@ -128,7 +128,6 @@ builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductOfTheDayService, ProductOfTheDayService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
-builder.Services.AddScoped<ProductViewTracker>();
 
 // ==================== USER SERVICES ====================
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
@@ -139,10 +138,22 @@ builder.Services.AddScoped<IPartnerService, PartnerService>();
 builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
 builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+
+// Product Interaction Tracking Services
+builder.Services.AddScoped<IProductInteractionService, ProductInteractionService>();
+builder.Services.AddScoped<ProductViewTracker>();
+
+
 var host = builder.Build();
 
 try
 {
+    // Start auto-flush for product interactions
+    var interactionService = host.Services.GetRequiredService<IProductInteractionService>();
+    interactionService.StartAutoFlush();
+
+    
+    
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
     var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
     
