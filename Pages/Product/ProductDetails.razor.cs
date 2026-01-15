@@ -27,7 +27,7 @@ public partial class ProductDetails : ComponentBase, IDisposable
     [Inject] private ILogger<ProductDetails> Logger { get; set; } = default!;
 
     private ProductViewModel? Product;
-    private List<ReviewModel> Reviews = new();
+    private List<ReviewViewModel> Reviews = new();
     private List<ProductViewModel> RelatedProducts = new();
     
     private bool IsLoading = true;
@@ -148,18 +148,16 @@ public partial class ProductDetails : ComponentBase, IDisposable
         {
             if (Product == null) return;
 
-            Reviews = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded {Reviews.Count} reviews for product {Product.Id}",
-                LogLevel.Info
-            );
+            var reviewModels = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
+        
+            // ✅ Convert using the existing method
+            Reviews = ReviewViewModel.FromCloudModels(reviewModels);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading product reviews");
             Logger.LogError(ex, "Failed to load reviews");
-            Reviews = new List<ReviewModel>();
+            Reviews = new List<ReviewViewModel>();
         }
     }
 
