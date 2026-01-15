@@ -27,6 +27,7 @@ using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Services.Orders;
+using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Shop;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.VisualElements;
@@ -133,7 +134,7 @@ builder.Services.AddScoped<ProductViewTracker>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
-
+builder.Services.AddScoped<IPartnerService, PartnerService>();
 // ==================== CART & WISHLIST ====================
 builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
 builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
