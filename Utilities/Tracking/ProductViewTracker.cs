@@ -1,4 +1,5 @@
-// Utilities/Tracking/ProductViewTracker.cs - UPDATED TO USE IBlazorAppLocalStorageService
+// Utilities/Tracking/ProductViewTracker.cs - FIXED WITH IBlazorAppLocalStorageService
+
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
@@ -9,6 +10,7 @@ namespace SubashaVentures.Utilities.Tracking;
 /// <summary>
 /// Helper service to track product views in localStorage for history page with duration tracking
 /// Uses IBlazorAppLocalStorageService for storage operations
+/// SEPARATE from ProductInteractionService - this is for user's local browsing history only
 /// </summary>
 public class ProductViewTracker
 {
@@ -16,7 +18,8 @@ public class ProductViewTracker
     private readonly ILogger<ProductViewTracker> _logger;
     
     private const string VIEWED_PRODUCTS_KEY = "viewed_products_history";
-    private const int MAX_VIEWED_PRODUCTS = 50;
+    private const int MAX_VIEWED_PRODUCTS = 50; // Auto-trim at this threshold
+    private const int DAYS_TO_KEEP = 30; // Auto-delete views older than this
 
     public ProductViewTracker(
         IBlazorAppLocalStorageService localStorage, 
@@ -57,17 +60,18 @@ public class ProductViewTracker
                 DurationSeconds = 0 // Will be updated when user leaves
             });
 
-            // Keep only last MAX_VIEWED_PRODUCTS items
-            if (history.Count > MAX_VIEWED_PRODUCTS)
-            {
-                history = history.Take(MAX_VIEWED_PRODUCTS).ToList();
-            }
+            // Auto-cleanup: Remove old entries
+            var cutoffDate = DateTime.UtcNow.AddDays(-DAYS_TO_KEEP);
+            history = history
+                .Where(h => h.ViewedAt >= cutoffDate)
+                .Take(MAX_VIEWED_PRODUCTS)
+                .ToList();
 
             // Save back to localStorage
             await _localStorage.SetItemAsync(VIEWED_PRODUCTS_KEY, history);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Tracked view for product: {product.Id} - {product.Name}",
+                $"✅ Tracked view for product: {product.Id} - {product.Name} (total: {history.Count})",
                 LogLevel.Info
             );
         }
@@ -162,17 +166,18 @@ public class ProductViewTracker
                 DurationSeconds = 0
             });
 
-            // Keep only last MAX_VIEWED_PRODUCTS items
-            if (history.Count > MAX_VIEWED_PRODUCTS)
-            {
-                history = history.Take(MAX_VIEWED_PRODUCTS).ToList();
-            }
+            // Auto-cleanup
+            var cutoffDate = DateTime.UtcNow.AddDays(-DAYS_TO_KEEP);
+            history = history
+                .Where(h => h.ViewedAt >= cutoffDate)
+                .Take(MAX_VIEWED_PRODUCTS)
+                .ToList();
 
             // Save back to localStorage
             await _localStorage.SetItemAsync(VIEWED_PRODUCTS_KEY, history);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Tracked view for product: {productId}",
+                $"✅ Tracked view for product: {productId} (total: {history.Count})",
                 LogLevel.Info
             );
         }
@@ -192,6 +197,20 @@ public class ProductViewTracker
         {
             var history = await _localStorage.GetItemAsync<List<ViewedProduct>>(VIEWED_PRODUCTS_KEY) 
                 ?? new List<ViewedProduct>();
+            
+            // Auto-cleanup on retrieval
+            var cutoffDate = DateTime.UtcNow.AddDays(-DAYS_TO_KEEP);
+            history = history
+                .Where(h => h.ViewedAt >= cutoffDate)
+                .OrderByDescending(h => h.ViewedAt)
+                .Take(MAX_VIEWED_PRODUCTS)
+                .ToList();
+            
+            // Save cleaned list back
+            if (history.Any())
+            {
+                await _localStorage.SetItemAsync(VIEWED_PRODUCTS_KEY, history);
+            }
             
             return history;
         }
