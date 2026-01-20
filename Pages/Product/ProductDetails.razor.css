@@ -480,6 +480,7 @@
 }
 
 /* ===== QUANTITY SELECTOR ===== */
+/* Quantity Selector */
 .quantity-section {
     display: flex;
     flex-direction: column;
@@ -549,6 +550,21 @@
     border-radius: 8px;
     background: var(--bg-primary);
     color: var(--text-primary);
+}
+
+/*Hide native number input spinner buttons */
+.qty-input::-webkit-inner-spin-button,
+.qty-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    margin: 0;
+    display: none;
+}
+
+.qty-input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 [data-theme="dark"] .qty-input {
