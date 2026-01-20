@@ -6,14 +6,15 @@
 
 <div class="history-page">
     <div class="page-header">
-        <div>
+        <div class="header-content">
             <h1>Browsing History</h1>
             <p>Your recently viewed products and activity</p>
         </div>
         @if (ViewedProducts.Any())
         {
             <button class="btn-clear" @onclick="ClearViewedProducts">
-                Clear Viewed Products
+                <span class="btn-icon">🗑️</span>
+                <span class="btn-text">Clear History</span>
             </button>
         }
     </div>
@@ -30,7 +31,8 @@
             <button class="tab-button @(ActiveTab == "viewed" ? "active" : "")" 
                     @onclick='() => ActiveTab = "viewed"'>
                 <span class="tab-icon">👁️</span>
-                Recently Viewed (@ViewedProducts.Count)
+                <span class="tab-label">Recently Viewed</span>
+                <span class="tab-count">(@ViewedProducts.Count)</span>
             </button>
             
             @if (IsAuthenticated)
@@ -38,13 +40,15 @@
                 <button class="tab-button @(ActiveTab == "orders" ? "active" : "")" 
                         @onclick='() => ActiveTab = "orders"'>
                     <span class="tab-icon">📦</span>
-                    Recent Orders (@RecentOrders.Count)
+                    <span class="tab-label">Recent Orders</span>
+                    <span class="tab-count">(@RecentOrders.Count)</span>
                 </button>
                 
                 <button class="tab-button @(ActiveTab == "wishlist" ? "active" : "")" 
                         @onclick='() => ActiveTab = "wishlist"'>
                     <span class="tab-icon">💝</span>
-                    Recent Wishlist (@RecentWishlistItems.Count)
+                    <span class="tab-label">Recent Wishlist</span>
+                    <span class="tab-count">(@RecentWishlistItems.Count)</span>
                 </button>
             }
         </div>
@@ -73,15 +77,30 @@
                                         title="Remove">
                                     ✕
                                 </button>
-                                <img src="@product.ImageUrl" alt="@product.ProductName" loading="lazy" />
+                                
+                                <div class="card-image">
+                                    @if (!string.IsNullOrEmpty(product.ImageUrl))
+                                    {
+                                        <img src="@product.ImageUrl" alt="@product.ProductName" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <div class="image-placeholder">
+                                            <span class="placeholder-icon">📦</span>
+                                        </div>
+                                    }
+                                </div>
+                                
                                 <div class="card-content">
                                     <h3>@product.ProductName</h3>
                                     <p class="product-price">₦@product.Price.ToString("N0")</p>
-                                    <span class="viewed-time">@product.ViewedTime</span>
-                                    @if (product.DurationSeconds > 0)
-                                    {
-                                        <span class="view-duration">Viewed for @product.ViewDuration</span>
-                                    }
+                                    <div class="card-meta">
+                                        <span class="viewed-time">@product.ViewedTime</span>
+                                        @if (product.DurationSeconds > 0)
+                                        {
+                                            <span class="view-duration">⏱️ @product.ViewDuration</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -106,7 +125,7 @@
                         {
                             <div class="order-card" @onclick="() => ViewOrder(order.Id)">
                                 <div class="order-header">
-                                    <div>
+                                    <div class="order-info">
                                         <h3>Order #@order.OrderNumber</h3>
                                         <span class="order-date">@order.CreatedAt.ToString("MMM dd, yyyy")</span>
                                     </div>
@@ -140,15 +159,29 @@
                         @foreach (var item in RecentWishlistItems)
                         {
                             <div class="history-card" @onclick="() => ViewProduct(item.ProductId)">
-                                <img src="@item.ImageUrl" alt="@item.ProductName" loading="lazy" />
+                                <div class="card-image">
+                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    {
+                                        <img src="@item.ImageUrl" alt="@item.ProductName" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <div class="image-placeholder">
+                                            <span class="placeholder-icon">📦</span>
+                                        </div>
+                                    }
+                                </div>
+                                
                                 <div class="card-content">
                                     <h3>@item.ProductName</h3>
                                     <p class="product-price">₦@item.Price.ToString("N0")</p>
-                                    <span class="viewed-time">Added @item.AddedTime</span>
-                                    @if (!item.IsInStock)
-                                    {
-                                        <span class="out-of-stock">Out of Stock</span>
-                                    }
+                                    <div class="card-meta">
+                                        <span class="viewed-time">Added @item.AddedTime</span>
+                                        @if (!item.IsInStock)
+                                        {
+                                            <span class="out-of-stock">Out of Stock</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -159,13 +192,8 @@
     }
 </div>
 
-@* FIXED: Changed ConfirmText to ConfirmButtonText *@
 <ConfirmationPopup @ref="ClearConfirmation"
                    Title="Clear Viewed Products?"
                    Message="Are you sure you want to clear your viewing history?"
                    ConfirmButtonText="Clear All"
                    OnConfirm="ConfirmClearViewedProducts" />
-
-@code {
-    // Implementation in History.razor.cs
-}
