@@ -36,13 +36,16 @@
         </div>
 
         <div class="confirmation-actions">
-            <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                            Size="SecondaryButton.ButtonSize.Medium"
-                            OnClick="HandleCancel"
-                            IsDisabled="@IsProcessing"
-                            CssClass="confirm-btn-cancel">
-                @CancelButtonText
-            </SecondaryButton>
+            @if (ShowCancelButton)
+            {
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                Size="SecondaryButton.ButtonSize.Medium"
+                                OnClick="HandleCancel"
+                                IsDisabled="@IsProcessing"
+                                CssClass="confirm-btn-cancel">
+                    @CancelButtonText
+                </SecondaryButton>
+            }
             
             <PrimaryButton Variant="@GetConfirmButtonVariant()"
                           Size="PrimaryButton.ButtonSize.Medium"
@@ -65,6 +68,7 @@
     [Parameter] public ConfirmationVariant Variant { get; set; } = ConfirmationVariant.Warning;
     [Parameter] public string ConfirmButtonText { get; set; } = "Confirm";
     [Parameter] public string CancelButtonText { get; set; } = "Cancel";
+    [Parameter] public bool ShowCancelButton { get; set; } = true;
     [Parameter] public bool CloseOnOverlayClick { get; set; } = false;
     [Parameter] public bool IsProcessing { get; set; }
     [Parameter] public EventCallback OnConfirm { get; set; }
@@ -82,7 +86,7 @@
     private PrimaryButton.ButtonVariant GetConfirmButtonVariant()
     {
         return Variant == ConfirmationVariant.Danger 
-            ? PrimaryButton.ButtonVariant.Primary  // Will be styled with danger colors via CSS
+            ? PrimaryButton.ButtonVariant.Primary
             : PrimaryButton.ButtonVariant.Primary;
     }
 
