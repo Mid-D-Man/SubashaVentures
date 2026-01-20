@@ -1,10 +1,10 @@
-// Services/Products/ProductInteractionService.cs
+// Services/Products/ProductInteractionService.cs - SIZE-BASED ONLY, NO AUTO-TIMER
 
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using SubashaVentures.Services.Storage;
+using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
-using System.Timers;
-using Timer = System.Timers.Timer;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Products;
@@ -13,24 +13,30 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
 {
     private readonly IBlazorAppLocalStorageService _localStorage;
     private readonly HttpClient _httpClient;
+    private readonly ISupabaseAuthService _authService;
     private readonly ILogger<ProductInteractionService> _logger;
     
     private const string PENDING_INTERACTIONS_KEY = "pending_product_interactions";
     private const string EDGE_FUNCTION_URL = "https://wbwmovtewytjibxutssk.supabase.co/functions/v1/update-product-analytics";
-    private const int AUTO_FLUSH_INTERVAL_MS = 30000; // 30 seconds
-    private const int MAX_BATCH_SIZE = 50; // Flush if batch exceeds this
+    
+    // SIZE-BASED TRIGGERS ONLY
+    private const int MAX_BATCH_SIZE = 75; // Flush when reaching this many interactions
+    private const int MAX_STORED_INTERACTIONS = 500; // Hard limit to prevent unlimited growth
+    private const int MAX_RETRY_ATTEMPTS = 3;
     
     private List<ProductInteraction> _pendingInteractions = new();
-    private Timer? _autoFlushTimer;
-    private bool _isFlushingpending = false;
+    private int _failedAttempts = 0;
+    private bool _isFlushingPending = false;
 
     public ProductInteractionService(
         IBlazorAppLocalStorageService localStorage,
         HttpClient httpClient,
+        ISupabaseAuthService authService,
         ILogger<ProductInteractionService> logger)
     {
         _localStorage = localStorage;
         _httpClient = httpClient;
+        _authService = authService;
         _logger = logger;
         
         // Load pending interactions from storage on init
@@ -45,7 +51,7 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             UserId = userId,
             Type = InteractionType.View,
             Timestamp = DateTime.UtcNow
-        });
+        }, flushImmediately: false);
     }
 
     public async Task TrackClickAsync(int productId, string userId)
@@ -56,7 +62,7 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             UserId = userId,
             Type = InteractionType.Click,
             Timestamp = DateTime.UtcNow
-        });
+        }, flushImmediately: false);
     }
 
     public async Task TrackAddToCartAsync(int productId, string userId)
@@ -67,7 +73,7 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             UserId = userId,
             Type = InteractionType.AddToCart,
             Timestamp = DateTime.UtcNow
-        });
+        }, flushImmediately: true); // 🔥 FLUSH IMMEDIATELY
     }
 
     public async Task TrackPurchaseAsync(int productId, string userId, decimal amount, int quantity)
@@ -80,7 +86,7 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             Timestamp = DateTime.UtcNow,
             Amount = amount,
             Quantity = quantity
-        });
+        }, flushImmediately: true); // 🔥 FLUSH IMMEDIATELY
     }
 
     public async Task TrackWishlistAsync(int productId, string userId)
@@ -91,15 +97,15 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             UserId = userId,
             Type = InteractionType.Wishlist,
             Timestamp = DateTime.UtcNow
-        });
+        }, flushImmediately: false);
     }
 
     public async Task FlushPendingInteractionsAsync()
     {
-        if (_isFlushingpending)
+        if (_isFlushingPending)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Flush already in progress, skipping",
+                "⏸️ Flush already in progress, skipping",
                 LogLevel.Debug
             );
             return;
@@ -108,18 +114,43 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
         if (!_pendingInteractions.Any())
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "No pending interactions to flush",
+                "📭 No pending interactions to flush",
                 LogLevel.Debug
             );
             return;
         }
 
-        _isFlushingpending = true;
+        _isFlushingPending = true;
 
         try
         {
+            // Check if user is authenticated
+            var isAuthenticated = await _authService.IsAuthenticatedAsync();
+            
+            if (!isAuthenticated)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"⏸️ User not authenticated, keeping {_pendingInteractions.Count} interactions in local storage",
+                    LogLevel.Info
+                );
+                _isFlushingPending = false;
+                return;
+            }
+
+            // Get auth token
+            var session = await _authService.GetCurrentSessionAsync();
+            if (session == null || string.IsNullOrEmpty(session.AccessToken))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "⚠️ No valid session found, cannot flush interactions",
+                    LogLevel.Warning
+                );
+                _isFlushingPending = false;
+                return;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Flushing {_pendingInteractions.Count} pending interactions",
+                $"🚀 Flushing {_pendingInteractions.Count} pending interactions",
                 LogLevel.Info
             );
 
@@ -129,43 +160,88 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
                 BatchTimestamp = DateTime.UtcNow
             };
 
+            // Set authorization header
+            _httpClient.DefaultRequestHeaders.Authorization = 
+                new AuthenticationHeaderValue("Bearer", session.AccessToken);
+
             // Call edge function
             var response = await _httpClient.PostAsJsonAsync(EDGE_FUNCTION_URL, batch);
 
             if (response.IsSuccessStatusCode)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Successfully flushed {batch.Interactions.Count} interactions",
+                    $"✅ Successfully flushed {batch.Interactions.Count} interactions",
                     LogLevel.Info
                 );
 
                 // Clear pending interactions
                 _pendingInteractions.Clear();
+                _failedAttempts = 0; // Reset retry counter
                 await SavePendingInteractionsAsync();
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
+                
+                _failedAttempts++;
+                
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Failed to flush interactions: {response.StatusCode} - {error}",
+                    $"❌ Failed to flush interactions (attempt {_failedAttempts}/{MAX_RETRY_ATTEMPTS}): {response.StatusCode} - {error}",
                     LogLevel.Error
                 );
 
-                // Keep pending interactions for retry
+                // If max retries exceeded, discard oldest interactions to prevent unlimited growth
+                if (_failedAttempts >= MAX_RETRY_ATTEMPTS)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"⚠️ Max retry attempts reached, discarding oldest interactions",
+                        LogLevel.Warning
+                    );
+                    
+                    // Keep only most recent half of interactions
+                    var keepCount = _pendingInteractions.Count / 2;
+                    _pendingInteractions = _pendingInteractions
+                        .OrderByDescending(i => i.Timestamp)
+                        .Take(keepCount)
+                        .ToList();
+                    
+                    _failedAttempts = 0; // Reset counter
+                    await SavePendingInteractionsAsync();
+                }
+
                 _logger.LogError("Edge function returned {StatusCode}: {Error}", 
                     response.StatusCode, error);
             }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Flushing product interactions");
-            _logger.LogError(ex, "Failed to flush product interactions");
+            _failedAttempts++;
             
-            // Keep pending interactions for retry
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Flushing product interactions");
+            _logger.LogError(ex, "Failed to flush product interactions (attempt {Attempt}/{Max})", 
+                _failedAttempts, MAX_RETRY_ATTEMPTS);
+            
+            // If max retries exceeded, discard oldest interactions
+            if (_failedAttempts >= MAX_RETRY_ATTEMPTS)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"⚠️ Max retry attempts reached due to exception, discarding oldest interactions",
+                    LogLevel.Warning
+                );
+                
+                var keepCount = _pendingInteractions.Count / 2;
+                _pendingInteractions = _pendingInteractions
+                    .OrderByDescending(i => i.Timestamp)
+                    .Take(keepCount)
+                    .ToList();
+                
+                _failedAttempts = 0;
+                await SavePendingInteractionsAsync();
+            }
         }
         finally
         {
-            _isFlushingpending = false;
+            _isFlushingPending = false;
         }
     }
 
@@ -176,52 +252,61 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
 
     public void StartAutoFlush()
     {
-        if (_autoFlushTimer != null)
-        {
-            _logger.LogWarning("Auto-flush timer already running");
-            return;
-        }
-
-        _autoFlushTimer = new Timer(AUTO_FLUSH_INTERVAL_MS);
-        _autoFlushTimer.Elapsed += async (sender, e) => await OnAutoFlushTimer();
-        _autoFlushTimer.AutoReset = true;
-        _autoFlushTimer.Start();
-
-        _logger.LogInformation("✓ Auto-flush timer started (interval: {Interval}ms)", AUTO_FLUSH_INTERVAL_MS);
+        // NO-OP: No longer using timer-based auto-flush
+        _logger.LogInformation("ℹ️ Auto-flush is disabled - using size-based triggers only");
     }
 
     public void StopAutoFlush()
     {
-        if (_autoFlushTimer != null)
-        {
-            _autoFlushTimer.Stop();
-            _autoFlushTimer.Dispose();
-            _autoFlushTimer = null;
-            _logger.LogInformation("Auto-flush timer stopped");
-        }
+        // NO-OP: No timer to stop
+        _logger.LogInformation("ℹ️ No auto-flush timer to stop");
     }
 
     // Private helper methods
 
-    private async Task AddInteractionAsync(ProductInteraction interaction)
+    private async Task AddInteractionAsync(ProductInteraction interaction, bool flushImmediately = false)
     {
         try
         {
             _pendingInteractions.Add(interaction);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Tracked {interaction.Type} for product {interaction.ProductId} (pending: {_pendingInteractions.Count})",
+                $"📝 Tracked {interaction.Type} for product {interaction.ProductId} (pending: {_pendingInteractions.Count})",
                 LogLevel.Debug
             );
+
+            // Enforce max storage limit
+            if (_pendingInteractions.Count > MAX_STORED_INTERACTIONS)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"⚠️ Max interactions limit ({MAX_STORED_INTERACTIONS}) exceeded, removing oldest",
+                    LogLevel.Warning
+                );
+                
+                _pendingInteractions = _pendingInteractions
+                    .OrderByDescending(i => i.Timestamp)
+                    .Take(MAX_STORED_INTERACTIONS)
+                    .ToList();
+            }
 
             // Save to localStorage for persistence
             await SavePendingInteractionsAsync();
 
-            // Auto-flush if batch size exceeded
-            if (_pendingInteractions.Count >= MAX_BATCH_SIZE)
+            // 🔥 IMMEDIATE FLUSH for critical events (AddToCart, Purchase)
+            if (flushImmediately)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Max batch size ({MAX_BATCH_SIZE}) reached, triggering flush",
+                    $"🔥 Critical event ({interaction.Type}), triggering immediate flush",
+                    LogLevel.Info
+                );
+                
+                await FlushPendingInteractionsAsync();
+            }
+            // SIZE-BASED FLUSH: Auto-flush if batch size exceeded
+            else if (_pendingInteractions.Count >= MAX_BATCH_SIZE)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"📦 Max batch size ({MAX_BATCH_SIZE}) reached, triggering flush",
                     LogLevel.Info
                 );
                 
@@ -255,10 +340,14 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             
             if (stored != null && stored.Any())
             {
-                _pendingInteractions = stored;
+                // Enforce max limit on load as well
+                _pendingInteractions = stored
+                    .OrderByDescending(i => i.Timestamp)
+                    .Take(MAX_STORED_INTERACTIONS)
+                    .ToList();
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Loaded {_pendingInteractions.Count} pending interactions from storage",
+                    $"📥 Loaded {_pendingInteractions.Count} pending interactions from storage",
                     LogLevel.Info
                 );
             }
@@ -269,21 +358,8 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
         }
     }
 
-    private async Task OnAutoFlushTimer()
-    {
-        if (_pendingInteractions.Any())
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Auto-flush triggered",
-                LogLevel.Info
-            );
-            
-            await FlushPendingInteractionsAsync();
-        }
-    }
-
     public void Dispose()
     {
-        StopAutoFlush();
+        // Nothing to dispose - no timer
     }
 }
