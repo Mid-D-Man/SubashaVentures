@@ -265,13 +265,15 @@ public partial class ProductDetails : ComponentBase, IDisposable
     private bool GetVariantHasFreeShipping()
     {
         if (Product == null) return false;
-        return Product.ToCloudModel().VariantHasFreeShipping(CurrentVariantKey);
+        var productModel = Product.ToCloudModel();
+        return productModel.VariantHasFreeShipping(CurrentVariantKey);
     }
 
     private decimal GetVariantWeight()
     {
         if (Product == null) return 0;
-        return Product.GetVariantWeight(CurrentVariantKey);
+        var productModel = Product.ToCloudModel();
+        return productModel.GetVariantWeight(CurrentVariantKey);
     }
 
     private string GetStockStatus()
@@ -585,12 +587,12 @@ public partial class ProductDetails : ComponentBase, IDisposable
 
     private void NavigateToShop()
     {
-        Navigation.NavigateTo("/shop");
+        Navigation.NavigateTo("shop");
     }
 
     private void NavigateToCategory(string categoryId)
     {
-        Navigation.NavigateTo($"/shop?category={categoryId}");
+        Navigation.NavigateTo($"shop?category={categoryId}");
     }
 
     public void Dispose()
