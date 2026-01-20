@@ -2,7 +2,7 @@
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
-@using SubashaVentures.Domain.Product
+@using SubashaVentures.Components.Shared.Modals
 @layout MainLayout
 
 <div class="product-details-page">
@@ -109,7 +109,7 @@
                         {
                             <span class="original-price">@Product.DisplayOriginalPrice</span>
                         }
-                        <span class="current-price">@Product.DisplayPrice</span>
+                        <span class="current-price">@GetVariantPrice()</span>
                     </div>
                     @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
                     {
@@ -121,12 +121,12 @@
                 </div>
 
                 @* Stock Status *@
-                <div class="stock-status @(Product.IsInStock ? "in-stock" : "out-of-stock")">
-                    <span class="status-icon">@(Product.IsInStock ? "✓" : "✗")</span>
-                    <span class="status-text">@Product.StockStatus</span>
-                    @if (Product.Stock > 0 && Product.Stock <= 10)
+                <div class="stock-status @(GetVariantStock() > 0 ? "in-stock" : "out-of-stock")">
+                    <span class="status-icon">@(GetVariantStock() > 0 ? "✓" : "✗")</span>
+                    <span class="status-text">@GetStockStatus()</span>
+                    @if (GetVariantStock() > 0 && GetVariantStock() <= 10)
                     {
-                        <span class="stock-count">Only @Product.Stock left!</span>
+                        <span class="stock-count">Only @GetVariantStock() left!</span>
                     }
                 </div>
 
@@ -139,40 +139,49 @@
                     </div>
                 }
 
-                @* Available Sizes (if any) *@
+                @* Variant Selection *@
                 @if (Product.Sizes != null && Product.Sizes.Any())
                 {
-                    <div class="product-sizes">
-                        <h3>Available Sizes</h3>
-                        <div class="size-list">
+                    <div class="variant-selector">
+                        <label class="variant-label">Size</label>
+                        <div class="variant-options">
                             @foreach (var size in Product.Sizes)
                             {
-                                <span class="size-badge">@size</span>
+                                <button class="variant-btn @(SelectedSize == size ? "selected" : "")"
+                                        @onclick="() => SelectSize(size)">
+                                    @size
+                                </button>
                             }
                         </div>
-                        <p class="variant-note">Select size during checkout</p>
                     </div>
                 }
 
-                @* Available Colors (if any) *@
                 @if (Product.Colors != null && Product.Colors.Any())
                 {
-                    <div class="product-colors">
-                        <h3>Available Colors</h3>
-                        <div class="color-list">
+                    <div class="variant-selector">
+                        <label class="variant-label">Color</label>
+                        <div class="variant-options">
                             @foreach (var color in Product.Colors)
                             {
-                                <span class="color-badge">@color</span>
+                                var colorHex = GetColorHex(color);
+                                <button class="variant-btn color-btn @(SelectedColor == color ? "selected" : "")"
+                                        @onclick="() => SelectColor(color)"
+                                        title="@color">
+                                    @if (!string.IsNullOrEmpty(colorHex))
+                                    {
+                                        <span class="color-swatch" style="background-color: @colorHex"></span>
+                                    }
+                                    <span class="color-name">@color</span>
+                                </button>
                             }
                         </div>
-                        <p class="variant-note">Select color during checkout</p>
                     </div>
                 }
 
                 @* Shipping Info *@
                 <div class="shipping-info">
                     <h3>Shipping Information</h3>
-                    @if (Product.HasFreeShipping)
+                    @if (GetVariantHasFreeShipping())
                     {
                         <div class="shipping-item free-shipping">
                             <span class="shipping-icon">🚚</span>
@@ -183,65 +192,107 @@
                     {
                         <div class="shipping-item">
                             <span class="shipping-icon">🚚</span>
-                            <span class="shipping-text">Shipping: ₦@Product.BaseShippingCost.ToString("N0")</span>
+                            <span class="shipping-text">Shipping: ₦@GetVariantShippingCost().ToString("N0")</span>
                         </div>
                     }
                     <div class="shipping-item">
                         <span class="shipping-icon">⚖️</span>
-                        <span class="shipping-text">Weight: @Product.BaseWeight kg</span>
+                        <span class="shipping-text">Weight: @GetVariantWeight() kg</span>
                     </div>
                 </div>
 
                 @* Quantity Selector *@
-                @if (Product.IsInStock)
+                @if (GetVariantStock() > 0)
                 {
                     <div class="quantity-section">
-                        <label>Quantity</label>
+                        <label class="quantity-label">Quantity</label>
                         <div class="quantity-selector">
-                            <button class="qty-btn" @onclick="DecreaseQuantity" disabled="@(SelectedQuantity <= 1)">−</button>
-                            <input type="number" class="qty-input" @bind="SelectedQuantity" min="1" max="@Product.Stock" />
-                            <button class="qty-btn" @onclick="IncreaseQuantity" disabled="@(SelectedQuantity >= Product.Stock)">+</button>
+                            <button class="qty-btn" @onclick="DecreaseQuantity" disabled="@(SelectedQuantity <= 1)">
+                                <span>−</span>
+                            </button>
+                            <input type="number" 
+                                   class="qty-input" 
+                                   @bind="SelectedQuantity" 
+                                   @bind:event="oninput"
+                                   min="1" 
+                                   max="@GetVariantStock()" 
+                                   @onchange="ValidateQuantity" />
+                            <button class="qty-btn" @onclick="IncreaseQuantity" disabled="@(SelectedQuantity >= GetVariantStock())">
+                                <span>+</span>
+                            </button>
                         </div>
+                        <span class="quantity-info">Max: @GetVariantStock()</span>
                     </div>
                 }
 
                 @* Action Buttons *@
                 <div class="action-buttons">
-                    <button class="btn-add-to-cart @(IsAddingToCart ? "loading" : "")" 
-                            @onclick="HandleAddToCart"
-                            disabled="@(!Product.IsInStock || IsAddingToCart)">
-                        @if (IsAddingToCart)
+                    @if (IsInCart)
+                    {
+                        <button class="btn-view-cart" @onclick="NavigateToCart">
+                            <span>✓ IN CART - VIEW CART</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn-add-cart @(IsAddingToCart ? "loading" : "")" 
+                                @onclick="HandleAddToCart"
+                                disabled="@(GetVariantStock() == 0 || IsAddingToCart)">
+                            @if (IsAddingToCart)
+                            {
+                                <span class="btn-spinner"></span>
+                                <span>Adding...</span>
+                            }
+                            else if (GetVariantStock() > 0)
+                            {
+                                <span>🛒 ADD TO CART</span>
+                            }
+                            else
+                            {
+                                <span>OUT OF STOCK</span>
+                            }
+                        </button>
+                    }
+                    
+                    <button class="btn-buy-now @(IsPurchasing ? "loading" : "")"
+                            @onclick="HandleBuyNow"
+                            disabled="@(GetVariantStock() == 0 || IsPurchasing)">
+                        @if (IsPurchasing)
                         {
                             <span class="btn-spinner"></span>
-                            <span>Adding to Cart...</span>
-                        }
-                        else if (IsInCart)
-                        {
-                            <span>✓ Added to Cart</span>
-                        }
-                        else if (Product.IsInStock)
-                        {
-                            <span>🛒 Add to Cart (@SelectedQuantity)</span>
+                            <span>Processing...</span>
                         }
                         else
                         {
-                            <span>Out of Stock</span>
+                            <span>⚡ BUY NOW</span>
                         }
                     </button>
-                    
-                    <button class="btn-wishlist @(IsInWishlist ? "active" : "") @(IsTogglingWishlist ? "loading" : "")" 
-                            @onclick="HandleWishlistToggle"
-                            disabled="@IsTogglingWishlist">
-                        @if (IsTogglingWishlist)
-                        {
-                            <span class="btn-spinner-small"></span>
-                        }
-                        else
-                        {
-                            <span class="heart-icon">@(IsInWishlist ? "♥" : "♡")</span>
-                            <span>@(IsInWishlist ? "In Wishlist" : "Add to Wishlist")</span>
-                        }
-                    </button>
+                </div>
+
+                <div class="secondary-actions">
+                    @if (IsInWishlist)
+                    {
+                        <button class="btn-view-wishlist" @onclick="NavigateToWishlist">
+                            <span class="heart-icon">♥</span>
+                            <span>IN WISHLIST - VIEW</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn-wishlist @(IsTogglingWishlist ? "loading" : "")" 
+                                @onclick="HandleWishlistToggle"
+                                disabled="@IsTogglingWishlist">
+                            @if (IsTogglingWishlist)
+                            {
+                                <span class="btn-spinner-small"></span>
+                            }
+                            else
+                            {
+                                <span class="heart-icon">♡</span>
+                                <span>ADD TO WISHLIST</span>
+                            }
+                        </button>
+                    }
                 </div>
 
                 @* Tags *@
@@ -313,8 +364,21 @@
         @if (RelatedProducts.Any())
         {
             <div class="related-products-section">
-                <RelatedProducts Products="@RelatedProducts" />
+                <RelatedProducts Products="@RelatedProducts" 
+                                OnAddToCart="HandleRelatedAddToCart"
+                                OnToggleFavorite="HandleRelatedToggleFavorite" />
             </div>
         }
     }
 </div>
+
+@* Review Submission Confirmation Modal *@
+<ConfirmationPopup @ref="ReviewConfirmationPopup"
+                   IsOpen="@ShowReviewConfirmation"
+                   Title="Review Submitted!"
+                   Message="Thank you for your review. It will be verified and approved by our team before being displayed."
+                   Variant="ConfirmationPopup.ConfirmationVariant.Success"
+                   ConfirmButtonText="OK"
+                   ShowCancelButton="false"
+                   OnConfirm="CloseReviewConfirmation"
+                   OnClose="CloseReviewConfirmation" />
