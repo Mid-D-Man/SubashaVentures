@@ -5,8 +5,10 @@ using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Cart;
 using SubashaVentures.Services.Wishlist;
 using SubashaVentures.Models.Firebase;
+using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.Tracking;
+using SubashaVentures.Components.Shared.Modals;
 using System.Diagnostics;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -36,15 +38,25 @@ public partial class ProductDetails : ComponentBase, IDisposable
     private bool IsInWishlist = false;
     private bool IsAddingToCart = false;
     private bool IsTogglingWishlist = false;
+    private bool IsPurchasing = false;
     private bool ShowReviewForm = false;
+    private bool ShowReviewConfirmation = false;
     
     private string? CurrentUserId;
     private string SelectedImage = string.Empty;
     private int SelectedQuantity = 1;
     
-    // ✅ Track time spent on page
+    // Variant selection
+    private string? SelectedSize = null;
+    private string? SelectedColor = null;
+    private string? CurrentVariantKey = null;
+    
+    // Track time spent on page
     private Stopwatch? _pageViewStopwatch;
     private DateTime _pageLoadTime;
+    
+    // Reference to confirmation popup
+    private ConfirmationPopup? ReviewConfirmationPopup;
 
     protected override async Task OnInitializedAsync()
     {
@@ -78,6 +90,26 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        // Handle slug changes (e.g., from related products)
+        if (!IsLoading && Product != null && !Product.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase))
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔄 Slug changed from {Product.Slug} to {Slug}, reloading...",
+                LogLevel.Info
+            );
+            
+            IsLoading = true;
+            StateHasChanged();
+            
+            await LoadProductDetails();
+            
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
     private async Task LoadProductDetails()
     {
         try
@@ -106,25 +138,33 @@ public partial class ProductDetails : ComponentBase, IDisposable
 
             // Set selected image
             SelectedImage = Product.Images?.FirstOrDefault() ?? string.Empty;
+            
+            // Initialize variant selection to first available
+            if (Product.Sizes != null && Product.Sizes.Any())
+            {
+                SelectedSize = Product.Sizes.First();
+            }
+            
+            if (Product.Colors != null && Product.Colors.Any())
+            {
+                SelectedColor = Product.Colors.First();
+            }
+            
+            UpdateVariantKey();
 
-            // ✅ Track product view
+            // Track product view
             if (!string.IsNullOrEmpty(CurrentUserId))
             {
                 await InteractionService.TrackViewAsync(Product.Id, CurrentUserId);
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"📊 Tracked view for product {Product.Id}",
-                    LogLevel.Info
-                );
             }
 
-            // ✅ Track in localStorage for history page
+            // Track in localStorage for history page
             await ViewTracker.TrackProductViewAsync(Product);
 
             // Load user-specific data
             if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
             {
-                IsInCart = await CartService.IsInCartAsync(CurrentUserId, Product.Id.ToString());
-                IsInWishlist = await WishlistService.IsInWishlistAsync(CurrentUserId, Product.Id.ToString());
+                await CheckCartAndWishlistStatus();
             }
 
             // Load reviews
@@ -142,6 +182,109 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
+    private async Task CheckCartAndWishlistStatus()
+    {
+        if (Product == null || string.IsNullOrEmpty(CurrentUserId)) return;
+        
+        try
+        {
+            IsInCart = await CartService.IsInCartAsync(CurrentUserId, Product.Id.ToString());
+            IsInWishlist = await WishlistService.IsInWishlistAsync(CurrentUserId, Product.Id.ToString());
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📊 Cart status: {IsInCart}, Wishlist status: {IsInWishlist}",
+                LogLevel.Debug
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking cart/wishlist status");
+        }
+    }
+
+    private void UpdateVariantKey()
+    {
+        CurrentVariantKey = ProductModelExtensions.BuildVariantKey(SelectedSize, SelectedColor);
+        
+        // Update selected image if variant has specific image
+        if (Product != null && !string.IsNullOrEmpty(CurrentVariantKey))
+        {
+            var variantImage = Product.GetVariantImage(CurrentVariantKey);
+            if (!string.IsNullOrEmpty(variantImage))
+            {
+                SelectedImage = variantImage;
+            }
+        }
+    }
+
+    private void SelectSize(string size)
+    {
+        SelectedSize = size;
+        UpdateVariantKey();
+        StateHasChanged();
+    }
+
+    private void SelectColor(string color)
+    {
+        SelectedColor = color;
+        UpdateVariantKey();
+        StateHasChanged();
+    }
+
+    private string? GetColorHex(string color)
+    {
+        if (Product == null || string.IsNullOrEmpty(CurrentVariantKey)) return null;
+        
+        if (Product.Variants.TryGetValue(CurrentVariantKey, out var variant))
+        {
+            return variant.ColorHex;
+        }
+        
+        return null;
+    }
+
+    private string GetVariantPrice()
+    {
+        if (Product == null) return "₦0";
+        var price = Product.GetVariantPrice(CurrentVariantKey);
+        return $"₦{price:N0}";
+    }
+
+    private int GetVariantStock()
+    {
+        if (Product == null) return 0;
+        return Product.GetVariantStock(CurrentVariantKey);
+    }
+
+    private decimal GetVariantShippingCost()
+    {
+        if (Product == null) return 0;
+        return Product.GetVariantShippingCost(CurrentVariantKey);
+    }
+
+    private bool GetVariantHasFreeShipping()
+    {
+        if (Product == null) return false;
+        return Product.ToCloudModel().VariantHasFreeShipping(CurrentVariantKey);
+    }
+
+    private decimal GetVariantWeight()
+    {
+        if (Product == null) return 0;
+        return Product.GetVariantWeight(CurrentVariantKey);
+    }
+
+    private string GetStockStatus()
+    {
+        var stock = GetVariantStock();
+        return stock switch
+        {
+            0 => "Out of Stock",
+            > 0 and <= 5 => "Low Stock",
+            _ => "In Stock"
+        };
+    }
+
     private async Task LoadReviews()
     {
         try
@@ -149,8 +292,6 @@ public partial class ProductDetails : ComponentBase, IDisposable
             if (Product == null) return;
 
             var reviewModels = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
-        
-            // ✅ Convert using the existing method
             Reviews = ReviewViewModel.FromCloudModels(reviewModels);
         }
         catch (Exception ex)
@@ -167,7 +308,6 @@ public partial class ProductDetails : ComponentBase, IDisposable
         {
             if (Product == null) return;
 
-            // Get products from same category, excluding current product
             var categoryProducts = await ProductService.GetProductsByCategoryAsync(Product.CategoryId);
             
             RelatedProducts = categoryProducts
@@ -198,7 +338,7 @@ public partial class ProductDetails : ComponentBase, IDisposable
 
     private void IncreaseQuantity()
     {
-        if (Product != null && SelectedQuantity < Product.Stock)
+        if (SelectedQuantity < GetVariantStock())
         {
             SelectedQuantity++;
         }
@@ -212,16 +352,28 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
+    private void ValidateQuantity()
+    {
+        var maxStock = GetVariantStock();
+        if (SelectedQuantity < 1)
+        {
+            SelectedQuantity = 1;
+        }
+        else if (SelectedQuantity > maxStock)
+        {
+            SelectedQuantity = maxStock;
+        }
+    }
+
     private async Task HandleAddToCart()
     {
-        if (Product == null || !Product.IsInStock || IsAddingToCart) return;
+        if (Product == null || GetVariantStock() == 0 || IsAddingToCart) return;
 
         IsAddingToCart = true;
         StateHasChanged();
 
         try
         {
-            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
                 return;
@@ -238,32 +390,26 @@ public partial class ProductDetails : ComponentBase, IDisposable
                 return;
             }
 
-            // ✅ Add to cart with user-specified quantity
             var success = await CartService.AddToCartAsync(
                 CurrentUserId,
                 Product.Id.ToString(),
-                quantity: SelectedQuantity
+                quantity: SelectedQuantity,
+                size: SelectedSize,
+                color: SelectedColor
             );
 
             if (success)
             {
                 IsInCart = true;
                 
-                // ✅ Track add to cart interaction
                 await InteractionService.TrackAddToCartAsync(Product.Id, CurrentUserId);
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Added {SelectedQuantity}x {Product.Name} to cart",
+                    $"✅ Added {SelectedQuantity}x {Product.Name} (Size: {SelectedSize}, Color: {SelectedColor}) to cart",
                     LogLevel.Info
                 );
 
-                // Reset quantity to 1 after adding
-                SelectedQuantity = 1;
                 StateHasChanged();
-
-                // Show success message for 2 seconds
-                await Task.Delay(2000);
-                IsInCart = false;
             }
             else
             {
@@ -285,6 +431,60 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
+    private async Task HandleBuyNow()
+    {
+        if (Product == null || GetVariantStock() == 0 || IsPurchasing) return;
+
+        IsPurchasing = true;
+        StateHasChanged();
+
+        try
+        {
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("purchase items");
+                return;
+            }
+
+            // Add to cart first
+            var success = await CartService.AddToCartAsync(
+                CurrentUserId,
+                Product.Id.ToString(),
+                quantity: SelectedQuantity,
+                size: SelectedSize,
+                color: SelectedColor
+            );
+
+            if (success)
+            {
+                await InteractionService.TrackAddToCartAsync(Product.Id, CurrentUserId);
+                
+                // Navigate to checkout
+                Navigation.NavigateTo("/checkout");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Buy now");
+            Logger.LogError(ex, "Failed to process buy now");
+        }
+        finally
+        {
+            IsPurchasing = false;
+            StateHasChanged();
+        }
+    }
+
     private async Task HandleWishlistToggle()
     {
         if (Product == null || IsTogglingWishlist) return;
@@ -294,7 +494,6 @@ public partial class ProductDetails : ComponentBase, IDisposable
 
         try
         {
-            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
                 return;
@@ -311,14 +510,12 @@ public partial class ProductDetails : ComponentBase, IDisposable
                 return;
             }
 
-            // Toggle wishlist
             var success = await WishlistService.ToggleWishlistAsync(CurrentUserId, Product.Id.ToString());
 
             if (success)
             {
                 IsInWishlist = !IsInWishlist;
                 
-                // ✅ Track wishlist interaction (only when adding)
                 if (IsInWishlist)
                 {
                     await InteractionService.TrackWishlistAsync(Product.Id, CurrentUserId);
@@ -342,6 +539,16 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
+    private void NavigateToCart()
+    {
+        Navigation.NavigateTo("/user/wishlist-cart");
+    }
+
+    private void NavigateToWishlist()
+    {
+        Navigation.NavigateTo("/user/wishlist-cart");
+    }
+
     private void OpenReviewForm()
     {
         ShowReviewForm = true;
@@ -355,30 +562,44 @@ public partial class ProductDetails : ComponentBase, IDisposable
     private async Task HandleReviewSubmitted()
     {
         ShowReviewForm = false;
+        ShowReviewConfirmation = true;
         await LoadReviews();
         StateHasChanged();
     }
 
+    private void CloseReviewConfirmation()
+    {
+        ShowReviewConfirmation = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleRelatedAddToCart(int productId)
+    {
+        await MID_HelperFunctions.DebugMessageAsync($"🛒 Add to cart from related: {productId}", LogLevel.Info);
+    }
+
+    private async Task HandleRelatedToggleFavorite(int productId)
+    {
+        await MID_HelperFunctions.DebugMessageAsync($"❤️ Toggle favorite from related: {productId}", LogLevel.Info);
+    }
+
     private void NavigateToShop()
     {
-        Navigation.NavigateTo("shop");
+        Navigation.NavigateTo("/shop");
     }
 
     private void NavigateToCategory(string categoryId)
     {
-        Navigation.NavigateTo($"shop?category={categoryId}");
+        Navigation.NavigateTo($"/shop?category={categoryId}");
     }
 
-   
     public void Dispose()
     {
-        //  Track total time spent on page when user leaves
         if (_pageViewStopwatch != null && Product != null)
         {
             _pageViewStopwatch.Stop();
             var durationSeconds = (int)_pageViewStopwatch.Elapsed.TotalSeconds;
 
-            // Save duration to localStorage for history page
             _ = Task.Run(async () =>
             {
                 try
@@ -389,7 +610,7 @@ public partial class ProductDetails : ComponentBase, IDisposable
                     );
 
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"📊 User spent {durationSeconds}s ({_pageViewStopwatch.Elapsed:mm\\:ss}) on product {Product.Id}",
+                        $"📊 User spent {durationSeconds}s on product {Product.Id}",
                         LogLevel.Info
                     );
                 }
