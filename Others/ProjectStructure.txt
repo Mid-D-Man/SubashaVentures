@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Wed Jan 21 08:02:55 UTC 2026
+Generated: Wed Jan 21 08:05:16 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 0d197d7da4f00828899168e31601159cfe6c1a30
+Commit: 96bfb0fa81e0d5ec0030e552f65ca770d6103aaa
 Branch: master
 ==================================
 
@@ -73,6 +73,7 @@ Domain/Miscellaneous/ShippingMethodViewModel.cs
 Domain/Order/OrderSummaryDto.cs
 Domain/Order/OrderViewModel.cs
 Domain/Payment/PaymentModels.cs
+Domain/Payment/WalletViewModel.cs
 Domain/Product/CategoryViewModel.cs
 Domain/Product/ProductCardDto.cs
 Domain/Product/ProductViewModel.cs
@@ -417,7 +418,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 150 files
+.cs       : 151 files
 .razor    : 70 files
 .csproj   : 1 files
 .sln      : 1 files
