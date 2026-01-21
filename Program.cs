@@ -142,7 +142,9 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 // Product Interaction Tracking Services
 builder.Services.AddScoped<IProductInteractionService, ProductInteractionService>();
 builder.Services.AddScoped<ProductViewTracker>();
-
+// Add Payment Service
+builder.Services.AddScoped<SubashaVentures.Services.Payment.IPaymentService, SubashaVentures.Services.Payment.PaymentService>();
+builder.Services.AddScoped<SubashaVentures.Services.Payment.IWalletService, SubashaVentures.Services.Payment.WalletService>();
 
 var host = builder.Build();
 
