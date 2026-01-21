@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Wed Jan 21 07:45:37 UTC 2026
+Generated: Wed Jan 21 07:46:56 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 5b314d8d417dfdfa9bbc2a24b02aba0899d637cb
+Commit: 1381bb31c54a2a98e9656c6e025cb3f8612391a6
 Branch: master
 ==================================
 
@@ -310,6 +310,7 @@ wwwroot/js/firestoreModule.js
 wwwroot/js/imageCacheHelper.js
 wwwroot/js/imageCompressor.js
 wwwroot/js/loading.js
+wwwroot/js/paymentHandler.js
 wwwroot/js/supabaseOAuth.js
 wwwroot/js/theme.js
 wwwroot/manifest.json
@@ -414,5 +415,5 @@ File Count Summary:
 .sln      : 1 files
 .json     : 7 files
 .css      : 69 files
-.js       : 13 files
+.js       : 14 files
 .html     : 1 files
