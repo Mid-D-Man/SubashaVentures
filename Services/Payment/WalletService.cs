@@ -2,8 +2,10 @@
 using SubashaVentures.Domain.Payment;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Utilities.HelperScripts;
-using Supabase;
+using Supabase.Postgrest;
+using Client = Supabase.Client;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Payment;
@@ -89,7 +91,7 @@ public class WalletService : IWalletService
                     "✅ Wallet created successfully",
                     LogLevel.Info
                 );
-                return WalletViewModel.FromModel(created);
+                return WalletViewModel.FromModel(created.Model);
             }
 
             return null;
@@ -180,7 +182,7 @@ public class WalletService : IWalletService
             );
 
             return createdTransaction != null 
-                ? WalletTransactionViewModel.FromModel(createdTransaction) 
+                ? WalletTransactionViewModel.FromModel(createdTransaction.Model) 
                 : null;
         }
         catch (Exception ex)
@@ -278,7 +280,7 @@ public class WalletService : IWalletService
             );
 
             return createdTransaction != null 
-                ? WalletTransactionViewModel.FromModel(createdTransaction) 
+                ? WalletTransactionViewModel.FromModel(createdTransaction.Model) 
                 : null;
         }
         catch (Exception ex)
@@ -360,7 +362,7 @@ public class WalletService : IWalletService
             );
 
             return createdTransaction != null 
-                ? WalletTransactionViewModel.FromModel(createdTransaction) 
+                ? WalletTransactionViewModel.FromModel(createdTransaction.Model) 
                 : null;
         }
         catch (Exception ex)
@@ -407,7 +409,7 @@ public class WalletService : IWalletService
             var transactions = await _supabaseClient
                 .From<WalletTransactionModel>()
                 .Where(t => t.UserId == userId)
-                .Order(t => t.CreatedAt, Supabase.Postgrest.Constants.Ordering.Descending)
+                .Order(t => t.CreatedAt, Constants.Ordering.Descending)
                 .Range(skip, skip + take - 1)
                 .Get();
 
@@ -458,7 +460,7 @@ public class WalletService : IWalletService
             var cards = await _supabaseClient
                 .From<UserPaymentMethodModel>()
                 .Where(c => c.UserId == userId && !c.IsDeleted)
-                .Order(c => c.IsDefault, Supabase.Postgrest.Constants.Ordering.Descending)
+                .Order(c => c.IsDefault, Constants.Ordering.Descending)
                 .Get();
 
             return cards.Models
@@ -532,7 +534,7 @@ public class WalletService : IWalletService
             );
 
             return created != null 
-                ? SavedCardViewModel.FromModel(created) 
+                ? SavedCardViewModel.FromModel(created.Model) 
                 : null;
         }
         catch (Exception ex)
