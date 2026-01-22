@@ -45,7 +45,8 @@ public interface IWalletService
         decimal amount, 
         string paymentReference,
         string provider);
-    
+
+    Task<bool> VerifyAndCreditWalletAsync(string reference, string provider);
     /// <summary>
     /// Deduct from wallet balance via edge function
     /// </summary>

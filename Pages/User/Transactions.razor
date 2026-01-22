@@ -1,0 +1,165 @@
+@page "/user/wallet/transactions"
+@layout UserLayout
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Layout.User
+
+<PageTitle>Transaction History - SubashaVentures</PageTitle>
+
+<div class="transactions-page">
+    <div class="page-header">
+        <div class="header-content">
+            <button class="btn-back" @onclick="GoBack">
+                <span class="back-icon">←</span>
+            </button>
+            <div class="header-text">
+                <h1 class="page-title">Transaction History</h1>
+                <p class="page-subtitle">View all your wallet transactions</p>
+            </div>
+        </div>
+        <div class="header-info">
+            <div class="current-balance">
+                <span class="balance-label">Current Balance</span>
+                <span class="balance-amount">@WalletBalance</span>
+            </div>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="loading-container">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                            Message="Loading transactions..." />
+        </div>
+    }
+    else if (!TransactionsList.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <h3 class="empty-title">No Transactions Yet</h3>
+            <p class="empty-description">
+                Your transaction history will appear here once you start using your wallet.
+            </p>
+            <button class="btn-primary" @onclick="GoToPayment">
+                Top Up Wallet
+            </button>
+        </div>
+    }
+    else
+    {
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-tabs">
+                <button class="filter-tab @(FilterType == "all" ? "active" : "")"
+                        @onclick='() => SetFilter("all")'>
+                    All
+                </button>
+                <button class="filter-tab @(FilterType == "credit" ? "active" : "")"
+                        @onclick='() => SetFilter("credit")'>
+                    Credits
+                </button>
+                <button class="filter-tab @(FilterType == "debit" ? "active" : "")"
+                        @onclick='() => SetFilter("debit")'>
+                    Debits
+                </button>
+                <button class="filter-tab @(FilterType == "topup" ? "active" : "")"
+                        @onclick='() => SetFilter("topup")'>
+                    Top-ups
+                </button>
+            </div>
+            <div class="filter-info">
+                <span class="transaction-count">@FilteredTransactions.Count transaction@(FilteredTransactions.Count != 1 ? "s" : "")</span>
+            </div>
+        </div>
+
+        <!-- Transactions List -->
+        <div class="transactions-container">
+            @foreach (var transaction in FilteredTransactions)
+            {
+                <div class="transaction-card @transaction.Type.ToLower()">
+                    <div class="transaction-icon-wrapper @transaction.Type.ToLower()">
+                        <span class="transaction-symbol">
+                            @(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")
+                        </span>
+                    </div>
+                    
+                    <div class="transaction-details">
+                        <div class="transaction-main">
+                            <h4 class="transaction-title">@transaction.Description</h4>
+                            <div class="transaction-amount @transaction.Type.ToLower()">
+                                <span class="amount-sign">
+                                    @(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")
+                                </span>
+                                <span class="amount-value">@transaction.FormattedAmount</span>
+                            </div>
+                        </div>
+                        
+                        <div class="transaction-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Type:</span>
+                                <span class="meta-value type-badge @transaction.Type.ToLower()">
+                                    @transaction.TypeDisplay
+                                </span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Reference:</span>
+                                <span class="meta-value reference">@transaction.Reference</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(transaction.PaymentProvider))
+                            {
+                                <div class="meta-item">
+                                    <span class="meta-label">Provider:</span>
+                                    <span class="meta-value">@transaction.PaymentProvider</span>
+                                </div>
+                            }
+                            <div class="meta-item">
+                                <span class="meta-label">Date:</span>
+                                <span class="meta-value">@transaction.CreatedAt.ToString("MMM dd, yyyy hh:mm tt")</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Time:</span>
+                                <span class="meta-value">@transaction.TimeAgo</span>
+                            </div>
+                        </div>
+                        
+                        <div class="transaction-balance">
+                            <div class="balance-change">
+                                <span class="balance-label">Balance:</span>
+                                <span class="balance-values">
+                                    ₦@transaction.BalanceBefore.ToString("N0")
+                                    <span class="arrow">→</span>
+                                    ₦@transaction.BalanceAfter.ToString("N0")
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        @if (TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="pagination-btn"
+                        disabled="@(CurrentPage == 1)"
+                        @onclick="PreviousPage">
+                    Previous
+                </button>
+                
+                <div class="pagination-info">
+                    Page @CurrentPage of @TotalPages
+                </div>
+                
+                <button class="pagination-btn"
+                        disabled="@(CurrentPage >= TotalPages)"
+                        @onclick="NextPage">
+                    Next
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    // Component state - see Transactions.razor.cs
+}

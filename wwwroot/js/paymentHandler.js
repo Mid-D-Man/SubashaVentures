@@ -1,7 +1,7 @@
 // wwwroot/js/paymentHandler.js - Payment Gateway Integration
 window.paymentHandler = {
     // ===================== PAYSTACK =====================
-    
+
     /**
      * Initialize Paystack payment
      * @param {object} config - Payment configuration
@@ -17,7 +17,7 @@ window.paymentHandler = {
         return new Promise((resolve, reject) => {
             try {
                 console.log('🔵 Initializing Paystack payment:', config);
-                
+
                 // Validate Paystack SDK is loaded
                 if (typeof PaystackPop === 'undefined') {
                     reject({
@@ -35,19 +35,21 @@ window.paymentHandler = {
                     currency: config.currency || 'NGN',
                     ref: config.reference,
                     metadata: config.metadata || {},
-                    
+
                     onSuccess: function(transaction) {
                         console.log('✅ Paystack payment successful:', transaction);
                         resolve({
                             success: true,
                             reference: transaction.reference,
+                            transactionId: transaction.id,
+                            authorizationCode: transaction.authorization?.authorization_code,
                             message: transaction.message,
                             status: transaction.status,
                             transaction: transaction,
                             provider: 'paystack'
                         });
                     },
-                    
+
                     onCancel: function() {
                         console.log('❌ Paystack payment cancelled');
                         reject({
@@ -57,7 +59,7 @@ window.paymentHandler = {
                             cancelled: true
                         });
                     },
-                    
+
                     onError: function(error) {
                         console.error('❌ Paystack payment error:', error);
                         reject({
@@ -71,7 +73,7 @@ window.paymentHandler = {
 
                 // Open the payment modal
                 handler.openIframe();
-                
+
             } catch (error) {
                 console.error('❌ Paystack initialization error:', error);
                 reject({
@@ -85,7 +87,7 @@ window.paymentHandler = {
     },
 
     // ===================== FLUTTERWAVE =====================
-    
+
     /**
      * Initialize Flutterwave payment
      * @param {object} config - Payment configuration
@@ -103,7 +105,7 @@ window.paymentHandler = {
         return new Promise((resolve, reject) => {
             try {
                 console.log('🟢 Initializing Flutterwave payment:', config);
-                
+
                 // Validate Flutterwave SDK is loaded
                 if (typeof FlutterwaveCheckout === 'undefined') {
                     reject({
@@ -120,24 +122,24 @@ window.paymentHandler = {
                     amount: config.amount, // Amount in main currency
                     currency: config.currency || 'NGN',
                     payment_options: 'card,ussd,banktransfer',
-                    
+
                     customer: {
                         email: config.email,
                         name: config.name || config.email,
                         phone_number: config.phone || ''
                     },
-                    
+
                     customizations: {
                         title: 'SubashaVentures',
                         description: 'Payment for order',
                         logo: 'https://yourwebsite.com/logo.png' // Update with your logo
                     },
-                    
+
                     meta: config.metadata || {},
-                    
+
                     callback: function(response) {
                         console.log('✅ Flutterwave payment callback:', response);
-                        
+
                         if (response.status === 'successful' || response.status === 'completed') {
                             resolve({
                                 success: true,
@@ -158,7 +160,7 @@ window.paymentHandler = {
                             });
                         }
                     },
-                    
+
                     onclose: function() {
                         console.log('❌ Flutterwave modal closed');
                         reject({
@@ -169,7 +171,7 @@ window.paymentHandler = {
                         });
                     }
                 });
-                
+
             } catch (error) {
                 console.error('❌ Flutterwave initialization error:', error);
                 reject({
@@ -181,17 +183,25 @@ window.paymentHandler = {
             }
         });
     },
-    // ===================== NEW: CARD TOKENIZATION =====================
+
+    // ===================== CARD TOKENIZATION (For Saving Cards) =====================
 
     /**
-     * Tokenize a card without charging it (for saving card)
-     * @param {object} cardData - Card details
+     * Tokenize a card for saving - opens Paystack modal for user to enter card details
+     * Makes a small verification charge (₦50) which should be refunded
+     * Returns authorization code that can be used for future charges
+     *
+     * IMPORTANT: User MUST enter card details in Paystack's secure modal.
+     * You CANNOT pass card details programmatically for PCI-DSS compliance.
+     *
+     * @param {string} email - Customer email
+     * @param {string} publicKey - Paystack public key
      * @returns {Promise<object>} Tokenization result with authorization code
      */
-    tokenizeCard: async function(cardData) {
+    tokenizeCardForSaving: async function(email, publicKey) {
         return new Promise((resolve, reject) => {
             try {
-                console.log('🔵 Tokenizing card via Paystack...');
+                console.log('🔵 Opening Paystack to tokenize card for:', email);
 
                 // Validate Paystack SDK is loaded
                 if (typeof PaystackPop === 'undefined') {
@@ -202,48 +212,61 @@ window.paymentHandler = {
                     return;
                 }
 
-                const handler = PaystackPop.setup({
-                    key: 'pk_test_4420269c02c35e6a2fd297439fb7c8cdc4d6231a', // Your public key
-                    email: cardData.email,
-                    amount: cardData.amount, // Small amount for verification (₦50 = 5000 kobo)
-                    currency: 'NGN',
-                    ref: `TOKEN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                // Generate unique reference for card tokenization
+                const reference = `CARD-SAVE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-                    // Card details
-                    card: {
-                        number: cardData.cardNumber,
-                        cvv: cardData.cvv,
-                        expiry_month: cardData.expiryMonth,
-                        expiry_year: cardData.expiryYear
+                // Small verification charge (₦50 = 5000 kobo)
+                // This will be charged to verify the card is valid
+                const handler = PaystackPop.setup({
+                    key: publicKey,
+                    email: email,
+                    amount: 5000, // ₦50 in kobo (minimum for tokenization)
+                    currency: 'NGN',
+                    ref: reference,
+
+                    metadata: {
+                        custom_fields: [
+                            {
+                                display_name: "Purpose",
+                                variable_name: "purpose",
+                                value: "Card Tokenization for Future Payments"
+                            }
+                        ]
                     },
 
                     onSuccess: function(transaction) {
                         console.log('✅ Card tokenized successfully:', transaction);
 
-                        // Extract authorization code
-                        const authCode = transaction.authorization?.authorization_code ||
-                            transaction.authorization_code;
+                        // Extract authorization code from the transaction
+                        // This is what we'll save to the database for future charges
+                        const authCode = transaction.authorization?.authorization_code;
 
                         if (!authCode) {
+                            console.error('❌ No authorization code in response:', transaction);
                             reject({
                                 success: false,
-                                message: 'Failed to get authorization code from Paystack'
+                                message: 'Failed to get authorization code from Paystack. Please try again.'
                             });
                             return;
                         }
 
+                        console.log('✅ Authorization code obtained:', authCode);
+
                         resolve({
                             success: true,
                             authorizationCode: authCode,
-                            message: 'Card tokenized successfully'
+                            reference: transaction.reference,
+                            transactionId: transaction.id,
+                            message: 'Card verified and saved successfully'
                         });
                     },
 
                     onCancel: function() {
-                        console.log('❌ Card tokenization cancelled');
+                        console.log('❌ Card tokenization cancelled by user');
                         reject({
                             success: false,
-                            message: 'Tokenization was cancelled'
+                            message: 'Card saving was cancelled',
+                            cancelled: true
                         });
                     },
 
@@ -251,28 +274,29 @@ window.paymentHandler = {
                         console.error('❌ Card tokenization error:', error);
                         reject({
                             success: false,
-                            message: error.message || 'Card tokenization failed'
+                            message: error.message || 'Failed to save card. Please try again.'
                         });
                     }
                 });
 
-                // Open the payment modal for tokenization
+                // Open the Paystack modal for user to enter card details
                 handler.openIframe();
 
             } catch (error) {
-                console.error('❌ Tokenization error:', error);
+                console.error('❌ Tokenization initialization error:', error);
                 reject({
                     success: false,
-                    message: error.message || 'Failed to tokenize card'
+                    message: error.message || 'Failed to initialize card saving'
                 });
             }
         });
     },
+
     // ===================== UTILITY FUNCTIONS =====================
-    
+
     /**
      * Generate unique payment reference
-     * @returns {string} Unique reference
+     * @returns {string} Unique reference in format: SV-{timestamp}-{random}
      */
     generateReference: function() {
         const timestamp = Date.now();
@@ -282,6 +306,7 @@ window.paymentHandler = {
 
     /**
      * Convert amount to kobo (for Paystack)
+     * Paystack requires amounts in the smallest currency unit (kobo for NGN)
      * @param {number} amount - Amount in Naira
      * @returns {number} Amount in kobo
      */
@@ -301,8 +326,8 @@ window.paymentHandler = {
     /**
      * Format amount as currency
      * @param {number} amount - Amount to format
-     * @param {string} currency - Currency code
-     * @returns {string} Formatted amount
+     * @param {string} currency - Currency code (default: NGN)
+     * @returns {string} Formatted currency string
      */
     formatCurrency: function(amount, currency = 'NGN') {
         return new Intl.NumberFormat('en-NG', {
@@ -314,4 +339,4 @@ window.paymentHandler = {
     }
 };
 
-console.log('✅ Payment Handler initialized');
+console.log('✅ Payment Handler initialized successfully');

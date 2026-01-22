@@ -212,7 +212,73 @@ public class WalletService : IWalletService
             throw;
         }
     }
+/// <summary>
+/// Manually verify and credit wallet after payment completion
+/// Calls the verify-and-credit-wallet edge function
+/// </summary>
+public async Task<bool> VerifyAndCreditWalletAsync(string reference, string provider)
+{
+    try
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Manually verifying payment: {reference}",
+            LogLevel.Info
+        );
 
+        // Get current auth token
+        var session = _supabaseClient.Auth.CurrentSession;
+        if (session == null)
+        {
+            throw new Exception("User not authenticated");
+        }
+
+        // Call edge function to verify and credit wallet
+        var request = new HttpRequestMessage(HttpMethod.Post, 
+            $"{_supabaseUrl}/functions/v1/verify-and-credit-wallet");
+        
+        request.Headers.Add("Authorization", $"Bearer {session.AccessToken}");
+        request.Headers.Add("apikey", _supabaseAnonKey);
+        
+        var payload = new
+        {
+            reference,
+            provider
+        };
+
+        request.Content = JsonContent.Create(payload);
+
+        var response = await _httpClient.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Verification failed: {content}",
+                LogLevel.Error
+            );
+            return false;
+        }
+
+        var result = JsonSerializer.Deserialize<Dictionary<string, object>>(content, _jsonOptions);
+
+        if (result?["success"]?.ToString()?.ToLower() == "true")
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✅ Payment verified and wallet credited",
+                LogLevel.Info
+            );
+            return true;
+        }
+
+        return false;
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Manual payment verification");
+        _logger.LogError(ex, "Failed to verify and credit wallet");
+        return false;
+    }
+}
     public async Task<WalletTransactionViewModel?> DeductFromWalletAsync(
         string userId,
         decimal amount,
@@ -379,19 +445,25 @@ public class WalletService : IWalletService
                 LogLevel.Info
             );
 
-            var cards = await _supabaseClient
+            // Build query with chained filters to avoid NullReferenceException
+            var query = _supabaseClient
                 .From<UserPaymentMethodModel>()
-                .Where(c => c.UserId == userId && !c.IsDeleted)
-                .Order(c => c.IsDefault, Constants.Ordering.Descending)
-                .Order(c => c.CreatedAt, Constants.Ordering.Descending)
-                .Get();
+                .Filter("user_id", Constants.Operator.Equals, userId)
+                .Filter("is_deleted", Constants.Operator.Equals, false)
+                .Order("is_default", Constants.Ordering.Descending)
+                .Order("created_at", Constants.Ordering.Descending);
+
+            var response = await query.Get();
+
+            // Handle empty results gracefully
+            var cards = response?.Models ?? new List<UserPaymentMethodModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved {cards.Models.Count} saved cards",
+                $"✓ Retrieved {cards.Count} saved cards",
                 LogLevel.Info
             );
 
-            return cards.Models
+            return cards
                 .Select(SavedCardViewModel.FromModel)
                 .ToList();
         }
@@ -399,6 +471,8 @@ public class WalletService : IWalletService
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Getting saved cards");
             _logger.LogError(ex, "Failed to get saved cards for user: {UserId}", userId);
+        
+            // Return empty list instead of throwing
             return new List<SavedCardViewModel>();
         }
     }

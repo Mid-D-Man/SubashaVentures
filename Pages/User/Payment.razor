@@ -2,7 +2,6 @@
 @layout UserLayout
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Layout.User
 
@@ -26,174 +25,174 @@
 
     @if (IsLoading)
     {
-    <div class="payment-loading">
-        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
-                        Message="Loading your payment information..." />
-    </div>
+        <div class="payment-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                            Message="Loading your payment information..." />
+        </div>
     }
     else
     {
-    <!-- Wallet Balance Card -->
-    <div class="wallet-section">
-        <div class="wallet-card">
-            <div class="wallet-card-header">
-                <div class="wallet-icon-wrapper">
-                    <span class="wallet-icon">💳</span>
+        <!-- Wallet Balance Card -->
+        <div class="wallet-section">
+            <div class="wallet-card">
+                <div class="wallet-card-header">
+                    <div class="wallet-icon-wrapper">
+                        <span class="wallet-icon">💳</span>
+                    </div>
+                    <div class="wallet-info">
+                        <span class="wallet-label">Available Balance</span>
+                        <h2 class="wallet-balance">@WalletBalance</h2>
+                        <span class="wallet-currency">Nigerian Naira (NGN)</span>
+                    </div>
                 </div>
-                <div class="wallet-info">
-                    <span class="wallet-label">Available Balance</span>
-                    <h2 class="wallet-balance">@WalletBalance</h2>
-                    <span class="wallet-currency">Nigerian Naira (NGN)</span>
+                <div class="wallet-card-actions">
+                    <PrimaryButton OnClick="ShowTopUpModal"
+                                   Size="PrimaryButton.ButtonSize.Medium"
+                                   CssClass="btn-topup">
+                        Top Up Wallet
+                    </PrimaryButton>
+                    <SecondaryButton OnClick="ShowTransactionHistory"
+                                     Variant="SecondaryButton.ButtonVariant.Outline"
+                                     Size="SecondaryButton.ButtonSize.Medium"
+                                     CssClass="btn-history">
+                        View History
+                    </SecondaryButton>
                 </div>
             </div>
-            <div class="wallet-card-actions">
-                <PrimaryButton OnClick="ShowTopUpModal"
-                               Size="PrimaryButton.ButtonSize.Medium"
-                               CssClass="btn-topup">
-                    Top Up Wallet
-                </PrimaryButton>
-                <SecondaryButton OnClick="ShowTransactionHistory"
-                                 Variant="SecondaryButton.ButtonVariant.Outline"
-                                 Size="SecondaryButton.ButtonSize.Medium"
-                                 CssClass="btn-history">
-                    View History
-                </SecondaryButton>
-            </div>
-        </div>
-    </div>
-
-    <!-- Payment Methods Section -->
-    <div class="payment-methods-section">
-        <div class="section-header">
-            <h3 class="section-title">Saved Payment Methods</h3>
-            @if (PaymentMethods.Any())
-            {
-            <span class="section-count">@PaymentMethods.Count card@(PaymentMethods.Count != 1 ? "s" : "")</span>
-            }
         </div>
 
-        @if (!PaymentMethods.Any())
-        {
-        <div class="empty-state">
-            <div class="empty-icon">💳</div>
-            <h3 class="empty-title">No Payment Methods</h3>
-            <p class="empty-description">Add a payment method for faster and more secure checkout</p>
-            <PrimaryButton OnClick="OpenAddPaymentModal"
-                           Size="PrimaryButton.ButtonSize.Large"
-                           CssClass="btn-add-first">
-                Add Your First Card
-            </PrimaryButton>
-        </div>
-        }
-        else
-        {
-        <div class="payment-methods-grid">
-            @foreach (var method in PaymentMethods)
-            {
-            <div class="payment-card @(method.IsDefault ? "default-card" : "") @(method.IsExpired ? "expired-card" : "")">
-                @if (method.IsDefault)
+        <!-- Payment Methods Section -->
+        <div class="payment-methods-section">
+            <div class="section-header">
+                <h3 class="section-title">Saved Payment Methods</h3>
+                @if (PaymentMethods.Any())
                 {
-                <span class="default-badge">
+                    <span class="section-count">@PaymentMethods.Count card@(PaymentMethods.Count != 1 ? "s" : "")</span>
+                }
+            </div>
+
+            @if (!PaymentMethods.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">💳</div>
+                    <h3 class="empty-title">No Payment Methods</h3>
+                    <p class="empty-description">Add a payment method for faster and more secure checkout</p>
+                    <PrimaryButton OnClick="OpenAddPaymentModal"
+                                   Size="PrimaryButton.ButtonSize.Large"
+                                   CssClass="btn-add-first">
+                        Add Your First Card
+                    </PrimaryButton>
+                </div>
+            }
+            else
+            {
+                <div class="payment-methods-grid">
+                    @foreach (var method in PaymentMethods)
+                    {
+                        <div class="payment-card @(method.IsDefault ? "default-card" : "") @(method.IsExpired ? "expired-card" : "")">
+                            @if (method.IsDefault)
+                            {
+                                <span class="default-badge">
                                     <span class="badge-icon">⭐</span>
                                     <span class="badge-text">Default</span>
                                 </span>
-                }
+                            }
 
-                @if (method.IsExpired)
-                {
-                <span class="expired-badge">
+                            @if (method.IsExpired)
+                            {
+                                <span class="expired-badge">
                                     <span class="badge-icon">⚠️</span>
                                     <span class="badge-text">Expired</span>
                                 </span>
-                }
+                            }
 
-                <div class="card-header">
-                    <div class="card-type-icon">
-                        @method.CardIcon
-                    </div>
-                    <span class="card-provider">@method.ProviderDisplay</span>
-                </div>
+                            <div class="card-header">
+                                <div class="card-type-icon">
+                                    @method.CardIcon
+                                </div>
+                                <span class="card-provider">@method.ProviderDisplay</span>
+                            </div>
 
-                <div class="card-body">
-                    <h4 class="card-type">@method.CardType</h4>
-                    <p class="card-number">@method.MaskedCardNumber</p>
-                    <div class="card-details">
-                        <span class="card-expiry">Exp: @method.ExpiryDate</span>
-                        @if (!string.IsNullOrEmpty(method.CardBank))
-                        {
-                        <span class="card-bank">@method.CardBank</span>
-                        }
-                    </div>
-                </div>
+                            <div class="card-body">
+                                <h4 class="card-type">@method.CardType</h4>
+                                <p class="card-number">@method.MaskedCardNumber</p>
+                                <div class="card-details">
+                                    <span class="card-expiry">Exp: @method.ExpiryDate</span>
+                                    @if (!string.IsNullOrEmpty(method.CardBank))
+                                    {
+                                        <span class="card-bank">@method.CardBank</span>
+                                    }
+                                </div>
+                            </div>
 
-                <div class="card-actions">
-                    @if (!method.IsDefault && !method.IsExpired)
-                    {
-                    <button class="btn-icon btn-icon-primary"
-                            @onclick="() => SetDefaultPayment(method.Id)"
-                            title="Set as default"
-                            aria-label="Set as default payment method">
-                        ⭐
-                    </button>
+                            <div class="card-actions">
+                                @if (!method.IsDefault && !method.IsExpired)
+                                {
+                                    <button class="btn-icon btn-icon-primary"
+                                            @onclick="() => SetDefaultPayment(method.Id)"
+                                            title="Set as default"
+                                            aria-label="Set as default payment method">
+                                        ⭐
+                                    </button>
+                                }
+                                <button class="btn-icon btn-icon-danger"
+                                        @onclick="() => ConfirmDeletePayment(method.Id)"
+                                        title="Remove card"
+                                        aria-label="Remove payment method">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
                     }
-                    <button class="btn-icon btn-icon-danger"
-                            @onclick="() => ConfirmDeletePayment(method.Id)"
-                            title="Remove card"
-                            aria-label="Remove payment method">
-                        🗑️
+                </div>
+            }
+        </div>
+
+        <!-- Recent Transactions Section -->
+        <div class="transactions-section">
+            <div class="section-header">
+                <h3 class="section-title">Recent Transactions</h3>
+                @if (Transactions.Any())
+                {
+                    <button class="btn-link" @onclick="ShowAllTransactions">
+                        View All
                     </button>
-                </div>
+                }
             </div>
-            }
-        </div>
-        }
-    </div>
 
-    <!-- Recent Transactions Section -->
-    <div class="transactions-section">
-        <div class="section-header">
-            <h3 class="section-title">Recent Transactions</h3>
-            @if (Transactions.Any())
+            @if (!Transactions.Any())
             {
-            <button class="btn-link" @onclick="ShowAllTransactions">
-                View All
-            </button>
+                <div class="empty-transactions">
+                    <div class="empty-icon-small">📊</div>
+                    <p class="empty-text">No transactions yet</p>
+                    <p class="empty-hint">Your transaction history will appear here</p>
+                </div>
+            }
+            else
+            {
+                <div class="transactions-list">
+                    @foreach (var transaction in Transactions.Take(5))
+                    {
+                        <div class="transaction-item">
+                            <div class="transaction-icon @transaction.Type.ToLower()">
+                                <span class="icon-symbol">@(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")</span>
+                            </div>
+                            <div class="transaction-info">
+                                <h4 class="transaction-title">@transaction.Description</h4>
+                                <div class="transaction-meta">
+                                    <span class="transaction-date">@transaction.TimeAgo</span>
+                                    <span class="transaction-ref">Ref: @transaction.Reference</span>
+                                </div>
+                            </div>
+                            <div class="transaction-amount @transaction.Type.ToLower()">
+                                <span class="amount-symbol">@(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")</span>
+                                <span class="amount-value">@transaction.FormattedAmount</span>
+                            </div>
+                        </div>
+                    }
+                </div>
             }
         </div>
-
-        @if (!Transactions.Any())
-        {
-        <div class="empty-transactions">
-            <div class="empty-icon-small">📊</div>
-            <p class="empty-text">No transactions yet</p>
-            <p class="empty-hint">Your transaction history will appear here</p>
-        </div>
-        }
-        else
-        {
-        <div class="transactions-list">
-            @foreach (var transaction in Transactions.Take(5))
-            {
-            <div class="transaction-item">
-                <div class="transaction-icon @transaction.Type.ToLower()">
-                    <span class="icon-symbol">@(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")</span>
-                </div>
-                <div class="transaction-info">
-                    <h4 class="transaction-title">@transaction.Description</h4>
-                    <div class="transaction-meta">
-                        <span class="transaction-date">@transaction.TimeAgo</span>
-                        <span class="transaction-ref">Ref: @transaction.Reference</span>
-                    </div>
-                </div>
-                <div class="transaction-amount @transaction.Type.ToLower()">
-                    <span class="amount-symbol">@(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")</span>
-                    <span class="amount-value">@transaction.FormattedAmount</span>
-                </div>
-            </div>
-            }
-        </div>
-        }
-    </div>
     }
 </div>
 
@@ -204,7 +203,7 @@
               IsOpen="@IsAddPaymentModalOpen"
               OnConfirm="SavePaymentMethod"
               OnCancel="CloseAddPaymentModal"
-              ConfirmText="Add Card"
+              ConfirmText="Add Card via Paystack"
               IsProcessing="@IsSaving"
               ShowCancelButton="true">
     <BodyContent>
@@ -212,75 +211,39 @@
             <div class="form-notice">
                 <span class="notice-icon">🔒</span>
                 <div class="notice-content">
-                    <p class="notice-title">Your information is secure</p>
-                    <p class="notice-text">We use industry-standard encryption. Your full card details are never stored on our servers.</p>
+                    <p class="notice-title">Secure Card Storage</p>
+                    <p class="notice-text">
+                        Click "Add Card via Paystack" to securely enter your card details.
+                        We never see or store your full card information.
+                        A small verification charge of ₦50 will be made and can be refunded upon request.
+                    </p>
                 </div>
             </div>
 
             @if (!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("General")))
             {
-            <div class="form-error">
-                <span class="error-icon">⚠️</span>
-                <span class="error-text">@ValidationErrors["General"]</span>
-            </div>
+                <div class="form-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-text">@ValidationErrors["General"]</span>
+                </div>
             }
 
-            <InputField @bind-Value="NewCard.CardholderName"
-                        Label="Cardholder Name"
-                        Placeholder="John Doe"
-                        IsRequired="true"
-                        HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("CardholderName")))"
-                        ErrorMessage="@ValidationErrors.GetValueOrDefault("CardholderName")"
-                        CssClass="form-field" />
-
-            <InputField @bind-Value="NewCard.CardNumber"
-                        Label="Card Number"
-                        Placeholder="1234 5678 9012 3456"
-                        PrefixIcon="💳"
-                        IsRequired="true"
-                        MaxLength="19"
-                        Type="text"
-                        HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("CardNumber")))"
-                        ErrorMessage="@ValidationErrors.GetValueOrDefault("CardNumber")"
-                        CssClass="form-field" />
-
-            <div class="form-row">
-                <InputField @bind-Value="NewCard.ExpiryMonth"
-                            Label="Month"
-                            Placeholder="MM"
-                            IsRequired="true"
-                            MaxLength="2"
-                            Type="text"
-                            HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("ExpiryMonth")))"
-                            ErrorMessage="@ValidationErrors.GetValueOrDefault("ExpiryMonth")"
-                            CssClass="form-field form-field-small" />
-
-                <InputField @bind-Value="NewCard.ExpiryYear"
-                            Label="Year"
-                            Placeholder="YY"
-                            IsRequired="true"
-                            MaxLength="2"
-                            Type="text"
-                            HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("ExpiryYear")))"
-                            ErrorMessage="@ValidationErrors.GetValueOrDefault("ExpiryYear")"
-                            CssClass="form-field form-field-small" />
-
-                <InputField @bind-Value="NewCard.CVV"
-                            Label="CVV"
-                            Placeholder="123"
-                            IsRequired="true"
-                            MaxLength="4"
-                            Type="password"
-                            HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("CVV")))"
-                            ErrorMessage="@ValidationErrors.GetValueOrDefault("CVV")"
-                            CssClass="form-field form-field-small" />
+            <div class="form-info-box">
+                <h4 class="info-title">How it works:</h4>
+                <ol class="info-list">
+                    <li>Click the button below to open Paystack's secure payment modal</li>
+                    <li>Enter your card details in the modal</li>
+                    <li>We'll charge ₦50 to verify your card</li>
+                    <li>Your card will be securely saved for future purchases</li>
+                    <li>You can request a refund of the ₦50 verification charge</li>
+                </ol>
             </div>
 
             <div class="form-checkbox">
                 <label class="checkbox-label">
                     <input type="checkbox"
                            class="checkbox-input"
-                           @bind="NewCard.SetAsDefault" />
+                           @bind="SetAsDefault" />
                     <span class="checkbox-text">Set as default payment method</span>
                 </label>
             </div>
@@ -305,14 +268,19 @@
                 <span class="balance-value">@WalletBalance</span>
             </div>
 
-            <InputField @bind-Value="TopUpAmount"
-                        Label="Top-Up Amount"
-                        Placeholder="Enter amount"
-                        PrefixIcon="₦"
-                        Type="number"
-                        IsRequired="true"
-                        HelperText="Minimum: ₦1,000"
-                        CssClass="form-field" />
+            <div class="form-field">
+                <label class="field-label">Top-Up Amount</label>
+                <div class="input-wrapper">
+                    <span class="input-prefix">₦</span>
+                    <input type="number"
+                           class="field-input"
+                           placeholder="Enter amount"
+                           min="1000"
+                           step="100"
+                           @bind="TopUpAmount" />
+                </div>
+                <span class="field-helper">Minimum: ₦1,000</span>
+            </div>
 
             <div class="quick-amounts">
                 <span class="quick-amounts-label">Quick amounts:</span>
@@ -340,18 +308,18 @@
                 </div>
             </div>
 
-            @if (!string.IsNullOrEmpty(TopUpAmount) && decimal.TryParse(TopUpAmount, out decimal amt))
+            @if (!string.IsNullOrEmpty(TopUpAmount) && decimal.TryParse(TopUpAmount, out decimal amt) && amt >= 1000)
             {
-            <div class="topup-summary">
-                <div class="summary-row">
-                    <span class="summary-label">Amount to add:</span>
-                    <span class="summary-value">₦@amt.ToString("N0")</span>
+                <div class="topup-summary">
+                    <div class="summary-row">
+                        <span class="summary-label">Amount to add:</span>
+                        <span class="summary-value">₦@amt.ToString("N0")</span>
+                    </div>
+                    <div class="summary-row summary-total">
+                        <span class="summary-label">New balance:</span>
+                        <span class="summary-value">₦@((CurrentBalance + amt).ToString("N0"))</span>
+                    </div>
                 </div>
-                <div class="summary-row summary-total">
-                    <span class="summary-label">New balance:</span>
-                    <span class="summary-value">₦@((CurrentBalance + amt).ToString("N0"))</span>
-                </div>
-            </div>
             }
         </div>
     </BodyContent>
@@ -367,5 +335,5 @@
                    OnConfirm="ConfirmDeletePaymentMethod" />
 
 @code {
-// Component state will be in .cs file
+    // Component state - see Payment.razor.cs
 }

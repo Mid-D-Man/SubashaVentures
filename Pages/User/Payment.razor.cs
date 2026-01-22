@@ -1,4 +1,4 @@
-// Pages/User/Payment.razor.cs - UPDATED WITH EDGE FUNCTION CALLS
+// Pages/User/Payment.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Components.Shared.Modals;
@@ -16,14 +16,12 @@ public partial class Payment
     [Inject] private IWalletService WalletService { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
-    
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<Payment> Logger { get; set; } = default!;
 
     // State management
     private List<SavedCardViewModel> PaymentMethods = new();
     private List<WalletTransactionViewModel> Transactions = new();
-    private PaymentMethodViewModel NewCard = new();
     private Dictionary<string, string> ValidationErrors = new();
     
     // Modal references
@@ -45,6 +43,7 @@ public partial class Payment
     private string UserId = string.Empty;
     private string UserEmail = string.Empty;
     private decimal CurrentBalance = 0;
+    private bool SetAsDefault = false; // For card saving checkbox
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,7 +56,7 @@ public partial class Payment
                     "User not authenticated, redirecting to sign in",
                     LogLevel.Warning
                 );
-                NavigationManager.NavigateTo("/signin", true);
+                NavigationManager.NavigateTo("signin", true);
                 return;
             }
 
@@ -70,7 +69,7 @@ public partial class Payment
                     "User ID not found, redirecting to sign in",
                     LogLevel.Warning
                 );
-                NavigationManager.NavigateTo("/signin", true);
+                NavigationManager.NavigateTo("signin", true);
                 return;
             }
 
@@ -152,7 +151,7 @@ public partial class Payment
 
     private void OpenAddPaymentModal()
     {
-        NewCard = new PaymentMethodViewModel();
+        SetAsDefault = false;
         ValidationErrors.Clear();
         IsAddPaymentModalOpen = true;
         StateHasChanged();
@@ -161,155 +160,107 @@ public partial class Payment
     private void CloseAddPaymentModal()
     {
         IsAddPaymentModalOpen = false;
-        NewCard = new();
+        SetAsDefault = false;
         ValidationErrors.Clear();
         StateHasChanged();
     }
 
-    
-private async Task SavePaymentMethod()
-{
-    if (!ValidatePaymentMethod())
+    private async Task SavePaymentMethod()
     {
+        IsSaving = true;
         StateHasChanged();
-        return;
-    }
 
-    IsSaving = true;
-    StateHasChanged();
-
-    try
-    {
-        await MID_HelperFunctions.DebugMessageAsync(
-            "Tokenizing card via Paystack",
-            LogLevel.Info
-        );
-
-        // ✅ CORRECT: Use Paystack.js to tokenize the card
-        var cardData = new
-        {
-            cardNumber = NewCard.CardNumber.Replace(" ", ""),
-            expiryMonth = NewCard.ExpiryMonth,
-            expiryYear = NewCard.ExpiryYear,
-            cvv = NewCard.CVV,
-            email = UserEmail,
-            amount = 5000 // ₦50 for verification
-        };
-
-        // Call JavaScript to tokenize via Paystack
-        var tokenResult = await JSRuntime.InvokeAsync<PaystackTokenResult>(
-            "paymentHandler.tokenizeCard",
-            cardData
-        );
-
-        if (!tokenResult.Success)
-        {
-            ValidationErrors["General"] = tokenResult.Message ?? "Card tokenization failed";
-            return;
-        }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✓ Card tokenized: {tokenResult.AuthorizationCode}",
-            LogLevel.Info
-        );
-
-        // Now save via edge function (which will verify with Paystack)
-        var savedCard = await WalletService.SavePaymentMethodAsync(
-            UserId,
-            "paystack",
-            tokenResult.AuthorizationCode,
-            UserEmail,
-            NewCard.SetAsDefault
-        );
-
-        if (savedCard != null)
+        try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "✅ Payment method saved successfully",
+                "Opening Paystack to collect card details securely",
                 LogLevel.Info
             );
 
-            PaymentMethods.Add(savedCard);
-            CloseAddPaymentModal();
-        }
-        else
-        {
-            ValidationErrors["General"] = "Failed to save payment method. Please try again.";
-        }
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Saving payment method");
-        Logger.LogError(ex, "Failed to save payment method for user: {UserId}", UserId);
-        ValidationErrors["General"] = ex.Message.Contains("reusable") 
-            ? ex.Message 
-            : "An error occurred while saving your card. Please try again.";
-    }
-    finally
-    {
-        IsSaving = false;
-        StateHasChanged();
-    }
-}
+            // Call JavaScript to open Paystack modal for card tokenization
+            // User will enter card details in Paystack's secure form
+            var tokenResult = await JSRuntime.InvokeAsync<PaystackTokenResult>(
+                "paymentHandler.tokenizeCardForSaving",
+                UserEmail,
+                PaymentService.GetConfiguration().Paystack.PublicKey
+            );
 
-// Add this class at the end of Payment.razor.cs
-private class PaystackTokenResult
-{
-    public bool Success { get; set; }
-    public string? AuthorizationCode { get; set; }
-    public string? Message { get; set; }
-}
-    
-    private bool ValidatePaymentMethod()
-    {
-        ValidationErrors.Clear();
-
-        if (string.IsNullOrWhiteSpace(NewCard.CardholderName))
-        {
-            ValidationErrors["CardholderName"] = "Cardholder name is required";
-        }
-
-        var cleanedNumber = NewCard.CardNumber?.Replace(" ", "") ?? "";
-        if (string.IsNullOrWhiteSpace(NewCard.CardNumber) || cleanedNumber.Length < 13 || cleanedNumber.Length > 19)
-        {
-            ValidationErrors["CardNumber"] = "Please enter a valid card number";
-        }
-
-        if (string.IsNullOrWhiteSpace(NewCard.ExpiryMonth) || 
-            !int.TryParse(NewCard.ExpiryMonth, out int month) || 
-            month < 1 || month > 12)
-        {
-            ValidationErrors["ExpiryMonth"] = "Invalid month (01-12)";
-        }
-
-        if (string.IsNullOrWhiteSpace(NewCard.ExpiryYear) || 
-            !int.TryParse(NewCard.ExpiryYear, out int year) || 
-            year < 0 || year > 99)
-        {
-            ValidationErrors["ExpiryYear"] = "Invalid year (YY)";
-        }
-
-        // Check if card is expired
-        if (int.TryParse(NewCard.ExpiryMonth, out int expMonth) && 
-            int.TryParse(NewCard.ExpiryYear, out int expYear))
-        {
-            var currentYear = DateTime.Now.Year % 100;
-            var currentMonth = DateTime.Now.Month;
-            
-            if (expYear < currentYear || (expYear == currentYear && expMonth < currentMonth))
+            if (!tokenResult.Success)
             {
-                ValidationErrors["ExpiryMonth"] = "Card has expired";
+                if (tokenResult.Cancelled)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "Card saving cancelled by user",
+                        LogLevel.Info
+                    );
+                    CloseAddPaymentModal();
+                    return;
+                }
+
+                ValidationErrors["General"] = tokenResult.Message ?? "Card tokenization failed";
+                return;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Card tokenized: {tokenResult.AuthorizationCode}",
+                LogLevel.Info
+            );
+
+            // Now save via edge function (which will verify with Paystack API)
+            var savedCard = await WalletService.SavePaymentMethodAsync(
+                UserId,
+                "paystack",
+                tokenResult.AuthorizationCode,
+                UserEmail,
+                SetAsDefault
+            );
+
+            if (savedCard != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✅ Payment method saved successfully",
+                    LogLevel.Info
+                );
+
+                PaymentMethods.Add(savedCard);
+                CloseAddPaymentModal();
+                
+                // Optionally reload to get updated data
+                await LoadPaymentData();
+            }
+            else
+            {
+                ValidationErrors["General"] = "Failed to save payment method. Please try again.";
             }
         }
-
-        if (string.IsNullOrWhiteSpace(NewCard.CVV) || 
-            NewCard.CVV.Length < 3 || 
-            NewCard.CVV.Length > 4)
+        catch (JSException jsEx)
         {
-            ValidationErrors["CVV"] = "Invalid CVV (3-4 digits)";
+            await MID_HelperFunctions.LogExceptionAsync(jsEx, "JavaScript error during card tokenization");
+            Logger.LogError(jsEx, "JavaScript error during card tokenization");
+            
+            if (jsEx.Message.Contains("cancelled") || jsEx.Message.Contains("canceled"))
+            {
+                CloseAddPaymentModal();
+            }
+            else
+            {
+                ValidationErrors["General"] = "An error occurred while processing your card. Please try again.";
+            }
         }
-
-        return !ValidationErrors.Any();
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving payment method");
+            Logger.LogError(ex, "Failed to save payment method for user: {UserId}", UserId);
+            
+            ValidationErrors["General"] = ex.Message.Contains("reusable") 
+                ? ex.Message 
+                : "An error occurred while saving your card. Please try again.";
+        }
+        finally
+        {
+            IsSaving = false;
+            StateHasChanged();
+        }
     }
 
     private async Task SetDefaultPayment(string paymentId)
@@ -403,138 +354,136 @@ private class PaystackTokenResult
     }
 
     private async Task ProcessTopUp()
+{
+    if (string.IsNullOrWhiteSpace(TopUpAmount) || 
+        !decimal.TryParse(TopUpAmount, out decimal amount) || 
+        amount < 1000)
     {
-        if (string.IsNullOrWhiteSpace(TopUpAmount) || 
-            !decimal.TryParse(TopUpAmount, out decimal amount) || 
-            amount < 1000)
+        await MID_HelperFunctions.DebugMessageAsync(
+            "Invalid top-up amount (minimum ₦1,000)",
+            LogLevel.Warning
+        );
+        return;
+    }
+
+    IsProcessing = true;
+    StateHasChanged();
+
+    try
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Initiating wallet top-up: ₦{amount:N0}",
+            LogLevel.Info
+        );
+
+        if (string.IsNullOrEmpty(UserEmail))
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Invalid top-up amount (minimum ₦1,000)",
-                LogLevel.Warning
-            );
-            return;
+            throw new Exception("User email not found");
         }
 
-        IsProcessing = true;
-        StateHasChanged();
+        // Initialize payment with Paystack/Flutterwave
+        var paymentRequest = new PaymentRequest
+        {
+            Email = UserEmail,
+            CustomerName = UserEmail,
+            Amount = amount,
+            Currency = "NGN",
+            Reference = PaymentService.GenerateReference(),
+            Provider = PaymentProvider.Paystack,
+            Description = "Wallet Top-Up",
+            UserId = UserId,
+            Metadata = new Dictionary<string, object>
+            {
+                { "type", "wallet_topup" },
+                { "user_id", UserId },
+                { "amount", amount }
+            }
+        };
 
-        try
+        var paymentResponse = await PaymentService.InitializePaymentAsync(paymentRequest);
+
+        if (paymentResponse.Success)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Initiating wallet top-up: ₦{amount:N0}",
+                $"✓ Payment completed: {paymentResponse.Reference}",
                 LogLevel.Info
             );
 
-            if (string.IsNullOrEmpty(UserEmail))
-            {
-                throw new Exception("User email not found");
-            }
+            CloseTopUpModal();
+            
+            // Manually verify and credit wallet
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Verifying payment and crediting wallet...",
+                LogLevel.Info
+            );
 
-            // Initialize payment with Paystack/Flutterwave
-            var paymentRequest = new PaymentRequest
-            {
-                Email = UserEmail,
-                CustomerName = UserEmail,
-                Amount = amount,
-                Currency = "NGN",
-                Reference = PaymentService.GenerateReference(),
-                Provider = PaymentProvider.Paystack,
-                Description = "Wallet Top-Up",
-                UserId = UserId,
-                Metadata = new Dictionary<string, object>
-                {
-                    { "type", "wallet_topup" },
-                    { "user_id", UserId },
-                    { "amount", amount }
-                }
-            };
+            var verified = await WalletService.VerifyAndCreditWalletAsync(
+                paymentResponse.Reference,
+                "paystack"
+            );
 
-            var paymentResponse = await PaymentService.InitializePaymentWithFallbackAsync(paymentRequest);
-
-            if (paymentResponse.Success)
+            if (verified)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Payment initialized: {paymentResponse.Reference}",
+                    "✅ Wallet credited successfully!",
                     LogLevel.Info
                 );
-
-                // Payment modal will open automatically
-                // After successful payment, the verify-and-credit-wallet edge function
-                // will be called (either via webhook or manual verification)
                 
-                CloseTopUpModal();
-                
-                // Show success message
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Payment initiated. Complete the payment to top up your wallet.",
-                    LogLevel.Info
-                );
+                // Reload wallet data
+                await LoadPaymentData();
             }
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Payment initialization failed: {paymentResponse.Message}",
-                    LogLevel.Error
+                    "⚠️ Payment verification pending. Please check your wallet in a few moments.",
+                    LogLevel.Warning
                 );
             }
         }
-        catch (Exception ex)
+        else
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Processing wallet top-up");
-            Logger.LogError(ex, "Failed to process wallet top-up for user: {UserId}", UserId);
-        }
-        finally
-        {
-            IsProcessing = false;
-            StateHasChanged();
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Payment failed: {paymentResponse.Message}",
+                LogLevel.Error
+            );
         }
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Processing wallet top-up");
+        Logger.LogError(ex, "Failed to process wallet top-up for user: {UserId}", UserId);
+    }
+    finally
+    {
+        IsProcessing = false;
+        StateHasChanged();
+    }
+}
 
     // ==================== NAVIGATION ====================
 
     private void ShowTransactionHistory()
     {
-        NavigationManager.NavigateTo("/user/wallet/transactions");
+        NavigationManager.NavigateTo("user/wallet/transactions");
     }
 
     private void ShowAllTransactions()
     {
-        NavigationManager.NavigateTo("/user/wallet/transactions");
-    }
-
-    // ==================== HELPER METHODS ====================
-
-    private string DetectCardType(string cardNumber)
-    {
-        var cleaned = cardNumber?.Replace(" ", "") ?? "";
-        
-        if (string.IsNullOrEmpty(cleaned))
-            return "Unknown";
-        
-        if (cleaned.StartsWith("4"))
-            return "Visa";
-        
-        if (cleaned.StartsWith("5") || cleaned.StartsWith("2"))
-            return "Mastercard";
-        
-        if (cleaned.StartsWith("506") || cleaned.StartsWith("507") || cleaned.StartsWith("650"))
-            return "Verve";
-        
-        if (cleaned.StartsWith("34") || cleaned.StartsWith("37"))
-            return "Amex";
-        
-        return "Unknown";
+        NavigationManager.NavigateTo("user/wallet/transactions");
     }
 
     // ==================== VIEW MODELS ====================
 
-    private class PaymentMethodViewModel
+    /// <summary>
+    /// Response from Paystack tokenization JavaScript call
+    /// </summary>
+    private class PaystackTokenResult
     {
-        public string CardholderName { get; set; } = "";
-        public string CardNumber { get; set; } = "";
-        public string ExpiryMonth { get; set; } = "";
-        public string ExpiryYear { get; set; } = "";
-        public string CVV { get; set; } = "";
-        public bool SetAsDefault { get; set; }
+        public bool Success { get; set; }
+        public string? AuthorizationCode { get; set; }
+        public string? Reference { get; set; }
+        public string? TransactionId { get; set; }
+        public string? Message { get; set; }
+        public bool Cancelled { get; set; }
     }
 }
