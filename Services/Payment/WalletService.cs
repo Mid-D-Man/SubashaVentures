@@ -445,25 +445,23 @@ public async Task<bool> VerifyAndCreditWalletAsync(string reference, string prov
                 LogLevel.Info
             );
 
-            // Build query with chained filters to avoid NullReferenceException
-            var query = _supabaseClient
+            //  Use .Where() with lambda for boolean fields
+            var cards = await _supabaseClient
                 .From<UserPaymentMethodModel>()
-                .Filter("user_id", Constants.Operator.Equals, userId)
-                .Filter("is_deleted", Constants.Operator.Equals, false)
-                .Order("is_default", Constants.Ordering.Descending)
-                .Order("created_at", Constants.Ordering.Descending);
-
-            var response = await query.Get();
+                .Where(c => c.UserId == userId && c.IsDeleted == false)
+                .Order(c => c.IsDefault, Constants.Ordering.Descending)
+                .Order(c => c.CreatedAt, Constants.Ordering.Descending)
+                .Get();
 
             // Handle empty results gracefully
-            var cards = response?.Models ?? new List<UserPaymentMethodModel>();
+            var cardsList = cards?.Models ?? new List<UserPaymentMethodModel>();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Retrieved {cards.Count} saved cards",
+                $"✓ Retrieved {cardsList.Count} saved cards",
                 LogLevel.Info
             );
 
-            return cards
+            return cardsList
                 .Select(SavedCardViewModel.FromModel)
                 .ToList();
         }
