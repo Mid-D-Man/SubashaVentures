@@ -18,14 +18,22 @@ public interface IWalletService
     Task<WalletViewModel?> GetWalletAsync(string userId);
     
     /// <summary>
-    /// Create wallet for new user (auto-called on signup)
+    /// Create wallet for new user via edge function (auto-called on first access)
+    /// This uses Supabase Edge Function to bypass RLS
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <returns>Created wallet</returns>
     Task<WalletViewModel?> CreateWalletAsync(string userId);
     
     /// <summary>
-    /// Top up wallet balance (credit)
+    /// Ensure wallet exists (get or create)
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <returns>Wallet view model</returns>
+    Task<WalletViewModel?> EnsureWalletExistsAsync(string userId);
+    
+    /// <summary>
+    /// Top up wallet balance via edge function
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <param name="amount">Amount to credit</param>
@@ -39,7 +47,7 @@ public interface IWalletService
         string provider);
     
     /// <summary>
-    /// Deduct from wallet balance (purchase)
+    /// Deduct from wallet balance via edge function
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <param name="amount">Amount to deduct</param>
@@ -51,20 +59,6 @@ public interface IWalletService
         decimal amount, 
         string description,
         string? orderId = null);
-    
-    /// <summary>
-    /// Refund to wallet balance
-    /// </summary>
-    /// <param name="userId">User ID</param>
-    /// <param name="amount">Amount to refund</param>
-    /// <param name="description">Refund reason</param>
-    /// <param name="originalReference">Original transaction reference</param>
-    /// <returns>Transaction result</returns>
-    Task<WalletTransactionViewModel?> RefundToWalletAsync(
-        string userId, 
-        decimal amount, 
-        string description,
-        string originalReference);
     
     /// <summary>
     /// Check if wallet has sufficient balance
@@ -105,19 +99,19 @@ public interface IWalletService
     Task<List<SavedCardViewModel>> GetSavedCardsAsync(string userId);
     
     /// <summary>
-    /// Save payment method (card token)
+    /// Save payment method after verifying with payment gateway via edge function
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <param name="provider">Payment provider</param>
     /// <param name="authorizationCode">Token from provider</param>
-    /// <param name="cardDetails">Card metadata</param>
+    /// <param name="email">User email for verification</param>
     /// <param name="setAsDefault">Set as default card</param>
     /// <returns>Saved card</returns>
     Task<SavedCardViewModel?> SavePaymentMethodAsync(
         string userId,
         string provider,
         string authorizationCode,
-        CardDetails cardDetails,
+        string email,
         bool setAsDefault = false);
     
     /// <summary>
@@ -145,14 +139,50 @@ public interface IWalletService
 }
 
 /// <summary>
-/// Card details for saving payment method
+/// Card verification response from edge function
+/// </summary>
+public class CardVerificationResponse
+{
+    public bool Success { get; set; }
+    public bool Verified { get; set; }
+    public CardDetails? CardDetails { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? ErrorCode { get; set; }
+}
+
+/// <summary>
+/// Card details from payment gateway
 /// </summary>
 public class CardDetails
 {
-    public string CardType { get; set; } = string.Empty; // visa, mastercard
+    public string CardType { get; set; } = string.Empty;
     public string Last4 { get; set; } = string.Empty;
     public string ExpMonth { get; set; } = string.Empty;
     public string ExpYear { get; set; } = string.Empty;
     public string? Bank { get; set; }
     public string? Brand { get; set; }
+    public bool Reusable { get; set; } = true;
+}
+
+/// <summary>
+/// Wallet creation response from edge function
+/// </summary>
+public class WalletCreationResponse
+{
+    public bool Success { get; set; }
+    public WalletData? Wallet { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? ErrorCode { get; set; }
+}
+
+/// <summary>
+/// Wallet data from edge function
+/// </summary>
+public class WalletData
+{
+    public string UserId { get; set; } = string.Empty;
+    public decimal Balance { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public bool IsLocked { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

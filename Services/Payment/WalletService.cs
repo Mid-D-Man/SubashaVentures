@@ -1,10 +1,10 @@
 // Services/Payment/WalletService.cs
 using SubashaVentures.Domain.Payment;
 using SubashaVentures.Models.Supabase;
-using SubashaVentures.Services.Supabase;
-using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Client = Supabase.Client;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -13,17 +13,31 @@ namespace SubashaVentures.Services.Payment;
 public class WalletService : IWalletService
 {
     private readonly Client _supabaseClient;
+    private readonly HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<WalletService> _logger;
-    private readonly ISupabaseDatabaseService _databaseService;
+    private readonly string _supabaseUrl;
+    private readonly string _supabaseAnonKey;
+    
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
 
     public WalletService(
         Client supabaseClient,
-        ILogger<WalletService> logger,
-        ISupabaseDatabaseService databaseService)
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<WalletService> logger)
     {
         _supabaseClient = supabaseClient;
+        _httpClient = httpClient;
+        _configuration = configuration;
         _logger = logger;
-        _databaseService = databaseService;
+        
+        _supabaseUrl = configuration["Supabase:Url"] ?? "https://wbwmovtewytjibxutssk.supabase.co";
+        _supabaseAnonKey = configuration["Supabase:AnonKey"] ?? string.Empty;
     }
 
     // ==================== WALLET OPERATIONS ====================
@@ -42,17 +56,20 @@ public class WalletService : IWalletService
                 .Where(w => w.UserId == userId)
                 .Single();
 
-            if (wallet == null)
+            if (wallet != null)
             {
-                // Auto-create wallet if it doesn't exist
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "Wallet not found, creating new wallet",
+                    $"✓ Wallet found: Balance = ₦{wallet.Balance:N0}",
                     LogLevel.Info
                 );
-                return await CreateWalletAsync(userId);
+                return WalletViewModel.FromModel(wallet);
             }
 
-            return WalletViewModel.FromModel(wallet);
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Wallet not found",
+                LogLevel.Info
+            );
+            return null;
         }
         catch (Exception ex)
         {
@@ -67,39 +84,96 @@ public class WalletService : IWalletService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Creating wallet for user: {userId}",
+                $"Creating wallet via edge function for user: {userId}",
                 LogLevel.Info
             );
 
-            var wallet = new UserWalletModel
+            // Get current auth token
+            var session = _supabaseClient.Auth.CurrentSession;
+            if (session == null)
             {
-                UserId = userId,
-                Balance = 0,
-                Currency = "NGN",
-                IsLocked = false,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = "system"
-            };
-
-            var created = await _supabaseClient
-                .From<UserWalletModel>()
-                .Insert(wallet);
-
-            if (created != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Wallet created successfully",
-                    LogLevel.Info
-                );
-                return WalletViewModel.FromModel(created.Model);
+                throw new Exception("User not authenticated");
             }
 
-            return null;
+            // Call edge function to create wallet
+            var request = new HttpRequestMessage(HttpMethod.Post, 
+                $"{_supabaseUrl}/functions/v1/create-wallet");
+            
+            request.Headers.Add("Authorization", $"Bearer {session.AccessToken}");
+            request.Headers.Add("apikey", _supabaseAnonKey);
+            
+            request.Content = JsonContent.Create(new { userId });
+
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Edge function response: {response.StatusCode}",
+                LogLevel.Debug
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Edge function error: {content}",
+                    LogLevel.Error
+                );
+                throw new Exception($"Failed to create wallet: {content}");
+            }
+
+            var result = JsonSerializer.Deserialize<WalletCreationResponse>(content, _jsonOptions);
+
+            if (result?.Success == true && result.Wallet != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✅ Wallet created successfully via edge function",
+                    LogLevel.Info
+                );
+
+                return new WalletViewModel
+                {
+                    UserId = result.Wallet.UserId,
+                    Balance = result.Wallet.Balance,
+                    Currency = result.Wallet.Currency,
+                    IsLocked = result.Wallet.IsLocked,
+                    CreatedAt = result.Wallet.CreatedAt
+                };
+            }
+
+            throw new Exception(result?.Message ?? "Unknown error creating wallet");
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Creating wallet");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Creating wallet via edge function");
             _logger.LogError(ex, "Failed to create wallet for user: {UserId}", userId);
+            return null;
+        }
+    }
+
+    public async Task<WalletViewModel?> EnsureWalletExistsAsync(string userId)
+    {
+        try
+        {
+            // Try to get existing wallet
+            var wallet = await GetWalletAsync(userId);
+            
+            if (wallet != null)
+            {
+                return wallet;
+            }
+
+            // Create new wallet if doesn't exist
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Wallet not found, creating new wallet",
+                LogLevel.Info
+            );
+            
+            return await CreateWalletAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring wallet exists");
+            _logger.LogError(ex, "Failed to ensure wallet exists for user: {UserId}", userId);
             return null;
         }
     }
@@ -122,68 +196,14 @@ public class WalletService : IWalletService
                 LogLevel.Info
             );
 
-            // Get current wallet
-            var wallet = await _supabaseClient
-                .From<UserWalletModel>()
-                .Where(w => w.UserId == userId)
-                .Single();
-
-            if (wallet == null)
-            {
-                throw new Exception("Wallet not found");
-            }
-
-            if (wallet.IsLocked)
-            {
-                throw new Exception("Wallet is locked. Please contact support.");
-            }
-
-            var balanceBefore = wallet.Balance;
-            var balanceAfter = balanceBefore + amount;
-
-            // Create transaction record
-            var transaction = new WalletTransactionModel
-            {
-                Id = Guid.NewGuid().ToString(),
-                UserId = userId,
-                Type = "topup",
-                Amount = amount,
-                BalanceBefore = balanceBefore,
-                BalanceAfter = balanceAfter,
-                Reference = $"TOPUP-{Guid.NewGuid().ToString().Substring(0, 8)}",
-                PaymentProvider = provider,
-                PaymentReference = paymentReference,
-                Description = $"Wallet top-up via {provider}",
-                Metadata = new Dictionary<string, object>
-                {
-                    { "provider", provider },
-                    { "payment_reference", paymentReference }
-                },
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = userId
-            };
-
-            var createdTransaction = await _supabaseClient
-                .From<WalletTransactionModel>()
-                .Insert(transaction);
-
-            // Update wallet balance
-            wallet.Balance = balanceAfter;
-            wallet.UpdatedAt = DateTime.UtcNow;
-            wallet.UpdatedBy = userId;
-
-            await _supabaseClient
-                .From<UserWalletModel>()
-                .Update(wallet);
-
+            // This will be handled by the verify-and-credit-wallet edge function
+            // after payment verification
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Top-up successful: Balance {balanceBefore:C} → {balanceAfter:C}",
+                "Top-up will be processed after payment verification",
                 LogLevel.Info
             );
 
-            return createdTransaction != null 
-                ? WalletTransactionViewModel.FromModel(createdTransaction.Model) 
-                : null;
+            return null;
         }
         catch (Exception ex)
         {
@@ -211,77 +231,61 @@ public class WalletService : IWalletService
                 LogLevel.Info
             );
 
-            // Get current wallet
-            var wallet = await _supabaseClient
-                .From<UserWalletModel>()
-                .Where(w => w.UserId == userId)
-                .Single();
-
-            if (wallet == null)
+            // Get current auth token
+            var session = _supabaseClient.Auth.CurrentSession;
+            if (session == null)
             {
-                throw new Exception("Wallet not found");
+                throw new Exception("User not authenticated");
             }
 
-            if (wallet.IsLocked)
-            {
-                throw new Exception("Wallet is locked. Please contact support.");
-            }
-
-            if (wallet.Balance < amount)
-            {
-                throw new Exception($"Insufficient balance. Available: ₦{wallet.Balance:N0}, Required: ₦{amount:N0}");
-            }
-
-            var balanceBefore = wallet.Balance;
-            var balanceAfter = balanceBefore - amount;
-
-            // Create transaction record
-            var metadata = new Dictionary<string, object>
-            {
-                { "description", description }
-            };
+            // Call edge function to deduct from wallet
+            var request = new HttpRequestMessage(HttpMethod.Post, 
+                $"{_supabaseUrl}/functions/v1/deduct-from-wallet");
             
-            if (!string.IsNullOrEmpty(orderId))
+            request.Headers.Add("Authorization", $"Bearer {session.AccessToken}");
+            request.Headers.Add("apikey", _supabaseAnonKey);
+            
+            var payload = new
             {
-                metadata.Add("order_id", orderId);
-            }
-
-            var transaction = new WalletTransactionModel
-            {
-                Id = Guid.NewGuid().ToString(),
-                UserId = userId,
-                Type = "purchase",
-                Amount = amount,
-                BalanceBefore = balanceBefore,
-                BalanceAfter = balanceAfter,
-                Reference = $"PURCHASE-{Guid.NewGuid().ToString().Substring(0, 8)}",
-                Description = description,
-                Metadata = metadata,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = userId
+                userId,
+                amount,
+                description,
+                orderId,
+                metadata = new Dictionary<string, object>
+                {
+                    { "description", description }
+                }
             };
 
-            var createdTransaction = await _supabaseClient
-                .From<WalletTransactionModel>()
-                .Insert(transaction);
+            request.Content = JsonContent.Create(payload);
 
-            // Update wallet balance
-            wallet.Balance = balanceAfter;
-            wallet.UpdatedAt = DateTime.UtcNow;
-            wallet.UpdatedBy = userId;
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
 
-            await _supabaseClient
-                .From<UserWalletModel>()
-                .Update(wallet);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorData = JsonSerializer.Deserialize<Dictionary<string, object>>(content, _jsonOptions);
+                throw new Exception(errorData?["message"]?.ToString() ?? "Failed to deduct from wallet");
+            }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Deduction successful: Balance {balanceBefore:C} → {balanceAfter:C}",
-                LogLevel.Info
-            );
+            var result = JsonSerializer.Deserialize<Dictionary<string, object>>(content, _jsonOptions);
 
-            return createdTransaction != null 
-                ? WalletTransactionViewModel.FromModel(createdTransaction.Model) 
-                : null;
+            if (result?["success"]?.ToString()?.ToLower() == "true")
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✅ Wallet deducted successfully",
+                    LogLevel.Info
+                );
+
+                // Fetch the transaction details
+                var txRef = result["reference"]?.ToString();
+                if (!string.IsNullOrEmpty(txRef))
+                {
+                    return await GetTransactionByReferenceAsync(txRef);
+                }
+            }
+
+            return null;
         }
         catch (Exception ex)
         {
@@ -291,97 +295,11 @@ public class WalletService : IWalletService
         }
     }
 
-    public async Task<WalletTransactionViewModel?> RefundToWalletAsync(
-        string userId,
-        decimal amount,
-        string description,
-        string originalReference)
-    {
-        try
-        {
-            if (amount <= 0)
-            {
-                throw new ArgumentException("Refund amount must be greater than zero");
-            }
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Refund request: User={userId}, Amount=₦{amount}",
-                LogLevel.Info
-            );
-
-            // Get current wallet
-            var wallet = await _supabaseClient
-                .From<UserWalletModel>()
-                .Where(w => w.UserId == userId)
-                .Single();
-
-            if (wallet == null)
-            {
-                throw new Exception("Wallet not found");
-            }
-
-            var balanceBefore = wallet.Balance;
-            var balanceAfter = balanceBefore + amount;
-
-            // Create transaction record
-            var transaction = new WalletTransactionModel
-            {
-                Id = Guid.NewGuid().ToString(),
-                UserId = userId,
-                Type = "refund",
-                Amount = amount,
-                BalanceBefore = balanceBefore,
-                BalanceAfter = balanceAfter,
-                Reference = $"REFUND-{Guid.NewGuid().ToString().Substring(0, 8)}",
-                Description = description,
-                Metadata = new Dictionary<string, object>
-                {
-                    { "original_reference", originalReference },
-                    { "refund_reason", description }
-                },
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = "system"
-            };
-
-            var createdTransaction = await _supabaseClient
-                .From<WalletTransactionModel>()
-                .Insert(transaction);
-
-            // Update wallet balance
-            wallet.Balance = balanceAfter;
-            wallet.UpdatedAt = DateTime.UtcNow;
-            wallet.UpdatedBy = "system";
-
-            await _supabaseClient
-                .From<UserWalletModel>()
-                .Update(wallet);
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Refund successful: Balance {balanceBefore:C} → {balanceAfter:C}",
-                LogLevel.Info
-            );
-
-            return createdTransaction != null 
-                ? WalletTransactionViewModel.FromModel(createdTransaction.Model) 
-                : null;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Refund to wallet");
-            _logger.LogError(ex, "Failed to refund to wallet for user: {UserId}", userId);
-            throw;
-        }
-    }
-
     public async Task<bool> HasSufficientBalanceAsync(string userId, decimal amount)
     {
         try
         {
-            var wallet = await _supabaseClient
-                .From<UserWalletModel>()
-                .Where(w => w.UserId == userId)
-                .Single();
-
+            var wallet = await GetWalletAsync(userId);
             return wallet != null && wallet.Balance >= amount && !wallet.IsLocked;
         }
         catch (Exception ex)
@@ -391,7 +309,6 @@ public class WalletService : IWalletService
             return false;
         }
     }
-
     // ==================== TRANSACTION HISTORY ====================
 
     public async Task<List<WalletTransactionViewModel>> GetTransactionHistoryAsync(
@@ -412,6 +329,11 @@ public class WalletService : IWalletService
                 .Order(t => t.CreatedAt, Constants.Ordering.Descending)
                 .Range(skip, skip + take - 1)
                 .Get();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved {transactions.Models.Count} transactions",
+                LogLevel.Info
+            );
 
             return transactions.Models
                 .Select(WalletTransactionViewModel.FromModel)
@@ -461,7 +383,13 @@ public class WalletService : IWalletService
                 .From<UserPaymentMethodModel>()
                 .Where(c => c.UserId == userId && !c.IsDeleted)
                 .Order(c => c.IsDefault, Constants.Ordering.Descending)
+                .Order(c => c.CreatedAt, Constants.Ordering.Descending)
                 .Get();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Retrieved {cards.Models.Count} saved cards",
+                LogLevel.Info
+            );
 
             return cards.Models
                 .Select(SavedCardViewModel.FromModel)
@@ -479,17 +407,78 @@ public class WalletService : IWalletService
         string userId,
         string provider,
         string authorizationCode,
-        CardDetails cardDetails,
+        string email,
         bool setAsDefault = false)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Saving payment method for user: {userId}, Provider: {provider}",
+                $"Verifying and saving payment method: User={userId}, Provider={provider}",
                 LogLevel.Info
             );
 
-            // If setting as default, remove default from others
+            // Get current auth token
+            var session = _supabaseClient.Auth.CurrentSession;
+            if (session == null)
+            {
+                throw new Exception("User not authenticated");
+            }
+
+            // Call edge function to verify card token with payment gateway
+            var request = new HttpRequestMessage(HttpMethod.Post, 
+                $"{_supabaseUrl}/functions/v1/verify-card-token");
+            
+            request.Headers.Add("Authorization", $"Bearer {session.AccessToken}");
+            request.Headers.Add("apikey", _supabaseAnonKey);
+            
+            var payload = new
+            {
+                userId,
+                provider,
+                authorizationCode,
+                email
+            };
+
+            request.Content = JsonContent.Create(payload);
+
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Card verification response: {response.StatusCode}",
+                LogLevel.Debug
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Card verification failed: {content}",
+                    LogLevel.Error
+                );
+                throw new Exception($"Card verification failed: {content}");
+            }
+
+            var verificationResult = JsonSerializer.Deserialize<CardVerificationResponse>(
+                content, 
+                _jsonOptions
+            );
+
+            if (verificationResult?.Success != true || verificationResult.CardDetails == null)
+            {
+                throw new Exception(verificationResult?.Message ?? "Card verification failed");
+            }
+
+            if (!verificationResult.CardDetails.Reusable)
+            {
+                throw new Exception("This card cannot be saved for future use");
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✓ Card verified successfully, saving to database",
+                LogLevel.Info
+            );
+
+            // If setting as default, remove default from others first
             if (setAsDefault)
             {
                 var existingCards = await _supabaseClient
@@ -506,18 +495,19 @@ public class WalletService : IWalletService
                 }
             }
 
+            // Save payment method to database
             var paymentMethod = new UserPaymentMethodModel
             {
                 Id = Guid.NewGuid().ToString(),
                 UserId = userId,
                 Provider = provider,
                 AuthorizationCode = authorizationCode,
-                CardType = cardDetails.CardType,
-                CardLast4 = cardDetails.Last4,
-                CardExpMonth = cardDetails.ExpMonth,
-                CardExpYear = cardDetails.ExpYear,
-                CardBank = cardDetails.Bank,
-                CardBrand = cardDetails.Brand,
+                CardType = verificationResult.CardDetails.CardType,
+                CardLast4 = verificationResult.CardDetails.Last4,
+                CardExpMonth = verificationResult.CardDetails.ExpMonth,
+                CardExpYear = verificationResult.CardDetails.ExpYear,
+                CardBank = verificationResult.CardDetails.Bank,
+                CardBrand = verificationResult.CardDetails.Brand,
                 IsDefault = setAsDefault,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -528,20 +518,23 @@ public class WalletService : IWalletService
                 .From<UserPaymentMethodModel>()
                 .Insert(paymentMethod);
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✅ Payment method saved successfully",
-                LogLevel.Info
-            );
+            if (created?.Model != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✅ Payment method saved successfully",
+                    LogLevel.Info
+                );
 
-            return created != null 
-                ? SavedCardViewModel.FromModel(created.Model) 
-                : null;
+                return SavedCardViewModel.FromModel(created.Model);
+            }
+
+            return null;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Saving payment method");
             _logger.LogError(ex, "Failed to save payment method for user: {UserId}", userId);
-            return null;
+            throw;
         }
     }
 

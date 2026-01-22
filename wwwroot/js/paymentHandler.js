@@ -181,7 +181,93 @@ window.paymentHandler = {
             }
         });
     },
+    // ===================== NEW: CARD TOKENIZATION =====================
 
+    /**
+     * Tokenize a card without charging it (for saving card)
+     * @param {object} cardData - Card details
+     * @returns {Promise<object>} Tokenization result with authorization code
+     */
+    tokenizeCard: async function(cardData) {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('🔵 Tokenizing card via Paystack...');
+
+                // Validate Paystack SDK is loaded
+                if (typeof PaystackPop === 'undefined') {
+                    reject({
+                        success: false,
+                        message: 'Paystack SDK not loaded. Please refresh the page.'
+                    });
+                    return;
+                }
+
+                const handler = PaystackPop.setup({
+                    key: 'pk_test_4420269c02c35e6a2fd297439fb7c8cdc4d6231a', // Your public key
+                    email: cardData.email,
+                    amount: cardData.amount, // Small amount for verification (₦50 = 5000 kobo)
+                    currency: 'NGN',
+                    ref: `TOKEN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+
+                    // Card details
+                    card: {
+                        number: cardData.cardNumber,
+                        cvv: cardData.cvv,
+                        expiry_month: cardData.expiryMonth,
+                        expiry_year: cardData.expiryYear
+                    },
+
+                    onSuccess: function(transaction) {
+                        console.log('✅ Card tokenized successfully:', transaction);
+
+                        // Extract authorization code
+                        const authCode = transaction.authorization?.authorization_code ||
+                            transaction.authorization_code;
+
+                        if (!authCode) {
+                            reject({
+                                success: false,
+                                message: 'Failed to get authorization code from Paystack'
+                            });
+                            return;
+                        }
+
+                        resolve({
+                            success: true,
+                            authorizationCode: authCode,
+                            message: 'Card tokenized successfully'
+                        });
+                    },
+
+                    onCancel: function() {
+                        console.log('❌ Card tokenization cancelled');
+                        reject({
+                            success: false,
+                            message: 'Tokenization was cancelled'
+                        });
+                    },
+
+                    onError: function(error) {
+                        console.error('❌ Card tokenization error:', error);
+                        reject({
+                            success: false,
+                            message: error.message || 'Card tokenization failed'
+                        });
+                    }
+                });
+
+                // Open the payment modal for tokenization
+                handler.openIframe();
+
+            } catch (error) {
+                console.error('❌ Tokenization error:', error);
+                reject({
+                    success: false,
+                    message: error.message || 'Failed to tokenize card'
+                });
+            }
+        });
+    },
     // ===================== UTILITY FUNCTIONS =====================
     
     /**

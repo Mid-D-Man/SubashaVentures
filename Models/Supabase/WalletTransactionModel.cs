@@ -5,7 +5,7 @@ using Supabase.Postgrest.Models;
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Wallet transaction model - immutable audit trail
+/// Wallet transaction model - tracks all wallet operations
 /// Maps to wallet_transactions table
 /// </summary>
 [Table("wallet_transactions")]
@@ -45,6 +45,7 @@ public class WalletTransactionModel : BaseModel
     [Column("metadata")]
     public Dictionary<string, object>? Metadata { get; set; }
     
+    // ISecureEntity fields
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
     
