@@ -166,102 +166,179 @@ public partial class Payment
     }
 
     private async Task SavePaymentMethod()
+{
+    IsSaving = true;
+    StateHasChanged();
+
+    try
     {
-        IsSaving = true;
-        StateHasChanged();
+        await MID_HelperFunctions.DebugMessageAsync(
+            "Opening Paystack to collect card details securely",
+            LogLevel.Info
+        );
 
-        try
+        // Step 1: Open Paystack modal for user to enter card
+        // This will charge ₦50 and return a transaction reference
+        var tokenResult = await JSRuntime.InvokeAsync<PaystackTokenResult>(
+            "paymentHandler.tokenizeCardForSaving",
+            UserEmail,
+            PaymentService.GetConfiguration().Paystack.PublicKey
+        );
+
+        if (!tokenResult.Success)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Opening Paystack to collect card details securely",
-                LogLevel.Info
-            );
-
-            // Call JavaScript to open Paystack modal for card tokenization
-            // User will enter card details in Paystack's secure form
-            var tokenResult = await JSRuntime.InvokeAsync<PaystackTokenResult>(
-                "paymentHandler.tokenizeCardForSaving",
-                UserEmail,
-                PaymentService.GetConfiguration().Paystack.PublicKey
-            );
-
-            if (!tokenResult.Success)
+            if (tokenResult.Cancelled)
             {
-                if (tokenResult.Cancelled)
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "Card saving cancelled by user",
-                        LogLevel.Info
-                    );
-                    CloseAddPaymentModal();
-                    return;
-                }
-
-                ValidationErrors["General"] = tokenResult.Message ?? "Card tokenization failed";
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Card saving cancelled by user",
+                    LogLevel.Info
+                );
+                CloseAddPaymentModal();
                 return;
             }
 
+            ValidationErrors["General"] = tokenResult.Message ?? "Card tokenization failed";
+            return;
+        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ Card charged successfully: {tokenResult.Reference}",
+            LogLevel.Info
+        );
+
+        // Step 2: Get authorization code from backend by verifying the transaction
+        await MID_HelperFunctions.DebugMessageAsync(
+            "Retrieving authorization code from transaction...",
+            LogLevel.Info
+        );
+
+        var authCode = await GetAuthorizationCodeFromTransactionAsync(tokenResult.Reference);
+
+        if (string.IsNullOrEmpty(authCode))
+        {
+            ValidationErrors["General"] = "Failed to retrieve card authorization. Please try again.";
+            return;
+        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✓ Authorization code retrieved: {authCode}",
+            LogLevel.Info
+        );
+
+        // Step 3: Save payment method with authorization code
+        var savedCard = await WalletService.SavePaymentMethodAsync(
+            UserId,
+            "paystack",
+            authCode,
+            UserEmail,
+            SetAsDefault
+        );
+
+        if (savedCard != null)
+        {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Card tokenized: {tokenResult.AuthorizationCode}",
+                "✅ Payment method saved successfully",
                 LogLevel.Info
             );
 
-            // Now save via edge function (which will verify with Paystack API)
-            var savedCard = await WalletService.SavePaymentMethodAsync(
-                UserId,
-                "paystack",
-                tokenResult.AuthorizationCode,
-                UserEmail,
-                SetAsDefault
-            );
-
-            if (savedCard != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Payment method saved successfully",
-                    LogLevel.Info
-                );
-
-                PaymentMethods.Add(savedCard);
-                CloseAddPaymentModal();
-                
-                // Optionally reload to get updated data
-                await LoadPaymentData();
-            }
-            else
-            {
-                ValidationErrors["General"] = "Failed to save payment method. Please try again.";
-            }
-        }
-        catch (JSException jsEx)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(jsEx, "JavaScript error during card tokenization");
-            Logger.LogError(jsEx, "JavaScript error during card tokenization");
+            PaymentMethods.Add(savedCard);
+            CloseAddPaymentModal();
             
-            if (jsEx.Message.Contains("cancelled") || jsEx.Message.Contains("canceled"))
-            {
-                CloseAddPaymentModal();
-            }
-            else
-            {
-                ValidationErrors["General"] = "An error occurred while processing your card. Please try again.";
-            }
+            // Reload data to get updated info
+            await LoadPaymentData();
         }
-        catch (Exception ex)
+        else
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving payment method");
-            Logger.LogError(ex, "Failed to save payment method for user: {UserId}", UserId);
-            
-            ValidationErrors["General"] = ex.Message.Contains("reusable") 
-                ? ex.Message 
-                : "An error occurred while saving your card. Please try again.";
-        }
-        finally
-        {
-            IsSaving = false;
-            StateHasChanged();
+            ValidationErrors["General"] = "Failed to save payment method. Please try again.";
         }
     }
+    catch (JSException jsEx)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(jsEx, "JavaScript error during card tokenization");
+        Logger.LogError(jsEx, "JavaScript error during card tokenization");
+        
+        if (jsEx.Message.Contains("cancelled") || jsEx.Message.Contains("canceled"))
+        {
+            CloseAddPaymentModal();
+        }
+        else
+        {
+            ValidationErrors["General"] = "An error occurred while processing your card. Please try again.";
+        }
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Saving payment method");
+        Logger.LogError(ex, "Failed to save payment method for user: {UserId}", UserId);
+        
+        ValidationErrors["General"] = ex.Message.Contains("reusable") 
+            ? ex.Message 
+            : "An error occurred while saving your card. Please try again.";
+    }
+    finally
+    {
+        IsSaving = false;
+        StateHasChanged();
+    }
+}
+
+/// <summary>
+/// Get authorization code from Paystack transaction via edge function
+/// </summary>
+private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string reference)
+{
+    try
+    {
+        var session = await JSRuntime.InvokeAsync<object>("sessionStorage.getItem", "supabase.auth.token");
+        if (session == null)
+        {
+            throw new Exception("No active session");
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Post, 
+            "https://wbwmovtewytjibxutssk.supabase.co/functions/v1/get-card-authorization");
+        
+        // Add auth headers
+        var authToken = session.ToString();
+        request.Headers.Add("Authorization", $"Bearer {authToken}");
+        request.Headers.Add("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indid21vdnRld3l0amlieHV0c3NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MjE4MzEsImV4cCI6MjA3NTk5NzgzMX0.dEYU3uKAeBJLnkyApUhh48nNqP6baGky8yhNNrM1NNg");
+        
+        var payload = new
+        {
+            reference,
+            email = UserEmail
+        };
+
+        request.Content = System.Net.Http.Json.JsonContent.Create(payload);
+
+        var httpClient = new HttpClient();
+        var response = await httpClient.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Failed to get authorization code: {content}",
+                LogLevel.Error
+            );
+            return null;
+        }
+
+        var result = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(content);
+
+        if (result != null && result.TryGetValue("authorizationCode", out var authCode))
+        {
+            return authCode.ToString();
+        }
+
+        return null;
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authorization code from transaction");
+        return null;
+    }
+}
 
     private async Task SetDefaultPayment(string paymentId)
     {
@@ -477,10 +554,13 @@ public partial class Payment
     /// <summary>
     /// Response from Paystack tokenization JavaScript call
     /// </summary>
+    /// <summary>
+    /// Response from Paystack tokenization JavaScript call
+    /// NOW: Just returns the transaction reference, not the authorization code
+    /// </summary>
     private class PaystackTokenResult
     {
         public bool Success { get; set; }
-        public string? AuthorizationCode { get; set; }
         public string? Reference { get; set; }
         public string? TransactionId { get; set; }
         public string? Message { get; set; }

@@ -189,14 +189,14 @@ window.paymentHandler = {
     /**
      * Tokenize a card for saving - opens Paystack modal for user to enter card details
      * Makes a small verification charge (₦50) which should be refunded
-     * Returns authorization code that can be used for future charges
+     * Returns transaction reference that needs to be verified server-side to get authorization code
      *
      * IMPORTANT: User MUST enter card details in Paystack's secure modal.
      * You CANNOT pass card details programmatically for PCI-DSS compliance.
      *
      * @param {string} email - Customer email
      * @param {string} publicKey - Paystack public key
-     * @returns {Promise<object>} Tokenization result with authorization code
+     * @returns {Promise<object>} Tokenization result with transaction reference
      */
     tokenizeCardForSaving: async function(email, publicKey) {
         return new Promise((resolve, reject) => {
@@ -235,29 +235,17 @@ window.paymentHandler = {
                     },
 
                     onSuccess: function(transaction) {
-                        console.log('✅ Card tokenized successfully:', transaction);
+                        console.log('✅ Card tokenization transaction successful:', transaction);
 
-                        // Extract authorization code from the transaction
-                        // This is what we'll save to the database for future charges
-                        const authCode = transaction.authorization?.authorization_code;
-
-                        if (!authCode) {
-                            console.error('❌ No authorization code in response:', transaction);
-                            reject({
-                                success: false,
-                                message: 'Failed to get authorization code from Paystack. Please try again.'
-                            });
-                            return;
-                        }
-
-                        console.log('✅ Authorization code obtained:', authCode);
+                        // ✅ NEW: We can't get authorization_code here
+                        // It must be fetched server-side via transaction verification
+                        console.log('✅ Transaction reference obtained:', transaction.reference);
 
                         resolve({
                             success: true,
-                            authorizationCode: authCode,
                             reference: transaction.reference,
-                            transactionId: transaction.id,
-                            message: 'Card verified and saved successfully'
+                            transactionId: transaction.trans || transaction.transaction,
+                            message: 'Card charged successfully. Verifying...'
                         });
                     },
 
