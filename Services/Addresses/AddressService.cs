@@ -174,7 +174,7 @@ public class AddressService : IAddressService
             addressModel.UpdatedAt = DateTime.UtcNow;
 
             // Save to database
-            IPostgrestTable<AddressModel>? result;
+            List<AddressModel>? result;
             if (addressModels.Any())
             {
                 result = await _database.UpdateAsync(addressModel);
