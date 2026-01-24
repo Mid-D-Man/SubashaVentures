@@ -1,7 +1,8 @@
-// Services/Addresses/AddressService.cs - UPDATED WITH EMAIL SUPPORT
+// Services/Addresses/AddressService.cs - COMPLETE FIXED VERSION
 using SubashaVentures.Domain.User;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
@@ -417,6 +418,114 @@ public class AddressService : IAddressService
         }
     }
 
+    public async Task<int> GetAddressCountAsync(string userId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return 0;
+            }
+
+            var addresses = await GetUserAddressesAsync(userId);
+            return addresses.Count;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting address count");
+            _logger.LogError(ex, "Failed to get address count for user: {UserId}", userId);
+            return 0;
+        }
+    }
+
+    public async Task<AddressValidationResult> ValidateAddress(AddressViewModel address)
+    {
+        try
+        {
+            var result = new AddressValidationResult { IsValid = true };
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(address.FullName))
+            {
+                result.IsValid = false;
+                result.Errors.Add("Full name is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(address.PhoneNumber))
+            {
+                result.IsValid = false;
+                result.Errors.Add("Phone number is required");
+            }
+            else if (address.PhoneNumber.Length < 10)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Phone number must be at least 10 digits");
+            }
+
+            if (string.IsNullOrWhiteSpace(address.AddressLine1))
+            {
+                result.IsValid = false;
+                result.Errors.Add("Address line 1 is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(address.City))
+            {
+                result.IsValid = false;
+                result.Errors.Add("City is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(address.State))
+            {
+                result.IsValid = false;
+                result.Errors.Add("State is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(address.PostalCode))
+            {
+                result.IsValid = false;
+                result.Errors.Add("Postal code is required");
+            }
+            else if (address.PostalCode.Length != 6)
+            {
+                result.Warnings.Add("Nigerian postal codes are typically 6 digits");
+            }
+
+            if (string.IsNullOrWhiteSpace(address.Country))
+            {
+                result.IsValid = false;
+                result.Errors.Add("Country is required");
+            }
+
+            // Validate email if provided
+            if (!string.IsNullOrWhiteSpace(address.Email))
+            {
+                if (!address.Email.Contains("@") || !address.Email.Contains("."))
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("Invalid email format");
+                }
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Address validation: {(result.IsValid ? "PASSED" : "FAILED")} - {result.Errors.Count} errors",
+                result.IsValid ? LogLevel.Info : LogLevel.Warning
+            );
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Validating address");
+            _logger.LogError(ex, "Failed to validate address");
+            
+            return new AddressValidationResult
+            {
+                IsValid = false,
+                Errors = new List<string> { "Validation failed" }
+            };
+        }
+    }
+
     // ==================== PRIVATE HELPERS ====================
 
     private async Task<string> GetUserEmailAsync(string userId)
@@ -432,4 +541,13 @@ public class AddressService : IAddressService
             return string.Empty;
         }
     }
+}
+
+// ==================== VALIDATION RESULT MODEL ====================
+
+public class AddressValidationResult
+{
+    public bool IsValid { get; set; }
+    public List<string> Errors { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
 }
