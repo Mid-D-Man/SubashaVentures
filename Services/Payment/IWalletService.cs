@@ -35,17 +35,7 @@ public interface IWalletService
     /// <summary>
     /// Top up wallet balance via edge function
     /// </summary>
-    /// <param name="userId">User ID</param>
-    /// <param name="amount">Amount to credit</param>
-    /// <param name="paymentReference">Payment gateway reference</param>
-    /// <param name="provider">Payment provider</param>
     /// <returns>Transaction result</returns>
-    Task<WalletTransactionViewModel?> TopUpWalletAsync(
-        string userId, 
-        decimal amount, 
-        string paymentReference,
-        string provider);
-
     Task<bool> VerifyAndCreditWalletAsync(string reference, string provider);
     /// <summary>
     /// Deduct from wallet balance via edge function
