@@ -1,8 +1,9 @@
-// Services/Payment/PaymentService.cs
+// Services/Payment/PaymentService.cs - FIXED WITH CASE-INSENSITIVE JSON
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Payment;
 using SubashaVentures.Utilities.HelperScripts;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Payment;
@@ -14,6 +15,7 @@ public class PaymentService : IPaymentService
     private readonly ILogger<PaymentService> _logger;
     private readonly HttpClient _httpClient;
     private readonly PaymentConfiguration _paymentConfig;
+    private readonly JsonSerializerOptions _jsonOptions; // ✅ ADD THIS
 
     public PaymentService(
         IJSRuntime jsRuntime,
@@ -29,6 +31,18 @@ public class PaymentService : IPaymentService
         // Load payment configuration
         _paymentConfig = new PaymentConfiguration();
         configuration.GetSection("Payment").Bind(_paymentConfig);
+        
+        // ✅ CONFIGURE JSON OPTIONS FOR CASE-INSENSITIVE DESERIALIZATION
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true, // Handle property name case differences
+            Converters = 
+            { 
+                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) 
+            },
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
     }
 
     public async Task<PaymentResponse> InitializePaymentAsync(PaymentRequest request)
@@ -205,13 +219,39 @@ public class PaymentService : IPaymentService
                 config
             );
 
-            return JsonSerializer.Deserialize<PaymentResponse>(result.GetRawText()) 
-                   ?? throw new Exception("Failed to parse Paystack response");
+            var jsonString = result.GetRawText();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Paystack raw response: {jsonString}",
+                LogLevel.Debug
+            );
+
+            // ✅ USE CASE-INSENSITIVE JSON OPTIONS
+            var response = JsonSerializer.Deserialize<PaymentResponse>(jsonString, _jsonOptions);
+            
+            if (response == null)
+            {
+                throw new Exception("Failed to parse Paystack response");
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Paystack response deserialized: Success={response.Success}, Provider={response.Provider}",
+                LogLevel.Debug
+            );
+
+            return response;
         }
         catch (JSException jsEx)
         {
             await MID_HelperFunctions.LogExceptionAsync(jsEx, "Paystack JS call");
+            _logger.LogError(jsEx, "Paystack JS error: {Message}", jsEx.Message);
             throw new Exception($"Paystack initialization failed: {jsEx.Message}", jsEx);
+        }
+        catch (JsonException jsonEx)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(jsonEx, "Paystack JSON deserialization");
+            _logger.LogError(jsonEx, "Failed to deserialize Paystack response");
+            throw new Exception($"Failed to parse Paystack response: {jsonEx.Message}", jsonEx);
         }
     }
 
@@ -241,13 +281,39 @@ public class PaymentService : IPaymentService
                 config
             );
 
-            return JsonSerializer.Deserialize<PaymentResponse>(result.GetRawText()) 
-                   ?? throw new Exception("Failed to parse Flutterwave response");
+            var jsonString = result.GetRawText();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Flutterwave raw response: {jsonString}",
+                LogLevel.Debug
+            );
+
+            // ✅ USE CASE-INSENSITIVE JSON OPTIONS
+            var response = JsonSerializer.Deserialize<PaymentResponse>(jsonString, _jsonOptions);
+            
+            if (response == null)
+            {
+                throw new Exception("Failed to parse Flutterwave response");
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Flutterwave response deserialized: Success={response.Success}, Provider={response.Provider}",
+                LogLevel.Debug
+            );
+
+            return response;
         }
         catch (JSException jsEx)
         {
             await MID_HelperFunctions.LogExceptionAsync(jsEx, "Flutterwave JS call");
+            _logger.LogError(jsEx, "Flutterwave JS error: {Message}", jsEx.Message);
             throw new Exception($"Flutterwave initialization failed: {jsEx.Message}", jsEx);
+        }
+        catch (JsonException jsonEx)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(jsonEx, "Flutterwave JSON deserialization");
+            _logger.LogError(jsonEx, "Failed to deserialize Flutterwave response");
+            throw new Exception($"Failed to parse Flutterwave response: {jsonEx.Message}", jsonEx);
         }
     }
 
