@@ -167,4 +167,425 @@ public class CheckoutService : ICheckoutService
     }
 
     // Continue in next response...
+// Services/Checkout/CheckoutService.cs (CONTINUED)
+
+    public async Task<List<ShippingMethodViewModel>> GetShippingMethodsAsync(
+        string userId,
+        List<CheckoutItemViewModel> items)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "📦 Calculating shipping methods",
+                LogLevel.Info
+            );
+
+            // Calculate total weight
+            decimal totalWeight = 0;
+            foreach (var item in items)
+            {
+                var productIdInt = int.Parse(item.ProductId);
+                var product = await _productService.GetProductByIdAsync(productIdInt);
+                if (product != null)
+                {
+                    var variantKey = ProductModelExtensions.BuildVariantKey(item.Size, item.Color);
+                    var productModel = product.ToCloudModel();
+                    totalWeight += productModel.GetVariantWeight(variantKey) * item.Quantity;
+                }
+            }
+
+            var shippingMethods = new List<ShippingMethodViewModel>
+            {
+                new ShippingMethodViewModel
+                {
+                    Id = "standard",
+                    Name = "Standard Delivery",
+                    Description = "Delivery within 5-7 business days",
+                    Cost = CalculateShippingCost(totalWeight, "standard"),
+                    EstimatedDays = "5-7 days",
+                    Icon = "🚚"
+                },
+                new ShippingMethodViewModel
+                {
+                    Id = "express",
+                    Name = "Express Delivery",
+                    Description = "Delivery within 2-3 business days",
+                    Cost = CalculateShippingCost(totalWeight, "express"),
+                    EstimatedDays = "2-3 days",
+                    Icon = "⚡"
+                },
+                new ShippingMethodViewModel
+                {
+                    Id = "same-day",
+                    Name = "Same Day Delivery",
+                    Description = "Delivery within 24 hours (Lagos only)",
+                    Cost = CalculateShippingCost(totalWeight, "same-day"),
+                    EstimatedDays = "Same day",
+                    Icon = "🚀",
+                    IsAvailable = await IsSameDayAvailableAsync(userId)
+                },
+                new ShippingMethodViewModel
+                {
+                    Id = "pickup",
+                    Name = "Store Pickup",
+                    Description = "Pick up from our store",
+                    Cost = 0,
+                    EstimatedDays = "Ready in 2 hours",
+                    Icon = "🏪"
+                }
+            };
+
+            return shippingMethods.Where(m => m.IsAvailable).ToList();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting shipping methods");
+            return new List<ShippingMethodViewModel>();
+        }
+    }
+
+    private decimal CalculateShippingCost(decimal weight, string method)
+    {
+        // Base rates per kg
+        var baseRates = new Dictionary<string, decimal>
+        {
+            { "standard", 500 },
+            { "express", 1500 },
+            { "same-day", 3000 },
+            { "pickup", 0 }
+        };
+
+        if (!baseRates.ContainsKey(method))
+            return 2000; // Default
+
+        var baseRate = baseRates[method];
+        
+        // Calculate cost based on weight
+        if (weight <= 1) return baseRate;
+        if (weight <= 5) return baseRate + (weight - 1) * 200;
+        return baseRate + 800 + (weight - 5) * 300;
+    }
+
+    private async Task<bool> IsSameDayAvailableAsync(string userId)
+    {
+        try
+        {
+            // Check if user's default address is in Lagos
+            var addresses = await _userService.GetUserAddressesAsync(userId);
+            var defaultAddress = addresses.FirstOrDefault(a => a.IsDefault);
+            
+            return defaultAddress?.State?.Contains("Lagos", StringComparison.OrdinalIgnoreCase) == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<PromoCodeResult> ApplyPromoCodeAsync(string promoCode, decimal subtotal)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🎟️ Applying promo code: {promoCode}",
+                LogLevel.Info
+            );
+
+            // TODO: Query promo_codes table when implemented
+            // For now, return demo result
+            
+            if (string.IsNullOrWhiteSpace(promoCode))
+            {
+                return new PromoCodeResult
+                {
+                    IsValid = false,
+                    Message = "Promo code is required",
+                    ErrorCode = "EMPTY_CODE"
+                };
+            }
+
+            // Demo codes
+            if (promoCode.Equals("SAVE10", StringComparison.OrdinalIgnoreCase))
+            {
+                var discount = subtotal * 0.10m;
+                return new PromoCodeResult
+                {
+                    IsValid = true,
+                    Discount = discount,
+                    Message = "10% discount applied"
+                };
+            }
+
+            if (promoCode.Equals("FIRST50", StringComparison.OrdinalIgnoreCase))
+            {
+                var discount = Math.Min(subtotal * 0.05m, 5000);
+                return new PromoCodeResult
+                {
+                    IsValid = true,
+                    Discount = discount,
+                    Message = "₦5000 discount applied"
+                };
+            }
+
+            return new PromoCodeResult
+            {
+                IsValid = false,
+                Message = "Invalid or expired promo code",
+                ErrorCode = "INVALID_CODE"
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Applying promo code");
+            return new PromoCodeResult
+            {
+                IsValid = false,
+                Message = "Failed to apply promo code",
+                ErrorCode = "SYSTEM_ERROR"
+            };
+        }
+    }
+
+    public async Task<CheckoutValidationResult> ValidateCheckoutAsync(CheckoutViewModel checkout)
+    {
+        var result = new CheckoutValidationResult { IsValid = true };
+
+        try
+        {
+            // Validate items
+            if (!checkout.Items.Any())
+            {
+                result.IsValid = false;
+                result.Errors.Add("Cart is empty");
+                return result;
+            }
+
+            // Validate shipping address
+            if (checkout.ShippingAddress == null)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Shipping address is required");
+            }
+
+            // Validate payment method
+            if (checkout.PaymentMethod == PaymentMethod.Wallet)
+            {
+                // Check wallet balance (would need userId)
+                result.Warnings.Add("Ensure sufficient wallet balance");
+            }
+
+            // Validate stock availability
+            foreach (var item in checkout.Items)
+            {
+                var productIdInt = int.Parse(item.ProductId);
+                var product = await _productService.GetProductByIdAsync(productIdInt);
+
+                if (product == null)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add($"{item.Name} is no longer available");
+                    continue;
+                }
+
+                var variantKey = ProductModelExtensions.BuildVariantKey(item.Size, item.Color);
+                var stock = product.GetVariantStock(variantKey);
+
+                if (stock < item.Quantity)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add($"{item.Name} - Only {stock} available (you have {item.Quantity} in cart)");
+                }
+
+                // Check price changes
+                var currentPrice = product.GetVariantPrice(variantKey);
+                if (currentPrice != item.Price)
+                {
+                    result.Warnings.Add($"{item.Name} price has changed from ₦{item.Price:N0} to ₦{currentPrice:N0}");
+                }
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Validation: {(result.IsValid ? "PASSED" : "FAILED")} - {result.Errors.Count} errors, {result.Warnings.Count} warnings",
+                result.IsValid ? LogLevel.Info : LogLevel.Warning
+            );
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Validating checkout");
+            result.IsValid = false;
+            result.Errors.Add("Validation failed");
+            return result;
+        }
+    }
+
+    public async Task<OrderPlacementResult> PlaceOrderAsync(CheckoutViewModel checkout)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "📦 Placing order...",
+                LogLevel.Info
+            );
+
+            // Validate first
+            var validation = await ValidateCheckoutAsync(checkout);
+            if (!validation.IsValid)
+            {
+                return new OrderPlacementResult
+                {
+                    Success = false,
+                    Message = string.Join(", ", validation.Errors),
+                    ErrorCode = "VALIDATION_FAILED"
+                };
+            }
+
+            // Build edge function request
+            var edgeRequest = new CreateOrderEdgeRequest
+            {
+                UserId = checkout.ShippingAddress?.UserId ?? "",
+                CustomerName = $"{checkout.ShippingAddress?.FirstName} {checkout.ShippingAddress?.LastName}",
+                CustomerEmail = checkout.ShippingAddress?.Email ?? "",
+                CustomerPhone = checkout.ShippingAddress?.PhoneNumber ?? "",
+                Items = checkout.Items.Select(i => new OrderItemEdgeRequest
+                {
+                    ProductId = i.ProductId,
+                    ProductName = i.Name,
+                    ProductSku = i.Sku,
+                    ImageUrl = i.ImageUrl,
+                    Price = i.Price,
+                    Quantity = i.Quantity,
+                    Size = i.Size,
+                    Color = i.Color
+                }).ToList(),
+                Subtotal = checkout.Subtotal,
+                ShippingCost = checkout.ShippingCost,
+                Discount = checkout.PromoDiscount,
+                Tax = 0, // Nigeria doesn't have VAT on most retail
+                Total = checkout.Total,
+                ShippingAddressId = checkout.ShippingAddress?.Id ?? "",
+                ShippingAddress = FormatAddress(checkout.ShippingAddress),
+                ShippingMethod = checkout.ShippingMethod,
+                PaymentMethod = checkout.PaymentMethod.ToString()
+            };
+
+            // Call edge function to create order
+            var result = await _edgeFunctions.CreateOrderAsync(edgeRequest);
+
+            if (result.Success && result.Data != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Order created successfully: {result.Data.OrderNumber}",
+                    LogLevel.Info
+                );
+
+                return new OrderPlacementResult
+                {
+                    Success = true,
+                    OrderId = result.Data.OrderId,
+                    OrderNumber = result.Data.OrderNumber,
+                    Message = "Order placed successfully",
+                    PaymentStatus = checkout.PaymentMethod == PaymentMethod.Wallet 
+                        ? PaymentStatus.Paid 
+                        : PaymentStatus.Pending
+                };
+            }
+
+            return new OrderPlacementResult
+            {
+                Success = false,
+                Message = result.Message,
+                ErrorCode = result.ErrorCode ?? "ORDER_CREATION_FAILED"
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
+            return new OrderPlacementResult
+            {
+                Success = false,
+                Message = "Failed to place order",
+                ErrorCode = "SYSTEM_ERROR"
+            };
+        }
+    }
+
+    public async Task<OrderPlacementResult> ProcessPaymentAndCreateOrderAsync(
+        CheckoutViewModel checkout,
+        string paymentReference)
+    {
+        try
+        {
+            // For wallet payments, deduct first
+            if (checkout.PaymentMethod == PaymentMethod.Wallet)
+            {
+                var userId = checkout.ShippingAddress?.UserId ?? "";
+                var hasBalance = await _walletService.HasSufficientBalanceAsync(userId, checkout.Total);
+
+                if (!hasBalance)
+                {
+                    return new OrderPlacementResult
+                    {
+                        Success = false,
+                        Message = "Insufficient wallet balance",
+                        ErrorCode = "INSUFFICIENT_BALANCE",
+                        PaymentStatus = PaymentStatus.Failed
+                    };
+                }
+            }
+
+            // Create order
+            var orderResult = await PlaceOrderAsync(checkout);
+
+            if (!orderResult.Success)
+            {
+                return orderResult;
+            }
+
+            // Deduct from wallet if wallet payment
+            if (checkout.PaymentMethod == PaymentMethod.Wallet && !string.IsNullOrEmpty(orderResult.OrderId))
+            {
+                var userId = checkout.ShippingAddress?.UserId ?? "";
+                await _walletService.DeductFromWalletAsync(
+                    userId,
+                    checkout.Total,
+                    $"Payment for order {orderResult.OrderNumber}",
+                    orderResult.OrderId
+                );
+
+                orderResult.PaymentStatus = PaymentStatus.Paid;
+            }
+
+            return orderResult;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Processing payment and creating order");
+            return new OrderPlacementResult
+            {
+                Success = false,
+                Message = "Failed to process order",
+                ErrorCode = "SYSTEM_ERROR",
+                PaymentStatus = PaymentStatus.Failed
+            };
+        }
+    }
+
+    private string FormatAddress(AddressViewModel? address)
+    {
+        if (address == null) return "";
+
+        var parts = new List<string>
+        {
+            address.AddressLine1,
+            address.AddressLine2,
+            address.City,
+            address.State,
+            address.PostalCode,
+            address.Country
+        };
+
+        return string.Join(", ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
 }
