@@ -16,7 +16,7 @@ public partial class Addresses
     private List<AddressViewModel> AddressList = new();
     private Dictionary<string, bool> SelectedAddresses = new();
     private AddressViewModel CurrentAddress = new();
-    private Dictionary<string, string> ValidationErrors = new();
+    private List<string> ValidationErrors = new();
     
     private DynamicModal? AddressModal;
     private ConfirmationPopup? DeleteConfirmPopup;
@@ -138,9 +138,9 @@ public partial class Addresses
 
         // Validate using service
         var validationResult = AddressService.ValidateAddress(CurrentAddress);
-        if (!validationResult.IsValid)
+        if (!validationResult.Result.IsValid)
         {
-            ValidationErrors = validationResult.Errors;
+            ValidationErrors = validationResult.Result.Errors;
             StateHasChanged();
             return;
         }

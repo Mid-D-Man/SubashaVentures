@@ -114,23 +114,23 @@
                        Label="Full Name"
                        Placeholder="Enter full name"
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("FullName")))"
-                       ErrorMessage="@ValidationErrors.GetValueOrDefault("FullName")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("FullName")))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault("FullName")" />
 
             <InputField @bind-Value="CurrentAddress.PhoneNumber"
                        Label="Phone Number"
                        Placeholder="+234"
                        PrefixIcon="📱"
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("PhoneNumber")))"
-                       ErrorMessage="@ValidationErrors.GetValueOrDefault("PhoneNumber")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("PhoneNumber")))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault("PhoneNumber")" />
 
             <InputField @bind-Value="CurrentAddress.AddressLine1"
                        Label="Delivery Address"
                        Placeholder="Street address, P.O. Box, etc."
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("AddressLine1")))"
-                       ErrorMessage="@ValidationErrors.GetValueOrDefault("AddressLine1")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("AddressLine1")))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault("AddressLine1")" />
 
             <InputField @bind-Value="CurrentAddress.AddressLine2"
                        Label="Address Line 2 (Optional)"
@@ -152,16 +152,16 @@
                            Label="City"
                            Placeholder="Enter city"
                            IsRequired="true"
-                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("City")))"
-                           ErrorMessage="@ValidationErrors.GetValueOrDefault("City")" />
+                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("City")))"
+                           ErrorMessage="@ValidationErrors.FirstOrDefault("City")" />
             </div>
 
             <InputField @bind-Value="CurrentAddress.PostalCode"
                        Label="Postal Code"
                        Placeholder="Enter postal code"
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("PostalCode")))"
-                       ErrorMessage="@ValidationErrors.GetValueOrDefault("PostalCode")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("PostalCode")))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault("PostalCode")" />
 
             <div class="form-field">
                 <label>Address Type</label>
