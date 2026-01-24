@@ -302,7 +302,7 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
         );
 
         // ✅ USE EDGE FUNCTION SERVICE
-        var result = await _edgeFunctions.GetCardAuthorizationAsync(reference, UserEmail);
+        var result = await EdgeFunctions.GetCardAuthorizationAsync(reference, UserEmail);
 
         if (result.Success && result.Data != null)
         {
@@ -322,7 +322,7 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
     catch (Exception ex)
     {
         await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authorization code from transaction");
-        _logger.LogError(ex, "Failed to get authorization code for reference: {Reference}", reference);
+        Logger.LogError(ex, "Failed to get authorization code for reference: {Reference}", reference);
         return null;
     }
 }
@@ -518,7 +518,7 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
     catch (Exception ex)
     {
         await MID_HelperFunctions.LogExceptionAsync(ex, "Processing wallet top-up");
-        _logger.LogError(ex, "Failed to process wallet top-up for user: {UserId}", UserId);
+        Logger.LogError(ex, "Failed to process wallet top-up for user: {UserId}", UserId);
     }
     finally
     {
