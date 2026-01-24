@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Jan 24 13:13:53 UTC 2026
+Generated: Sat Jan 24 14:38:07 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: c2400c36f7274e38a1443c56d21a3a647dd08acf
+Commit: 5d6b0434a5d1a31c66c51f7bba33222307ea0f64
 Branch: master
 ==================================
 
@@ -240,6 +240,7 @@ Services/Cart/Cart/CartService.cs
 Services/Cart/Cart/ICartService.cs
 Services/Categories/CategoryService.cs
 Services/Categories/ICategoryService.cs
+Services/Checkout/CheckoutService.cs
 Services/Checkout/ICheckoutService.cs
 Services/Connectivity/ConnectivityService.cs
 Services/Firebase/FirebaseConfigService.cs
@@ -429,7 +430,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 157 files
+.cs       : 158 files
 .razor    : 71 files
 .csproj   : 1 files
 .sln      : 1 files
