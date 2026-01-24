@@ -1,236 +1,686 @@
+// Pages/Checkout/Checkout.razor.cs
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using SubashaVentures.Domain.Checkout;
+using SubashaVentures.Domain.Cart;
+using SubashaVentures.Domain.User;
+using SubashaVentures.Domain.Order;
+using SubashaVentures.Domain.Payment;
+using SubashaVentures.Services.Checkout;
+using SubashaVentures.Services.Cart;
+using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Payment;
+using SubashaVentures.Services.Authorization;
+using SubashaVentures.Components.Shared.Modals;
+using SubashaVentures.Utilities.HelperScripts;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Checkout;
 
 public partial class Checkout : ComponentBase
 {
-    // Step management
-    private int currentStep = 1;
+    [Parameter] public string Slug { get; set; } = string.Empty;
     
-    // Step 1: Shipping Information
-    private string firstName = "";
-    private string lastName = "";
-    private string phoneNumber = "";
-    private string addressLine1 = "";
-    private string addressLine2 = "";
-    private string city = "";
-    private string state = "";
-    private string postalCode = "";
-    private bool saveAddress = false;
+    // Query parameters for product-specific checkout
+    [SupplyParameterFromQuery(Name = "productId")]
+    public string? ProductId { get; set; }
     
-    // Validation errors
-    private string firstNameError = "";
-    private string lastNameError = "";
-    private string phoneError = "";
-    private string addressError = "";
-    private string cityError = "";
-    private string stateError = "";
-    private string postalError = "";
+    [SupplyParameterFromQuery(Name = "quantity")]
+    public int? Quantity { get; set; }
     
-    // Step 2: Payment Method
-    private string selectedPaymentMethod = "card";
+    [SupplyParameterFromQuery(Name = "size")]
+    public string? Size { get; set; }
     
-    // Step 3: Order details
-    private int orderItemsCount = 3;
-    private bool isProcessing = false;
+    [SupplyParameterFromQuery(Name = "color")]
+    public string? Color { get; set; }
+
+    [Inject] private ICheckoutService CheckoutService { get; set; } = default!;
+    [Inject] private ICartService CartService { get; set; } = default!;
+    [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IPaymentService PaymentService { get; set; } = default!;
+    [Inject] private IWalletService WalletService { get; set; } = default!;
+    [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private ILogger<Checkout> Logger { get; set; } = default!;
+
+    // State
+    private CheckoutViewModel? Checkout;
+    private List<AddressViewModel> UserAddresses = new();
+    private List<ShippingMethodViewModel> ShippingMethods = new();
+    private ShippingMethodViewModel? SelectedShippingMethodObj;
     
-    // Order summary
-    private decimal subtotal = 77000; // ₦77,000
-    private decimal shippingCost = 2000; // ₦2,000
-    private decimal discount = 0;
-    private decimal orderTotal => subtotal + shippingCost - discount;
+    private bool IsLoading = true;
+    private bool IsLoadingShipping = false;
+    private bool IsProcessing = false;
+    private bool ShowAddressForm = false;
+    private bool ShowSuccessModal = false;
+    private bool ShowErrorModal = false;
+    
+    private int CurrentStep = 1;
+    private string? CurrentUserId;
+    private string? SelectedAddressId;
+    private string SelectedShippingMethod = "";
+    private string SelectedPaymentMethod = "Card";
+    private bool SaveNewAddress = false;
+    private decimal WalletBalance = 0;
+    private string OrderNumber = "";
+    private string ErrorMessage = "";
+    
+    // New address form
+    private AddressViewModel NewAddress = new();
+    
+    // Modal references
+    private DynamicModal? SuccessModal;
+    private InfoPopup? ErrorPopup;
+    
+    // Computed properties
+    private bool HasValidAddress => 
+        !string.IsNullOrEmpty(SelectedAddressId) || 
+        (!string.IsNullOrEmpty(NewAddress.FirstName) && 
+         !string.IsNullOrEmpty(NewAddress.LastName) &&
+         !string.IsNullOrEmpty(NewAddress.PhoneNumber) &&
+         !string.IsNullOrEmpty(NewAddress.Email) &&
+         !string.IsNullOrEmpty(NewAddress.AddressLine1) &&
+         !string.IsNullOrEmpty(NewAddress.City) &&
+         !string.IsNullOrEmpty(NewAddress.State) &&
+         !string.IsNullOrEmpty(NewAddress.PostalCode));
+    
+    private bool IsPaymentMethodValid
+    {
+        get
+        {
+            if (SelectedPaymentMethod == "Wallet")
+            {
+                return WalletBalance >= Checkout?.Total;
+            }
+            return !string.IsNullOrEmpty(SelectedPaymentMethod);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadCheckoutData();
+        try
+        {
+            IsLoading = true;
+
+            // Ensure authenticated
+            if (!await PermissionService.EnsureAuthenticatedAsync($"checkout/{Slug}"))
+            {
+                Navigation.NavigateTo("signin", true);
+                return;
+            }
+
+            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
+            
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "User ID not found, redirecting to sign in",
+                    LogLevel.Error
+                );
+                Navigation.NavigateTo("signin", true);
+                return;
+            }
+
+            await LoadCheckoutData();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing checkout");
+            Logger.LogError(ex, "Failed to initialize checkout");
+            ErrorMessage = "Failed to load checkout. Please try again.";
+            ShowErrorModal = true;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private async Task LoadCheckoutData()
     {
-        // Load cart items, user addresses, etc.
-        // In real app: await CheckoutService.InitializeCheckout();
-        
-        await Task.Delay(100);
-        
-        // Pre-fill if user has saved address
-        // if (hasDefaultAddress) { ... }
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loading checkout data for user: {CurrentUserId}",
+                LogLevel.Info
+            );
+
+            // Determine checkout type: product-specific or cart-based
+            if (!string.IsNullOrEmpty(ProductId))
+            {
+                // Product-specific checkout
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Product checkout: {ProductId}, Qty: {Quantity}, Size: {Size}, Color: {Color}",
+                    LogLevel.Info
+                );
+                
+                Checkout = await CheckoutService.InitializeFromProductAsync(
+                    ProductId,
+                    Quantity ?? 1,
+                    Size,
+                    Color
+                );
+            }
+            else
+            {
+                // Cart-based checkout
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Cart-based checkout",
+                    LogLevel.Info
+                );
+                
+                Checkout = await CheckoutService.InitializeFromCartAsync(CurrentUserId!);
+            }
+
+            if (Checkout == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Failed to initialize checkout",
+                    LogLevel.Error
+                );
+                return;
+            }
+
+            // Load user data
+            await Task.WhenAll(
+                LoadUserAddresses(),
+                LoadWalletBalance()
+            );
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Checkout loaded: {Checkout.Items.Count} items, Total: ₦{Checkout.Total:N0}",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading checkout data");
+            throw;
+        }
     }
 
-    // Step Navigation
-    private async Task GoToPaymentStep()
+    private async Task LoadUserAddresses()
     {
-        if (!ValidateShippingInfo())
+        try
         {
+            UserAddresses = await UserService.GetUserAddressesAsync(CurrentUserId!);
+            
+            // Select default address if available
+            var defaultAddress = UserAddresses.FirstOrDefault(a => a.IsDefault);
+            if (defaultAddress != null)
+            {
+                SelectedAddressId = defaultAddress.Id;
+                UpdateCheckoutAddress(defaultAddress);
+            }
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {UserAddresses.Count} addresses",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading user addresses");
+            UserAddresses = new List<AddressViewModel>();
+        }
+    }
+
+    private async Task LoadWalletBalance()
+    {
+        try
+        {
+            var wallet = await WalletService.GetWalletAsync(CurrentUserId!);
+            WalletBalance = wallet?.Balance ?? 0;
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Wallet balance: ₦{WalletBalance:N0}",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading wallet balance");
+            WalletBalance = 0;
+        }
+    }
+
+    // ==================== STEP NAVIGATION ====================
+
+    private async Task GoToDeliveryStep()
+    {
+        if (!HasValidAddress)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Cannot proceed: Invalid address",
+                LogLevel.Warning
+            );
             return;
         }
-        
-        currentStep = 2;
-        await Task.CompletedTask;
+
+        // Save address if needed
+        if (!string.IsNullOrEmpty(SelectedAddressId))
+        {
+            var selectedAddress = UserAddresses.FirstOrDefault(a => a.Id == SelectedAddressId);
+            if (selectedAddress != null)
+            {
+                UpdateCheckoutAddress(selectedAddress);
+            }
+        }
+        else
+        {
+            // Create new address
+            var newAddress = await SaveNewAddressIfNeeded();
+            if (newAddress != null)
+            {
+                UpdateCheckoutAddress(newAddress);
+            }
+        }
+
+        // Load shipping methods
+        CurrentStep = 2;
+        await LoadShippingMethods();
     }
 
     private void GoToShippingStep()
     {
-        currentStep = 1;
+        CurrentStep = 1;
     }
 
-    private async Task GoToReviewStep()
+    private void GoToPaymentStep()
     {
-        if (string.IsNullOrEmpty(selectedPaymentMethod))
+        if (string.IsNullOrEmpty(SelectedShippingMethod))
         {
             return;
         }
-        
-        currentStep = 3;
-        await Task.CompletedTask;
+
+        CurrentStep = 3;
     }
 
-    private void SelectPaymentMethod(string method)
+    private void GoToReviewStep()
     {
-        selectedPaymentMethod = method;
+        if (!IsPaymentMethodValid)
+        {
+            return;
+        }
+
+        CurrentStep = 4;
     }
 
-    // Validation
-    private bool ValidateShippingInfo()
+    // ==================== ADDRESS MANAGEMENT ====================
+
+    private void SelectAddress(AddressViewModel address)
     {
-        ClearErrors();
-        bool isValid = true;
-        
-        if (string.IsNullOrWhiteSpace(firstName))
-        {
-            firstNameError = "First name is required";
-            isValid = false;
-        }
-        
-        if (string.IsNullOrWhiteSpace(lastName))
-        {
-            lastNameError = "Last name is required";
-            isValid = false;
-        }
-        
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-        {
-            phoneError = "Phone number is required";
-            isValid = false;
-        }
-        else if (!IsValidNigerianPhone(phoneNumber))
-        {
-            phoneError = "Please enter a valid Nigerian phone number";
-            isValid = false;
-        }
-        
-        if (string.IsNullOrWhiteSpace(addressLine1))
-        {
-            addressError = "Address is required";
-            isValid = false;
-        }
-        
-        if (string.IsNullOrWhiteSpace(city))
-        {
-            cityError = "City is required";
-            isValid = false;
-        }
-        
-        if (string.IsNullOrWhiteSpace(state))
-        {
-            stateError = "State is required";
-            isValid = false;
-        }
-        
-        if (string.IsNullOrWhiteSpace(postalCode))
-        {
-            postalError = "Postal code is required";
-            isValid = false;
-        }
-        
-        return isValid;
+        SelectedAddressId = address.Id;
+        UpdateCheckoutAddress(address);
+        StateHasChanged();
     }
 
-    private void ClearErrors()
+    private void UpdateCheckoutAddress(AddressViewModel address)
     {
-        firstNameError = "";
-        lastNameError = "";
-        phoneError = "";
-        addressError = "";
-        cityError = "";
-        stateError = "";
-        postalError = "";
+        if (Checkout == null) return;
+
+        Checkout.ShippingAddress = address;
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Shipping address selected: {address.City}, {address.State}",
+            LogLevel.Info
+        );
     }
 
-    private bool IsValidNigerianPhone(string phone)
+    private void ShowNewAddressForm()
     {
-        // Remove common formatting characters
-        var cleaned = phone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "");
-        
-        // Nigerian phone numbers: 11 digits starting with 0, or 10 digits without 0
-        // Formats: 08012345678 or 8012345678 or +2348012345678
-        if (cleaned.StartsWith("+234"))
+        ShowAddressForm = true;
+        NewAddress = new AddressViewModel
         {
-            cleaned = cleaned.Substring(4);
-        }
-        else if (cleaned.StartsWith("234"))
-        {
-            cleaned = cleaned.Substring(3);
-        }
-        else if (cleaned.StartsWith("0"))
-        {
-            cleaned = cleaned.Substring(1);
-        }
-        
-        return cleaned.Length == 10 && cleaned.All(char.IsDigit);
-    }
-
-    private string GetPaymentMethodName(string method)
-    {
-        return method switch
-        {
-            "card" => "Credit/Debit Card",
-            "transfer" => "Bank Transfer",
-            "pod" => "Pay on Delivery",
-            _ => "Unknown"
+            Country = "Nigeria",
+            UserId = CurrentUserId!
         };
     }
 
-    private async Task PlaceOrder()
+    private void HideNewAddressForm()
     {
-        if (isProcessing) return;
-        
-        isProcessing = true;
-        StateHasChanged();
-        
+        ShowAddressForm = false;
+        NewAddress = new();
+    }
+
+    private async Task<AddressViewModel?> SaveNewAddressIfNeeded()
+    {
+        if (!SaveNewAddress) return NewAddress;
+
         try
         {
-            // Simulate order processing
-            await Task.Delay(2000);
-            
-            // In real app:
-            // var order = new CreateOrderDto
-            // {
-            //     ShippingAddress = new AddressDto { ... },
-            //     PaymentMethod = selectedPaymentMethod,
-            //     Items = cartItems,
-            //     Total = orderTotal
-            // };
-            // var result = await OrderService.CreateOrder(order);
-            
-            Console.WriteLine("Order placed successfully!");
-            Console.WriteLine($"Payment Method: {selectedPaymentMethod}");
-            Console.WriteLine($"Total: ₦{orderTotal:N0}");
-            Console.WriteLine($"Shipping to: {firstName} {lastName}, {city}, {state}");
-            
-            // Navigate to order confirmation page
-            // NavigationManager.NavigateTo($"/order-confirmation/{orderId}");
-            
-            await Task.CompletedTask;
+            var savedAddress = await UserService.AddUserAddressAsync(NewAddress);
+            if (savedAddress != null)
+            {
+                UserAddresses.Add(savedAddress);
+                SelectedAddressId = savedAddress.Id;
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "New address saved successfully",
+                    LogLevel.Info
+                );
+                
+                return savedAddress;
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error placing order: {ex.Message}");
-            // Show error message to user
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving new address");
+        }
+
+        return NewAddress;
+    }
+
+    // ==================== SHIPPING METHODS ====================
+
+    private async Task LoadShippingMethods()
+    {
+        if (Checkout == null) return;
+
+        IsLoadingShipping = true;
+        StateHasChanged();
+
+        try
+        {
+            // Convert to CheckoutItemViewModel
+            var checkoutItems = Checkout.Items.Select(i => new CheckoutItemViewModel
+            {
+                ProductId = i.ProductId,
+                Name = i.Name,
+                ImageUrl = i.ImageUrl,
+                Price = i.Price,
+                Quantity = i.Quantity,
+                Size = i.Size,
+                Color = i.Color,
+                Sku = i.Sku
+            }).ToList();
+
+            ShippingMethods = await CheckoutService.GetShippingMethodsAsync(
+                CurrentUserId!,
+                checkoutItems
+            );
+
+            // Auto-select first method
+            if (ShippingMethods.Any())
+            {
+                SelectShippingMethod(ShippingMethods.First());
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {ShippingMethods.Count} shipping methods",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading shipping methods");
+            ShippingMethods = new List<ShippingMethodViewModel>();
         }
         finally
         {
-            isProcessing = false;
+            IsLoadingShipping = false;
             StateHasChanged();
         }
+    }
+
+    private void SelectShippingMethod(ShippingMethodViewModel method)
+    {
+        SelectedShippingMethod = method.Id;
+        SelectedShippingMethodObj = method;
+        
+        if (Checkout != null)
+        {
+            Checkout.ShippingMethod = method.Name;
+            Checkout.ShippingCost = method.Cost;
+            Checkout.ShippingRateId = method.Id;
+        }
+
+        StateHasChanged();
+        
+        MID_HelperFunctions.DebugMessageAsync(
+            $"Shipping method selected: {method.Name} (₦{method.Cost:N0})",
+            LogLevel.Info
+        );
+    }
+
+    // ==================== PAYMENT ====================
+
+    private void SelectPaymentMethod(string method)
+    {
+        SelectedPaymentMethod = method;
+        
+        if (Checkout != null)
+        {
+            Checkout.PaymentMethod = method switch
+            {
+                "Card" => PaymentMethod.Card,
+                "Wallet" => PaymentMethod.Wallet,
+                "PayOnDelivery" => PaymentMethod.PayOnDelivery,
+                _ => PaymentMethod.Card
+            };
+        }
+
+        StateHasChanged();
+    }
+
+    private string GetPaymentMethodDisplay(string method)
+    {
+        return method switch
+        {
+            "Card" => "Credit/Debit Card (Paystack/Flutterwave)",
+            "Wallet" => $"Wallet (Balance: {FormatCurrency(WalletBalance)})",
+            "PayOnDelivery" => "Pay on Delivery",
+            _ => method
+        };
+    }
+
+    // ==================== ORDER PLACEMENT ====================
+
+    private async Task PlaceOrder()
+    {
+        if (Checkout == null || IsProcessing) return;
+
+        IsProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Placing order: {Checkout.Items.Count} items, Total: ₦{Checkout.Total:N0}",
+                LogLevel.Info
+            );
+
+            // Validate checkout
+            var validation = await CheckoutService.ValidateCheckoutAsync(Checkout);
+            if (!validation.IsValid)
+            {
+                ErrorMessage = string.Join("\n", validation.Errors);
+                ShowErrorModal = true;
+                return;
+            }
+
+            // Handle payment based on method
+            OrderPlacementResult? result = null;
+
+            if (SelectedPaymentMethod == "Card")
+            {
+                // Card payment
+                result = await ProcessCardPayment();
+            }
+            else if (SelectedPaymentMethod == "Wallet")
+            {
+                // Wallet payment
+                result = await ProcessWalletPayment();
+            }
+            else if (SelectedPaymentMethod == "PayOnDelivery")
+            {
+                // Pay on delivery - just create order
+                result = await CheckoutService.PlaceOrderAsync(Checkout);
+            }
+
+            if (result != null && result.Success)
+            {
+                OrderNumber = result.OrderNumber ?? "";
+                
+                // Remove from cart if cart-based checkout
+                if (string.IsNullOrEmpty(ProductId))
+                {
+                    await ClearCartAfterOrder();
+                }
+                
+                ShowSuccessModal = true;
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Order placed successfully: {OrderNumber}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                ErrorMessage = result?.Message ?? "Failed to place order";
+                ShowErrorModal = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
+            Logger.LogError(ex, "Failed to place order");
+            ErrorMessage = "An error occurred while placing your order. Please try again.";
+            ShowErrorModal = true;
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<OrderPlacementResult?> ProcessCardPayment()
+    {
+        try
+        {
+            var paymentRequest = new PaymentRequest
+            {
+                Email = Checkout!.ShippingAddress!.Email,
+                CustomerName = $"{Checkout.ShippingAddress.FirstName} {Checkout.ShippingAddress.LastName}",
+                PhoneNumber = Checkout.ShippingAddress.PhoneNumber,
+                Amount = Checkout.Total,
+                Currency = "NGN",
+                Reference = PaymentService.GenerateReference(),
+                Provider = PaymentProvider.Paystack,
+                UserId = CurrentUserId,
+                Description = "Order Payment",
+                Metadata = new Dictionary<string, object>
+                {
+                    { "order_type", "ecommerce" },
+                    { "items_count", Checkout.Items.Count }
+                }
+            };
+
+            var paymentResponse = await PaymentService.InitializePaymentAsync(paymentRequest);
+
+            if (paymentResponse.Success)
+            {
+                // Payment successful, create order
+                return await CheckoutService.ProcessPaymentAndCreateOrderAsync(
+                    Checkout,
+                    paymentResponse.Reference
+                );
+            }
+
+            return new OrderPlacementResult
+            {
+                Success = false,
+                Message = paymentResponse.Message
+            };
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Processing card payment");
+            throw;
+        }
+    }
+
+    private async Task<OrderPlacementResult?> ProcessWalletPayment()
+    {
+        try
+        {
+            if (WalletBalance < Checkout!.Total)
+            {
+                return new OrderPlacementResult
+                {
+                    Success = false,
+                    Message = "Insufficient wallet balance"
+                };
+            }
+
+            // Process payment and create order
+            return await CheckoutService.ProcessPaymentAndCreateOrderAsync(
+                Checkout,
+                $"WALLET-{Guid.NewGuid()}"
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Processing wallet payment");
+            throw;
+        }
+    }
+
+    private async Task ClearCartAfterOrder()
+    {
+        try
+        {
+            await CartService.ClearCartAsync(CurrentUserId!);
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Cart cleared after successful order",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Clearing cart after order");
+            // Don't fail the order if cart clearing fails
+        }
+    }
+
+    // ==================== NAVIGATION ====================
+
+    private void NavigateToShop()
+    {
+        Navigation.NavigateTo("shop");
+    }
+
+    private void NavigateToProduct()
+    {
+        if (!string.IsNullOrEmpty(Slug))
+        {
+            Navigation.NavigateTo($"product/{Slug}");
+        }
+        else
+        {
+            Navigation.NavigateTo("shop");
+        }
+    }
+
+    private void NavigateToOrders()
+    {
+        Navigation.NavigateTo("user/orders");
+    }
+
+    private void CloseErrorModal()
+    {
+        ShowErrorModal = false;
+        ErrorMessage = "";
+    }
+
+    // ==================== UTILITIES ====================
+
+    private string FormatCurrency(decimal amount)
+    {
+        return $"₦{amount:N0}";
     }
 }
