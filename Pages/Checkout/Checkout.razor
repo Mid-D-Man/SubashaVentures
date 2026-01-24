@@ -6,7 +6,7 @@
 @using SubashaVentures.Layout.Shop
 @layout ShopLayout
 
-<PageTitle>CheckoutModel - SubashaVentures</PageTitle>
+<PageTitle>Checkout - SubashaVentures</PageTitle>
 
 <div class="checkout-page">
     @if (IsLoading)
@@ -31,7 +31,7 @@
     else
     {
         <div class="checkout-header">
-            <h1 class="checkout-title">CheckoutModel</h1>
+            <h1 class="checkout-title">Checkout</h1>
             <div class="checkout-steps">
                 <div class="step @(CurrentStep >= 1 ? "active" : "") @(CurrentStep > 1 ? "completed" : "")">
                     <span class="step-number">1</span>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="checkout-container">
-            <!-- Left: CheckoutModel Forms -->
+            <!-- Left: Checkout Forms -->
             <div class="checkout-forms">
                 @if (CurrentStep == 1)
                 {
@@ -124,8 +124,7 @@
                                                 Type="text"
                                                 @bind-Value="NewAddress.FullName"
                                                 IsRequired="true"
-                                                Placeholder="John" />
-                                    
+                                                Placeholder="John Doe" />
                                 </div>
 
                                 <InputField Label="Phone Number"
@@ -135,11 +134,11 @@
                                             IsRequired="true"
                                             Placeholder="0801 234 5678" />
 
-                                <InputField Label="Email"
+                                <InputField Label="Email (Optional)"
                                             Type="email"
                                             @bind-Value="NewAddress.Email"
                                             PrefixIcon="📧"
-                                            IsRequired="true"
+                                            IsRequired="false"
                                             Placeholder="john@example.com" />
 
                                 <InputField Label="Address Line 1"
@@ -480,7 +479,7 @@
 
                     <div class="secure-badge">
                         <span class="secure-icon">🔒</span>
-                        <span class="secure-text">Secure CheckoutModel</span>
+                        <span class="secure-text">Secure Checkout</span>
                     </div>
                 </div>
             </div>
