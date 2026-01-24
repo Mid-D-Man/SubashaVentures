@@ -1,6 +1,7 @@
 // Services/Supabase/ISupabaseEdgeFunctionService.cs
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Payment;
+using SubashaVentures.Domain.Checkout;
 
 namespace SubashaVentures.Services.Supabase;
 
@@ -20,19 +21,8 @@ public interface ISupabaseEdgeFunctionService
     
     // ==================== WALLET OPERATIONS ====================
     
-    /// <summary>
-    /// Create wallet for user (bypasses RLS)
-    /// </summary>
     Task<EdgeFunctionResponse<WalletData>> CreateWalletAsync(string userId);
-    
-    /// <summary>
-    /// Verify payment and credit wallet
-    /// </summary>
     Task<EdgeFunctionResponse<WalletCreditResult>> VerifyAndCreditWalletAsync(string reference, string provider);
-    
-    /// <summary>
-    /// Deduct from wallet
-    /// </summary>
     Task<EdgeFunctionResponse<WalletDeductionResult>> DeductFromWalletAsync(
         string userId, 
         decimal amount, 
@@ -41,23 +31,66 @@ public interface ISupabaseEdgeFunctionService
     
     // ==================== PAYMENT METHODS ====================
     
-    /// <summary>
-    /// Get authorization code from transaction
-    /// </summary>
     Task<EdgeFunctionResponse<CardAuthorizationData>> GetCardAuthorizationAsync(string reference, string email);
-    
-    /// <summary>
-    /// Verify card token with payment gateway
-    /// </summary>
     Task<EdgeFunctionResponse<CardVerificationData>> VerifyCardTokenAsync(
         string userId,
         string provider,
         string authorizationCode,
         string email);
+    
+    // ==================== ORDER CREATION ====================
+    
+    /// <summary>
+    /// Create order via edge function (bypasses RLS, handles transactions)
+    /// </summary>
+    Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(CreateOrderEdgeRequest request);
 }
 
-// ==================== RESPONSE MODELS ====================
+// ==================== ORDER REQUEST/RESPONSE MODELS ====================
 
+public class CreateOrderEdgeRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
+    public string CustomerPhone { get; set; } = string.Empty;
+    
+    public List<OrderItemEdgeRequest> Items { get; set; } = new();
+    
+    public decimal Subtotal { get; set; }
+    public decimal ShippingCost { get; set; }
+    public decimal Discount { get; set; }
+    public decimal Tax { get; set; }
+    public decimal Total { get; set; }
+    
+    public string ShippingAddressId { get; set; } = string.Empty;
+    public string ShippingAddress { get; set; } = string.Empty;
+    public string ShippingMethod { get; set; } = string.Empty;
+    
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string? PaymentReference { get; set; }
+}
+
+public class OrderItemEdgeRequest
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string ProductSku { get; set; } = string.Empty;
+    public string ImageUrl { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Quantity { get; set; }
+    public string? Size { get; set; }
+    public string? Color { get; set; }
+}
+
+public class OrderCreationResult
+{
+    public string OrderId { get; set; } = string.Empty;
+    public string OrderNumber { get; set; } = string.Empty;
+    public decimal Total { get; set; }
+}
+
+// Keep existing response models...
 public class EdgeFunctionResponse<T>
 {
     public bool Success { get; set; }
@@ -75,13 +108,6 @@ public class ProductAnalyticsUpdateResult
     public List<string> UpdatedProducts { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public DateTime ProcessedAt { get; set; }
-}
-
-public class ServerTimeResponse
-{
-    public DateTime Time { get; set; }
-    public string TimeZone { get; set; } = "UTC";
-    public string FormattedTime { get; set; } = string.Empty;
 }
 
 public class WalletData
