@@ -146,7 +146,8 @@ builder.Services.AddScoped<ProductViewTracker>();
 // Add Payment Service
 builder.Services.AddScoped<SubashaVentures.Services.Payment.IPaymentService, SubashaVentures.Services.Payment.PaymentService>();
 builder.Services.AddScoped<SubashaVentures.Services.Payment.IWalletService, SubashaVentures.Services.Payment.WalletService>();
-
+// Program.cs - ADD THIS LINE in services section
+builder.Services.AddScoped<SubashaVentures.Services.Checkout.ICheckoutService, SubashaVentures.Services.Checkout.CheckoutService>();
 var host = builder.Build();
 
 try
