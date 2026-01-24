@@ -118,6 +118,7 @@ builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
+builder.Services.AddScoped<ISupabaseEdgeFunctionService, SupabaseEdgeFunctionService>();
 
 // ==================== SHOP SERVICES - SIMPLIFIED ====================
 builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>(); // SINGLE SERVICE NOW
