@@ -138,7 +138,104 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
             return false;
         }
     }
+// Services/Supabase/SupabaseEdgeFunctionService.cs - ADD THIS METHOD
 
+public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(CreateOrderEdgeRequest request)
+{
+    try
+    {
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"📦 Creating order via edge function for user: {request.UserId}",
+            LogLevel.Info
+        );
+
+        // Validate request
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            return new EdgeFunctionResponse<OrderCreationResult>
+            {
+                Success = false,
+                Message = "User ID is required",
+                ErrorCode = "INVALID_USER_ID"
+            };
+        }
+
+        if (!request.Items.Any())
+        {
+            return new EdgeFunctionResponse<OrderCreationResult>
+            {
+                Success = false,
+                Message = "Order must contain at least one item",
+                ErrorCode = "NO_ITEMS"
+            };
+        }
+
+        // Prepare edge function request
+        var edgeRequest = new
+        {
+            userId = request.UserId,
+            customerName = request.CustomerName,
+            customerEmail = request.CustomerEmail,
+            customerPhone = request.CustomerPhone,
+            items = request.Items.Select(i => new
+            {
+                productId = i.ProductId,
+                productName = i.ProductName,
+                productSku = i.ProductSku,
+                imageUrl = i.ImageUrl,
+                price = i.Price,
+                quantity = i.Quantity,
+                size = i.Size,
+                color = i.Color
+            }).ToList(),
+            subtotal = request.Subtotal,
+            shippingCost = request.ShippingCost,
+            discount = request.Discount,
+            tax = request.Tax,
+            total = request.Total,
+            shippingAddressId = request.ShippingAddressId,
+            shippingAddress = request.ShippingAddress,
+            shippingMethod = request.ShippingMethod,
+            paymentMethod = request.PaymentMethod,
+            paymentReference = request.PaymentReference
+        };
+
+        var response = await CallEdgeFunctionAsync<OrderCreationResult>(
+            "create-order",
+            edgeRequest
+        );
+
+        if (response.Success)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Order created: {response.Data?.OrderNumber}",
+                LogLevel.Info
+            );
+        }
+        else
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"❌ Order creation failed: {response.Message}",
+                LogLevel.Error
+            );
+        }
+
+        return response;
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Creating order via edge function");
+        _logger.LogError(ex, "Failed to create order via edge function");
+
+        return new EdgeFunctionResponse<OrderCreationResult>
+        {
+            Success = false,
+            Message = $"Order creation failed: {ex.Message}",
+            ErrorCode = "EDGE_FUNCTION_ERROR",
+            ErrorDetails = ex.ToString()
+        };
+    }
+}
     // ==================== WALLET OPERATIONS ====================
 
     public async Task<EdgeFunctionResponse<WalletData>> CreateWalletAsync(string userId)
