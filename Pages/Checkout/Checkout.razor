@@ -3,8 +3,8 @@
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Layout.Main
-@layout LandingPageLayout
+@using SubashaVentures.Layout.Shop
+@layout ShopLayout
 
 <PageTitle>Checkout - SubashaVentures</PageTitle>
 
@@ -96,7 +96,7 @@
                                                 <p>@address.AddressLine2</p>
                                             }
                                             <p>@address.City, @address.State @address.PostalCode</p>
-                                            <p>@address.PhoneNumber</p>
+                                            <p>📞 @address.PhoneNumber</p>
                                         </div>
                                     </div>
                                 }
@@ -205,10 +205,13 @@
                 {
                     <!-- STEP 2: Delivery Method -->
                     <div class="checkout-section">
-                        <h2 class="section-title">
-                            <span class="title-icon">🚚</span>
-                            Delivery Method
-                        </h2>
+                        <div class="section-title-wrapper">
+                            <h2 class="section-title">
+                                <span class="title-icon">🚚</span>
+                                Delivery Method
+                            </h2>
+                            <span class="test-badge">🧪 TEST ONLY</span>
+                        </div>
 
                         @if (IsLoadingShipping)
                         {
@@ -342,7 +345,7 @@
                             <div class="review-content">
                                 @if (Checkout.ShippingAddress != null)
                                 {
-                                    <p>@Checkout.ShippingAddress.FirstName @Checkout.ShippingAddress.LastName</p>
+                                    <p><strong>@Checkout.ShippingAddress.FirstName @Checkout.ShippingAddress.LastName</strong></p>
                                     <p>@Checkout.ShippingAddress.AddressLine1</p>
                                     @if (!string.IsNullOrEmpty(Checkout.ShippingAddress.AddressLine2))
                                     {
@@ -379,7 +382,7 @@
                                 <button class="btn-edit" @onclick="GoToPaymentStep">Edit</button>
                             </div>
                             <div class="review-content">
-                                <p>@GetPaymentMethodDisplay(SelectedPaymentMethod)</p>
+                                <p><strong>@GetPaymentMethodDisplay(SelectedPaymentMethod)</strong></p>
                             </div>
                         </div>
 
