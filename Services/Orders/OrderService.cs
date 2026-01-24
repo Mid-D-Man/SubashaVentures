@@ -290,81 +290,64 @@ public class OrderService : IOrderService
     {
         try
         {
-            var now = DateTime.UtcNow;
-            var orderNumber = GenerateOrderNumber();
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📦 Creating order via edge function for user: {request.UserId}",
+                LogLevel.Info
+            );
 
-            // Parse userId to Guid
-            if (!Guid.TryParse(request.UserId, out var userGuid))
+            // Build edge function request
+            var edgeRequest = new CreateOrderEdgeRequest
             {
-                _logger.LogError("Invalid user ID format: {UserId}", request.UserId);
-                return string.Empty;
-            }
-
-            var orderModel = new OrderModel
-            {
-                Id = Guid.NewGuid(),
-                OrderNumber = orderNumber,
-                UserId = userGuid,
+                UserId = request.UserId,
                 CustomerName = request.CustomerName,
                 CustomerEmail = request.CustomerEmail,
                 CustomerPhone = request.CustomerPhone,
+                Items = request.Items.Select(i => new OrderItemEdgeRequest
+                {
+                    ProductId = i.ProductId,
+                    ProductName = i.ProductName,
+                    ProductSku = i.ProductSku,
+                    ImageUrl = i.ImageUrl,
+                    Price = i.Price,
+                    Quantity = i.Quantity,
+                    Size = i.Size,
+                    Color = i.Color
+                }).ToList(),
                 Subtotal = request.Subtotal,
                 ShippingCost = request.ShippingCost,
                 Discount = request.Discount,
                 Tax = request.Tax,
                 Total = request.Total,
                 ShippingAddressId = request.ShippingAddressId,
-                ShippingAddressSnapshot = request.ShippingAddress,
+                ShippingAddress = request.ShippingAddress,
                 ShippingMethod = request.ShippingMethod,
-                PaymentMethod = request.PaymentMethod,
-                PaymentStatus = "Pending",
-                Status = "Pending",
-                CreatedAt = now,
-                CreatedBy = request.UserId
+                PaymentMethod = request.PaymentMethod
             };
 
-            var result = await _database.InsertAsync(orderModel);
+            // Call edge function
+            var result = await _edgeFunctions.CreateOrderAsync(edgeRequest);
 
-            if (result == null || !result.Any())
+            if (result.Success && result.Data != null)
             {
-                return string.Empty;
-            }
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Order created: {result.Data.OrderNumber}",
+                    LogLevel.Info
+                );
 
-            var createdOrder = result.First();
-
-            // Create order items
-            foreach (var itemReq in request.Items)
-            {
-                var orderItem = new OrderItemModel
-                {
-                    Id = Guid.NewGuid(),
-                    OrderId = createdOrder.Id,
-                    ProductId = itemReq.ProductId,
-                    ProductName = itemReq.ProductName,
-                    ProductSku = itemReq.ProductSku,
-                    ImageUrl = itemReq.ImageUrl,
-                    Price = itemReq.Price,
-                    Quantity = itemReq.Quantity,
-                    Size = itemReq.Size,
-                    Color = itemReq.Color,
-                    Subtotal = itemReq.Price * itemReq.Quantity,
-                    CreatedAt = now,
-                    CreatedBy = request.UserId
-                };
-
-                await _database.InsertAsync(orderItem);
+                return result.Data.OrderId;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Order created: {orderNumber}",
-                LogLevel.Info
+                $"❌ Order creation failed: {result.Message}",
+                LogLevel.Error
             );
 
-            return createdOrder.Id.ToString();
+            return string.Empty;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Creating order");
+            _logger.LogError(ex, "Failed to create order");
             return string.Empty;
         }
     }
