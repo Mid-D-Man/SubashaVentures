@@ -8,7 +8,7 @@ using SubashaVentures.Domain.Order;
 using SubashaVentures.Domain.Payment;
 using SubashaVentures.Services.Checkout;
 using SubashaVentures.Services.Cart;
-using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Addresses;
 using SubashaVentures.Services.Payment;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Components.Shared.Modals;
@@ -36,7 +36,7 @@ public partial class Checkout : ComponentBase
 
     [Inject] private ICheckoutService CheckoutService { get; set; } = default!;
     [Inject] private ICartService CartService { get; set; } = default!;
-    [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IAddressService AddressService { get; set; } = default!;
     [Inject] private IPaymentService PaymentService { get; set; } = default!;
     [Inject] private IWalletService WalletService { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
@@ -77,8 +77,7 @@ public partial class Checkout : ComponentBase
     // Computed properties
     private bool HasValidAddress => 
         !string.IsNullOrEmpty(SelectedAddressId) || 
-        (!string.IsNullOrEmpty(NewAddress.FirstName) && 
-         !string.IsNullOrEmpty(NewAddress.LastName) &&
+        (!string.IsNullOrEmpty(NewAddress.FullName) &&
          !string.IsNullOrEmpty(NewAddress.PhoneNumber) &&
          !string.IsNullOrEmpty(NewAddress.Email) &&
          !string.IsNullOrEmpty(NewAddress.AddressLine1) &&
@@ -205,7 +204,7 @@ public partial class Checkout : ComponentBase
     {
         try
         {
-            UserAddresses = await UserService.GetUserAddressesAsync(CurrentUserId!);
+            UserAddresses = await AddressService.GetUserAddressesAsync(CurrentUserId!);
             
             // Select default address if available
             var defaultAddress = UserAddresses.FirstOrDefault(a => a.IsDefault);
@@ -335,7 +334,8 @@ public partial class Checkout : ComponentBase
         NewAddress = new AddressViewModel
         {
             Country = "Nigeria",
-            UserId = CurrentUserId!
+            UserId = CurrentUserId!,
+            Type = AddressType.Shipping
         };
     }
 
@@ -351,18 +351,32 @@ public partial class Checkout : ComponentBase
 
         try
         {
-            var savedAddress = await UserService.AddUserAddressAsync(NewAddress);
-            if (savedAddress != null)
+            // Prepare address for saving
+            NewAddress.UserId = CurrentUserId!;
+            
+            var success = await AddressService.AddAddressAsync(CurrentUserId!, NewAddress);
+            
+            if (success)
             {
-                UserAddresses.Add(savedAddress);
-                SelectedAddressId = savedAddress.Id;
+                // Reload addresses to get the saved one with ID
+                await LoadUserAddresses();
                 
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "New address saved successfully",
-                    LogLevel.Info
-                );
+                // Find the newly added address
+                var savedAddress = UserAddresses.FirstOrDefault(a => 
+                    a.FullName == NewAddress.FullName && 
+                    a.PhoneNumber == NewAddress.PhoneNumber);
                 
-                return savedAddress;
+                if (savedAddress != null)
+                {
+                    SelectedAddressId = savedAddress.Id;
+                    
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "New address saved successfully",
+                        LogLevel.Info
+                    );
+                    
+                    return savedAddress;
+                }
             }
         }
         catch (Exception ex)
@@ -564,7 +578,7 @@ public partial class Checkout : ComponentBase
             var paymentRequest = new PaymentRequest
             {
                 Email = Checkout!.ShippingAddress!.Email,
-                CustomerName = $"{Checkout.ShippingAddress.FirstName} {Checkout.ShippingAddress.LastName}",
+                CustomerName = Checkout.ShippingAddress.FullName,
                 PhoneNumber = Checkout.ShippingAddress.PhoneNumber,
                 Amount = Checkout.Total,
                 Currency = "NGN",
