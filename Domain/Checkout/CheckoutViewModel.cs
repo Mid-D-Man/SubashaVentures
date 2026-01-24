@@ -1,4 +1,4 @@
-// Domain/Checkout/CheckoutViewModel.cs - UPDATED
+// Domain/Checkout/CheckoutViewModel.cs - UPDATED WITH SKU
 using SubashaVentures.Domain.Cart;
 using SubashaVentures.Domain.User;
 using SubashaVentures.Domain.Order;
@@ -36,7 +36,7 @@ public class CheckoutViewModel
     public bool IsValid => Items.Any() && ShippingAddress != null;
 }
 
-// NEW: Checkout-specific item model
+// Checkout-specific item model (includes SKU)
 public class CheckoutItemViewModel
 {
     public string ProductId { get; set; } = string.Empty;
@@ -46,6 +46,6 @@ public class CheckoutItemViewModel
     public int Quantity { get; set; }
     public string? Size { get; set; }
     public string? Color { get; set; }
-    public string Sku { get; set; } = string.Empty;
+    public string Sku { get; set; } = string.Empty; // SKU field added
     public decimal Subtotal => Price * Quantity;
 }
