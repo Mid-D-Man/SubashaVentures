@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseEdgeFunctionService.cs - COMPLETE IMPLEMENTATION
+// Services/Supabase/SupabaseEdgeFunctionService.cs - FIXED
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -28,6 +28,7 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     private const string DEDUCT_WALLET_FUNCTION = "deduct-from-wallet";
     private const string GET_CARD_AUTH_FUNCTION = "get-card-authorization";
     private const string VERIFY_CARD_TOKEN_FUNCTION = "verify-card-token";
+    private const string CREATE_ORDER_FUNCTION = "create-order";
 
     public SupabaseEdgeFunctionService(
         HttpClient httpClient,
@@ -91,7 +92,7 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
                 if (timeResponse != null)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"✓ Server time retrieved: {timeResponse.Time}",
+                        $"Server time retrieved: {timeResponse.Time}",
                         LogLevel.Debug
                     );
                     return timeResponse.Time;
@@ -125,7 +126,7 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
             var isHealthy = response.IsSuccessStatusCode;
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Edge function health check: {(isHealthy ? "✓ Healthy" : "✗ Unhealthy")}",
+                $"Edge function health check: {(isHealthy ? "Healthy" : "Unhealthy")}",
                 isHealthy ? LogLevel.Info : LogLevel.Warning
             );
 
@@ -138,104 +139,104 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
             return false;
         }
     }
-// Services/Supabase/SupabaseEdgeFunctionService.cs - ADD THIS METHOD
 
-public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(CreateOrderEdgeRequest request)
-{
-    try
+    // ==================== ORDER CREATION ====================
+
+    public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(CreateOrderEdgeRequest request)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"📦 Creating order via edge function for user: {request.UserId}",
-            LogLevel.Info
-        );
-
-        // Validate request
-        if (string.IsNullOrWhiteSpace(request.UserId))
-        {
-            return new EdgeFunctionResponse<OrderCreationResult>
-            {
-                Success = false,
-                Message = "User ID is required",
-                ErrorCode = "INVALID_USER_ID"
-            };
-        }
-
-        if (!request.Items.Any())
-        {
-            return new EdgeFunctionResponse<OrderCreationResult>
-            {
-                Success = false,
-                Message = "Order must contain at least one item",
-                ErrorCode = "NO_ITEMS"
-            };
-        }
-
-        // Prepare edge function request
-        var edgeRequest = new
-        {
-            userId = request.UserId,
-            customerName = request.CustomerName,
-            customerEmail = request.CustomerEmail,
-            customerPhone = request.CustomerPhone,
-            items = request.Items.Select(i => new
-            {
-                productId = i.ProductId,
-                productName = i.ProductName,
-                productSku = i.ProductSku,
-                imageUrl = i.ImageUrl,
-                price = i.Price,
-                quantity = i.Quantity,
-                size = i.Size,
-                color = i.Color
-            }).ToList(),
-            subtotal = request.Subtotal,
-            shippingCost = request.ShippingCost,
-            discount = request.Discount,
-            tax = request.Tax,
-            total = request.Total,
-            shippingAddressId = request.ShippingAddressId,
-            shippingAddress = request.ShippingAddress,
-            shippingMethod = request.ShippingMethod,
-            paymentMethod = request.PaymentMethod,
-            paymentReference = request.PaymentReference
-        };
-
-        var response = await CallEdgeFunctionAsync<OrderCreationResult>(
-            "create-order",
-            edgeRequest
-        );
-
-        if (response.Success)
+        try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Order created: {response.Data?.OrderNumber}",
+                $"Creating order via edge function for user: {request.UserId}",
                 LogLevel.Info
             );
-        }
-        else
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"❌ Order creation failed: {response.Message}",
-                LogLevel.Error
-            );
-        }
 
-        return response;
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Creating order via edge function");
-        _logger.LogError(ex, "Failed to create order via edge function");
+            // Validate request
+            if (string.IsNullOrWhiteSpace(request.UserId))
+            {
+                return new EdgeFunctionResponse<OrderCreationResult>
+                {
+                    Success = false,
+                    Message = "User ID is required",
+                    ErrorCode = "INVALID_USER_ID"
+                };
+            }
 
-        return new EdgeFunctionResponse<OrderCreationResult>
+            if (!request.Items.Any())
+            {
+                return new EdgeFunctionResponse<OrderCreationResult>
+                {
+                    Success = false,
+                    Message = "Order must contain at least one item",
+                    ErrorCode = "NO_ITEMS"
+                };
+            }
+
+            // Prepare edge function request
+            var edgeRequest = new
+            {
+                userId = request.UserId,
+                customerName = request.CustomerName,
+                customerEmail = request.CustomerEmail,
+                customerPhone = request.CustomerPhone,
+                items = request.Items.Select(i => new
+                {
+                    productId = i.ProductId,
+                    productName = i.ProductName,
+                    productSku = i.ProductSku,
+                    imageUrl = i.ImageUrl,
+                    price = i.Price,
+                    quantity = i.Quantity,
+                    size = i.Size,
+                    color = i.Color
+                }).ToList(),
+                subtotal = request.Subtotal,
+                shippingCost = request.ShippingCost,
+                discount = request.Discount,
+                tax = request.Tax,
+                total = request.Total,
+                shippingAddressId = request.ShippingAddressId,
+                shippingAddress = request.ShippingAddress,
+                shippingMethod = request.ShippingMethod,
+                paymentMethod = request.PaymentMethod,
+                paymentReference = request.PaymentReference
+            };
+
+            var response = await SendEdgeFunctionRequestAsync(CREATE_ORDER_FUNCTION, edgeRequest);
+            var result = await ProcessEdgeFunctionResponse<OrderCreationResult>(response);
+
+            if (result.Success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Order created: {result.Data?.OrderNumber}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Order creation failed: {result.Message}",
+                    LogLevel.Error
+                );
+            }
+
+            return result;
+        }
+        catch (Exception ex)
         {
-            Success = false,
-            Message = $"Order creation failed: {ex.Message}",
-            ErrorCode = "EDGE_FUNCTION_ERROR",
-            ErrorDetails = ex.ToString()
-        };
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Creating order via edge function");
+            _logger.LogError(ex, "Failed to create order via edge function");
+
+            return new EdgeFunctionResponse<OrderCreationResult>
+            {
+                Success = false,
+                Message = $"Order creation failed: {ex.Message}",
+                ErrorCode = "EDGE_FUNCTION_ERROR",
+                ErrorDetails = ex.ToString()
+            };
+        }
     }
-}
+
     // ==================== WALLET OPERATIONS ====================
 
     public async Task<EdgeFunctionResponse<WalletData>> CreateWalletAsync(string userId)
@@ -277,7 +278,7 @@ public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(Cr
             if (result.Success)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Wallet credited successfully: {result.Data?.Reference}",
+                    $"Wallet credited successfully: {result.Data?.Reference}",
                     LogLevel.Info
                 );
             }
@@ -299,7 +300,7 @@ public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(Cr
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Deducting from wallet: User={userId}, Amount=₦{amount:N0}",
+                $"Deducting from wallet: User={userId}, Amount={amount:N0}",
                 LogLevel.Info
             );
 
@@ -490,4 +491,18 @@ public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(Cr
             ErrorDetails = ex.ToString()
         };
     }
+}
+
+// ==================== RESPONSE MODEL ====================
+
+public class ServerTimeResponse
+{
+    [JsonPropertyName("time")]
+    public DateTime Time { get; set; }
+    
+    [JsonPropertyName("timezone")]
+    public string Timezone { get; set; } = "UTC";
+    
+    [JsonPropertyName("utc_offset")]
+    public string UtcOffset { get; set; } = "+00:00";
 }
