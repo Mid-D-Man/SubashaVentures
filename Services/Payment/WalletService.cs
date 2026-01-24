@@ -1,4 +1,4 @@
-// Services/Payment/WalletService.cs - UPDATED TO USE EDGE FUNCTION SERVICE
+// Services/Payment/WalletService.cs - UPDATED WITH NULL CHECKS
 using SubashaVentures.Domain.Payment;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Supabase;
@@ -31,6 +31,16 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ GetWalletAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                return null;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Getting wallet for user: {userId}",
                 LogLevel.Info
@@ -68,12 +78,21 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ CreateWalletAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                return null;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Creating wallet via edge function for user: {userId}",
                 LogLevel.Info
             );
 
-            // ✅ USE EDGE FUNCTION SERVICE
             var result = await _edgeFunctions.CreateWalletAsync(userId);
 
             if (result.Success && result.Data != null)
@@ -112,7 +131,16 @@ public class WalletService : IWalletService
     {
         try
         {
-            // Try to get existing wallet
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ EnsureWalletExistsAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                return null;
+            }
+
             var wallet = await GetWalletAsync(userId);
             
             if (wallet != null)
@@ -120,7 +148,6 @@ public class WalletService : IWalletService
                 return wallet;
             }
 
-            // Create new wallet if doesn't exist
             await MID_HelperFunctions.DebugMessageAsync(
                 "Wallet not found, creating new wallet",
                 LogLevel.Info
@@ -140,12 +167,21 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(reference))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ VerifyAndCreditWalletAsync called with null/empty reference",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Manually verifying payment: {reference}",
                 LogLevel.Info
             );
 
-            // ✅ USE EDGE FUNCTION SERVICE
             var result = await _edgeFunctions.VerifyAndCreditWalletAsync(reference, provider);
 
             if (result.Success)
@@ -157,7 +193,6 @@ public class WalletService : IWalletService
                 return true;
             }
 
-            // Check if already processed
             if (result.AlreadyProcessed)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -190,9 +225,20 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+            }
+
             if (amount <= 0)
             {
-                throw new ArgumentException("Deduction amount must be greater than zero");
+                throw new ArgumentException("Deduction amount must be greater than zero", nameof(amount));
+            }
+
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                throw new ArgumentException("Description cannot be null or empty", nameof(description));
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -200,7 +246,6 @@ public class WalletService : IWalletService
                 LogLevel.Info
             );
 
-            // ✅ USE EDGE FUNCTION SERVICE
             var result = await _edgeFunctions.DeductFromWalletAsync(userId, amount, description, orderId);
 
             if (result.Success && result.Data != null)
@@ -210,7 +255,6 @@ public class WalletService : IWalletService
                     LogLevel.Info
                 );
 
-                // Fetch the transaction details
                 return await GetTransactionByReferenceAsync(result.Data.Reference);
             }
 
@@ -228,6 +272,12 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return false;
+            }
+
             var wallet = await GetWalletAsync(userId);
             return wallet != null && wallet.Balance >= amount && !wallet.IsLocked;
         }
@@ -248,6 +298,16 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ GetTransactionHistoryAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                return new List<WalletTransactionViewModel>();
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Getting transaction history for user: {userId}",
                 LogLevel.Info
@@ -281,6 +341,12 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(reference))
+            {
+                return null;
+            }
+
             var transaction = await _supabaseClient
                 .From<WalletTransactionModel>()
                 .Where(t => t.Reference == reference)
@@ -304,6 +370,16 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ GetSavedCardsAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                return new List<SavedCardViewModel>();
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Getting saved cards for user: {userId}",
                 LogLevel.Info
@@ -344,12 +420,32 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+            }
+
+            if (string.IsNullOrWhiteSpace(provider))
+            {
+                throw new ArgumentException("Provider cannot be null or empty", nameof(provider));
+            }
+
+            if (string.IsNullOrWhiteSpace(authorizationCode))
+            {
+                throw new ArgumentException("Authorization code cannot be null or empty", nameof(authorizationCode));
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                throw new ArgumentException("Email cannot be null or empty", nameof(email));
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Verifying and saving payment method: User={userId}, Provider={provider}",
                 LogLevel.Info
             );
 
-            // ✅ USE EDGE FUNCTION SERVICE
             var verificationResult = await _edgeFunctions.VerifyCardTokenAsync(
                 userId,
                 provider,
@@ -379,7 +475,6 @@ public class WalletService : IWalletService
                 LogLevel.Info
             );
 
-            // If setting as default, remove default from others first
             if (setAsDefault)
             {
                 var existingCards = await _supabaseClient
@@ -396,7 +491,6 @@ public class WalletService : IWalletService
                 }
             }
 
-            // Save payment method to database
             var paymentMethod = new UserPaymentMethodModel
             {
                 Id = Guid.NewGuid().ToString(),
@@ -443,8 +537,28 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT - THIS IS THE KEY FIX!
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ SetDefaultPaymentMethodAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                _logger.LogError("Cannot set default payment method: userId is null or empty");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(paymentMethodId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ SetDefaultPaymentMethodAsync called with null/empty paymentMethodId",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Setting default payment method: {paymentMethodId}",
+                $"Setting default payment method: User={userId}, PaymentMethod={paymentMethodId}",
                 LogLevel.Info
             );
 
@@ -453,12 +567,37 @@ public class WalletService : IWalletService
                 .Where(c => c.UserId == userId && !c.IsDeleted)
                 .Get();
 
+            if (allCards?.Models == null || !allCards.Models.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "No payment methods found for user",
+                    LogLevel.Warning
+                );
+                return false;
+            }
+
+            bool paymentMethodFound = false;
             foreach (var card in allCards.Models)
             {
-                card.IsDefault = card.Id == paymentMethodId;
+                bool shouldBeDefault = card.Id == paymentMethodId;
+                if (shouldBeDefault)
+                {
+                    paymentMethodFound = true;
+                }
+
+                card.IsDefault = shouldBeDefault;
                 card.UpdatedAt = DateTime.UtcNow;
                 card.UpdatedBy = userId;
                 await _supabaseClient.From<UserPaymentMethodModel>().Update(card);
+            }
+
+            if (!paymentMethodFound)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Payment method {paymentMethodId} not found for user {userId}",
+                    LogLevel.Warning
+                );
+                return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -471,7 +610,8 @@ public class WalletService : IWalletService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Setting default payment method");
-            _logger.LogError(ex, "Failed to set default payment method");
+            _logger.LogError(ex, "Failed to set default payment method: User={UserId}, PaymentMethod={PaymentMethodId}", 
+                userId, paymentMethodId);
             return false;
         }
     }
@@ -480,6 +620,25 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ DeletePaymentMethodAsync called with null/empty userId",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(paymentMethodId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ DeletePaymentMethodAsync called with null/empty paymentMethodId",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Deleting payment method: {paymentMethodId}",
                 LogLevel.Info
@@ -492,6 +651,10 @@ public class WalletService : IWalletService
 
             if (card == null)
             {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Payment method not found",
+                    LogLevel.Warning
+                );
                 return false;
             }
 
@@ -523,6 +686,12 @@ public class WalletService : IWalletService
     {
         try
         {
+            // ✅ VALIDATE INPUT
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return null;
+            }
+
             var card = await _supabaseClient
                 .From<UserPaymentMethodModel>()
                 .Where(c => c.UserId == userId && c.IsDefault && !c.IsDeleted)

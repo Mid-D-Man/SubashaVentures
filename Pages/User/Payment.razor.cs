@@ -1,4 +1,4 @@
-// Pages/User/Payment.razor.cs
+// Pages/User/Payment.razor.cs - UPDATED WITH VALIDATION
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Components.Shared.Modals;
@@ -14,46 +14,41 @@ namespace SubashaVentures.Pages.User;
 public partial class Payment
 {
     [Inject] private IPaymentService PaymentService { get; set; } = default!;
-[Inject] private IWalletService WalletService { get; set; } = default!;
-[Inject] private IPermissionService PermissionService { get; set; } = default!;
-[Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
-[Inject] private ISupabaseEdgeFunctionService EdgeFunctions { get; set; } = default!; //  ADD THIS
-[Inject] private NavigationManager NavigationManager { get; set; } = default!;
-[Inject] private IJSRuntime JSRuntime { get; set; } = default!;
-[Inject] private ILogger<Payment> Logger { get; set; } = default!;
-[Inject] private IConfiguration Configuration { get; set; } = default!;
+    [Inject] private IWalletService WalletService { get; set; } = default!;
+    [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
+    [Inject] private ISupabaseEdgeFunctionService EdgeFunctions { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private ILogger<Payment> Logger { get; set; } = default!;
+    [Inject] private IConfiguration Configuration { get; set; } = default!;
 
-    // State management
     private List<SavedCardViewModel> PaymentMethods = new();
     private List<WalletTransactionViewModel> Transactions = new();
     private Dictionary<string, string> ValidationErrors = new();
     
-    // Modal references
     private DynamicModal? AddPaymentModal;
     private DynamicModal? TopUpModal;
     private ConfirmationPopup? DeleteConfirmPopup;
     
-    // UI state
     private bool IsLoading = true;
     private bool IsAddPaymentModalOpen = false;
     private bool IsTopUpModalOpen = false;
     private bool IsSaving = false;
     private bool IsProcessing = false;
     
-    // Data
     private string? PaymentToDelete;
     private string TopUpAmount = "";
     private string WalletBalance = "₦0";
     private string UserId = string.Empty;
     private string UserEmail = string.Empty;
     private decimal CurrentBalance = 0;
-    private bool SetAsDefault = false; // For card saving checkbox
+    private bool SetAsDefault = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -67,15 +62,22 @@ public partial class Payment
             UserId = await PermissionService.GetCurrentUserIdAsync() ?? string.Empty;
             UserEmail = await PermissionService.GetCurrentUserEmailAsync() ?? string.Empty;
             
+            // ✅ CRITICAL: Validate we have userId before proceeding
             if (string.IsNullOrEmpty(UserId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "User ID not found, redirecting to sign in",
-                    LogLevel.Warning
+                    "❌ User ID not found after authentication, redirecting to sign in",
+                    LogLevel.Error
                 );
+                Logger.LogError("User ID is null or empty after successful authentication check");
                 NavigationManager.NavigateTo("signin", true);
                 return;
             }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ User authenticated: ID={UserId}, Email={UserEmail}",
+                LogLevel.Info
+            );
 
             await LoadPaymentData();
         }
@@ -93,12 +95,23 @@ public partial class Payment
 
         try
         {
+            // ✅ DOUBLE-CHECK userId before making any calls
+            if (string.IsNullOrEmpty(UserId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cannot load payment data: UserId is null or empty",
+                    LogLevel.Error
+                );
+                IsLoading = false;
+                StateHasChanged();
+                return;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Loading payment data for user: {UserId}",
                 LogLevel.Info
             );
 
-            // Ensure wallet exists (will create if needed via edge function)
             var wallet = await WalletService.EnsureWalletExistsAsync(UserId);
             
             if (wallet != null)
@@ -118,12 +131,10 @@ public partial class Payment
                     LogLevel.Warning
                 );
                 
-                // Set defaults
                 CurrentBalance = 0;
                 WalletBalance = "₦0";
             }
 
-            // Load saved cards
             PaymentMethods = await WalletService.GetSavedCardsAsync(UserId);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -131,7 +142,6 @@ public partial class Payment
                 LogLevel.Info
             );
 
-            // Load recent transactions
             Transactions = await WalletService.GetTransactionHistoryAsync(UserId, 0, 10);
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -176,13 +186,24 @@ public partial class Payment
 
         try
         {
+            // ✅ VALIDATE userId before proceeding
+            if (string.IsNullOrEmpty(UserId))
+            {
+                ValidationErrors["General"] = "User session expired. Please sign in again.";
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cannot save payment method: UserId is null or empty",
+                    LogLevel.Error
+                );
+                IsSaving = false;
+                StateHasChanged();
+                return;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 "Opening Paystack to collect card details securely",
                 LogLevel.Info
             );
 
-            // Step 1: Open Paystack modal for user to enter card
-            // This will charge ₦50 and return a transaction reference
             var tokenResult = await JSRuntime.InvokeAsync<PaystackTokenResult>(
                 "paymentHandler.tokenizeCardForSaving",
                 UserEmail,
@@ -210,7 +231,6 @@ public partial class Payment
                 LogLevel.Info
             );
 
-            // Step 2: Get authorization code from backend by verifying the transaction
             await MID_HelperFunctions.DebugMessageAsync(
                 "Retrieving authorization code from transaction...",
                 LogLevel.Info
@@ -229,7 +249,6 @@ public partial class Payment
                 LogLevel.Info
             );
 
-            // Step 3: Save payment method with authorization code
             var savedCard = await WalletService.SavePaymentMethodAsync(
                 UserId,
                 "paystack",
@@ -248,7 +267,6 @@ public partial class Payment
                 PaymentMethods.Add(savedCard);
                 CloseAddPaymentModal();
                 
-                // Reload data to get updated info
                 await LoadPaymentData();
             }
             else
@@ -286,53 +304,72 @@ public partial class Payment
         }
     }
 
-    /// <summary>
-    /// Get authorization code from Paystack transaction via edge function
-    /// </summary>
-    /// <summary>
-/// Get authorization code from Paystack transaction via edge function
-/// </summary>
-private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string reference)
-{
-    try
+    private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string reference)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"🔄 Getting authorization code for reference: {reference}",
-            LogLevel.Info
-        );
-
-        // ✅ USE EDGE FUNCTION SERVICE
-        var result = await EdgeFunctions.GetCardAuthorizationAsync(reference, UserEmail);
-
-        if (result.Success && result.Data != null)
+        try
         {
+            // ✅ VALIDATE userId
+            if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(UserEmail))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cannot get authorization code: UserId or UserEmail is null",
+                    LogLevel.Error
+                );
+                return null;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Authorization code retrieved successfully",
+                $"🔄 Getting authorization code for reference: {reference}",
                 LogLevel.Info
             );
-            return result.Data.AuthorizationCode;
-        }
 
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Failed to get authorization code: {result.Message}",
-            LogLevel.Warning
-        );
-        return null;
+            var result = await EdgeFunctions.GetCardAuthorizationAsync(reference, UserEmail);
+
+            if (result.Success && result.Data != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Authorization code retrieved successfully",
+                    LogLevel.Info
+                );
+                return result.Data.AuthorizationCode;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Failed to get authorization code: {result.Message}",
+                LogLevel.Warning
+            );
+            return null;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authorization code from transaction");
+            Logger.LogError(ex, "Failed to get authorization code for reference: {Reference}", reference);
+            return null;
+        }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Getting authorization code from transaction");
-        Logger.LogError(ex, "Failed to get authorization code for reference: {Reference}", reference);
-        return null;
-    }
-}
 
     private async Task SetDefaultPayment(string paymentId)
     {
         try
         {
+            // ✅ VALIDATE userId BEFORE calling service - THIS IS THE CRITICAL FIX!
+            if (string.IsNullOrEmpty(UserId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cannot set default payment: User not authenticated",
+                    LogLevel.Error
+                );
+                
+                Logger.LogError("Cannot set default payment method: UserId is null or empty");
+                
+                // Show error to user
+                await JSRuntime.InvokeVoidAsync("alert", "Session expired. Please sign in again.");
+                NavigationManager.NavigateTo("signin", true);
+                return;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Setting default payment method: {paymentId}",
+                $"Setting default payment method: {paymentId} for user: {UserId}",
                 LogLevel.Info
             );
 
@@ -340,7 +377,6 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
 
             if (success)
             {
-                // Update local state
                 foreach (var method in PaymentMethods)
                 {
                     method.IsDefault = method.Id == paymentId;
@@ -352,6 +388,13 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
                 );
 
                 StateHasChanged();
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Failed to set default payment method",
+                    LogLevel.Warning
+                );
             }
         }
         catch (Exception ex)
@@ -374,6 +417,16 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
 
         try
         {
+            // ✅ VALIDATE userId
+            if (string.IsNullOrEmpty(UserId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cannot delete payment method: User not authenticated",
+                    LogLevel.Error
+                );
+                return;
+            }
+
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Deleting payment method: {PaymentToDelete}",
                 LogLevel.Info
@@ -418,114 +471,116 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
     }
 
     private async Task ProcessTopUp()
-{
-    if (string.IsNullOrWhiteSpace(TopUpAmount) || 
-        !decimal.TryParse(TopUpAmount, out decimal amount) || 
-        amount < 1000)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            "Invalid top-up amount (minimum ₦1,000)",
-            LogLevel.Warning
-        );
-        return;
-    }
-
-    IsProcessing = true;
-    StateHasChanged();
-
-    try
-    {
-        // ✅ FIX: Use Nigerian culture for currency formatting
-        var cultureInfo = new System.Globalization.CultureInfo("en-NG");
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Initiating wallet top-up: {amount.ToString("C0", cultureInfo)}",
-            LogLevel.Info
-        );
-
-        if (string.IsNullOrEmpty(UserEmail))
+        if (string.IsNullOrWhiteSpace(TopUpAmount) || 
+            !decimal.TryParse(TopUpAmount, out decimal amount) || 
+            amount < 1000)
         {
-            throw new Exception("User email not found");
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Invalid top-up amount (minimum ₦1,000)",
+                LogLevel.Warning
+            );
+            return;
         }
 
-        // Initialize payment with Paystack/Flutterwave
-        var paymentRequest = new PaymentRequest
+        // ✅ VALIDATE userId
+        if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(UserEmail))
         {
-            Email = UserEmail,
-            CustomerName = UserEmail,
-            Amount = amount,
-            Currency = "NGN",
-            Reference = PaymentService.GenerateReference(),
-            Provider = PaymentProvider.Paystack, // ✅ Can switch to Flutterwave if needed
-            Description = "Wallet Top-Up",
-            UserId = UserId,
-            Metadata = new Dictionary<string, object>
+            await MID_HelperFunctions.DebugMessageAsync(
+                "❌ Cannot process top-up: User not authenticated",
+                LogLevel.Error
+            );
+            await JSRuntime.InvokeVoidAsync("alert", "Session expired. Please sign in again.");
+            NavigationManager.NavigateTo("signin", true);
+            return;
+        }
+
+        IsProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            var cultureInfo = new System.Globalization.CultureInfo("en-NG");
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Initiating wallet top-up: {amount.ToString("C0", cultureInfo)}",
+                LogLevel.Info
+            );
+
+            var paymentRequest = new PaymentRequest
             {
-                { "type", "wallet_topup" },
-                { "user_id", UserId },
-                { "amount", amount }
-            }
-        };
+                Email = UserEmail,
+                CustomerName = UserEmail,
+                Amount = amount,
+                Currency = "NGN",
+                Reference = PaymentService.GenerateReference(),
+                Provider = PaymentProvider.Paystack,
+                Description = "Wallet Top-Up",
+                UserId = UserId,
+                Metadata = new Dictionary<string, object>
+                {
+                    { "type", "wallet_topup" },
+                    { "user_id", UserId },
+                    { "amount", amount }
+                }
+            };
 
-        var paymentResponse = await PaymentService.InitializePaymentAsync(paymentRequest);
+            var paymentResponse = await PaymentService.InitializePaymentAsync(paymentRequest);
 
-        if (paymentResponse.Success)
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Payment completed: {paymentResponse.Reference}",
-                LogLevel.Info
-            );
-
-            CloseTopUpModal();
-            
-            // Manually verify and credit wallet
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Verifying payment and crediting wallet...",
-                LogLevel.Info
-            );
-
-            // ✅ USE WALLET SERVICE (which now uses Edge Function Service)
-            var verified = await WalletService.VerifyAndCreditWalletAsync(
-                paymentResponse.Reference,
-                paymentRequest.Provider.ToString().ToLower() // "paystack" or "flutterwave"
-            );
-
-            if (verified)
+            if (paymentResponse.Success)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Wallet credited successfully!",
+                    $"✓ Payment completed: {paymentResponse.Reference}",
                     LogLevel.Info
                 );
+
+                CloseTopUpModal();
                 
-                // Reload wallet data
-                await LoadPaymentData();
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Verifying payment and crediting wallet...",
+                    LogLevel.Info
+                );
+
+                var verified = await WalletService.VerifyAndCreditWalletAsync(
+                    paymentResponse.Reference,
+                    paymentRequest.Provider.ToString().ToLower()
+                );
+
+                if (verified)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "✅ Wallet credited successfully!",
+                        LogLevel.Info
+                    );
+                    
+                    await LoadPaymentData();
+                }
+                else
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "⚠️ Payment verification pending. Please check your wallet in a few moments.",
+                        LogLevel.Warning
+                    );
+                }
             }
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "⚠️ Payment verification pending. Please check your wallet in a few moments.",
-                    LogLevel.Warning
+                    $"Payment failed: {paymentResponse.Message}",
+                    LogLevel.Error
                 );
             }
         }
-        else
+        catch (Exception ex)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Payment failed: {paymentResponse.Message}",
-                LogLevel.Error
-            );
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Processing wallet top-up");
+            Logger.LogError(ex, "Failed to process wallet top-up for user: {UserId}", UserId);
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
         }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Processing wallet top-up");
-        Logger.LogError(ex, "Failed to process wallet top-up for user: {UserId}", UserId);
-    }
-    finally
-    {
-        IsProcessing = false;
-        StateHasChanged();
-    }
-}
 
     // ==================== NAVIGATION ====================
 
@@ -541,10 +596,6 @@ private async Task<string?> GetAuthorizationCodeFromTransactionAsync(string refe
 
     // ==================== VIEW MODELS ====================
 
-    /// <summary>
-    /// Response from Paystack tokenization JavaScript call
-    /// NOW: Just returns the transaction reference, not the authorization code
-    /// </summary>
     private class PaystackTokenResult
     {
         public bool Success { get; set; }
