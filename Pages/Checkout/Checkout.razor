@@ -1,270 +1,523 @@
-@page "/checkout"
+@page "/checkout/{slug}"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Layout.Main
 @layout LandingPageLayout
 
+<PageTitle>Checkout - SubashaVentures</PageTitle>
+
 <div class="checkout-page">
-    <div class="page-header">
-        <h1 class="page-title">Checkout</h1>
-        <div class="checkout-steps">
-            <div class="step @(currentStep >= 1 ? "active" : "") @(currentStep > 1 ? "completed" : "")">
-                <span class="step-number">1</span>
-                <span class="step-label">Shipping</span>
-            </div>
-            <div class="step-divider"></div>
-            <div class="step @(currentStep >= 2 ? "active" : "") @(currentStep > 2 ? "completed" : "")">
-                <span class="step-number">2</span>
-                <span class="step-label">Payment</span>
-            </div>
-            <div class="step-divider"></div>
-            <div class="step @(currentStep >= 3 ? "active" : "")">
-                <span class="step-number">3</span>
-                <span class="step-label">Review</span>
+    @if (IsLoading)
+    {
+        <div class="checkout-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                            Message="Loading checkout..." />
+        </div>
+    }
+    else if (Checkout == null || !Checkout.Items.Any())
+    {
+        <div class="empty-checkout">
+            <div class="empty-icon">🛒</div>
+            <h2>Your cart is empty</h2>
+            <p>Add items to your cart before checking out</p>
+            <PrimaryButton OnClick="NavigateToShop"
+                           Size="PrimaryButton.ButtonSize.Large">
+                Continue Shopping
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="checkout-header">
+            <h1 class="checkout-title">Checkout</h1>
+            <div class="checkout-steps">
+                <div class="step @(CurrentStep >= 1 ? "active" : "") @(CurrentStep > 1 ? "completed" : "")">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Shipping</span>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step @(CurrentStep >= 2 ? "active" : "") @(CurrentStep > 2 ? "completed" : "")">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Delivery</span>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step @(CurrentStep >= 3 ? "active" : "") @(CurrentStep > 3 ? "completed" : "")">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Payment</span>
+                </div>
+                <div class="step-divider"></div>
+                <div class="step @(CurrentStep >= 4 ? "active" : "")">
+                    <span class="step-number">4</span>
+                    <span class="step-label">Review</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="checkout-container">
-        <!-- Left: Checkout Forms -->
-        <div class="checkout-forms">
-            @if (currentStep == 1)
-            {
-                <!-- Step 1: Shipping Information -->
-                <div class="checkout-section">
-                    <h2 class="section-title">Shipping Information</h2>
-                    
-                    <div class="form-grid">
-                        <InputField Label="First Name"
-                                    Type="text"
-                                    @bind-Value="firstName"
-                                    IsRequired="true"
-                                    HasError="@(!string.IsNullOrEmpty(firstNameError))"
-                                    ErrorMessage="@firstNameError" />
+        <div class="checkout-container">
+            <!-- Left: Checkout Forms -->
+            <div class="checkout-forms">
+                @if (CurrentStep == 1)
+                {
+                    <!-- STEP 1: Shipping Address -->
+                    <div class="checkout-section">
+                        <h2 class="section-title">
+                            <span class="title-icon">📍</span>
+                            Shipping Address
+                        </h2>
+
+                        @if (UserAddresses.Any())
+                        {
+                            <div class="saved-addresses">
+                                <p class="section-hint">Select a saved address or enter a new one</p>
+                                
+                                @foreach (var address in UserAddresses)
+                                {
+                                    <div class="address-card @(SelectedAddressId == address.Id ? "selected" : "")"
+                                         @onclick="() => SelectAddress(address)">
+                                        <div class="address-header">
+                                            <input type="radio" 
+                                                   name="address" 
+                                                   checked="@(SelectedAddressId == address.Id)"
+                                                   @onclick:stopPropagation />
+                                            <div class="address-info">
+                                                <span class="address-name">@address.FirstName @address.LastName</span>
+                                                @if (address.IsDefault)
+                                                {
+                                                    <span class="default-badge">Default</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="address-details">
+                                            <p>@address.AddressLine1</p>
+                                            @if (!string.IsNullOrEmpty(address.AddressLine2))
+                                            {
+                                                <p>@address.AddressLine2</p>
+                                            }
+                                            <p>@address.City, @address.State @address.PostalCode</p>
+                                            <p>@address.PhoneNumber</p>
+                                        </div>
+                                    </div>
+                                }
+                                
+                                <button class="btn-add-address" @onclick="ShowNewAddressForm">
+                                    <span>➕</span>
+                                    <span>Add New Address</span>
+                                </button>
+                            </div>
+                        }
                         
-                        <InputField Label="Last Name"
-                                    Type="text"
-                                    @bind-Value="lastName"
-                                    IsRequired="true"
-                                    HasError="@(!string.IsNullOrEmpty(lastNameError))"
-                                    ErrorMessage="@lastNameError" />
+                        @if (!UserAddresses.Any() || ShowAddressForm)
+                        {
+                            <div class="new-address-form">
+                                @if (UserAddresses.Any())
+                                {
+                                    <div class="form-header">
+                                        <h3>New Address</h3>
+                                        <button class="btn-cancel" @onclick="HideNewAddressForm">✕</button>
+                                    </div>
+                                }
+                                
+                                <div class="form-grid">
+                                    <InputField Label="First Name"
+                                                Type="text"
+                                                @bind-Value="NewAddress.FirstName"
+                                                IsRequired="true"
+                                                Placeholder="John" />
+                                    
+                                    <InputField Label="Last Name"
+                                                Type="text"
+                                                @bind-Value="NewAddress.LastName"
+                                                IsRequired="true"
+                                                Placeholder="Doe" />
+                                </div>
+
+                                <InputField Label="Phone Number"
+                                            Type="tel"
+                                            @bind-Value="NewAddress.PhoneNumber"
+                                            PrefixIcon="📞"
+                                            IsRequired="true"
+                                            Placeholder="0801 234 5678" />
+
+                                <InputField Label="Email"
+                                            Type="email"
+                                            @bind-Value="NewAddress.Email"
+                                            PrefixIcon="📧"
+                                            IsRequired="true"
+                                            Placeholder="john@example.com" />
+
+                                <InputField Label="Address Line 1"
+                                            Type="text"
+                                            @bind-Value="NewAddress.AddressLine1"
+                                            IsRequired="true"
+                                            Placeholder="Street address, P.O. box" />
+
+                                <InputField Label="Address Line 2 (Optional)"
+                                            Type="text"
+                                            @bind-Value="NewAddress.AddressLine2"
+                                            Placeholder="Apartment, suite, unit, building, floor" />
+
+                                <div class="form-grid">
+                                    <InputField Label="City"
+                                                Type="text"
+                                                @bind-Value="NewAddress.City"
+                                                IsRequired="true"
+                                                Placeholder="Lagos" />
+                                    
+                                    <InputField Label="State"
+                                                Type="text"
+                                                @bind-Value="NewAddress.State"
+                                                IsRequired="true"
+                                                Placeholder="Lagos" />
+                                </div>
+
+                                <InputField Label="Postal Code"
+                                            Type="text"
+                                            @bind-Value="NewAddress.PostalCode"
+                                            IsRequired="true"
+                                            MaxLength="6"
+                                            Placeholder="100001" />
+
+                                <div class="form-checkbox">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" @bind="SaveNewAddress" />
+                                        <span>Save this address for future orders</span>
+                                    </label>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="section-actions">
+                            <button class="btn-back" @onclick="NavigateToProduct">
+                                <span>←</span>
+                                <span>Back to Product</span>
+                            </button>
+                            <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                                           OnClick="GoToDeliveryStep"
+                                           IsDisabled="@(!HasValidAddress)">
+                                Continue to Delivery
+                            </PrimaryButton>
+                        </div>
                     </div>
+                }
+                else if (CurrentStep == 2)
+                {
+                    <!-- STEP 2: Delivery Method -->
+                    <div class="checkout-section">
+                        <h2 class="section-title">
+                            <span class="title-icon">🚚</span>
+                            Delivery Method
+                        </h2>
 
-                    <InputField Label="Phone Number"
-                                Type="tel"
-                                @bind-Value="phoneNumber"
-                                PrefixIcon="📞"
-                                IsRequired="true"
-                                HasError="@(!string.IsNullOrEmpty(phoneError))"
-                                ErrorMessage="@phoneError" />
+                        @if (IsLoadingShipping)
+                        {
+                            <div class="loading-shipping">
+                                <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium"
+                                                Message="Calculating shipping options..." />
+                            </div>
+                        }
+                        else if (ShippingMethods.Any())
+                        {
+                            <div class="shipping-methods">
+                                @foreach (var method in ShippingMethods)
+                                {
+                                    <label class="shipping-option @(SelectedShippingMethod == method.Id ? "selected" : "")"
+                                           @onclick="() => SelectShippingMethod(method)">
+                                        <input type="radio" 
+                                               name="shipping" 
+                                               value="@method.Id"
+                                               checked="@(SelectedShippingMethod == method.Id)" />
+                                        <div class="shipping-content">
+                                            <span class="shipping-icon">@method.Icon</span>
+                                            <div class="shipping-details">
+                                                <span class="shipping-name">@method.Name</span>
+                                                <span class="shipping-desc">@method.Description</span>
+                                                <span class="shipping-eta">⏱️ @method.EstimatedDays</span>
+                                            </div>
+                                            <div class="shipping-price">
+                                                <span class="price-label">@method.DisplayCost</span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                }
+                            </div>
+                        }
 
-                    <InputField Label="Address Line 1"
-                                Type="text"
-                                @bind-Value="addressLine1"
-                                Placeholder="Street address, P.O. box"
-                                IsRequired="true"
-                                HasError="@(!string.IsNullOrEmpty(addressError))"
-                                ErrorMessage="@addressError" />
-
-                    <InputField Label="Address Line 2 (Optional)"
-                                Type="text"
-                                @bind-Value="addressLine2"
-                                Placeholder="Apartment, suite, unit, building, floor, etc." />
-
-                    <div class="form-grid">
-                        <InputField Label="City"
-                                    Type="text"
-                                    @bind-Value="city"
-                                    IsRequired="true"
-                                    HasError="@(!string.IsNullOrEmpty(cityError))"
-                                    ErrorMessage="@cityError" />
-                        
-                        <InputField Label="State"
-                                    Type="text"
-                                    @bind-Value="state"
-                                    IsRequired="true"
-                                    HasError="@(!string.IsNullOrEmpty(stateError))"
-                                    ErrorMessage="@stateError" />
+                        <div class="section-actions">
+                            <button class="btn-back" @onclick="GoToShippingStep">
+                                <span>←</span>
+                                <span>Back to Shipping</span>
+                            </button>
+                            <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                                           OnClick="GoToPaymentStep"
+                                           IsDisabled="@string.IsNullOrEmpty(SelectedShippingMethod)">
+                                Continue to Payment
+                            </PrimaryButton>
+                        </div>
                     </div>
+                }
+                else if (CurrentStep == 3)
+                {
+                    <!-- STEP 3: Payment Method -->
+                    <div class="checkout-section">
+                        <h2 class="section-title">
+                            <span class="title-icon">💳</span>
+                            Payment Method
+                        </h2>
 
-                    <InputField Label="Postal Code"
-                                Type="text"
-                                @bind-Value="postalCode"
-                                IsRequired="true"
-                                MaxLength="6"
-                                HasError="@(!string.IsNullOrEmpty(postalError))"
-                                ErrorMessage="@postalError" />
+                        <div class="payment-methods">
+                            <label class="payment-option @(SelectedPaymentMethod == "Card" ? "selected" : "")"
+                                   @onclick='() => SelectPaymentMethod("Card")'>
+                                <input type="radio" name="payment" value="Card" checked="@(SelectedPaymentMethod == "Card")" />
+                                <div class="payment-content">
+                                    <span class="payment-icon">💳</span>
+                                    <div class="payment-details">
+                                        <span class="payment-name">Credit/Debit Card</span>
+                                        <span class="payment-desc">Pay securely with Paystack or Flutterwave</span>
+                                    </div>
+                                </div>
+                            </label>
 
-                    <div class="save-address-checkbox">
-                        <label class="checkbox-label">
-                            <input type="checkbox" @bind="saveAddress" />
-                            <span>Save this address for future orders</span>
-                        </label>
+                            @if (WalletBalance > 0)
+                            {
+                                <label class="payment-option @(SelectedPaymentMethod == "Wallet" ? "selected" : "")"
+                                       @onclick='() => SelectPaymentMethod("Wallet")'>
+                                    <input type="radio" name="payment" value="Wallet" checked="@(SelectedPaymentMethod == "Wallet")" />
+                                    <div class="payment-content">
+                                        <span class="payment-icon">👛</span>
+                                        <div class="payment-details">
+                                            <span class="payment-name">Wallet</span>
+                                            <span class="payment-desc">Balance: @FormatCurrency(WalletBalance)</span>
+                                            @if (WalletBalance < Checkout.Total)
+                                            {
+                                                <span class="payment-warning">⚠️ Insufficient balance</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </label>
+                            }
+
+                            <label class="payment-option @(SelectedPaymentMethod == "PayOnDelivery" ? "selected" : "")"
+                                   @onclick='() => SelectPaymentMethod("PayOnDelivery")'>
+                                <input type="radio" name="payment" value="PayOnDelivery" checked="@(SelectedPaymentMethod == "PayOnDelivery")" />
+                                <div class="payment-content">
+                                    <span class="payment-icon">💰</span>
+                                    <div class="payment-details">
+                                        <span class="payment-name">Pay on Delivery</span>
+                                        <span class="payment-desc">Pay when you receive your order</span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="section-actions">
+                            <button class="btn-back" @onclick="GoToDeliveryStep">
+                                <span>←</span>
+                                <span>Back to Delivery</span>
+                            </button>
+                            <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                                           OnClick="GoToReviewStep"
+                                           IsDisabled="@(!IsPaymentMethodValid)">
+                                Continue to Review
+                            </PrimaryButton>
+                        </div>
                     </div>
+                }
+                else if (CurrentStep == 4)
+                {
+                    <!-- STEP 4: Review Order -->
+                    <div class="checkout-section">
+                        <h2 class="section-title">
+                            <span class="title-icon">📋</span>
+                            Review Your Order
+                        </h2>
 
-                    <div class="section-actions">
-                        <a href="cart" class="back-link">← Back to Cart</a>
-                        <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
-                                       OnClick="GoToPaymentStep">
-                            Continue to Payment
-                        </PrimaryButton>
+                        <!-- Shipping Address Review -->
+                        <div class="review-card">
+                            <div class="review-header">
+                                <h3>Shipping Address</h3>
+                                <button class="btn-edit" @onclick="GoToShippingStep">Edit</button>
+                            </div>
+                            <div class="review-content">
+                                @if (Checkout.ShippingAddress != null)
+                                {
+                                    <p>@Checkout.ShippingAddress.FirstName @Checkout.ShippingAddress.LastName</p>
+                                    <p>@Checkout.ShippingAddress.AddressLine1</p>
+                                    @if (!string.IsNullOrEmpty(Checkout.ShippingAddress.AddressLine2))
+                                    {
+                                        <p>@Checkout.ShippingAddress.AddressLine2</p>
+                                    }
+                                    <p>@Checkout.ShippingAddress.City, @Checkout.ShippingAddress.State @Checkout.ShippingAddress.PostalCode</p>
+                                    <p>📞 @Checkout.ShippingAddress.PhoneNumber</p>
+                                    <p>📧 @Checkout.ShippingAddress.Email</p>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Delivery Method Review -->
+                        <div class="review-card">
+                            <div class="review-header">
+                                <h3>Delivery Method</h3>
+                                <button class="btn-edit" @onclick="GoToDeliveryStep">Edit</button>
+                            </div>
+                            <div class="review-content">
+                                @if (SelectedShippingMethodObj != null)
+                                {
+                                    <p><strong>@SelectedShippingMethodObj.Name</strong></p>
+                                    <p>@SelectedShippingMethodObj.Description</p>
+                                    <p>⏱️ Estimated delivery: @SelectedShippingMethodObj.EstimatedDays</p>
+                                    <p>💰 Cost: @SelectedShippingMethodObj.DisplayCost</p>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Payment Method Review -->
+                        <div class="review-card">
+                            <div class="review-header">
+                                <h3>Payment Method</h3>
+                                <button class="btn-edit" @onclick="GoToPaymentStep">Edit</button>
+                            </div>
+                            <div class="review-content">
+                                <p>@GetPaymentMethodDisplay(SelectedPaymentMethod)</p>
+                            </div>
+                        </div>
+
+                        <!-- Order Items Review -->
+                        <div class="review-card">
+                            <div class="review-header">
+                                <h3>Order Items (@Checkout.Items.Count)</h3>
+                            </div>
+                            <div class="review-items">
+                                @foreach (var item in Checkout.Items)
+                                {
+                                    <div class="review-item">
+                                        <img src="@item.ImageUrl" alt="@item.Name" class="item-image" />
+                                        <div class="item-details">
+                                            <h4>@item.Name</h4>
+                                            @if (!string.IsNullOrEmpty(item.Size) || !string.IsNullOrEmpty(item.Color))
+                                            {
+                                                <p class="item-variant">
+                                                    @if (!string.IsNullOrEmpty(item.Size))
+                                                    {
+                                                        <span>Size: @item.Size</span>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(item.Color))
+                                                    {
+                                                        <span>Color: @item.Color</span>
+                                                    }
+                                                </p>
+                                            }
+                                            <p class="item-quantity">Qty: @item.Quantity</p>
+                                        </div>
+                                        <div class="item-price">
+                                            <span>@FormatCurrency(item.Subtotal)</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="section-actions">
+                            <button class="btn-back" @onclick="GoToPaymentStep">
+                                <span>←</span>
+                                <span>Back to Payment</span>
+                            </button>
+                            <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                                           OnClick="PlaceOrder"
+                                           IsDisabled="@IsProcessing">
+                                @if (IsProcessing)
+                                {
+                                    <span class="btn-spinner"></span>
+                                    <span>Processing...</span>
+                                }
+                                else
+                                {
+                                    <span>Place Order - @FormatCurrency(Checkout.Total)</span>
+                                }
+                            </PrimaryButton>
+                        </div>
                     </div>
-                </div>
-            }
-            else if (currentStep == 2)
-            {
-                <!-- Step 2: Payment Method -->
-                <div class="checkout-section">
-                    <h2 class="section-title">Payment Method</h2>
+                }
+            </div>
+
+            <!-- Right: Order Summary Sidebar -->
+            <div class="order-summary-sidebar">
+                <div class="summary-card">
+                    <h3 class="summary-title">Order Summary</h3>
                     
-                    <div class="payment-methods">
-                        <label class="payment-option @(selectedPaymentMethod == "card" ? "selected" : "")"
-                               @onclick='() => SelectPaymentMethod("card")'>
-                            <input type="radio" name="payment" value="card" checked="@(selectedPaymentMethod == "card")" />
-                            <div class="payment-content">
-                                <span class="payment-icon">💳</span>
-                                <div class="payment-details">
-                                    <span class="payment-name">Credit/Debit Card</span>
-                                    <span class="payment-desc">Pay securely with your card</span>
-                                </div>
+                    <div class="summary-items">
+                        @foreach (var item in Checkout.Items)
+                        {
+                            <div class="summary-item">
+                                <span class="item-name">@item.Name ×@item.Quantity</span>
+                                <span class="item-price">@FormatCurrency(item.Subtotal)</span>
                             </div>
-                        </label>
-
-                        <label class="payment-option @(selectedPaymentMethod == "transfer" ? "selected" : "")"
-                               @onclick='() => SelectPaymentMethod("transfer")'>
-                            <input type="radio" name="payment" value="transfer" checked="@(selectedPaymentMethod == "transfer")" />
-                            <div class="payment-content">
-                                <span class="payment-icon">🏦</span>
-                                <div class="payment-details">
-                                    <span class="payment-name">Bank Transfer</span>
-                                    <span class="payment-desc">Transfer to our bank account</span>
-                                </div>
-                            </div>
-                        </label>
-
-                        <label class="payment-option @(selectedPaymentMethod == "pod" ? "selected" : "")"
-                               @onclick='() => SelectPaymentMethod("pod")'>
-                            <input type="radio" name="payment" value="pod" checked="@(selectedPaymentMethod == "pod")" />
-                            <div class="payment-content">
-                                <span class="payment-icon">💰</span>
-                                <div class="payment-details">
-                                    <span class="payment-name">Pay on Delivery</span>
-                                    <span class="payment-desc">Pay when you receive your order</span>
-                                </div>
-                            </div>
-                        </label>
+                        }
                     </div>
 
-                    <div class="section-actions">
-                        <button class="back-link" @onclick="GoToShippingStep">← Back to Shipping</button>
-                        <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
-                                       OnClick="GoToReviewStep">
-                            Continue to Review
-                        </PrimaryButton>
-                    </div>
-                </div>
-            }
-            else if (currentStep == 3)
-            {
-                <!-- Step 3: Review Order -->
-                <div class="checkout-section">
-                    <h2 class="section-title">Review Your Order</h2>
-                    
-                    <!-- Shipping Address Review -->
-                    <div class="review-card">
-                        <div class="review-header">
-                            <h3>Shipping Address</h3>
-                            <button class="edit-btn" @onclick="GoToShippingStep">Edit</button>
-                        </div>
-                        <div class="review-content">
-                            <p>@firstName @lastName</p>
-                            <p>@addressLine1</p>
-                            @if (!string.IsNullOrEmpty(addressLine2))
-                            {
-                                <p>@addressLine2</p>
-                            }
-                            <p>@city, @state @postalCode</p>
-                            <p>@phoneNumber</p>
-                        </div>
-                    </div>
-
-                    <!-- Payment Method Review -->
-                    <div class="review-card">
-                        <div class="review-header">
-                            <h3>Payment Method</h3>
-                            <button class="edit-btn" @onclick="GoToPaymentStep">Edit</button>
-                        </div>
-                        <div class="review-content">
-                            <p>@GetPaymentMethodName(selectedPaymentMethod)</p>
-                        </div>
-                    </div>
-
-                    <!-- Order Items Review -->
-                    <div class="review-card">
-                        <div class="review-header">
-                            <h3>Order Items (@orderItemsCount items)</h3>
-                        </div>
-                        <div class="review-items">
-                            <p class="placeholder-text">Cart items will be displayed here</p>
-                        </div>
-                    </div>
-
-                    <div class="section-actions">
-                        <button class="back-link" @onclick="GoToPaymentStep">← Back to Payment</button>
-                        <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
-                                       OnClick="PlaceOrder"
-                                       IsDisabled="@isProcessing">
-                            @if (isProcessing)
-                            {
-                                <span>Processing...</span>
-                            }
-                            else
-                            {
-                                <span>Place Order - ₦@orderTotal.ToString("N0")</span>
-                            }
-                        </PrimaryButton>
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- Right: Order Summary -->
-        <div class="order-summary-sidebar">
-            <div class="summary-card">
-                <h3 class="summary-title">Order Summary</h3>
-                
-                <div class="summary-details">
-                    <div class="summary-row">
-                        <span>Subtotal</span>
-                        <span>₦@subtotal.ToString("N0")</span>
-                    </div>
-                    <div class="summary-row">
-                        <span>Shipping</span>
-                        <span>₦@shippingCost.ToString("N0")</span>
-                    </div>
-                    @if (discount > 0)
-                    {
-                        <div class="summary-row discount">
-                            <span>Discount</span>
-                            <span>-₦@discount.ToString("N0")</span>
-                        </div>
-                    }
                     <div class="summary-divider"></div>
-                    <div class="summary-row total">
-                        <span>Total</span>
-                        <span>₦@orderTotal.ToString("N0")</span>
+                    
+                    <div class="summary-details">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>@FormatCurrency(Checkout.Subtotal)</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Shipping</span>
+                            <span>@FormatCurrency(Checkout.ShippingCost)</span>
+                        </div>
+                        @if (Checkout.PromoDiscount > 0)
+                        {
+                            <div class="summary-row discount">
+                                <span>Discount</span>
+                                <span>-@FormatCurrency(Checkout.PromoDiscount)</span>
+                            </div>
+                        }
+                        <div class="summary-divider"></div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span>@FormatCurrency(Checkout.Total)</span>
+                        </div>
                     </div>
-                </div>
 
-                <div class="secure-checkout">
-                    <span class="secure-icon">🔒</span>
-                    <span class="secure-text">Secure Checkout</span>
+                    <div class="secure-badge">
+                        <span class="secure-icon">🔒</span>
+                        <span class="secure-text">Secure Checkout</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    }
 </div>
 
-@code {
-    // Code will be in .cs file
-}
+<!-- Success Modal -->
+<DynamicModal @ref="SuccessModal"
+              Title="Order Placed Successfully! 🎉"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@ShowSuccessModal"
+              OnConfirm="NavigateToOrders"
+              OnCancel="NavigateToShop"
+              ConfirmText="View Order"
+              CancelText="Continue Shopping"
+              ShowCancelButton="true">
+    <BodyContent>
+        <div class="success-content">
+            <div class="success-icon">✅</div>
+            <h3>Thank you for your order!</h3>
+            <p class="order-number">Order Number: <strong>@OrderNumber</strong></p>
+            <p class="success-message">
+                We've received your order and will send you a confirmation email shortly.
+                You can track your order status in your orders page.
+            </p>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Error Modal -->
+<InfoPopup @ref="ErrorPopup"
+           IsOpen="@ShowErrorModal"
+           Title="Order Failed"
+           Message="@ErrorMessage"
+           Icon="❌"
+           OnClose="CloseErrorModal" />
