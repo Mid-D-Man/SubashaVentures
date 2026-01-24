@@ -1,23 +1,27 @@
-// Services/Addresses/AddressService.cs - UPDATED FOR JSONB
+// Services/Addresses/AddressService.cs - UPDATED WITH EMAIL SUPPORT
 using SubashaVentures.Domain.User;
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.Users;
 using SubashaVentures.Utilities.HelperScripts;
-using Client = Supabase.Client;
+using Supabase.Postgrest;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Addresses;
 
 public class AddressService : IAddressService
 {
-    private readonly Client _supabaseClient;
+    private readonly ISupabaseDatabaseService _database;
+    private readonly IUserService _userService;
     private readonly ILogger<AddressService> _logger;
-    private Dictionary<string, int> _addressCountCache = new();
 
     public AddressService(
-        Client supabaseClient,
+        ISupabaseDatabaseService database,
+        IUserService userService,
         ILogger<AddressService> logger)
     {
-        _supabaseClient = supabaseClient;
+        _database = database;
+        _userService = userService;
         _logger = logger;
     }
 
@@ -27,41 +31,56 @@ public class AddressService : IAddressService
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
-                _logger.LogWarning("GetUserAddresses called with empty userId");
                 return new List<AddressViewModel>();
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"📍 Fetching addresses for user: {userId}",
+                $"Getting addresses for user: {userId}",
                 LogLevel.Info
             );
 
-            var addresses = await _supabaseClient
-                .From<AddressModel>()
-                .Where(a => a.UserId == userId)
-                .Single();
+            // Get user email for addresses
+            var userEmail = await GetUserEmailAsync(userId);
 
-            if (addresses == null || !addresses.Items.Any())
+            // Get address model (one row per user with JSONB items)
+            var addressModels = await _database.GetWithFilterAsync<AddressModel>(
+                "user_id",
+                Constants.Operator.Equals,
+                userId
+            );
+
+            var addressModel = addressModels.FirstOrDefault();
+
+            if (addressModel == null || addressModel.Items == null || !addressModel.Items.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No addresses found, returning empty",
+                    "No addresses found for user",
                     LogLevel.Info
                 );
                 return new List<AddressViewModel>();
             }
 
-            // Update cache
-            _addressCountCache[userId] = addresses.Items.Count;
-
-            // Use conversion method
-            var viewModels = AddressViewModel.FromAddressModel(addresses);
+            // Convert JSONB items to ViewModels and populate email if missing
+            var addresses = new List<AddressViewModel>();
+            foreach (var item in addressModel.Items)
+            {
+                var viewModel = AddressViewModel.FromAddressItem(item);
+                
+                // Populate email if not already set
+                if (string.IsNullOrEmpty(viewModel.Email))
+                {
+                    viewModel.Email = userEmail;
+                }
+                
+                addresses.Add(viewModel);
+            }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Retrieved {viewModels.Count} addresses",
+                $"Found {addresses.Count} addresses",
                 LogLevel.Info
             );
 
-            return viewModels;
+            return addresses.OrderByDescending(a => a.IsDefault).ToList();
         }
         catch (Exception ex)
         {
@@ -75,26 +94,18 @@ public class AddressService : IAddressService
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(addressId))
+            {
+                return null;
+            }
+
             var addresses = await GetUserAddressesAsync(userId);
             return addresses.FirstOrDefault(a => a.Id == addressId);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting address: {addressId}");
-            return null;
-        }
-    }
-
-    public async Task<AddressViewModel?> GetDefaultAddressAsync(string userId)
-    {
-        try
-        {
-            var addresses = await GetUserAddressesAsync(userId);
-            return addresses.FirstOrDefault(a => a.IsDefault);
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting default address");
+            _logger.LogError(ex, "Failed to get address: {AddressId}", addressId);
             return null;
         }
     }
@@ -105,67 +116,84 @@ public class AddressService : IAddressService
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
-                _logger.LogWarning("AddAddress called with empty userId");
-                return false;
-            }
-
-            // Validate address
-            var validation = ValidateAddress(address);
-            if (!validation.IsValid)
-            {
-                _logger.LogWarning("Address validation failed: {Errors}", 
-                    string.Join(", ", validation.Errors.Values));
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"➕ Adding address for user: {userId}",
+                $"Adding address for user: {userId}",
                 LogLevel.Info
             );
 
-            // Generate new ID if not provided
-            if (string.IsNullOrEmpty(address.Id))
+            // Get user email if not provided
+            if (string.IsNullOrEmpty(address.Email))
             {
-                address.Id = Guid.NewGuid().ToString();
+                address.Email = await GetUserEmailAsync(userId);
             }
 
-            // Set added timestamp
-            address.AddedAt = DateTime.UtcNow;
-
-            // Call Postgres function
-            var result = await _supabaseClient.Rpc<List<AddressItem>>(
-                "add_address",
-                new
-                {
-                    p_user_id = userId,
-                    p_address_id = address.Id,
-                    p_full_name = address.FullName,
-                    p_phone_number = address.PhoneNumber,
-                    p_address_line1 = address.AddressLine1,
-                    p_address_line2 = address.AddressLine2,
-                    p_city = address.City,
-                    p_state = address.State,
-                    p_postal_code = address.PostalCode,
-                    p_country = address.Country,
-                    p_is_default = address.IsDefault,
-                    p_type = address.Type.ToString()
-                }
+            // Get existing address model or create new one
+            var addressModels = await _database.GetWithFilterAsync<AddressModel>(
+                "user_id",
+                Constants.Operator.Equals,
+                userId
             );
 
-            if (result != null)
+            var addressModel = addressModels.FirstOrDefault();
+
+            if (addressModel == null)
             {
-                // Clear cache
-                _addressCountCache.Remove(userId);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Successfully added address! Total: {result.Count}",
-                    LogLevel.Info
-                );
-
-                return true;
+                // Create new address model
+                addressModel = new AddressModel
+                {
+                    UserId = userId,
+                    Items = new List<AddressItem>(),
+                    CreatedAt = DateTime.UtcNow
+                };
             }
 
-            return false;
+            // Generate new ID for address
+            address.Id = Guid.NewGuid().ToString();
+            address.AddedAt = DateTime.UtcNow;
+
+            // If this is the first address, make it default
+            if (!addressModel.Items.Any())
+            {
+                address.IsDefault = true;
+            }
+            else if (address.IsDefault)
+            {
+                // Unset other default addresses
+                foreach (var item in addressModel.Items)
+                {
+                    item.IsDefault = false;
+                }
+            }
+
+            // Add new address item
+            addressModel.Items.Add(address.ToAddressItem());
+            addressModel.UpdatedAt = DateTime.UtcNow;
+
+            // Save to database
+            IPostgrestTable<AddressModel>? result;
+            if (addressModels.Any())
+            {
+                result = await _database.UpdateAsync(addressModel);
+            }
+            else
+            {
+                result = await _database.InsertAsync(addressModel);
+            }
+
+            var success = result != null && result.Any();
+
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Address added successfully: {address.Id}",
+                    LogLevel.Info
+                );
+            }
+
+            return success;
         }
         catch (Exception ex)
         {
@@ -181,58 +209,68 @@ public class AddressService : IAddressService
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(address.Id))
             {
-                _logger.LogWarning("UpdateAddress called with empty userId or addressId");
-                return false;
-            }
-
-            // Validate address
-            var validation = ValidateAddress(address);
-            if (!validation.IsValid)
-            {
-                _logger.LogWarning("Address validation failed: {Errors}", 
-                    string.Join(", ", validation.Errors.Values));
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Updating address: {address.Id}",
+                $"Updating address: {address.Id}",
                 LogLevel.Info
             );
 
-            // Call Postgres function
-            var result = await _supabaseClient.Rpc<List<AddressItem>>(
-                "update_address",
-                new
-                {
-                    p_user_id = userId,
-                    p_address_id = address.Id,
-                    p_full_name = address.FullName,
-                    p_phone_number = address.PhoneNumber,
-                    p_address_line1 = address.AddressLine1,
-                    p_address_line2 = address.AddressLine2,
-                    p_city = address.City,
-                    p_state = address.State,
-                    p_postal_code = address.PostalCode,
-                    p_country = address.Country,
-                    p_is_default = address.IsDefault,
-                    p_type = address.Type.ToString()
-                }
-            );
-
-            if (result != null)
+            // Get user email if not provided
+            if (string.IsNullOrEmpty(address.Email))
             {
-                // Clear cache
-                _addressCountCache.Remove(userId);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Successfully updated address",
-                    LogLevel.Info
-                );
-
-                return true;
+                address.Email = await GetUserEmailAsync(userId);
             }
 
-            return false;
+            // Get address model
+            var addressModels = await _database.GetWithFilterAsync<AddressModel>(
+                "user_id",
+                Constants.Operator.Equals,
+                userId
+            );
+
+            var addressModel = addressModels.FirstOrDefault();
+
+            if (addressModel == null || addressModel.Items == null)
+            {
+                return false;
+            }
+
+            // Find and update the address item
+            var existingIndex = addressModel.Items.FindIndex(a => a.Id == address.Id);
+            if (existingIndex == -1)
+            {
+                return false;
+            }
+
+            // If setting as default, unset other defaults
+            if (address.IsDefault)
+            {
+                foreach (var item in addressModel.Items)
+                {
+                    item.IsDefault = false;
+                }
+            }
+
+            // Update the address
+            addressModel.Items[existingIndex] = address.ToAddressItem();
+            addressModel.UpdatedAt = DateTime.UtcNow;
+
+            // Save to database
+            var result = await _database.UpdateAsync(addressModel);
+
+            var success = result != null && result.Any();
+
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Address updated successfully: {address.Id}",
+                    LogLevel.Info
+                );
+            }
+
+            return success;
         }
         catch (Exception ex)
         {
@@ -248,39 +286,54 @@ public class AddressService : IAddressService
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(addressId))
             {
-                _logger.LogWarning("DeleteAddress called with empty parameters");
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"➖ Deleting address: {addressId}",
+                $"Deleting address: {addressId}",
                 LogLevel.Info
             );
 
-            // Call Postgres function
-            var result = await _supabaseClient.Rpc<List<AddressItem>>(
-                "remove_address",
-                new 
-                { 
-                    p_user_id = userId,
-                    p_address_id = addressId 
-                }
+            // Get address model
+            var addressModels = await _database.GetWithFilterAsync<AddressModel>(
+                "user_id",
+                Constants.Operator.Equals,
+                userId
             );
 
-            if (result != null)
+            var addressModel = addressModels.FirstOrDefault();
+
+            if (addressModel == null || addressModel.Items == null)
             {
-                // Clear cache
-                _addressCountCache.Remove(userId);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Successfully deleted address",
-                    LogLevel.Info
-                );
-
-                return true;
+                return false;
             }
 
-            return false;
+            // Remove the address item
+            var wasDefault = addressModel.Items.Any(a => a.Id == addressId && a.IsDefault);
+            addressModel.Items.RemoveAll(a => a.Id == addressId);
+
+            // If deleted address was default, set first remaining address as default
+            if (wasDefault && addressModel.Items.Any())
+            {
+                addressModel.Items[0].IsDefault = true;
+            }
+
+            addressModel.UpdatedAt = DateTime.UtcNow;
+
+            // Save to database
+            var result = await _database.UpdateAsync(addressModel);
+
+            var success = result != null && result.Any();
+
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Address deleted successfully: {addressId}",
+                    LogLevel.Info
+                );
+            }
+
+            return success;
         }
         catch (Exception ex)
         {
@@ -296,36 +349,50 @@ public class AddressService : IAddressService
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(addressId))
             {
-                _logger.LogWarning("SetDefaultAddress called with empty parameters");
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"⭐ Setting default address: {addressId}",
+                $"Setting default address: {addressId}",
                 LogLevel.Info
             );
 
-            // Call Postgres function
-            var result = await _supabaseClient.Rpc<List<AddressItem>>(
-                "set_default_address",
-                new 
-                { 
-                    p_user_id = userId,
-                    p_address_id = addressId 
-                }
+            // Get address model
+            var addressModels = await _database.GetWithFilterAsync<AddressModel>(
+                "user_id",
+                Constants.Operator.Equals,
+                userId
             );
 
-            if (result != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Successfully set default address",
-                    LogLevel.Info
-                );
+            var addressModel = addressModels.FirstOrDefault();
 
-                return true;
+            if (addressModel == null || addressModel.Items == null)
+            {
+                return false;
             }
 
-            return false;
+            // Update default flags
+            foreach (var item in addressModel.Items)
+            {
+                item.IsDefault = (item.Id == addressId);
+            }
+
+            addressModel.UpdatedAt = DateTime.UtcNow;
+
+            // Save to database
+            var result = await _database.UpdateAsync(addressModel);
+
+            var success = result != null && result.Any();
+
+            if (success)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Default address set: {addressId}",
+                    LogLevel.Info
+                );
+            }
+
+            return success;
         }
         catch (Exception ex)
         {
@@ -335,67 +402,34 @@ public class AddressService : IAddressService
         }
     }
 
-    public async Task<int> GetAddressCountAsync(string userId)
+    public async Task<AddressViewModel?> GetDefaultAddressAsync(string userId)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return 0;
-            }
-
-            // Check cache first
-            if (_addressCountCache.TryGetValue(userId, out var cachedCount))
-            {
-                return cachedCount;
-            }
-
-            var addresses = await _supabaseClient
-                .From<AddressModel>()
-                .Where(a => a.UserId == userId)
-                .Single();
-
-            var count = addresses?.Items.Count ?? 0;
-
-            // Update cache
-            _addressCountCache[userId] = count;
-
-            return count;
+            var addresses = await GetUserAddressesAsync(userId);
+            return addresses.FirstOrDefault(a => a.IsDefault);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting address count");
-            return 0;
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting default address");
+            _logger.LogError(ex, "Failed to get default address for user: {UserId}", userId);
+            return null;
         }
     }
 
-    public AddressValidationResult ValidateAddress(AddressViewModel address)
+    // ==================== PRIVATE HELPERS ====================
+
+    private async Task<string> GetUserEmailAsync(string userId)
     {
-        var result = new AddressValidationResult { IsValid = true };
-
-        if (string.IsNullOrWhiteSpace(address.FullName))
-            result.AddError("FullName", "Full name is required");
-
-        if (string.IsNullOrWhiteSpace(address.PhoneNumber))
-            result.AddError("PhoneNumber", "Phone number is required");
-        else if (address.PhoneNumber.Length < 10)
-            result.AddError("PhoneNumber", "Phone number must be at least 10 digits");
-
-        if (string.IsNullOrWhiteSpace(address.AddressLine1))
-            result.AddError("AddressLine1", "Address line 1 is required");
-
-        if (string.IsNullOrWhiteSpace(address.City))
-            result.AddError("City", "City is required");
-
-        if (string.IsNullOrWhiteSpace(address.State))
-            result.AddError("State", "State is required");
-
-        if (string.IsNullOrWhiteSpace(address.PostalCode))
-            result.AddError("PostalCode", "Postal code is required");
-
-        if (string.IsNullOrWhiteSpace(address.Country))
-            result.AddError("Country", "Country is required");
-
-        return result;
+        try
+        {
+            var user = await _userService.GetUserByIdAsync(userId);
+            return user?.Email ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting user email for address");
+            return string.Empty;
+        }
     }
 }
