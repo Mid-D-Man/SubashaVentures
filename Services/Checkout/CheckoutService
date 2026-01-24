@@ -1,0 +1,170 @@
+// Services/Checkout/CheckoutService.cs
+using SubashaVentures.Domain.Checkout;
+using SubashaVentures.Domain.Cart;
+using SubashaVentures.Domain.Order;
+using SubashaVentures.Domain.User;
+using SubashaVentures.Services.Products;
+using SubashaVentures.Services.Cart;
+using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Payment;
+using SubashaVentures.Services.Supabase;
+using SubashaVentures.Utilities.HelperScripts;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
+
+namespace SubashaVentures.Services.Checkout;
+
+public class CheckoutService : ICheckoutService
+{
+    private readonly IProductService _productService;
+    private readonly ICartService _cartService;
+    private readonly IUserService _userService;
+    private readonly IPaymentService _paymentService;
+    private readonly IWalletService _walletService;
+    private readonly ISupabaseEdgeFunctionService _edgeFunctions;
+    private readonly ILogger<CheckoutService> _logger;
+
+    public CheckoutService(
+        IProductService productService,
+        ICartService cartService,
+        IUserService userService,
+        IPaymentService paymentService,
+        IWalletService walletService,
+        ISupabaseEdgeFunctionService edgeFunctions,
+        ILogger<CheckoutService> logger)
+    {
+        _productService = productService;
+        _cartService = cartService;
+        _userService = userService;
+        _paymentService = paymentService;
+        _walletService = walletService;
+        _edgeFunctions = edgeFunctions;
+        _logger = logger;
+    }
+
+    public async Task<CheckoutViewModel?> InitializeFromProductAsync(
+        string productId, 
+        int quantity, 
+        string? size = null, 
+        string? color = null)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🛒 Initializing checkout from product: {productId} (Qty: {quantity})",
+                LogLevel.Info
+            );
+
+            var productIdInt = int.Parse(productId);
+            var product = await _productService.GetProductByIdAsync(productIdInt);
+
+            if (product == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Product not found",
+                    LogLevel.Error
+                );
+                return null;
+            }
+
+            // Build variant key if size/color provided
+            var variantKey = !string.IsNullOrEmpty(size) || !string.IsNullOrEmpty(color)
+                ? ProductModelExtensions.BuildVariantKey(size, color)
+                : null;
+
+            // Get variant-specific price and stock
+            var price = product.GetVariantPrice(variantKey);
+            var stock = product.GetVariantStock(variantKey);
+            var shippingCost = product.GetVariantShippingCost(variantKey);
+
+            if (stock < quantity)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Insufficient stock. Requested: {quantity}, Available: {stock}",
+                    LogLevel.Warning
+                );
+                return null;
+            }
+
+            var checkout = new CheckoutViewModel
+            {
+                Items = new List<CartItemViewModel>
+                {
+                    new CartItemViewModel
+                    {
+                        ProductId = productId,
+                        Name = product.Name,
+                        Slug = product.Slug,
+                        ImageUrl = product.Images.FirstOrDefault() ?? "",
+                        Price = price,
+                        OriginalPrice = product.OriginalPrice,
+                        Quantity = quantity,
+                        MaxQuantity = stock,
+                        Size = size,
+                        Color = color,
+                        Stock = stock,
+                        Sku = product.Sku
+                    }
+                },
+                ShippingMethod = "Standard",
+                ShippingCost = shippingCost
+            };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Checkout initialized: Subtotal = ₦{checkout.Subtotal:N0}",
+                LogLevel.Info
+            );
+
+            return checkout;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing checkout from product");
+            _logger.LogError(ex, "Failed to initialize checkout from product");
+            return null;
+        }
+    }
+
+    public async Task<CheckoutViewModel?> InitializeFromCartAsync(string userId)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🛒 Initializing checkout from cart for user: {userId}",
+                LogLevel.Info
+            );
+
+            var cartSummary = await _cartService.GetCartSummaryAsync(userId);
+
+            if (!cartSummary.Items.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cart is empty",
+                    LogLevel.Warning
+                );
+                return null;
+            }
+
+            var checkout = new CheckoutViewModel
+            {
+                Items = cartSummary.Items,
+                ShippingMethod = "Standard",
+                ShippingCost = cartSummary.ShippingCost
+            };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Checkout initialized from cart: {checkout.Items.Count} items",
+                LogLevel.Info
+            );
+
+            return checkout;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing checkout from cart");
+            _logger.LogError(ex, "Failed to initialize checkout from cart");
+            return null;
+        }
+    }
+
+    // Continue in next response...
+}
