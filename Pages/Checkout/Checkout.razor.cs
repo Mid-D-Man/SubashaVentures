@@ -1,4 +1,4 @@
-// Pages/CheckoutModel/CheckoutModel.razor.cs
+// Pages/Checkout/Checkout.razor.cs - COMPLETE UPDATED VERSION
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Checkout;
@@ -38,8 +38,7 @@ public partial class Checkout : ComponentBase
 
     [Inject] private ICheckoutService CheckoutService { get; set; } = default!;
     [Inject] private ICartService CartService { get; set; } = default!;
-    
-      [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IUserService UserService { get; set; } = default!;
     [Inject] private IAddressService AddressService { get; set; } = default!;
     [Inject] private IPaymentService PaymentService { get; set; } = default!;
     [Inject] private IWalletService WalletService { get; set; } = default!;
@@ -192,7 +191,7 @@ public partial class Checkout : ComponentBase
             );
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"CheckoutModel loaded: {CheckoutModel.Items.Count} items, Total: ₦{CheckoutModel.Total:N0}",
+                $"Checkout loaded: {CheckoutModel.Items.Count} items, Total: {CheckoutModel.Total:N0}",
                 LogLevel.Info
             );
         }
@@ -237,7 +236,7 @@ public partial class Checkout : ComponentBase
             WalletBalance = wallet?.Balance ?? 0;
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Wallet balance: ₦{WalletBalance:N0}",
+                $"Wallet balance: {WalletBalance:N0}",
                 LogLevel.Info
             );
         }
@@ -319,13 +318,13 @@ public partial class Checkout : ComponentBase
         StateHasChanged();
     }
 
-    private async void UpdateCheckoutAddress(AddressViewModel address)
+    private void UpdateCheckoutAddress(AddressViewModel address)
     {
         if (CheckoutModel == null) return;
 
         CheckoutModel.ShippingAddress = address;
         
-        await MID_HelperFunctions.DebugMessageAsync(
+        MID_HelperFunctions.DebugMessageAsync(
             $"Shipping address selected: {address.City}, {address.State}",
             LogLevel.Info
         );
@@ -353,7 +352,6 @@ public partial class Checkout : ComponentBase
 
         try
         {
-          
             var success = await AddressService.AddAddressAsync(CurrentUserId!, NewAddress);
             
             if (success)
@@ -408,7 +406,7 @@ public partial class Checkout : ComponentBase
                 Quantity = i.Quantity,
                 Size = i.Size,
                 Color = i.Color,
-                Sku = i.Slug
+                Sku = i.Sku // Use SKU from CartItemViewModel
             }).ToList();
 
             ShippingMethods = await CheckoutService.GetShippingMethodsAsync(
@@ -454,7 +452,7 @@ public partial class Checkout : ComponentBase
         StateHasChanged();
         
         MID_HelperFunctions.DebugMessageAsync(
-            $"Shipping method selected: {method.Name} (₦{method.Cost:N0})",
+            $"Shipping method selected: {method.Name} ({method.Cost:N0})",
             LogLevel.Info
         );
     }
@@ -502,7 +500,7 @@ public partial class Checkout : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Placing order: {CheckoutModel.Items.Count} items, Total: ₦{CheckoutModel.Total:N0}",
+                $"Placing order: {CheckoutModel.Items.Count} items, Total: {CheckoutModel.Total:N0}",
                 LogLevel.Info
             );
 
@@ -547,7 +545,7 @@ public partial class Checkout : ComponentBase
                 ShowSuccessModal = true;
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Order placed successfully: {OrderNumber}",
+                    $"Order placed successfully: {OrderNumber}",
                     LogLevel.Info
                 );
             }
@@ -575,11 +573,11 @@ public partial class Checkout : ComponentBase
     {
         try
         {
-            var user  = await UserService.GetUserByIdAsync(CurrentUserId!);
+            var user = await UserService.GetUserByIdAsync(CurrentUserId!);
             var paymentRequest = new PaymentRequest
             {
                 Email = user.Email,
-                CustomerName = CheckoutModel.ShippingAddress.FullName,
+                CustomerName = CheckoutModel!.ShippingAddress!.FullName,
                 PhoneNumber = CheckoutModel.ShippingAddress.PhoneNumber,
                 Amount = CheckoutModel.Total,
                 Currency = "NGN",
@@ -600,7 +598,7 @@ public partial class Checkout : ComponentBase
             {
                 // Payment successful, create order
                 return await CheckoutService.ProcessPaymentAndCreateOrderAsync(
-                    CurrentUserId,
+                    CurrentUserId!,
                     CheckoutModel,
                     paymentResponse.Reference
                 );
@@ -634,7 +632,7 @@ public partial class Checkout : ComponentBase
 
             // Process payment and create order
             return await CheckoutService.ProcessPaymentAndCreateOrderAsync(
-                CurrentUserId,
+                CurrentUserId!,
                 CheckoutModel,
                 $"WALLET-{Guid.NewGuid()}"
             );
