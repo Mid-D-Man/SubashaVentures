@@ -1,12 +1,15 @@
+// Domain/Checkout/CheckoutViewModel.cs - UPDATED
+using SubashaVentures.Domain.Cart;
+using SubashaVentures.Domain.User;
 using SubashaVentures.Domain.Order;
 
 namespace SubashaVentures.Domain.Checkout;
 
 public class CheckoutViewModel
 {
-    public List<SubashaVentures.Domain.Cart.CartItemViewModel> Items { get; set; } = new();
-    public SubashaVentures.Domain.User.AddressViewModel? ShippingAddress { get; set; }
-    public SubashaVentures.Domain.User.AddressViewModel? BillingAddress { get; set; }
+    public List<CartItemViewModel> Items { get; set; } = new();
+    public AddressViewModel? ShippingAddress { get; set; }
+    public AddressViewModel? BillingAddress { get; set; }
     public bool UseSameAddressForBilling { get; set; } = true;
     
     public string? PromoCode { get; set; }
@@ -31,4 +34,18 @@ public class CheckoutViewModel
     public string? CustomerNotes { get; set; }
     
     public bool IsValid => Items.Any() && ShippingAddress != null;
+}
+
+// NEW: Checkout-specific item model
+public class CheckoutItemViewModel
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ImageUrl { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Quantity { get; set; }
+    public string? Size { get; set; }
+    public string? Color { get; set; }
+    public string Sku { get; set; } = string.Empty;
+    public decimal Subtotal => Price * Quantity;
 }
