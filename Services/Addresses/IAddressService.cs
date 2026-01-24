@@ -1,65 +1,55 @@
-// Services/Addresses/IAddressService.cs
+// Services/Addresses/IAddressService.cs - COMPLETE INTERFACE
 using SubashaVentures.Domain.User;
-using SubashaVentures.Models.Supabase;
 
 namespace SubashaVentures.Services.Addresses;
 
+/// <summary>
+/// Service for managing user addresses
+/// </summary>
 public interface IAddressService
 {
     /// <summary>
     /// Get all addresses for a user
     /// </summary>
     Task<List<AddressViewModel>> GetUserAddressesAsync(string userId);
-
+    
     /// <summary>
-    /// Get a specific address by ID
+    /// Get specific address by ID
     /// </summary>
     Task<AddressViewModel?> GetAddressByIdAsync(string userId, string addressId);
-
+    
     /// <summary>
-    /// Get the default address for a user
-    /// </summary>
-    Task<AddressViewModel?> GetDefaultAddressAsync(string userId);
-
-    /// <summary>
-    /// Add a new address
+    /// Add new address for user
     /// </summary>
     Task<bool> AddAddressAsync(string userId, AddressViewModel address);
-
+    
     /// <summary>
-    /// Update an existing address
+    /// Update existing address
     /// </summary>
     Task<bool> UpdateAddressAsync(string userId, AddressViewModel address);
-
+    
     /// <summary>
-    /// Delete an address
+    /// Delete address
     /// </summary>
     Task<bool> DeleteAddressAsync(string userId, string addressId);
-
+    
     /// <summary>
-    /// Set an address as default
+    /// Set default address for user
     /// </summary>
     Task<bool> SetDefaultAddressAsync(string userId, string addressId);
-
+    
     /// <summary>
-    /// Get address count for user
+    /// Get user's default address
+    /// </summary>
+    Task<AddressViewModel?> GetDefaultAddressAsync(string userId);
+    
+    /// <summary>
+    /// Get count of addresses for user
     /// </summary>
     Task<int> GetAddressCountAsync(string userId);
-
+    
     /// <summary>
-    /// Validate address data
+    /// Validate address fields
     /// </summary>
-    AddressValidationResult ValidateAddress(AddressViewModel address);
-}
-
-public class AddressValidationResult
-{
-    public bool IsValid { get; set; }
-    public Dictionary<string, string> Errors { get; set; } = new();
-
-    public void AddError(string field, string message)
-    {
-        Errors[field] = message;
-        IsValid = false;
-    }
+    Task<AddressValidationResult> ValidateAddress(AddressViewModel address);
 }
