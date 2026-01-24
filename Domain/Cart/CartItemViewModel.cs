@@ -12,6 +12,7 @@ public class CartItemViewModel
     public string ProductId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
+     public string Sku { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
     
     // Pricing
@@ -104,7 +105,8 @@ public class CartItemViewModel
             ShippingCost = shipping,
             HasFreeShipping = hasFreeShipping,
             Weight = weight,
-            AddedAt = item.added_at
+            AddedAt = item.added_at,
+            Sku = product.Sku
         };
     }
     

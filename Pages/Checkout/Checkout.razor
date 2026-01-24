@@ -6,7 +6,7 @@
 @using SubashaVentures.Layout.Shop
 @layout ShopLayout
 
-<PageTitle>Checkout - SubashaVentures</PageTitle>
+<PageTitle>CheckoutModel - SubashaVentures</PageTitle>
 
 <div class="checkout-page">
     @if (IsLoading)
@@ -16,7 +16,7 @@
                             Message="Loading checkout..." />
         </div>
     }
-    else if (Checkout == null || !Checkout.Items.Any())
+    else if (CheckoutModel == null || !CheckoutModel.Items.Any())
     {
         <div class="empty-checkout">
             <div class="empty-icon">🛒</div>
@@ -31,7 +31,7 @@
     else
     {
         <div class="checkout-header">
-            <h1 class="checkout-title">Checkout</h1>
+            <h1 class="checkout-title">CheckoutModel</h1>
             <div class="checkout-steps">
                 <div class="step @(CurrentStep >= 1 ? "active" : "") @(CurrentStep > 1 ? "completed" : "")">
                     <span class="step-number">1</span>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="checkout-container">
-            <!-- Left: Checkout Forms -->
+            <!-- Left: CheckoutModel Forms -->
             <div class="checkout-forms">
                 @if (CurrentStep == 1)
                 {
@@ -82,7 +82,7 @@
                                                    checked="@(SelectedAddressId == address.Id)"
                                                    @onclick:stopPropagation />
                                             <div class="address-info">
-                                                <span class="address-name">@address.FirstName @address.LastName</span>
+                                                <span class="address-name">@address.FullName</span>
                                                 @if (address.IsDefault)
                                                 {
                                                     <span class="default-badge">Default</span>
@@ -120,17 +120,12 @@
                                 }
                                 
                                 <div class="form-grid">
-                                    <InputField Label="First Name"
+                                    <InputField Label="Full name"
                                                 Type="text"
-                                                @bind-Value="NewAddress.FirstName"
+                                                @bind-Value="NewAddress.FullName"
                                                 IsRequired="true"
                                                 Placeholder="John" />
                                     
-                                    <InputField Label="Last Name"
-                                                Type="text"
-                                                @bind-Value="NewAddress.LastName"
-                                                IsRequired="true"
-                                                Placeholder="Doe" />
                                 </div>
 
                                 <InputField Label="Phone Number"
@@ -292,7 +287,7 @@
                                         <div class="payment-details">
                                             <span class="payment-name">Wallet</span>
                                             <span class="payment-desc">Balance: @FormatCurrency(WalletBalance)</span>
-                                            @if (WalletBalance < Checkout.Total)
+                                            @if (WalletBalance < CheckoutModel.Total)
                                             {
                                                 <span class="payment-warning">⚠️ Insufficient balance</span>
                                             }
@@ -343,17 +338,16 @@
                                 <button class="btn-edit" @onclick="GoToShippingStep">Edit</button>
                             </div>
                             <div class="review-content">
-                                @if (Checkout.ShippingAddress != null)
+                                @if (CheckoutModel.ShippingAddress != null)
                                 {
-                                    <p><strong>@Checkout.ShippingAddress.FirstName @Checkout.ShippingAddress.LastName</strong></p>
-                                    <p>@Checkout.ShippingAddress.AddressLine1</p>
-                                    @if (!string.IsNullOrEmpty(Checkout.ShippingAddress.AddressLine2))
+                                    <p><strong>@CheckoutModel.ShippingAddress.FullName</strong></p>
+                                    <p>@CheckoutModel.ShippingAddress.AddressLine1</p>
+                                    @if (!string.IsNullOrEmpty(CheckoutModel.ShippingAddress.AddressLine2))
                                     {
-                                        <p>@Checkout.ShippingAddress.AddressLine2</p>
+                                        <p>@CheckoutModel.ShippingAddress.AddressLine2</p>
                                     }
-                                    <p>@Checkout.ShippingAddress.City, @Checkout.ShippingAddress.State @Checkout.ShippingAddress.PostalCode</p>
-                                    <p>📞 @Checkout.ShippingAddress.PhoneNumber</p>
-                                    <p>📧 @Checkout.ShippingAddress.Email</p>
+                                    <p>@CheckoutModel.ShippingAddress.City, @CheckoutModel.ShippingAddress.State @CheckoutModel.ShippingAddress.PostalCode</p>
+                                    <p>📞 @CheckoutModel.ShippingAddress.PhoneNumber</p>
                                 }
                             </div>
                         </div>
@@ -389,10 +383,10 @@
                         <!-- Order Items Review -->
                         <div class="review-card">
                             <div class="review-header">
-                                <h3>Order Items (@Checkout.Items.Count)</h3>
+                                <h3>Order Items (@CheckoutModel.Items.Count)</h3>
                             </div>
                             <div class="review-items">
-                                @foreach (var item in Checkout.Items)
+                                @foreach (var item in CheckoutModel.Items)
                                 {
                                     <div class="review-item">
                                         <img src="@item.ImageUrl" alt="@item.Name" class="item-image" />
@@ -436,7 +430,7 @@
                                 }
                                 else
                                 {
-                                    <span>Place Order - @FormatCurrency(Checkout.Total)</span>
+                                    <span>Place Order - @FormatCurrency(CheckoutModel.Total)</span>
                                 }
                             </PrimaryButton>
                         </div>
@@ -450,7 +444,7 @@
                     <h3 class="summary-title">Order Summary</h3>
                     
                     <div class="summary-items">
-                        @foreach (var item in Checkout.Items)
+                        @foreach (var item in CheckoutModel.Items)
                         {
                             <div class="summary-item">
                                 <span class="item-name">@item.Name ×@item.Quantity</span>
@@ -464,29 +458,29 @@
                     <div class="summary-details">
                         <div class="summary-row">
                             <span>Subtotal</span>
-                            <span>@FormatCurrency(Checkout.Subtotal)</span>
+                            <span>@FormatCurrency(CheckoutModel.Subtotal)</span>
                         </div>
                         <div class="summary-row">
                             <span>Shipping</span>
-                            <span>@FormatCurrency(Checkout.ShippingCost)</span>
+                            <span>@FormatCurrency(CheckoutModel.ShippingCost)</span>
                         </div>
-                        @if (Checkout.PromoDiscount > 0)
+                        @if (CheckoutModel.PromoDiscount > 0)
                         {
                             <div class="summary-row discount">
                                 <span>Discount</span>
-                                <span>-@FormatCurrency(Checkout.PromoDiscount)</span>
+                                <span>-@FormatCurrency(CheckoutModel.PromoDiscount)</span>
                             </div>
                         }
                         <div class="summary-divider"></div>
                         <div class="summary-row total">
                             <span>Total</span>
-                            <span>@FormatCurrency(Checkout.Total)</span>
+                            <span>@FormatCurrency(CheckoutModel.Total)</span>
                         </div>
                     </div>
 
                     <div class="secure-badge">
                         <span class="secure-icon">🔒</span>
-                        <span class="secure-text">Secure Checkout</span>
+                        <span class="secure-text">Secure CheckoutModel</span>
                     </div>
                 </div>
             </div>

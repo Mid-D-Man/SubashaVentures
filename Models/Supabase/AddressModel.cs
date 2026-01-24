@@ -41,6 +41,9 @@ public class AddressItem
 
     [JsonPropertyName("phone_number")]
     public string PhoneNumber { get; set; } = string.Empty;
+    
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
 
     [JsonPropertyName("address_line1")]
     public string AddressLine1 { get; set; } = string.Empty;

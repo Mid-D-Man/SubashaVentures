@@ -1,6 +1,7 @@
 // Services/Orders/OrderService.cs - FIXED to use filter queries for Guid
 using SubashaVentures.Domain.Order;
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
@@ -11,14 +12,17 @@ namespace SubashaVentures.Services.Orders;
 public class OrderService : IOrderService
 {
     private readonly ISupabaseDatabaseService _database;
+     private readonly ISupabaseEdgeFunctionService _edgeFunctions;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
         ISupabaseDatabaseService database,
+        ISupabaseEdgeFunctionService edgeFunctions,
         ILogger<OrderService> logger)
     {
         _database = database;
         _logger = logger;
+        _edgeFunctions = edgeFunctions;
     }
 
     public async Task<bool> HasUserReceivedProductAsync(string userId, string productId)

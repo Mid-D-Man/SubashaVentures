@@ -8,6 +8,7 @@ public class AddressViewModel
     public string Id { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string PhoneNumber { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
     public string AddressLine1 { get; set; } = string.Empty;
     public string? AddressLine2 { get; set; }
     public string City { get; set; } = "Lagos";
@@ -53,7 +54,8 @@ public class AddressViewModel
             Country = item.Country,
             IsDefault = item.IsDefault,
             Type = addressType,
-            AddedAt = item.AddedAt
+            AddedAt = item.AddedAt,
+            Email = item.Email
         };
     }
 
@@ -75,7 +77,8 @@ public class AddressViewModel
             Country = this.Country,
             IsDefault = this.IsDefault,
             Type = this.Type.ToString(),
-            AddedAt = this.AddedAt
+            AddedAt = this.AddedAt,
+            Email = this.Email
         };
     }
 

@@ -1,5 +1,6 @@
 // Services/Checkout/ICheckoutService.cs
 using SubashaVentures.Domain.Checkout;
+using SubashaVentures.Domain.Miscellaneous;
 using SubashaVentures.Domain.Order;
 
 namespace SubashaVentures.Services.Checkout;
@@ -49,6 +50,7 @@ public interface ICheckoutService
     /// Process payment and create order
     /// </summary>
     Task<OrderPlacementResult> ProcessPaymentAndCreateOrderAsync(
+        string _userId,
         CheckoutViewModel checkout,
         string paymentReference);
 }

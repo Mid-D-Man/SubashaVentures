@@ -1,8 +1,11 @@
 // Services/Checkout/CheckoutService.cs
 using SubashaVentures.Domain.Checkout;
 using SubashaVentures.Domain.Cart;
+using SubashaVentures.Domain.Miscellaneous;
 using SubashaVentures.Domain.Order;
 using SubashaVentures.Domain.User;
+using SubashaVentures.Models.Supabase;
+using SubashaVentures.Services.Addresses;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Cart;
 using SubashaVentures.Services.Users;
@@ -18,6 +21,7 @@ public class CheckoutService : ICheckoutService
     private readonly IProductService _productService;
     private readonly ICartService _cartService;
     private readonly IUserService _userService;
+    private readonly IAddressService _addressService;
     private readonly IPaymentService _paymentService;
     private readonly IWalletService _walletService;
     private readonly ISupabaseEdgeFunctionService _edgeFunctions;
@@ -27,6 +31,7 @@ public class CheckoutService : ICheckoutService
         IProductService productService,
         ICartService cartService,
         IUserService userService,
+        IAddressService addressService,
         IPaymentService paymentService,
         IWalletService walletService,
         ISupabaseEdgeFunctionService edgeFunctions,
@@ -35,6 +40,7 @@ public class CheckoutService : ICheckoutService
         _productService = productService;
         _cartService = cartService;
         _userService = userService;
+        _addressService = addressService;
         _paymentService = paymentService;
         _walletService = walletService;
         _edgeFunctions = edgeFunctions;
@@ -271,7 +277,8 @@ public class CheckoutService : ICheckoutService
         try
         {
             // Check if user's default address is in Lagos
-            var addresses = await _userService.GetUserAddressesAsync(userId);
+            
+            var addresses = await _addressService.GetUserAddressesAsync(userId);
             var defaultAddress = addresses.FirstOrDefault(a => a.IsDefault);
             
             return defaultAddress?.State?.Contains("Lagos", StringComparison.OrdinalIgnoreCase) == true;
@@ -444,8 +451,8 @@ public class CheckoutService : ICheckoutService
             // Build edge function request
             var edgeRequest = new CreateOrderEdgeRequest
             {
-                UserId = checkout.ShippingAddress?.UserId ?? "",
-                CustomerName = $"{checkout.ShippingAddress?.FirstName} {checkout.ShippingAddress?.LastName}",
+                UserId = checkout.ShippingAddress?.Id ?? "",
+                CustomerName = $"{checkout.ShippingAddress?.FullName}",
                 CustomerEmail = checkout.ShippingAddress?.Email ?? "",
                 CustomerPhone = checkout.ShippingAddress?.PhoneNumber ?? "",
                 Items = checkout.Items.Select(i => new OrderItemEdgeRequest
@@ -512,6 +519,7 @@ public class CheckoutService : ICheckoutService
     }
 
     public async Task<OrderPlacementResult> ProcessPaymentAndCreateOrderAsync(
+        string _userId,
         CheckoutViewModel checkout,
         string paymentReference)
     {
@@ -520,8 +528,8 @@ public class CheckoutService : ICheckoutService
             // For wallet payments, deduct first
             if (checkout.PaymentMethod == PaymentMethod.Wallet)
             {
-                var userId = checkout.ShippingAddress?.UserId ?? "";
-                var hasBalance = await _walletService.HasSufficientBalanceAsync(userId, checkout.Total);
+              
+                var hasBalance = await _walletService.HasSufficientBalanceAsync(_userId, checkout.Total);
 
                 if (!hasBalance)
                 {
@@ -546,9 +554,9 @@ public class CheckoutService : ICheckoutService
             // Deduct from wallet if wallet payment
             if (checkout.PaymentMethod == PaymentMethod.Wallet && !string.IsNullOrEmpty(orderResult.OrderId))
             {
-                var userId = checkout.ShippingAddress?.UserId ?? "";
+               
                 await _walletService.DeductFromWalletAsync(
-                    userId,
+                    _userId,
                     checkout.Total,
                     $"Payment for order {orderResult.OrderNumber}",
                     orderResult.OrderId
