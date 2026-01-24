@@ -434,58 +434,75 @@ public partial class ProductDetails : ComponentBase, IDisposable
     }
 
     private async Task HandleBuyNow()
+{
+    if (Product == null || GetVariantStock() == 0 || IsPurchasing) return;
+
+    IsPurchasing = true;
+    StateHasChanged();
+
+    try
     {
-        if (Product == null || GetVariantStock() == 0 || IsPurchasing) return;
-
-        IsPurchasing = true;
-        StateHasChanged();
-
-        try
+        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
         {
-            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-            {
-                return;
-            }
-
-            if (string.IsNullOrEmpty(CurrentUserId))
-            {
-                CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
-
-            if (string.IsNullOrEmpty(CurrentUserId))
-            {
-                PermissionService.ShowAuthRequiredMessage("purchase items");
-                return;
-            }
-
-            // Add to cart first
-            var success = await CartService.AddToCartAsync(
-                CurrentUserId,
-                Product.Id.ToString(),
-                quantity: SelectedQuantity,
-                size: SelectedSize,
-                color: SelectedColor
-            );
-
-            if (success)
-            {
-                await InteractionService.TrackAddToCartAsync(Product.Id, CurrentUserId);
-                
-                // Navigate to checkout
-                Navigation.NavigateTo("/checkout");
-            }
+            return;
         }
-        catch (Exception ex)
+
+        if (string.IsNullOrEmpty(CurrentUserId))
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Buy now");
-            Logger.LogError(ex, "Failed to process buy now");
+            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
         }
-        finally
+
+        if (string.IsNullOrEmpty(CurrentUserId))
         {
-            IsPurchasing = false;
-            StateHasChanged();
+            PermissionService.ShowAuthRequiredMessage("purchase items");
+            return;
         }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"⚡ Buy Now clicked: {Product.Name}, Qty: {SelectedQuantity}, Size: {SelectedSize}, Color: {SelectedColor}",
+            LogLevel.Info
+        );
+
+        // Build query parameters for checkout
+        var queryParams = new List<string>
+        {
+            $"productId={Product.Id}",
+            $"quantity={SelectedQuantity}"
+        };
+
+        if (!string.IsNullOrEmpty(SelectedSize))
+        {
+            queryParams.Add($"size={Uri.EscapeDataString(SelectedSize)}");
+        }
+
+        if (!string.IsNullOrEmpty(SelectedColor))
+        {
+            queryParams.Add($"color={Uri.EscapeDataString(SelectedColor)}");
+        }
+
+        var queryString = string.Join("&", queryParams);
+        
+        // Navigate to checkout with product details
+        var checkoutUrl = $"checkout/{Product.Slug}?{queryString}";
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Navigating to checkout: {checkoutUrl}",
+            LogLevel.Info
+        );
+
+        Navigation.NavigateTo(checkoutUrl);
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Buy now");
+        Logger.LogError(ex, "Failed to process buy now");
+    }
+    finally
+    {
+        IsPurchasing = false;
+        StateHasChanged();
+    }
+}
 
     private async Task HandleWishlistToggle()
     {
