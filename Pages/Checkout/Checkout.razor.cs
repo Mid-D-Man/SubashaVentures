@@ -1,4 +1,4 @@
-// Pages/Checkout/Checkout.razor.cs - COMPLETE UPDATED VERSION
+// Pages/Checkout/Checkout.razor.cs - FIXED WITH BETTER DEBUGGING
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Checkout;
@@ -105,6 +105,12 @@ public partial class Checkout : ComponentBase
         {
             IsLoading = true;
 
+            // ✅ DEBUG: Log all query parameters
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId}, Quantity: {Quantity}, Size: {Size}, Color: {Color}",
+                LogLevel.Info
+            );
+
             // Ensure authenticated
             if (!await PermissionService.EnsureAuthenticatedAsync($"checkout/{Slug}"))
             {
@@ -117,12 +123,17 @@ public partial class Checkout : ComponentBase
             if (string.IsNullOrEmpty(CurrentUserId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "User ID not found, redirecting to sign in",
+                    "❌ User ID not found, redirecting to sign in",
                     LogLevel.Error
                 );
                 Navigation.NavigateTo("signin", true);
                 return;
             }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ User authenticated: {CurrentUserId}",
+                LogLevel.Info
+            );
 
             await LoadCheckoutData();
         }
@@ -144,16 +155,16 @@ public partial class Checkout : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loading checkout data for user: {CurrentUserId}",
+                $"🔄 Loading checkout data for user: {CurrentUserId}",
                 LogLevel.Info
             );
 
             // Determine checkout type: product-specific or cart-based
             if (!string.IsNullOrEmpty(ProductId))
             {
-                // Product-specific checkout
+                // ✅ PRODUCT-SPECIFIC CHECKOUT
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Product checkout: {ProductId}, Qty: {Quantity}, Size: {Size}, Color: {Color}",
+                    $"📦 PRODUCT CHECKOUT - ProductId: {ProductId}, Qty: {Quantity}, Size: {Size}, Color: {Color}",
                     LogLevel.Info
                 );
                 
@@ -163,22 +174,62 @@ public partial class Checkout : ComponentBase
                     Size,
                     Color
                 );
+
+                if (CheckoutModel != null && CheckoutModel.Items.Any())
+                {
+                    var item = CheckoutModel.Items.First();
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ CHECKOUT LOADED - Name: {item.Name}, Image: {item.ImageUrl}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
+                        LogLevel.Info
+                    );
+                }
+                else
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Failed to initialize checkout from product",
+                        LogLevel.Error
+                    );
+                }
             }
             else
             {
-                // Cart-based checkout
+                // ✅ CART-BASED CHECKOUT
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "Cart-based checkout",
+                    "🛒 CART CHECKOUT - Loading from user's cart",
                     LogLevel.Info
                 );
                 
                 CheckoutModel = await CheckoutService.InitializeFromCartAsync(CurrentUserId!);
+
+                if (CheckoutModel != null && CheckoutModel.Items.Any())
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ CART CHECKOUT LOADED - {CheckoutModel.Items.Count} items, Total: ₦{CheckoutModel.Total:N0}",
+                        LogLevel.Info
+                    );
+
+                    // Log each item
+                    foreach (var item in CheckoutModel.Items)
+                    {
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"  📦 Item: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}",
+                            LogLevel.Info
+                        );
+                    }
+                }
+                else
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Failed to initialize checkout from cart or cart is empty",
+                        LogLevel.Warning
+                    );
+                }
             }
 
             if (CheckoutModel == null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "Failed to initialize checkout",
+                    "❌ CheckoutModel is null - initialization failed",
                     LogLevel.Error
                 );
                 return;
@@ -191,7 +242,7 @@ public partial class Checkout : ComponentBase
             );
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Checkout loaded: {CheckoutModel.Items.Count} items, Total: {CheckoutModel.Total:N0}",
+                $"✅ Checkout loaded successfully: {CheckoutModel.Items.Count} items, Total: ₦{CheckoutModel.Total:N0}",
                 LogLevel.Info
             );
         }
@@ -217,7 +268,7 @@ public partial class Checkout : ComponentBase
             }
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {UserAddresses.Count} addresses",
+                $"✅ Loaded {UserAddresses.Count} addresses",
                 LogLevel.Info
             );
         }
@@ -236,7 +287,7 @@ public partial class Checkout : ComponentBase
             WalletBalance = wallet?.Balance ?? 0;
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Wallet balance: {WalletBalance:N0}",
+                $"💰 Wallet balance: ₦{WalletBalance:N0}",
                 LogLevel.Info
             );
         }
@@ -254,7 +305,7 @@ public partial class Checkout : ComponentBase
         if (!HasValidAddress)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Cannot proceed: Invalid address",
+                "❌ Cannot proceed: Invalid address",
                 LogLevel.Warning
             );
             return;
@@ -325,7 +376,7 @@ public partial class Checkout : ComponentBase
         CheckoutModel.ShippingAddress = address;
         
         MID_HelperFunctions.DebugMessageAsync(
-            $"Shipping address selected: {address.City}, {address.State}",
+            $"📍 Shipping address selected: {address.City}, {address.State}",
             LogLevel.Info
         );
     }
@@ -369,7 +420,7 @@ public partial class Checkout : ComponentBase
                     SelectedAddressId = savedAddress.Id;
                     
                     await MID_HelperFunctions.DebugMessageAsync(
-                        "New address saved successfully",
+                        "✅ New address saved successfully",
                         LogLevel.Info
                     );
                     
@@ -406,8 +457,13 @@ public partial class Checkout : ComponentBase
                 Quantity = i.Quantity,
                 Size = i.Size,
                 Color = i.Color,
-                Sku = i.Sku // Use SKU from CartItemViewModel
+                Sku = i.Sku
             }).ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📦 Loading shipping methods for {checkoutItems.Count} items",
+                LogLevel.Info
+            );
 
             ShippingMethods = await CheckoutService.GetShippingMethodsAsync(
                 CurrentUserId!,
@@ -421,7 +477,7 @@ public partial class Checkout : ComponentBase
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {ShippingMethods.Count} shipping methods",
+                $"✅ Loaded {ShippingMethods.Count} shipping methods",
                 LogLevel.Info
             );
         }
@@ -452,7 +508,7 @@ public partial class Checkout : ComponentBase
         StateHasChanged();
         
         MID_HelperFunctions.DebugMessageAsync(
-            $"Shipping method selected: {method.Name} ({method.Cost:N0})",
+            $"🚚 Shipping method selected: {method.Name} (₦{method.Cost:N0})",
             LogLevel.Info
         );
     }
@@ -500,9 +556,18 @@ public partial class Checkout : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Placing order: {CheckoutModel.Items.Count} items, Total: {CheckoutModel.Total:N0}",
+                $"📦 PLACING ORDER - Items: {CheckoutModel.Items.Count}, Total: ₦{CheckoutModel.Total:N0}",
                 LogLevel.Info
             );
+
+            // Log each item being ordered
+            foreach (var item in CheckoutModel.Items)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"  📦 Ordering: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
+                    LogLevel.Info
+                );
+            }
 
             // Validate checkout
             var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
@@ -545,7 +610,7 @@ public partial class Checkout : ComponentBase
                 ShowSuccessModal = true;
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Order placed successfully: {OrderNumber}",
+                    $"✅ ORDER PLACED SUCCESSFULLY: {OrderNumber}",
                     LogLevel.Info
                 );
             }
@@ -553,6 +618,11 @@ public partial class Checkout : ComponentBase
             {
                 ErrorMessage = result?.Message ?? "Failed to place order";
                 ShowErrorModal = true;
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ ORDER FAILED: {ErrorMessage}",
+                    LogLevel.Error
+                );
             }
         }
         catch (Exception ex)
@@ -651,7 +721,7 @@ public partial class Checkout : ComponentBase
             await CartService.ClearCartAsync(CurrentUserId!);
             
             await MID_HelperFunctions.DebugMessageAsync(
-                "Cart cleared after successful order",
+                "🗑️ Cart cleared after successful order",
                 LogLevel.Info
             );
         }
