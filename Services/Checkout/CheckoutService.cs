@@ -1,4 +1,4 @@
-// Services/Checkout/CheckoutService.cs
+// Services/Checkout/CheckoutService.cs - FIXED VARIANT-SPECIFIC IMAGE
 using SubashaVentures.Domain.Checkout;
 using SubashaVentures.Domain.Cart;
 using SubashaVentures.Domain.Miscellaneous;
@@ -56,7 +56,7 @@ public class CheckoutService : ICheckoutService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🛒 Initializing checkout from product: {productId} (Qty: {quantity})",
+                $"🛒 Initializing checkout from product: {productId} (Qty: {quantity}, Size: {size}, Color: {color})",
                 LogLevel.Info
             );
 
@@ -77,10 +77,16 @@ public class CheckoutService : ICheckoutService
                 ? ProductModelExtensions.BuildVariantKey(size, color)
                 : null;
 
-            // Get variant-specific price and stock
+            // ✅ Get variant-specific data
             var price = product.GetVariantPrice(variantKey);
             var stock = product.GetVariantStock(variantKey);
             var shippingCost = product.GetVariantShippingCost(variantKey);
+            var imageUrl = product.GetVariantImage(variantKey); // ✅ GET VARIANT IMAGE
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📦 Product: {product.Name}, Variant: {variantKey ?? "base"}, Price: ₦{price:N0}, Stock: {stock}, Image: {imageUrl}",
+                LogLevel.Info
+            );
 
             if (stock < quantity)
             {
@@ -89,6 +95,17 @@ public class CheckoutService : ICheckoutService
                     LogLevel.Warning
                 );
                 return null;
+            }
+
+            // ✅ Get color hex if variant exists
+            string? colorHex = null;
+            if (!string.IsNullOrEmpty(variantKey))
+            {
+                var productModel = product.ToCloudModel();
+                if (productModel.Variants.TryGetValue(variantKey, out var variant))
+                {
+                    colorHex = variant.ColorHex;
+                }
             }
 
             var checkout = new CheckoutViewModel
@@ -100,15 +117,20 @@ public class CheckoutService : ICheckoutService
                         ProductId = productId,
                         Name = product.Name,
                         Slug = product.Slug,
-                        ImageUrl = product.Images.FirstOrDefault() ?? "",
+                        ImageUrl = imageUrl, // ✅ USE VARIANT-SPECIFIC IMAGE
                         Price = price,
                         OriginalPrice = product.OriginalPrice,
                         Quantity = quantity,
                         MaxQuantity = stock,
                         Size = size,
                         Color = color,
+                        ColorHex = colorHex, // ✅ ADD COLOR HEX
+                        VariantKey = variantKey, // ✅ ADD VARIANT KEY
                         Stock = stock,
-                        Sku = product.Sku
+                        Sku = product.Sku,
+                        ShippingCost = shippingCost, // ✅ SET SHIPPING COST
+                        HasFreeShipping = product.ToCloudModel().VariantHasFreeShipping(variantKey), // ✅ SET FREE SHIPPING
+                        Weight = product.ToCloudModel().GetVariantWeight(variantKey) // ✅ SET WEIGHT
                     }
                 },
                 ShippingMethod = "Standard",
@@ -116,7 +138,7 @@ public class CheckoutService : ICheckoutService
             };
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Checkout initialized: Subtotal = ₦{checkout.Subtotal:N0}",
+                $"✅ Checkout initialized: Subtotal = ₦{checkout.Subtotal:N0}, Items: {checkout.Items.Count}",
                 LogLevel.Info
             );
 
@@ -158,7 +180,7 @@ public class CheckoutService : ICheckoutService
             };
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Checkout initialized from cart: {checkout.Items.Count} items",
+                $"✅ Checkout initialized from cart: {checkout.Items.Count} items, Subtotal: ₦{checkout.Subtotal:N0}",
                 LogLevel.Info
             );
 
@@ -171,9 +193,6 @@ public class CheckoutService : ICheckoutService
             return null;
         }
     }
-
-    // Continue in next response...
-// Services/Checkout/CheckoutService.cs (CONTINUED)
 
     public async Task<List<ShippingMethodViewModel>> GetShippingMethodsAsync(
         string userId,
@@ -199,6 +218,11 @@ public class CheckoutService : ICheckoutService
                     totalWeight += productModel.GetVariantWeight(variantKey) * item.Quantity;
                 }
             }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📦 Total weight: {totalWeight}kg",
+                LogLevel.Info
+            );
 
             var shippingMethods = new List<ShippingMethodViewModel>
             {
@@ -241,7 +265,14 @@ public class CheckoutService : ICheckoutService
                 }
             };
 
-            return shippingMethods.Where(m => m.IsAvailable).ToList();
+            var availableMethods = shippingMethods.Where(m => m.IsAvailable).ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ {availableMethods.Count} shipping methods available",
+                LogLevel.Info
+            );
+
+            return availableMethods;
         }
         catch (Exception ex)
         {
@@ -277,7 +308,6 @@ public class CheckoutService : ICheckoutService
         try
         {
             // Check if user's default address is in Lagos
-            
             var addresses = await _addressService.GetUserAddressesAsync(userId);
             var defaultAddress = addresses.FirstOrDefault(a => a.IsDefault);
             
@@ -298,9 +328,6 @@ public class CheckoutService : ICheckoutService
                 LogLevel.Info
             );
 
-            // TODO: Query promo_codes table when implemented
-            // For now, return demo result
-            
             if (string.IsNullOrWhiteSpace(promoCode))
             {
                 return new PromoCodeResult
@@ -377,7 +404,6 @@ public class CheckoutService : ICheckoutService
             // Validate payment method
             if (checkout.PaymentMethod == PaymentMethod.Wallet)
             {
-                // Check wallet balance (would need userId)
                 result.Warnings.Add("Ensure sufficient wallet balance");
             }
 
@@ -469,7 +495,7 @@ public class CheckoutService : ICheckoutService
                 Subtotal = checkout.Subtotal,
                 ShippingCost = checkout.ShippingCost,
                 Discount = checkout.PromoDiscount,
-                Tax = 0, // Nigeria doesn't have VAT on most retail
+                Tax = 0,
                 Total = checkout.Total,
                 ShippingAddressId = checkout.ShippingAddress?.Id ?? "",
                 ShippingAddress = FormatAddress(checkout.ShippingAddress),
@@ -519,17 +545,21 @@ public class CheckoutService : ICheckoutService
     }
 
     public async Task<OrderPlacementResult> ProcessPaymentAndCreateOrderAsync(
-        string _userId,
+        string userId,
         CheckoutViewModel checkout,
         string paymentReference)
     {
         try
         {
-            // For wallet payments, deduct first
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"💳 Processing payment and creating order: User={userId}, Reference={paymentReference}",
+                LogLevel.Info
+            );
+
+            // For wallet payments, check balance first
             if (checkout.PaymentMethod == PaymentMethod.Wallet)
             {
-              
-                var hasBalance = await _walletService.HasSufficientBalanceAsync(_userId, checkout.Total);
+                var hasBalance = await _walletService.HasSufficientBalanceAsync(userId, checkout.Total);
 
                 if (!hasBalance)
                 {
@@ -554,9 +584,8 @@ public class CheckoutService : ICheckoutService
             // Deduct from wallet if wallet payment
             if (checkout.PaymentMethod == PaymentMethod.Wallet && !string.IsNullOrEmpty(orderResult.OrderId))
             {
-               
                 await _walletService.DeductFromWalletAsync(
-                    _userId,
+                    userId,
                     checkout.Total,
                     $"Payment for order {orderResult.OrderNumber}",
                     orderResult.OrderId
