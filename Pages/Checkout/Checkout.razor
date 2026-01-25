@@ -1,10 +1,10 @@
+<!-- Pages/Checkout/Checkout.razor -->
 @page "/checkout/{slug}"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Layout.Shop
-@layout ShopLayout
+@layout CheckoutLayout
 
 <PageTitle>Checkout - SubashaVentures</PageTitle>
 
@@ -97,6 +97,10 @@
                                             }
                                             <p>@address.City, @address.State @address.PostalCode</p>
                                             <p>📞 @address.PhoneNumber</p>
+                                            @if (!string.IsNullOrEmpty(address.Email))
+                                            {
+                                                <p>📧 @address.Email</p>
+                                            }
                                         </div>
                                     </div>
                                 }
@@ -347,6 +351,10 @@
                                     }
                                     <p>@CheckoutModel.ShippingAddress.City, @CheckoutModel.ShippingAddress.State @CheckoutModel.ShippingAddress.PostalCode</p>
                                     <p>📞 @CheckoutModel.ShippingAddress.PhoneNumber</p>
+                                    @if (!string.IsNullOrEmpty(CheckoutModel.ShippingAddress.Email))
+                                    {
+                                        <p>📧 @CheckoutModel.ShippingAddress.Email</p>
+                                    }
                                 }
                             </div>
                         </div>
@@ -510,9 +518,13 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Error Modal -->
+<!-- Error Popup - FIXED -->
 <InfoPopup @ref="ErrorPopup"
-           IsOpen="@ShowErrorModal"
+           IsVisible="@ShowErrorModal"
            Title="Order Failed"
+           Icon="InfoPopup.InfoPopupIcon.Error"
            Message="@ErrorMessage"
+           ShowCancelButton="false"
+           ConfirmButtonText="Close"
+           OnConfirm="CloseErrorModal"
            OnClose="CloseErrorModal" />
