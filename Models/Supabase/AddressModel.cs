@@ -1,74 +1,78 @@
-// Models/Supabase/AddressModel.cs - REDESIGNED FOR JSONB
+// Models/Supabase/AddressModel.cs - UPDATED WITH EMAIL FIELD
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using JsonPropertyName = Newtonsoft.Json.JsonPropertyAttribute;
+using Newtonsoft.Json;
+
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Address model - ONE ROW PER USER with JSONB items array
+/// Address model - stores user addresses as JSONB array
+/// UPDATED: Added email field to AddressItem
+/// Maps to addresses table
 /// </summary>
 [Table("addresses")]
 public class AddressModel : BaseModel
 {
     [PrimaryKey("user_id", false)]
     [Column("user_id")]
-    [JsonPropertyName("user_id")]
     public string UserId { get; set; } = string.Empty;
-
+    
     [Column("items")]
-    [JsonPropertyName("items")]
     public List<AddressItem> Items { get; set; } = new();
-
+    
     [Column("created_at")]
-    [JsonPropertyName("created_at")]
     public DateTime CreatedAt { get; set; }
-
+    
     [Column("updated_at")]
-    [JsonPropertyName("updated_at")]
     public DateTime? UpdatedAt { get; set; }
 }
 
 /// <summary>
-/// Individual address item stored in JSONB array
+/// Individual address item stored in JSONB
+/// UPDATED: Added Email field
 /// </summary>
 public class AddressItem
 {
-    [JsonPropertyName("id")]
+    [JsonProperty("id")]
     public string Id { get; set; } = string.Empty;
-
-    [JsonPropertyName("full_name")]
+    
+    [JsonProperty("full_name")]
     public string FullName { get; set; } = string.Empty;
-
-    [JsonPropertyName("phone_number")]
+    
+    [JsonProperty("phone_number")]
     public string PhoneNumber { get; set; } = string.Empty;
     
-    [JsonPropertyName("email")]
-    public string Email { get; set; } = string.Empty;
-
-    [JsonPropertyName("address_line1")]
+    /// <summary>
+    /// Optional email field for this specific address
+    /// Falls back to user's primary email if not provided
+    /// </summary>
+    [JsonProperty("email")]
+    public string? Email { get; set; }
+    
+    [JsonProperty("address_line1")]
     public string AddressLine1 { get; set; } = string.Empty;
-
-    [JsonPropertyName("address_line2")]
+    
+    [JsonProperty("address_line2")]
     public string? AddressLine2 { get; set; }
-
-    [JsonPropertyName("city")]
-    public string City { get; set; } = "Lagos";
-
-    [JsonPropertyName("state")]
-    public string State { get; set; } = "Lagos";
-
-    [JsonPropertyName("postal_code")]
-    public string PostalCode { get; set; } = "100001";
-
-    [JsonPropertyName("country")]
+    
+    [JsonProperty("city")]
+    public string City { get; set; } = string.Empty;
+    
+    [JsonProperty("state")]
+    public string State { get; set; } = string.Empty;
+    
+    [JsonProperty("postal_code")]
+    public string PostalCode { get; set; } = string.Empty;
+    
+    [JsonProperty("country")]
     public string Country { get; set; } = "Nigeria";
-
-    [JsonPropertyName("is_default")]
+    
+    [JsonProperty("is_default")]
     public bool IsDefault { get; set; }
-
-    [JsonPropertyName("type")]
+    
+    [JsonProperty("type")]
     public string Type { get; set; } = "Shipping"; // Shipping, Billing, Both
-
-    [JsonPropertyName("added_at")]
-    public DateTime AddedAt { get; set; }
+    
+    [JsonProperty("added_at")]
+    public DateTime AddedAt { get; set; } = DateTime.UtcNow;
 }
