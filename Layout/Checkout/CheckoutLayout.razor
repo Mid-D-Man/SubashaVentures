@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="checkout-layout">
+    <!-- Minimal Header -->
+    <header class="checkout-header">
+        <div class="checkout-header-content">
+            <button class="back-button" @onclick="GoBack">
+                <span class="back-icon">←</span>
+                <span class="back-text">Back</span>
+            </button>
+            
+            <div class="brand-logo-checkout">
+                <h1 class="brand-name" @onclick='() => Navigation.NavigateTo("/")'>SubashaVentures</h1>
+            </div>
+            
+            <div class="secure-badge-header">
+                <span class="lock-icon">🔒</span>
+                <span class="secure-text">Secure Checkout</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="checkout-main">
+        @Body
+    </main>
+
+    <!-- Minimal Footer -->
+    <footer class="checkout-footer">
+        <div class="checkout-footer-content">
+            <p class="copyright">© 2026 SubashaVentures. All rights reserved.</p>
+            <div class="security-badges">
+                <span class="badge">🔒 SSL Secured</span>
+                <span class="badge">💳 Safe Payment</span>
+            </div>
+        </div>
+    </footer>
+</div>
+
+@code {
+    private void GoBack()
+    {
+        JSRuntime.InvokeVoidAsync("history.back");
+    }
+}
