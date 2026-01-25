@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Jan 24 17:39:32 UTC 2026
+Generated: Sun Jan 25 12:37:47 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 3f59ee70b15276393164c3f0f16129bf2627c431
+Commit: ab5137564ec6e57912762b4ef587cd92a813b553
 Branch: master
 ==================================
 
@@ -95,6 +95,7 @@ Layout/Admin/AdminNavMenu.razor.css
 Layout/Admin/Adminlayout.razor.css
 Layout/Auth/AuthLayout.razor
 Layout/Auth/AuthLayout.razor.css
+Layout/Checkout/CheckoutLayout.razor
 Layout/Main/FooterSection.razor
 Layout/Main/FooterSection.razor.css
 Layout/Main/LandingPageLayout.razor
@@ -374,6 +375,7 @@ Directory Structure:
 ./Layout
 ./  Admin
 ./  Auth
+./  Checkout
 ./  Main
 ./  Shop
 ./  User
@@ -431,7 +433,7 @@ Directory Structure:
 File Count Summary:
 ==================
 .cs       : 158 files
-.razor    : 71 files
+.razor    : 72 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
