@@ -1,0 +1,57 @@
+<!-- Layout/ProductDetails/ProductDetailsLayout.razor -->
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="product-details-layout">
+    <!-- Header -->
+    <header class="product-header">
+        <div class="product-header-content">
+            <button class="back-button" @onclick="GoBack">
+                <span class="back-icon">←</span>
+                <span class="back-text">Back</span>
+            </button>
+            
+            <div class="brand-logo-product">
+                <h1 class="brand-name" @onclick='() => Navigation.NavigateTo("")'>SubashaVentures</h1>
+            </div>
+            
+            <div class="header-actions">
+                <button class="header-btn" @onclick='() => Navigation.NavigateTo("shop")'>
+                    <span class="btn-icon">🏪</span>
+                    <span class="btn-text">Shop</span>
+                </button>
+                <button class="header-btn" @onclick='() => Navigation.NavigateTo("user/wishlist-cart")'>
+                    <span class="btn-icon">🛒</span>
+                    <span class="btn-text">Cart</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="product-main">
+        @Body
+    </main>
+
+    <!-- Footer -->
+    <footer class="product-footer">
+        <div class="product-footer-content">
+            <div class="footer-links">
+                <a href="shop">Continue Shopping</a>
+                <span class="separator">•</span>
+                <a href="user/orders">My Orders</a>
+                <span class="separator">•</span>
+                <a href="user/support">Help & Support</a>
+            </div>
+            <p class="copyright">© 2026 SubashaVentures. All rights reserved.</p>
+        </div>
+    </footer>
+</div>
+
+@code {
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+}
