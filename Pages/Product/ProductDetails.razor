@@ -1,9 +1,12 @@
+<!-- Pages/Product/ProductDetails.razor -->
 @page "/product/{slug}"
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
-@layout MainLayout
+@layout ProductDetailsLayout
+
+<PageTitle>@(Product?.Name ?? "Product Details") - SubashaVentures</PageTitle>
 
 <div class="product-details-page">
     @if (IsLoading)
