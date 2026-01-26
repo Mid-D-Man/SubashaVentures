@@ -1,4 +1,4 @@
-// Pages/Checkout/Checkout.razor.cs - FIXED WITH BETTER DEBUGGING
+// Pages/Checkout/Checkout.razor.cs - COMPLETE FIXED VERSION
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Checkout;
@@ -15,6 +15,7 @@ using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Domain.Miscellaneous;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Utilities.HelperScripts;
+using System.Diagnostics;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Checkout;
@@ -23,18 +24,12 @@ public partial class Checkout : ComponentBase
 {
     [Parameter] public string Slug { get; set; } = string.Empty;
     
-    // Query parameters for product-specific checkout
-    [SupplyParameterFromQuery(Name = "productId")]
-    public string? ProductId { get; set; }
-    
-    [SupplyParameterFromQuery(Name = "quantity")]
-    public int? Quantity { get; set; }
-    
-    [SupplyParameterFromQuery(Name = "size")]
-    public string? Size { get; set; }
-    
-    [SupplyParameterFromQuery(Name = "color")]
-    public string? Color { get; set; }
+    // ✅ FIX: Parse query parameters manually instead of using [SupplyParameterFromQuery]
+    // These don't work reliably in Blazor WebAssembly
+    private string? ProductId { get; set; }
+    private int? Quantity { get; set; }
+    private string? Size { get; set; }
+    private string? Color { get; set; }
 
     [Inject] private ICheckoutService CheckoutService { get; set; } = default!;
     [Inject] private ICartService CartService { get; set; } = default!;
@@ -105,9 +100,18 @@ public partial class Checkout : ComponentBase
         {
             IsLoading = true;
 
-            // ✅ DEBUG: Log all query parameters
+            // ✅ FIX: Manually parse query parameters from URL
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var queryParams = ParseQueryString(uri.Query);
+            
+            ProductId = queryParams.ContainsKey("productId") ? queryParams["productId"] : null;
+            Quantity = queryParams.ContainsKey("quantity") && int.TryParse(queryParams["quantity"], out var qty) ? qty : null;
+            Size = queryParams.ContainsKey("size") ? queryParams["size"] : null;
+            Color = queryParams.ContainsKey("color") ? queryParams["color"] : null;
+
+            // ✅ DEBUG: Log all parsed parameters
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId}, Quantity: {Quantity}, Size: {Size}, Color: {Color}",
+                $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId ?? "NULL"}, Quantity: {Quantity?.ToString() ?? "NULL"}, Size: {Size ?? "NULL"}, Color: {Color ?? "NULL"}",
                 LogLevel.Info
             );
 
@@ -150,6 +154,33 @@ public partial class Checkout : ComponentBase
         }
     }
 
+    // ✅ Helper method to parse query string
+    private Dictionary<string, string> ParseQueryString(string query)
+    {
+        var result = new Dictionary<string, string>();
+        
+        if (string.IsNullOrEmpty(query))
+            return result;
+        
+        // Remove leading '?'
+        if (query.StartsWith("?"))
+            query = query.Substring(1);
+        
+        var pairs = query.Split('&');
+        foreach (var pair in pairs)
+        {
+            var parts = pair.Split('=');
+            if (parts.Length == 2)
+            {
+                var key = Uri.UnescapeDataString(parts[0]);
+                var value = Uri.UnescapeDataString(parts[1]);
+                result[key] = value;
+            }
+        }
+        
+        return result;
+    }
+
     private async Task LoadCheckoutData()
     {
         try
@@ -159,10 +190,10 @@ public partial class Checkout : ComponentBase
                 LogLevel.Info
             );
 
-            // Determine checkout type: product-specific or cart-based
+            // ✅ Determine checkout type: product-specific or cart-based
             if (!string.IsNullOrEmpty(ProductId))
             {
-                // ✅ PRODUCT-SPECIFIC CHECKOUT
+                // ✅ PRODUCT-SPECIFIC CHECKOUT ("Buy Now" flow)
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"📦 PRODUCT CHECKOUT - ProductId: {ProductId}, Qty: {Quantity}, Size: {Size}, Color: {Color}",
                     LogLevel.Info
@@ -601,11 +632,8 @@ public partial class Checkout : ComponentBase
             {
                 OrderNumber = result.OrderNumber ?? "";
                 
-                // Remove from cart if cart-based checkout
-                if (string.IsNullOrEmpty(ProductId))
-                {
-                    await ClearCartAfterOrder();
-                }
+                // ✅ CRITICAL FIX: Only clear cart if this was a CART-based checkout!
+                await ClearCartAfterOrder();
                 
                 ShowSuccessModal = true;
                 
@@ -718,12 +746,26 @@ public partial class Checkout : ComponentBase
     {
         try
         {
-            await CartService.ClearCartAsync(CurrentUserId!);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "🗑️ Cart cleared after successful order",
-                LogLevel.Info
-            );
+            // ✅ CRITICAL FIX: Only clear cart if this was a CART-based checkout!
+            // For "Buy Now" flow (product-specific), DON'T touch the cart
+            if (string.IsNullOrEmpty(ProductId))
+            {
+                // This was cart checkout - clear it
+                await CartService.ClearCartAsync(CurrentUserId!);
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "🗑️ Cart cleared after successful cart-based order",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                // This was "Buy Now" checkout - don't touch cart
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✅ Buy Now order complete - cart not affected",
+                    LogLevel.Info
+                );
+            }
         }
         catch (Exception ex)
         {
