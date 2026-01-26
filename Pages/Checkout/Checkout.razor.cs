@@ -578,94 +578,94 @@ public partial class Checkout : ComponentBase
     // ==================== ORDER PLACEMENT ====================
 
     private async Task PlaceOrder()
+{
+    if (CheckoutModel == null || IsProcessing) return;
+
+    IsProcessing = true;
+    StateHasChanged();
+
+    try
     {
-        if (CheckoutModel == null || IsProcessing) return;
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"📦 PLACING ORDER - Items: {CheckoutModel.Items.Count}, Total: ₦{CheckoutModel.Total:N0}",
+            LogLevel.Info
+        );
 
-        IsProcessing = true;
-        StateHasChanged();
-
-        try
+        // Log each item being ordered
+        foreach (var item in CheckoutModel.Items)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"📦 PLACING ORDER - Items: {CheckoutModel.Items.Count}, Total: ₦{CheckoutModel.Total:N0}",
+                $"  📦 Ordering: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
                 LogLevel.Info
             );
-
-            // Log each item being ordered
-            foreach (var item in CheckoutModel.Items)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"  📦 Ordering: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
-                    LogLevel.Info
-                );
-            }
-
-            // Validate checkout
-            var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
-            if (!validation.IsValid)
-            {
-                ErrorMessage = string.Join("\n", validation.Errors);
-                ShowErrorModal = true;
-                return;
-            }
-
-            // Handle payment based on method
-            OrderPlacementResult? result = null;
-
-            if (SelectedPaymentMethod == "Card")
-            {
-                // Card payment
-                result = await ProcessCardPayment();
-            }
-            else if (SelectedPaymentMethod == "Wallet")
-            {
-                // Wallet payment
-                result = await ProcessWalletPayment();
-            }
-            else if (SelectedPaymentMethod == "PayOnDelivery")
-            {
-                // Pay on delivery - just create order
-                result = await CheckoutService.PlaceOrderAsync(CheckoutModel);
-            }
-
-            if (result != null && result.Success)
-            {
-                OrderNumber = result.OrderNumber ?? "";
-                
-                // ✅ CRITICAL FIX: Only clear cart if this was a CART-based checkout!
-                await ClearCartAfterOrder();
-                
-                ShowSuccessModal = true;
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ ORDER PLACED SUCCESSFULLY: {OrderNumber}",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                ErrorMessage = result?.Message ?? "Failed to place order";
-                ShowErrorModal = true;
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ ORDER FAILED: {ErrorMessage}",
-                    LogLevel.Error
-                );
-            }
         }
-        catch (Exception ex)
+
+        // Validate checkout
+        var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
+        if (!validation.IsValid)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
-            Logger.LogError(ex, "Failed to place order");
-            ErrorMessage = "An error occurred while placing your order. Please try again.";
+            ErrorMessage = string.Join("\n", validation.Errors);
             ShowErrorModal = true;
+            return;
         }
-        finally
+
+        // Handle payment based on method
+        OrderPlacementResult? result = null;
+
+        if (SelectedPaymentMethod == "Card")
         {
-            IsProcessing = false;
-            StateHasChanged();
+            // Card payment
+            result = await ProcessCardPayment();
+        }
+        else if (SelectedPaymentMethod == "Wallet")
+        {
+            // Wallet payment
+            result = await ProcessWalletPayment();
+        }
+        else if (SelectedPaymentMethod == "PayOnDelivery")
+        {
+            // ✅ FIX: Pass userId to PlaceOrderAsync
+            result = await CheckoutService.PlaceOrderAsync(CheckoutModel, CurrentUserId!);
+        }
+
+        if (result != null && result.Success)
+        {
+            OrderNumber = result.OrderNumber ?? "";
+            
+            // Only clear cart if this was a CART-based checkout!
+            await ClearCartAfterOrder();
+            
+            ShowSuccessModal = true;
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ ORDER PLACED SUCCESSFULLY: {OrderNumber}",
+                LogLevel.Info
+            );
+        }
+        else
+        {
+            ErrorMessage = result?.Message ?? "Failed to place order";
+            ShowErrorModal = true;
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"❌ ORDER FAILED: {ErrorMessage}",
+                LogLevel.Error
+            );
         }
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
+        Logger.LogError(ex, "Failed to place order");
+        ErrorMessage = "An error occurred while placing your order. Please try again.";
+        ShowErrorModal = true;
+    }
+    finally
+    {
+        IsProcessing = false;
+        StateHasChanged();
+    }
+}
 
     private async Task<OrderPlacementResult?> ProcessCardPayment()
     {
