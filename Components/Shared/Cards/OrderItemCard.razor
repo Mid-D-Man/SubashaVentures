@@ -1,0 +1,103 @@
+@* Components/Shared/Cards/OrderItemCard.razor *@
+@using SubashaVentures.Domain.Order
+
+<div class="order-item-card @CssClass">
+    @* Product Image *@
+    <div class="order-item-image-wrapper">
+        @if (!string.IsNullOrEmpty(Item.ImageUrl))
+        {
+            <img src="@Item.ImageUrl" 
+                 alt="@Item.ProductName" 
+                 class="order-item-image"
+                 loading="lazy"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+            <div class="order-item-placeholder" style="display: none;">
+                <span class="placeholder-emoji">📦</span>
+            </div>
+        }
+        else
+        {
+            <div class="order-item-placeholder">
+                <span class="placeholder-emoji">📦</span>
+            </div>
+        }
+    </div>
+
+    @* Product Details *@
+    <div class="order-item-details">
+        <div class="order-item-header">
+            <h4 class="order-item-name" title="@Item.ProductName">
+                @Item.ProductName
+            </h4>
+            @if (!string.IsNullOrEmpty(Item.Sku))
+            {
+                <span class="order-item-sku">SKU: @Item.Sku</span>
+            }
+        </div>
+
+        @* Variant Details *@
+        @if (!string.IsNullOrEmpty(Item.Size) || !string.IsNullOrEmpty(Item.Color))
+        {
+            <div class="order-item-variants">
+                @if (!string.IsNullOrEmpty(Item.Size))
+                {
+                    <span class="variant-badge variant-size">
+                        <span class="variant-label">Size:</span>
+                        <span class="variant-value">@Item.Size</span>
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(Item.Color))
+                {
+                    <span class="variant-badge variant-color">
+                        <span class="variant-label">Color:</span>
+                        <span class="variant-value">@Item.Color</span>
+                    </span>
+                }
+            </div>
+        }
+
+        @* Price and Quantity *@
+        <div class="order-item-pricing">
+            <div class="price-row">
+                <span class="price-label">Unit Price:</span>
+                <span class="price-value">₦@Item.Price.ToString("N0")</span>
+            </div>
+            <div class="quantity-row">
+                <span class="quantity-label">Quantity:</span>
+                <span class="quantity-value">×@Item.Quantity</span>
+            </div>
+            <div class="subtotal-row">
+                <span class="subtotal-label">Subtotal:</span>
+                <strong class="subtotal-value">₦@Item.Subtotal.ToString("N0")</strong>
+            </div>
+        </div>
+    </div>
+
+    @* Action Buttons (Optional) *@
+    @if (ShowActions)
+    {
+        <div class="order-item-actions">
+            @if (OnViewProduct.HasDelegate)
+            {
+                <button class="btn-view-product" @onclick="() => OnViewProduct.InvokeAsync(Item.ProductId)">
+                    View Product
+                </button>
+            }
+            @if (OnReviewProduct.HasDelegate && CanReview)
+            {
+                <button class="btn-review-product" @onclick="() => OnReviewProduct.InvokeAsync(Item.ProductId)">
+                    Write Review
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public OrderItemViewModel Item { get; set; } = null!;
+    [Parameter] public bool ShowActions { get; set; } = false;
+    [Parameter] public bool CanReview { get; set; } = false;
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public EventCallback<string> OnViewProduct { get; set; }
+    [Parameter] public EventCallback<string> OnReviewProduct { get; set; }
+}
