@@ -43,14 +43,15 @@ public interface ICheckoutService
     
     /// <summary>
     /// Place order (calls edge function)
+    /// Now requires userId parameter
     /// </summary>
-    Task<OrderPlacementResult> PlaceOrderAsync(CheckoutViewModel checkout);
+    Task<OrderPlacementResult> PlaceOrderAsync(CheckoutViewModel checkout, string userId);
     
     /// <summary>
     /// Process payment and create order
     /// </summary>
     Task<OrderPlacementResult> ProcessPaymentAndCreateOrderAsync(
-        string _userId,
+        string userId,
         CheckoutViewModel checkout,
         string paymentReference);
 }
