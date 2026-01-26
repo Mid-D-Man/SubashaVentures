@@ -574,7 +574,7 @@ public class CheckoutService : ICheckoutService
             }
 
             // Create order
-            var orderResult = await PlaceOrderAsync(checkout);
+            var orderResult = await PlaceOrderAsync(checkout,userId);
 
             if (!orderResult.Success)
             {
