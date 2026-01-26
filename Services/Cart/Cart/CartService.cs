@@ -1,4 +1,4 @@
-// Services/Cart/CartService.cs - UPDATED FOR JSONB DESIGN
+// Services/Cart/CartService.cs - COMPLETE FIXED VERSION
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Cart;
 using SubashaVentures.Services.Products;
@@ -26,6 +26,47 @@ public class CartService : ICartService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Ensure cart row exists for user (create if missing)
+    /// </summary>
+    private async Task<bool> EnsureCartExistsAsync(string userId)
+    {
+        try
+        {
+            var response = await _supabaseClient
+                .From<CartModel>()
+                .Where(c => c.UserId == userId)
+                .Get();
+
+            if (response?.Models == null || !response.Models.Any())
+            {
+                // Create empty cart for user
+                var newCart = new CartModel
+                {
+                    UserId = userId,
+                    Items = new List<CartItem>(),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _supabaseClient
+                    .From<CartModel>()
+                    .Insert(newCart);
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Created new cart for user: {userId}",
+                    LogLevel.Info
+                );
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring cart exists");
+            return false;
+        }
+    }
+
     public async Task<List<CartModel>> GetUserCartAsync(string userId)
     {
         try
@@ -41,19 +82,25 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
-            var cart = await _supabaseClient
+            // ✅ FIX 1: Ensure cart exists first (prevents 406 error)
+            await EnsureCartExistsAsync(userId);
+
+            // ✅ FIX 2: Use Get() instead of Single() to handle empty results
+            var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
-                .Single();
+                .Get();
 
-            if (cart == null)
+            if (response?.Models == null || !response.Models.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No cart found, returning empty",
-                    LogLevel.Info
+                    "No cart found after creation attempt, returning empty",
+                    LogLevel.Warning
                 );
                 return new List<CartModel>();
             }
+
+            var cart = response.Models.First();
 
             // Update cache
             _cartCountCache[userId] = cart.Items.Sum(i => i.quantity);
@@ -99,20 +146,32 @@ public class CartService : ICartService
                     continue;
                 }
 
+                // ✅ FIX 3: Build variant key properly
+                var variantKey = !string.IsNullOrEmpty(cartItem.size) || !string.IsNullOrEmpty(cartItem.color)
+                    ? ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color)
+                    : null;
+
+                // ✅ FIX 4: Get variant-specific data
+                var price = product.GetVariantPrice(variantKey);
+                var stock = product.GetVariantStock(variantKey);
+                var imageUrl = product.GetVariantImage(variantKey);
+
                 cartItemViewModels.Add(new CartItemViewModel
                 {
-                    Id = $"{cart.UserId}_{cartItem.product_id}_{cartItem.size}_{cartItem.color}",
+                    Id = $"{cart.UserId}_{cartItem.product_id}_{cartItem.size ?? "null"}_{cartItem.color ?? "null"}",
                     ProductId = cartItem.product_id,
                     Name = product.Name,
                     Slug = product.Slug,
-                    ImageUrl = product.Images.FirstOrDefault() ?? "",
-                    Price = product.Price,
+                    ImageUrl = imageUrl,
+                    Price = price,
                     OriginalPrice = product.OriginalPrice,
                     Quantity = cartItem.quantity,
-                    MaxQuantity = product.Stock,
+                    MaxQuantity = stock,
                     Size = cartItem.size,
                     Color = cartItem.color,
-                    Stock = product.Stock,
+                    VariantKey = variantKey,
+                    Stock = stock,
+                    Sku = product.Sku,
                     AddedAt = cartItem.added_at
                 });
             }
@@ -160,22 +219,42 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
-            // Validate product exists and has stock
+            // ✅ FIX 5: Validate product exists and has stock BEFORE adding
             var productIdInt = int.Parse(productId);
             var product = await _productService.GetProductByIdAsync(productIdInt);
 
             if (product == null)
             {
                 _logger.LogWarning("Product not found: {ProductId}", productId);
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Product not found: {productId}",
+                    LogLevel.Error
+                );
                 return false;
             }
 
-            if (product.Stock < quantity)
+            // Build variant key and check stock
+            var variantKey = !string.IsNullOrEmpty(size) || !string.IsNullOrEmpty(color)
+                ? ProductModelExtensions.BuildVariantKey(size, color)
+                : null;
+
+            var availableStock = product.GetVariantStock(variantKey);
+
+            if (availableStock < quantity)
             {
-                _logger.LogWarning("Insufficient stock for product: {ProductId}. Requested: {Quantity}, Available: {Stock}", 
-                    productId, quantity, product.Stock);
+                _logger.LogWarning(
+                    "Insufficient stock for product: {ProductId}. Requested: {Quantity}, Available: {Stock}", 
+                    productId, quantity, availableStock
+                );
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Insufficient stock: {product.Name}. Available: {availableStock}, Requested: {quantity}",
+                    LogLevel.Error
+                );
                 return false;
             }
+
+            // ✅ FIX 6: Ensure cart exists before calling RPC
+            await EnsureCartExistsAsync(userId);
 
             // Call Postgres function to add to cart
             var result = await _supabaseClient.Rpc<List<CartItem>>(
@@ -225,13 +304,13 @@ public class CartService : ICartService
 
             if (newQuantity <= 0)
             {
-                // Parse cartItemId to extract product info
+                // Remove item if quantity is 0 or negative
                 var parts = cartItemId.Split('_');
                 if (parts.Length >= 2)
                 {
                     return await RemoveFromCartAsync(userId, parts[1], 
-                        parts.Length > 2 ? parts[2] : null, 
-                        parts.Length > 3 ? parts[3] : null);
+                        parts.Length > 2 && parts[2] != "null" ? parts[2] : null, 
+                        parts.Length > 3 && parts[3] != "null" ? parts[3] : null);
                 }
                 return false;
             }
@@ -240,18 +319,6 @@ public class CartService : ICartService
                 $"🔄 Updating cart item quantity: Item={cartItemId}, NewQty={newQuantity}",
                 LogLevel.Info
             );
-
-            // Get current cart
-            var cart = await _supabaseClient
-                .From<CartModel>()
-                .Where(c => c.UserId == userId)
-                .Single();
-
-            if (cart == null)
-            {
-                _logger.LogWarning("Cart not found for update: {UserId}", userId);
-                return false;
-            }
 
             // Parse cartItemId (format: userId_productId_size_color)
             var idParts = cartItemId.Split('_');
@@ -265,16 +332,48 @@ public class CartService : ICartService
             var itemSize = idParts.Length > 2 && idParts[2] != "null" ? idParts[2] : null;
             var itemColor = idParts.Length > 3 && idParts[3] != "null" ? idParts[3] : null;
 
-            // Validate stock
+            // ✅ FIX 7: Validate stock BEFORE updating
             var productIdInt = int.Parse(productId);
             var product = await _productService.GetProductByIdAsync(productIdInt);
 
-            if (product == null || product.Stock < newQuantity)
+            if (product == null)
             {
-                _logger.LogWarning("Insufficient stock for cart update. Product: {ProductId}, Requested: {Quantity}, Available: {Stock}",
-                    productId, newQuantity, product?.Stock ?? 0);
+                _logger.LogWarning("Product not found for cart update: {ProductId}", productId);
                 return false;
             }
+
+            var variantKey = !string.IsNullOrEmpty(itemSize) || !string.IsNullOrEmpty(itemColor)
+                ? ProductModelExtensions.BuildVariantKey(itemSize, itemColor)
+                : null;
+
+            var availableStock = product.GetVariantStock(variantKey);
+
+            if (availableStock < newQuantity)
+            {
+                _logger.LogWarning(
+                    "Insufficient stock for cart update. Product: {ProductId}, Requested: {Quantity}, Available: {Stock}",
+                    productId, newQuantity, availableStock
+                );
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Insufficient stock: {product.Name}. Available: {availableStock}, Requested: {newQuantity}",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
+            // Get current cart
+            var response = await _supabaseClient
+                .From<CartModel>()
+                .Where(c => c.UserId == userId)
+                .Get();
+
+            if (response?.Models == null || !response.Models.Any())
+            {
+                _logger.LogWarning("Cart not found for update: {UserId}", userId);
+                return false;
+            }
+
+            var cart = response.Models.First();
 
             // Update the specific item's quantity
             var updatedItems = cart.Items.Select(item =>
@@ -326,6 +425,9 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
+            // ✅ FIX 8: Ensure cart exists before calling RPC
+            await EnsureCartExistsAsync(userId);
+
             // Call Postgres function to remove from cart
             var result = await _supabaseClient.Rpc<List<CartItem>>(
                 "remove_from_cart",
@@ -375,16 +477,20 @@ public class CartService : ICartService
                 LogLevel.Warning
             );
 
-            var cart = await _supabaseClient
+            // ✅ FIX 9: Ensure cart exists before clearing
+            await EnsureCartExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
-                .Single();
+                .Get();
 
-            if (cart == null)
+            if (response?.Models == null || !response.Models.Any())
             {
                 return true; // Already empty
             }
 
+            var cart = response.Models.First();
             cart.Items = new List<CartItem>();
             cart.UpdatedAt = DateTime.UtcNow;
 
@@ -423,12 +529,15 @@ public class CartService : ICartService
                 return cachedCount;
             }
 
-            var cart = await _supabaseClient
+            // ✅ FIX 10: Ensure cart exists before querying
+            await EnsureCartExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
-                .Single();
+                .Get();
 
-            var count = cart?.Items.Sum(i => i.quantity) ?? 0;
+            var count = response?.Models?.FirstOrDefault()?.Items.Sum(i => i.quantity) ?? 0;
 
             // Update cache
             _cartCountCache[userId] = count;
@@ -441,9 +550,7 @@ public class CartService : ICartService
             return 0;
         }
     }
-    /// <summary>
-    /// Remove item from cart using composite ID (backward compatibility)
-    /// </summary>
+
     public async Task<bool> RemoveFromCartByIdAsync(string userId, string cartItemId)
     {
         try
@@ -467,6 +574,7 @@ public class CartService : ICartService
             return false;
         }
     }
+
     public async Task<bool> IsInCartAsync(string userId, string productId)
     {
         try
@@ -476,12 +584,15 @@ public class CartService : ICartService
                 return false;
             }
 
-            var cart = await _supabaseClient
+            // ✅ FIX 11: Ensure cart exists before checking
+            await EnsureCartExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
-                .Single();
+                .Get();
 
-            return cart?.Items.Any(i => i.product_id == productId) == true;
+            return response?.Models?.FirstOrDefault()?.Items.Any(i => i.product_id == productId) == true;
         }
         catch (Exception ex)
         {
@@ -496,12 +607,23 @@ public class CartService : ICartService
 
         try
         {
-            var cart = await _supabaseClient
+            // ✅ FIX 12: Ensure cart exists before validating
+            await EnsureCartExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
-                .Single();
+                .Get();
 
-            if (cart == null || !cart.Items.Any())
+            if (response?.Models == null || !response.Models.Any())
+            {
+                result.Warnings.Add("Your cart is empty");
+                return result;
+            }
+
+            var cart = response.Models.First();
+
+            if (!cart.Items.Any())
             {
                 result.Warnings.Add("Your cart is empty");
                 return result;
@@ -538,7 +660,14 @@ public class CartService : ICartService
                     });
                 }
 
-                if (product.Stock < cartItem.quantity)
+                // ✅ FIX 13: Check variant stock properly
+                var variantKey = !string.IsNullOrEmpty(cartItem.size) || !string.IsNullOrEmpty(cartItem.color)
+                    ? ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color)
+                    : null;
+
+                var availableStock = product.GetVariantStock(variantKey);
+
+                if (availableStock < cartItem.quantity)
                 {
                     result.IsValid = false;
                     result.ItemIssues.Add(new CartItemIssue
@@ -547,7 +676,7 @@ public class CartService : ICartService
                         ProductId = cartItem.product_id,
                         ProductName = product.Name,
                         IssueType = "OutOfStock",
-                        Message = $"{product.Name} - Only {product.Stock} available (you have {cartItem.quantity} in cart)"
+                        Message = $"{product.Name} - Only {availableStock} available (you have {cartItem.quantity} in cart)"
                     });
                 }
             }
