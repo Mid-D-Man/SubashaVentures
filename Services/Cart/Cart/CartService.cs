@@ -28,20 +28,23 @@ public class CartService : ICartService
     }
 
     /// <summary>
-    /// Ensure cart row exists for user (create if missing)
-    /// </summary>
-    private async Task<bool> EnsureCartExistsAsync(string userId)
+/// Ensure cart row exists for user (create if missing)
+/// Race-condition safe - handles duplicate key errors gracefully
+/// </summary>
+private async Task<bool> EnsureCartExistsAsync(string userId)
+{
+    try
     {
-        try
-        {
-            var response = await _supabaseClient
-                .From<CartModel>()
-                .Where(c => c.UserId == userId)
-                .Get();
+        var response = await _supabaseClient
+            .From<CartModel>()
+            .Where(c => c.UserId == userId)
+            .Get();
 
-            if (response?.Models == null || !response.Models.Any())
+        if (response?.Models == null || !response.Models.Any())
+        {
+            try
             {
-                // Create empty cart for user
+                // ✅ Try to create empty cart for user
                 var newCart = new CartModel
                 {
                     UserId = userId,
@@ -58,15 +61,35 @@ public class CartService : ICartService
                     LogLevel.Info
                 );
             }
+            catch (Exception insertEx)
+            {
+                // ✅ Check if it's a duplicate key error (23505)
+                if (insertEx.Message.Contains("23505") || 
+                    insertEx.Message.Contains("duplicate key") ||
+                    insertEx.Message.Contains("cart_pkey"))
+                {
+                    // Another thread/request already created it - that's fine!
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"ℹ️ Cart already exists for user (created by another request): {userId}",
+                        LogLevel.Debug
+                    );
+                    return true;
+                }
+                
+                // If it's a different error, re-throw
+                throw;
+            }
+        }
 
-            return true;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring cart exists");
-            return false;
-        }
+        return true;
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring cart exists");
+        // Don't fail the entire operation if cart check fails
+        return false;
+    }
+}
 
     public async Task<List<CartModel>> GetUserCartAsync(string userId)
     {
