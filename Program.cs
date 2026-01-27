@@ -139,7 +139,7 @@ builder.Services.AddScoped<IPartnerService, PartnerService>();
 builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
 builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
-
+builder.Services.AddScoped<IGeolocationService, GeolocationService>();
 // Product Interaction Tracking Services
 builder.Services.AddScoped<IProductInteractionService, ProductInteractionService>();
 builder.Services.AddScoped<ProductViewTracker>();
