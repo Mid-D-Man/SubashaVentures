@@ -1,4 +1,3 @@
-
 // Services/Orders/IOrderService.cs
 using SubashaVentures.Domain.Order;
 using SubashaVentures.Models.Supabase;
@@ -18,9 +17,14 @@ public interface IOrderService
     Task<bool> HasUserReceivedProductAsync(string userId, string productId);
     
     /// <summary>
-    /// Get all orders for a user
+    /// Get all orders for a user (summary view)
     /// </summary>
     Task<List<OrderSummaryDto>> GetUserOrdersAsync(string userId);
+    
+    /// <summary>
+    /// Get all orders for a user with pagination (detailed view)
+    /// </summary>
+    Task<List<OrderViewModel>> GetUserOrdersAsync(string userId, int skip = 0, int take = 100);
     
     /// <summary>
     /// Get order by ID

@@ -1,4 +1,4 @@
-// Services/Orders/OrderService.cs - FIXED to use filter queries for Guid
+// Services/Orders/OrderService.cs - FIXED with pagination and correct return types
 using SubashaVentures.Domain.Order;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Supabase;
@@ -12,7 +12,7 @@ namespace SubashaVentures.Services.Orders;
 public class OrderService : IOrderService
 {
     private readonly ISupabaseDatabaseService _database;
-     private readonly ISupabaseEdgeFunctionService _edgeFunctions;
+    private readonly ISupabaseEdgeFunctionService _edgeFunctions;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
@@ -114,6 +114,7 @@ public class OrderService : IOrderService
         }
     }
 
+    // Summary view - no pagination, returns lightweight DTOs
     public async Task<List<OrderSummaryDto>> GetUserOrdersAsync(string userId)
     {
         try
@@ -149,6 +150,62 @@ public class OrderService : IOrderService
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting orders for user: {userId}");
             return new List<OrderSummaryDto>();
+        }
+    }
+
+    // Detailed view with pagination - returns full OrderViewModel objects
+    public async Task<List<OrderViewModel>> GetUserOrdersAsync(string userId, int skip = 0, int take = 100)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return new List<OrderViewModel>();
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📦 Loading orders for user: {userId} (skip: {skip}, take: {take})",
+                LogLevel.Info
+            );
+
+            // Use filter with string UUID
+            var orders = await _database.GetWithFilterAsync<OrderModel>(
+                "user_id",
+                Constants.Operator.Equals,
+                userId
+            );
+
+            // Apply ordering and pagination
+            var paginatedOrders = orders
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip(skip)
+                .Take(take)
+                .ToList();
+
+            var viewModels = new List<OrderViewModel>();
+
+            foreach (var order in paginatedOrders)
+            {
+                var items = await _database.GetWithFilterAsync<OrderItemModel>(
+                    "order_id",
+                    Constants.Operator.Equals,
+                    order.Id.ToString()
+                );
+
+                viewModels.Add(OrderViewModel.FromCloudModel(order, items.ToList()));
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Loaded {viewModels.Count} orders (Page skip={skip}, take={take})",
+                LogLevel.Info
+            );
+
+            return viewModels;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting paginated orders for user: {userId}");
+            return new List<OrderViewModel>();
         }
     }
 

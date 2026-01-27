@@ -69,7 +69,7 @@ public partial class OrderTracking : ComponentBase
             );
 
             // Load order details
-            Order = await OrderService.GetOrderByIdAsync(OrderId, CurrentUserId!);
+            Order = await OrderService.GetOrderByIdAsync(OrderId);
 
             if (Order == null)
             {
