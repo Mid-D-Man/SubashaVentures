@@ -5,6 +5,7 @@ using SubashaVentures.Services.Authorization;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using System.Linq; 
+
 namespace SubashaVentures.Pages.User;
 
 public partial class Orders : ComponentBase
@@ -78,13 +79,10 @@ public partial class Orders : ComponentBase
             var orders = await OrderService.GetUserOrdersAsync(
                 CurrentUserId!,
                 skip: CurrentPage * PageSize,
-                take: PageSize + 1 // Get one extra to check if there are more
+                take: PageSize + 1
             );
 
-            // Check if there are more orders
             HasMoreOrders = orders.Count > PageSize;
-
-            // Take only the requested page size
             var pageOrders = orders.Take(PageSize).ToList();
 
             if (CurrentPage == 0)
@@ -198,7 +196,7 @@ public partial class Orders : ComponentBase
 
     private void TrackOrder(string orderId)
     {
-        Navigation.NavigateTo($"user/orders/{orderId}/track");
+        Navigation.NavigateTo($"user/orders/track/{orderId}");
     }
 
     private void ViewOrder(string orderId)
@@ -219,7 +217,6 @@ public partial class Orders : ComponentBase
 
             if (success)
             {
-                // Reload orders to reflect cancellation
                 CurrentPage = 0;
                 await LoadOrders();
 
