@@ -1,4 +1,4 @@
-// Pages/Checkout/Checkout.razor.cs - COMPLETE FIXED VERSION
+// Pages/Checkout/Checkout.razor.cs - COMPLETE WITH GEOLOCATION
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Checkout;
@@ -11,9 +11,10 @@ using SubashaVentures.Services.Cart;
 using SubashaVentures.Services.Addresses;
 using SubashaVentures.Services.Payment;
 using SubashaVentures.Services.Authorization;
+using SubashaVentures.Services.Geolocation;
+using SubashaVentures.Services.Users;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Domain.Miscellaneous;
-using SubashaVentures.Services.Users;
 using SubashaVentures.Utilities.HelperScripts;
 using System.Diagnostics;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -24,8 +25,6 @@ public partial class Checkout : ComponentBase
 {
     [Parameter] public string Slug { get; set; } = string.Empty;
     
-    // ✅ FIX: Parse query parameters manually instead of using [SupplyParameterFromQuery]
-    // These don't work reliably in Blazor WebAssembly
     private string? ProductId { get; set; }
     private int? Quantity { get; set; }
     private string? Size { get; set; }
@@ -38,6 +37,7 @@ public partial class Checkout : ComponentBase
     [Inject] private IPaymentService PaymentService { get; set; } = default!;
     [Inject] private IWalletService WalletService { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private IGeolocationService GeolocationService { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<Checkout> Logger { get; set; } = default!;
@@ -54,6 +54,7 @@ public partial class Checkout : ComponentBase
     private bool ShowAddressForm = false;
     private bool ShowSuccessModal = false;
     private bool ShowErrorModal = false;
+    private bool IsAutoFilling = false;
     
     private int CurrentStep = 1;
     private string? CurrentUserId;
@@ -65,14 +66,11 @@ public partial class Checkout : ComponentBase
     private string OrderNumber = "";
     private string ErrorMessage = "";
     
-    // New address form
     private AddressViewModel NewAddress = new();
     
-    // Modal references
     private DynamicModal? SuccessModal;
     private InfoPopup? ErrorPopup;
     
-    // Computed properties
     private bool HasValidAddress => 
         !string.IsNullOrEmpty(SelectedAddressId) || 
         (!string.IsNullOrEmpty(NewAddress.FullName) &&
@@ -100,7 +98,6 @@ public partial class Checkout : ComponentBase
         {
             IsLoading = true;
 
-            // ✅ FIX: Manually parse query parameters from URL
             var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
             var queryParams = ParseQueryString(uri.Query);
             
@@ -109,13 +106,11 @@ public partial class Checkout : ComponentBase
             Size = queryParams.ContainsKey("size") ? queryParams["size"] : null;
             Color = queryParams.ContainsKey("color") ? queryParams["color"] : null;
 
-            // ✅ DEBUG: Log all parsed parameters
             await MID_HelperFunctions.DebugMessageAsync(
                 $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId ?? "NULL"}, Quantity: {Quantity?.ToString() ?? "NULL"}, Size: {Size ?? "NULL"}, Color: {Color ?? "NULL"}",
                 LogLevel.Info
             );
 
-            // Ensure authenticated
             if (!await PermissionService.EnsureAuthenticatedAsync($"checkout/{Slug}"))
             {
                 Navigation.NavigateTo("signin", true);
@@ -154,7 +149,6 @@ public partial class Checkout : ComponentBase
         }
     }
 
-    // ✅ Helper method to parse query string
     private Dictionary<string, string> ParseQueryString(string query)
     {
         var result = new Dictionary<string, string>();
@@ -162,7 +156,6 @@ public partial class Checkout : ComponentBase
         if (string.IsNullOrEmpty(query))
             return result;
         
-        // Remove leading '?'
         if (query.StartsWith("?"))
             query = query.Substring(1);
         
@@ -190,10 +183,8 @@ public partial class Checkout : ComponentBase
                 LogLevel.Info
             );
 
-            // ✅ Determine checkout type: product-specific or cart-based
             if (!string.IsNullOrEmpty(ProductId))
             {
-                // ✅ PRODUCT-SPECIFIC CHECKOUT ("Buy Now" flow)
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"📦 PRODUCT CHECKOUT - ProductId: {ProductId}, Qty: {Quantity}, Size: {Size}, Color: {Color}",
                     LogLevel.Info
@@ -224,7 +215,6 @@ public partial class Checkout : ComponentBase
             }
             else
             {
-                // ✅ CART-BASED CHECKOUT
                 await MID_HelperFunctions.DebugMessageAsync(
                     "🛒 CART CHECKOUT - Loading from user's cart",
                     LogLevel.Info
@@ -239,7 +229,6 @@ public partial class Checkout : ComponentBase
                         LogLevel.Info
                     );
 
-                    // Log each item
                     foreach (var item in CheckoutModel.Items)
                     {
                         await MID_HelperFunctions.DebugMessageAsync(
@@ -266,7 +255,6 @@ public partial class Checkout : ComponentBase
                 return;
             }
 
-            // Load user data
             await Task.WhenAll(
                 LoadUserAddresses(),
                 LoadWalletBalance()
@@ -290,7 +278,6 @@ public partial class Checkout : ComponentBase
         {
             UserAddresses = await AddressService.GetUserAddressesAsync(CurrentUserId!);
             
-            // Select default address if available
             var defaultAddress = UserAddresses.FirstOrDefault(a => a.IsDefault);
             if (defaultAddress != null)
             {
@@ -329,6 +316,83 @@ public partial class Checkout : ComponentBase
         }
     }
 
+    // ==================== AUTO-FILL ADDRESS ====================
+
+    private async Task AutoFillAddress()
+    {
+        IsAutoFilling = true;
+        StateHasChanged();
+
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "🌍 Auto-filling address from location",
+                LogLevel.Info
+            );
+
+            // Get location from IP
+            var addressComponents = await GeolocationService.GetLocationFromIPAsync();
+
+            if (addressComponents == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert",
+                    "Unable to detect your location automatically. Please enter your address manually.");
+                return;
+            }
+
+            // Fill in the detected information
+            NewAddress.AddressLine1 = addressComponents.AddressLine1;
+            NewAddress.City = addressComponents.City;
+            NewAddress.State = addressComponents.State;
+            NewAddress.PostalCode = addressComponents.PostalCode;
+            NewAddress.Country = addressComponents.Country;
+
+            // Get user info for name, phone, and email
+            if (!string.IsNullOrEmpty(CurrentUserId))
+            {
+                var user = await UserService.GetUserByIdAsync(CurrentUserId);
+                if (user != null)
+                {
+                    // Auto-fill name if available
+                    if (string.IsNullOrEmpty(NewAddress.FullName))
+                    {
+                        NewAddress.FullName = $"{user.FirstName} {user.LastName}".Trim();
+                    }
+
+                    // Auto-fill phone if available
+                    if (string.IsNullOrEmpty(NewAddress.PhoneNumber) && !string.IsNullOrEmpty(user.PhoneNumber))
+                    {
+                        NewAddress.PhoneNumber = user.PhoneNumber;
+                    }
+
+                    // Auto-fill email if available
+                    if (string.IsNullOrEmpty(NewAddress.Email) && !string.IsNullOrEmpty(user.Email))
+                    {
+                        NewAddress.Email = user.Email;
+                    }
+                }
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Address auto-filled: {NewAddress.City}, {NewAddress.State}",
+                LogLevel.Info
+            );
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Auto-filling address");
+            await JSRuntime.InvokeVoidAsync("alert",
+                "An error occurred while detecting your location. Please enter your address manually.");
+        }
+        finally
+        {
+            IsAutoFilling = false;
+            StateHasChanged();
+        }
+    }
+
     // ==================== STEP NAVIGATION ====================
 
     private async Task GoToDeliveryStep()
@@ -342,7 +406,6 @@ public partial class Checkout : ComponentBase
             return;
         }
 
-        // Save address if needed
         if (!string.IsNullOrEmpty(SelectedAddressId))
         {
             var selectedAddress = UserAddresses.FirstOrDefault(a => a.Id == SelectedAddressId);
@@ -353,7 +416,6 @@ public partial class Checkout : ComponentBase
         }
         else
         {
-            // Create new address
             var newAddress = await SaveNewAddressIfNeeded();
             if (newAddress != null)
             {
@@ -361,7 +423,6 @@ public partial class Checkout : ComponentBase
             }
         }
 
-        // Load shipping methods
         CurrentStep = 2;
         await LoadShippingMethods();
     }
@@ -438,10 +499,8 @@ public partial class Checkout : ComponentBase
             
             if (success)
             {
-                // Reload addresses to get the saved one with ID
                 await LoadUserAddresses();
                 
-                // Find the newly added address
                 var savedAddress = UserAddresses.FirstOrDefault(a => 
                     a.FullName == NewAddress.FullName && 
                     a.PhoneNumber == NewAddress.PhoneNumber);
@@ -478,7 +537,6 @@ public partial class Checkout : ComponentBase
 
         try
         {
-            // Convert to CheckoutItemViewModel
             var checkoutItems = CheckoutModel.Items.Select(i => new CheckoutItemViewModel
             {
                 ProductId = i.ProductId,
@@ -501,7 +559,6 @@ public partial class Checkout : ComponentBase
                 checkoutItems
             );
 
-            // Auto-select first method
             if (ShippingMethods.Any())
             {
                 SelectShippingMethod(ShippingMethods.First());
@@ -578,94 +635,87 @@ public partial class Checkout : ComponentBase
     // ==================== ORDER PLACEMENT ====================
 
     private async Task PlaceOrder()
-{
-    if (CheckoutModel == null || IsProcessing) return;
-
-    IsProcessing = true;
-    StateHasChanged();
-
-    try
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"📦 PLACING ORDER - Items: {CheckoutModel.Items.Count}, Total: ₦{CheckoutModel.Total:N0}",
-            LogLevel.Info
-        );
+        if (CheckoutModel == null || IsProcessing) return;
 
-        // Log each item being ordered
-        foreach (var item in CheckoutModel.Items)
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"  📦 Ordering: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
-                LogLevel.Info
-            );
-        }
-
-        // Validate checkout
-        var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
-        if (!validation.IsValid)
-        {
-            ErrorMessage = string.Join("\n", validation.Errors);
-            ShowErrorModal = true;
-            return;
-        }
-
-        // Handle payment based on method
-        OrderPlacementResult? result = null;
-
-        if (SelectedPaymentMethod == "Card")
-        {
-            // Card payment
-            result = await ProcessCardPayment();
-        }
-        else if (SelectedPaymentMethod == "Wallet")
-        {
-            // Wallet payment
-            result = await ProcessWalletPayment();
-        }
-        else if (SelectedPaymentMethod == "PayOnDelivery")
-        {
-            // ✅ FIX: Pass userId to PlaceOrderAsync
-            result = await CheckoutService.PlaceOrderAsync(CheckoutModel, CurrentUserId!);
-        }
-
-        if (result != null && result.Success)
-        {
-            OrderNumber = result.OrderNumber ?? "";
-            
-            // Only clear cart if this was a CART-based checkout!
-            await ClearCartAfterOrder();
-            
-            ShowSuccessModal = true;
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ ORDER PLACED SUCCESSFULLY: {OrderNumber}",
-                LogLevel.Info
-            );
-        }
-        else
-        {
-            ErrorMessage = result?.Message ?? "Failed to place order";
-            ShowErrorModal = true;
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"❌ ORDER FAILED: {ErrorMessage}",
-                LogLevel.Error
-            );
-        }
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
-        Logger.LogError(ex, "Failed to place order");
-        ErrorMessage = "An error occurred while placing your order. Please try again.";
-        ShowErrorModal = true;
-    }
-    finally
-    {
-        IsProcessing = false;
+        IsProcessing = true;
         StateHasChanged();
+
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📦 PLACING ORDER - Items: {CheckoutModel.Items.Count}, Total: ₦{CheckoutModel.Total:N0}",
+                LogLevel.Info
+            );
+
+            foreach (var item in CheckoutModel.Items)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"  📦 Ordering: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
+                    LogLevel.Info
+                );
+            }
+
+            var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
+            if (!validation.IsValid)
+            {
+                ErrorMessage = string.Join("\n", validation.Errors);
+                ShowErrorModal = true;
+                return;
+            }
+
+            OrderPlacementResult? result = null;
+
+            if (SelectedPaymentMethod == "Card")
+            {
+                result = await ProcessCardPayment();
+            }
+            else if (SelectedPaymentMethod == "Wallet")
+            {
+                result = await ProcessWalletPayment();
+            }
+            else if (SelectedPaymentMethod == "PayOnDelivery")
+            {
+                result = await CheckoutService.PlaceOrderAsync(CheckoutModel, CurrentUserId!);
+            }
+
+            if (result != null && result.Success)
+            {
+                OrderNumber = result.OrderNumber ?? "";
+                
+                await ClearCartAfterOrder();
+                
+                ShowSuccessModal = true;
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ ORDER PLACED SUCCESSFULLY: {OrderNumber}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                ErrorMessage = result?.Message ?? "Failed to place order";
+                ShowErrorModal = true;
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ ORDER FAILED: {ErrorMessage}",
+                    LogLevel.Error
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
+            Logger.LogError(ex, "Failed to place order");
+            ErrorMessage = "An error occurred while placing your order. Please try again.";
+            ShowErrorModal = true;
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
     }
-}
 
     private async Task<OrderPlacementResult?> ProcessCardPayment()
     {
@@ -694,7 +744,6 @@ public partial class Checkout : ComponentBase
 
             if (paymentResponse.Success)
             {
-                // Payment successful, create order
                 return await CheckoutService.ProcessPaymentAndCreateOrderAsync(
                     CurrentUserId!,
                     CheckoutModel,
@@ -728,7 +777,6 @@ public partial class Checkout : ComponentBase
                 };
             }
 
-            // Process payment and create order
             return await CheckoutService.ProcessPaymentAndCreateOrderAsync(
                 CurrentUserId!,
                 CheckoutModel,
@@ -746,11 +794,8 @@ public partial class Checkout : ComponentBase
     {
         try
         {
-            // ✅ CRITICAL FIX: Only clear cart if this was a CART-based checkout!
-            // For "Buy Now" flow (product-specific), DON'T touch the cart
             if (string.IsNullOrEmpty(ProductId))
             {
-                // This was cart checkout - clear it
                 await CartService.ClearCartAsync(CurrentUserId!);
                 
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -760,7 +805,6 @@ public partial class Checkout : ComponentBase
             }
             else
             {
-                // This was "Buy Now" checkout - don't touch cart
                 await MID_HelperFunctions.DebugMessageAsync(
                     "✅ Buy Now order complete - cart not affected",
                     LogLevel.Info
@@ -770,7 +814,6 @@ public partial class Checkout : ComponentBase
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Clearing cart after order");
-            // Don't fail the order if cart clearing fails
         }
     }
 
