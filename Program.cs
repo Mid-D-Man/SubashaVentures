@@ -26,6 +26,7 @@ using SubashaVentures.Services.Addresses;
 using SubashaVentures.Services.Statistics;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Auth;
+using SubashaVentures.Services.Geolocation;
 using SubashaVentures.Services.Orders;
 using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Shop;
