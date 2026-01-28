@@ -1,17 +1,26 @@
-// Pages/User/Addresses.razor.cs
+// Pages/User/Addresses.razor.cs - UPDATED WITH GEOLOCATION AUTO-FILL
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Domain.User;
 using SubashaVentures.Services.Addresses;
+using SubashaVentures.Services.Geolocation;
+using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Authorization;
+using SubashaVentures.Utilities.HelperScripts;
 using System.Security.Claims;
+using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.User;
 
 public partial class Addresses
 {
     [Inject] private IAddressService AddressService { get; set; } = default!;
+    [Inject] private IGeolocationService GeolocationService { get; set; } = default!;
+    [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IPermissionService PermissionService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private ILogger<Addresses> Logger { get; set; } = default!;
 
     private List<AddressViewModel> AddressList = new();
     private Dictionary<string, bool> SelectedAddresses = new();
@@ -20,12 +29,19 @@ public partial class Addresses
     
     private DynamicModal? AddressModal;
     private ConfirmationPopup? DeleteConfirmPopup;
+    private InfoPopup? AutoFillInfoPopup;
     
     private bool IsLoading = true;
     private bool IsModalOpen = false;
     private bool IsSaving = false;
     private bool IsEditMode = false;
+    private bool IsAutoFilling = false;
     private string? CurrentUserId;
+
+    // Auto-fill popup properties
+    private string AutoFillPopupTitle = "";
+    private string AutoFillPopupMessage = "";
+    private InfoPopup.InfoPopupIcon AutoFillPopupIcon = InfoPopup.InfoPopupIcon.Info;
 
     private readonly List<string> NigerianStates = new()
     {
@@ -34,6 +50,31 @@ public partial class Addresses
         "FCT - Abuja", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", 
         "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", 
         "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
+    };
+
+    // Postal code mapping for major Nigerian cities/states
+    private readonly Dictionary<string, string> StatePostalCodes = new()
+    {
+        { "Lagos", "100001" },
+        { "FCT - Abuja", "900001" },
+        { "Kano", "700001" },
+        { "Rivers", "500001" },
+        { "Oyo", "200001" },
+        { "Delta", "320001" },
+        { "Ogun", "110001" },
+        { "Kaduna", "800001" },
+        { "Edo", "300001" },
+        { "Imo", "460001" },
+        { "Enugu", "400001" },
+        { "Anambra", "420001" },
+        { "Akwa Ibom", "520001" },
+        { "Abia", "440001" },
+        { "Plateau", "930001" },
+        { "Cross River", "540001" },
+        { "Osun", "230001" },
+        { "Ondo", "340001" },
+        { "Kwara", "240001" },
+        { "Benue", "970001" }
     };
 
     protected override async Task OnInitializedAsync()
@@ -46,18 +87,27 @@ public partial class Addresses
     {
         try
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            CurrentUserId = authState.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                ?? authState.User?.FindFirst("sub")?.Value;
+            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
 
             if (string.IsNullOrEmpty(CurrentUserId))
             {
-                Console.WriteLine("❌ User not authenticated");
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ User not authenticated",
+                    LogLevel.Warning
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ User authenticated: {CurrentUserId}",
+                    LogLevel.Info
+                );
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error getting user ID: {ex.Message}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting user ID");
+            Logger.LogError(ex, "Error getting user ID");
         }
     }
 
@@ -70,18 +120,25 @@ public partial class Addresses
         {
             if (string.IsNullOrEmpty(CurrentUserId))
             {
-                Console.WriteLine("❌ Cannot load addresses: User not authenticated");
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ Cannot load addresses: User not authenticated",
+                    LogLevel.Warning
+                );
                 return;
             }
 
             AddressList = await AddressService.GetUserAddressesAsync(CurrentUserId);
             SelectedAddresses = AddressList.ToDictionary(a => a.Id, _ => false);
 
-            Console.WriteLine($"✅ Loaded {AddressList.Count} addresses");
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Loaded {AddressList.Count} addresses",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error loading addresses: {ex.Message}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading addresses");
+            Logger.LogError(ex, "Error loading addresses");
         }
         finally
         {
@@ -96,10 +153,7 @@ public partial class Addresses
         CurrentAddress = new AddressViewModel
         {
             Country = "Nigeria",
-            Type = AddressType.Shipping,
-            City = "Lagos",
-            State = "Lagos",
-            PostalCode = "100001"
+            Type = AddressType.Shipping
         };
         ValidationErrors.Clear();
         IsModalOpen = true;
@@ -114,6 +168,7 @@ public partial class Addresses
             Id = address.Id,
             FullName = address.FullName,
             PhoneNumber = address.PhoneNumber,
+            Email = address.Email,
             AddressLine1 = address.AddressLine1,
             AddressLine2 = address.AddressLine2,
             City = address.City,
@@ -128,20 +183,184 @@ public partial class Addresses
         StateHasChanged();
     }
 
+    // ==================== AUTO-FILL ADDRESS ====================
+
+    private async Task AutoFillAddress()
+    {
+        IsAutoFilling = true;
+        StateHasChanged();
+
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "🌍 Starting auto-fill address process",
+                LogLevel.Info
+            );
+
+            // Step 1: Get location from IP
+            var locationData = await GeolocationService.GetLocationFromIPAsync();
+
+            if (locationData == null)
+            {
+                await ShowAutoFillError(
+                    "Unable to detect your location automatically. Please enter your address manually."
+                );
+                return;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Location detected: {locationData.City}, {locationData.State}",
+                LogLevel.Info
+            );
+
+            // Step 2: Get user information
+            if (!string.IsNullOrEmpty(CurrentUserId))
+            {
+                var user = await UserService.GetUserByIdAsync(CurrentUserId);
+                
+                if (user != null)
+                {
+                    // Auto-fill name if not already set
+                    if (string.IsNullOrEmpty(CurrentAddress.FullName))
+                    {
+                        CurrentAddress.FullName = $"{user.FirstName} {user.LastName}".Trim();
+                        
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"✅ Name filled: {CurrentAddress.FullName}",
+                            LogLevel.Info
+                        );
+                    }
+
+                    // Auto-fill phone if not already set
+                    if (string.IsNullOrEmpty(CurrentAddress.PhoneNumber) && 
+                        !string.IsNullOrEmpty(user.PhoneNumber))
+                    {
+                        CurrentAddress.PhoneNumber = user.PhoneNumber;
+                        
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"✅ Phone filled: {CurrentAddress.PhoneNumber}",
+                            LogLevel.Info
+                        );
+                    }
+
+                    // Auto-fill email if not already set
+                    if (string.IsNullOrEmpty(CurrentAddress.Email) && 
+                        !string.IsNullOrEmpty(user.Email))
+                    {
+                        CurrentAddress.Email = user.Email;
+                        
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"✅ Email filled: {CurrentAddress.Email}",
+                            LogLevel.Info
+                        );
+                    }
+                }
+            }
+
+            // Step 3: Fill location data
+            CurrentAddress.City = locationData.City;
+            CurrentAddress.State = locationData.State;
+            CurrentAddress.Country = locationData.Country;
+            
+            // Set address line 1 if we have city data
+            if (!string.IsNullOrEmpty(locationData.City) && 
+                string.IsNullOrEmpty(CurrentAddress.AddressLine1))
+            {
+                CurrentAddress.AddressLine1 = locationData.AddressLine1;
+            }
+
+            // Step 4: Try to set postal code based on state
+            if (string.IsNullOrEmpty(CurrentAddress.PostalCode))
+            {
+                if (!string.IsNullOrEmpty(locationData.PostalCode))
+                {
+                    // Use postal code from geolocation if available
+                    CurrentAddress.PostalCode = locationData.PostalCode;
+                }
+                else if (StatePostalCodes.TryGetValue(CurrentAddress.State, out var postalCode))
+                {
+                    // Use default postal code for the state
+                    CurrentAddress.PostalCode = postalCode;
+                }
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✅ Address auto-fill completed successfully",
+                LogLevel.Info
+            );
+
+            // Show success message
+            await ShowAutoFillSuccess(
+                $"Address auto-filled based on your location: {locationData.City}, {locationData.State}. Please review and complete any missing details."
+            );
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Auto-filling address");
+            Logger.LogError(ex, "Error during address auto-fill");
+            
+            await ShowAutoFillError(
+                "An error occurred while detecting your location. Please enter your address manually."
+            );
+        }
+        finally
+        {
+            IsAutoFilling = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowAutoFillSuccess(string message)
+    {
+        AutoFillPopupTitle = "Location Detected";
+        AutoFillPopupMessage = message;
+        AutoFillPopupIcon = InfoPopup.InfoPopupIcon.Success;
+        AutoFillInfoPopup?.Show();
+        
+        await Task.CompletedTask;
+    }
+
+    private async Task ShowAutoFillError(string message)
+    {
+        AutoFillPopupTitle = "Auto-Fill Failed";
+        AutoFillPopupMessage = message;
+        AutoFillPopupIcon = InfoPopup.InfoPopupIcon.Warning;
+        AutoFillInfoPopup?.Show();
+        
+        await Task.CompletedTask;
+    }
+
+    private void CloseAutoFillPopup()
+    {
+        AutoFillInfoPopup?.Close();
+    }
+
+    // ==================== SAVE ADDRESS ====================
+
     private async Task SaveAddress()
     {
         if (string.IsNullOrEmpty(CurrentUserId))
         {
-            Console.WriteLine("❌ Cannot save: User not authenticated");
+            await MID_HelperFunctions.DebugMessageAsync(
+                "❌ Cannot save: User not authenticated",
+                LogLevel.Warning
+            );
             return;
         }
 
         // Validate using service
-        var validationResult = AddressService.ValidateAddress(CurrentAddress);
-        if (!validationResult.Result.IsValid)
+        var validationResult = await AddressService.ValidateAddress(CurrentAddress);
+        if (!validationResult.IsValid)
         {
-            ValidationErrors = validationResult.Result.Errors;
+            ValidationErrors = validationResult.Errors;
             StateHasChanged();
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"❌ Address validation failed: {string.Join(", ", ValidationErrors)}",
+                LogLevel.Warning
+            );
             return;
         }
 
@@ -155,12 +374,20 @@ public partial class Addresses
             if (IsEditMode)
             {
                 success = await AddressService.UpdateAddressAsync(CurrentUserId, CurrentAddress);
-                Console.WriteLine(success ? "✅ Address updated" : "❌ Failed to update address");
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    success ? "✅ Address updated successfully" : "❌ Failed to update address",
+                    success ? LogLevel.Info : LogLevel.Error
+                );
             }
             else
             {
                 success = await AddressService.AddAddressAsync(CurrentUserId, CurrentAddress);
-                Console.WriteLine(success ? "✅ Address added" : "❌ Failed to add address");
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    success ? "✅ Address added successfully" : "❌ Failed to add address",
+                    success ? LogLevel.Info : LogLevel.Error
+                );
             }
 
             if (success)
@@ -171,7 +398,8 @@ public partial class Addresses
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error saving address: {ex.Message}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving address");
+            Logger.LogError(ex, "Error saving address");
         }
         finally
         {
@@ -188,6 +416,8 @@ public partial class Addresses
         StateHasChanged();
     }
 
+    // ==================== DELETE ADDRESSES ====================
+
     private void DeleteSelectedAddresses()
     {
         DeleteConfirmPopup?.Open();
@@ -197,7 +427,10 @@ public partial class Addresses
     {
         if (string.IsNullOrEmpty(CurrentUserId))
         {
-            Console.WriteLine("❌ Cannot delete: User not authenticated");
+            await MID_HelperFunctions.DebugMessageAsync(
+                "❌ Cannot delete: User not authenticated",
+                LogLevel.Warning
+            );
             return;
         }
 
@@ -205,24 +438,29 @@ public partial class Addresses
         {
             var toDelete = SelectedAddresses.Where(x => x.Value).Select(x => x.Key).ToList();
             
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🗑️ Deleting {toDelete.Count} addresses",
+                LogLevel.Info
+            );
+            
             foreach (var addressId in toDelete)
             {
                 var success = await AddressService.DeleteAddressAsync(CurrentUserId, addressId);
-                if (success)
-                {
-                    Console.WriteLine($"✅ Deleted address: {addressId}");
-                }
-                else
-                {
-                    Console.WriteLine($"❌ Failed to delete address: {addressId}");
-                }
+                
+                await MID_HelperFunctions.DebugMessageAsync(
+                    success 
+                        ? $"✅ Deleted address: {addressId}" 
+                        : $"❌ Failed to delete address: {addressId}",
+                    success ? LogLevel.Info : LogLevel.Error
+                );
             }
 
             await LoadAddresses();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error deleting addresses: {ex.Message}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting addresses");
+            Logger.LogError(ex, "Error deleting addresses");
         }
     }
 
@@ -230,7 +468,10 @@ public partial class Addresses
     {
         if (string.IsNullOrEmpty(CurrentUserId))
         {
-            Console.WriteLine("❌ Cannot set default: User not authenticated");
+            await MID_HelperFunctions.DebugMessageAsync(
+                "❌ Cannot set default: User not authenticated",
+                LogLevel.Warning
+            );
             return;
         }
 
@@ -238,19 +479,22 @@ public partial class Addresses
         {
             var success = await AddressService.SetDefaultAddressAsync(CurrentUserId, addressId);
             
+            await MID_HelperFunctions.DebugMessageAsync(
+                success 
+                    ? $"✅ Set default address: {addressId}" 
+                    : $"❌ Failed to set default address: {addressId}",
+                success ? LogLevel.Info : LogLevel.Error
+            );
+
             if (success)
             {
-                Console.WriteLine($"✅ Set default address: {addressId}");
                 await LoadAddresses();
-            }
-            else
-            {
-                Console.WriteLine($"❌ Failed to set default address: {addressId}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error setting default address: {ex.Message}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Setting default address");
+            Logger.LogError(ex, "Error setting default address");
         }
     }
 }
