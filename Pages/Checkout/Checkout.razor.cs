@@ -1,4 +1,4 @@
-// Pages/Checkout/Checkout.razor.cs - COMPLETE WITH GEOLOCATION
+// Pages/Checkout/Checkout.razor.cs - UPDATED WITH STREAMLINED AUTO-FILL
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Checkout;
@@ -92,6 +92,41 @@ public partial class Checkout : ComponentBase
         }
     }
 
+    // Nigerian states list
+    private readonly List<string> NigerianStates = new()
+    {
+        "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", 
+        "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", 
+        "FCT - Abuja", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", 
+        "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", 
+        "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
+    };
+
+    // Postal code mapping for major Nigerian states
+    private readonly Dictionary<string, string> StatePostalCodes = new()
+    {
+        { "Lagos", "100001" },
+        { "FCT - Abuja", "900001" },
+        { "Kano", "700001" },
+        { "Rivers", "500001" },
+        { "Oyo", "200001" },
+        { "Delta", "320001" },
+        { "Ogun", "110001" },
+        { "Kaduna", "800001" },
+        { "Edo", "300001" },
+        { "Imo", "460001" },
+        { "Enugu", "400001" },
+        { "Anambra", "420001" },
+        { "Akwa Ibom", "520001" },
+        { "Abia", "440001" },
+        { "Plateau", "930001" },
+        { "Cross River", "540001" },
+        { "Osun", "230001" },
+        { "Ondo", "340001" },
+        { "Kwara", "240001" },
+        { "Benue", "970001" }
+    };
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -107,7 +142,7 @@ public partial class Checkout : ComponentBase
             Color = queryParams.ContainsKey("color") ? queryParams["color"] : null;
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId ?? "NULL"}, Quantity: {Quantity?.ToString() ?? "NULL"}, Size: {Size ?? "NULL"}, Color: {Color ?? "NULL"}",
+                $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId ?? "NULL"}, Quantity: {Quantity?.ToString() ?? "NULL"}",
                 LogLevel.Info
             );
 
@@ -186,7 +221,7 @@ public partial class Checkout : ComponentBase
             if (!string.IsNullOrEmpty(ProductId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"📦 PRODUCT CHECKOUT - ProductId: {ProductId}, Qty: {Quantity}, Size: {Size}, Color: {Color}",
+                    $"📦 PRODUCT CHECKOUT - ProductId: {ProductId}, Qty: {Quantity}",
                     LogLevel.Info
                 );
                 
@@ -196,22 +231,6 @@ public partial class Checkout : ComponentBase
                     Size,
                     Color
                 );
-
-                if (CheckoutModel != null && CheckoutModel.Items.Any())
-                {
-                    var item = CheckoutModel.Items.First();
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"✅ CHECKOUT LOADED - Name: {item.Name}, Image: {item.ImageUrl}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
-                        LogLevel.Info
-                    );
-                }
-                else
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "❌ Failed to initialize checkout from product",
-                        LogLevel.Error
-                    );
-                }
             }
             else
             {
@@ -221,29 +240,6 @@ public partial class Checkout : ComponentBase
                 );
                 
                 CheckoutModel = await CheckoutService.InitializeFromCartAsync(CurrentUserId!);
-
-                if (CheckoutModel != null && CheckoutModel.Items.Any())
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"✅ CART CHECKOUT LOADED - {CheckoutModel.Items.Count} items, Total: ₦{CheckoutModel.Total:N0}",
-                        LogLevel.Info
-                    );
-
-                    foreach (var item in CheckoutModel.Items)
-                    {
-                        await MID_HelperFunctions.DebugMessageAsync(
-                            $"  📦 Item: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}",
-                            LogLevel.Info
-                        );
-                    }
-                }
-                else
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "❌ Failed to initialize checkout from cart or cart is empty",
-                        LogLevel.Warning
-                    );
-                }
             }
 
             if (CheckoutModel == null)
@@ -261,7 +257,7 @@ public partial class Checkout : ComponentBase
             );
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Checkout loaded successfully: {CheckoutModel.Items.Count} items, Total: ₦{CheckoutModel.Total:N0}",
+                $"✅ Checkout loaded successfully: {CheckoutModel.Items.Count} items",
                 LogLevel.Info
             );
         }
@@ -316,9 +312,9 @@ public partial class Checkout : ComponentBase
         }
     }
 
-    // ==================== AUTO-FILL ADDRESS ====================
+    // ==================== AUTO-FILL ADDRESS FOR CHECKOUT ====================
 
-    private async Task AutoFillAddress()
+    private async Task AutoFillCheckoutAddress()
     {
         IsAutoFilling = true;
         StateHasChanged();
@@ -326,65 +322,152 @@ public partial class Checkout : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "🌍 Auto-filling address from location",
+                "🌍 Auto-filling checkout address (streamlined)",
                 LogLevel.Info
             );
 
-            // Get location from IP
-            var addressComponents = await GeolocationService.GetLocationFromIPAsync();
+            // Step 1: Get location from IP
+            var locationData = await GeolocationService.GetLocationFromIPAsync();
 
-            if (addressComponents == null)
+            if (locationData == null)
             {
                 await JSRuntime.InvokeVoidAsync("alert",
-                    "Unable to detect your location automatically. Please enter your address manually.");
+                    "Unable to detect your location. Please fill in your address manually.");
                 return;
             }
 
-            // Fill in the detected information
-            NewAddress.AddressLine1 = addressComponents.AddressLine1;
-            NewAddress.City = addressComponents.City;
-            NewAddress.State = addressComponents.State;
-            NewAddress.PostalCode = addressComponents.PostalCode;
-            NewAddress.Country = addressComponents.Country;
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Location detected: {locationData.City}, {locationData.State}",
+                LogLevel.Info
+            );
 
-            // Get user info for name, phone, and email
+            // Step 2: Fill location data first (always available)
+            NewAddress.City = locationData.City;
+            NewAddress.State = locationData.State;
+            NewAddress.Country = locationData.Country;
+            
+            // Set address line 1 if we have city data
+            if (!string.IsNullOrEmpty(locationData.City) && 
+                string.IsNullOrEmpty(NewAddress.AddressLine1))
+            {
+                NewAddress.AddressLine1 = $"{locationData.City} Area";
+            }
+
+            // Step 3: Set postal code
+            if (string.IsNullOrEmpty(NewAddress.PostalCode))
+            {
+                if (!string.IsNullOrEmpty(locationData.PostalCode))
+                {
+                    NewAddress.PostalCode = locationData.PostalCode;
+                }
+                else if (StatePostalCodes.TryGetValue(NewAddress.State, out var postalCode))
+                {
+                    NewAddress.PostalCode = postalCode;
+                }
+            }
+
+            // Step 4: Try to get user information (may be incomplete)
             if (!string.IsNullOrEmpty(CurrentUserId))
             {
-                var user = await UserService.GetUserByIdAsync(CurrentUserId);
-                if (user != null)
+                try
                 {
-                    // Auto-fill name if available
-                    if (string.IsNullOrEmpty(NewAddress.FullName))
+                    var user = await UserService.GetUserByIdAsync(CurrentUserId);
+                    
+                    if (user != null)
                     {
-                        NewAddress.FullName = $"{user.FirstName} {user.LastName}".Trim();
-                    }
+                        // Auto-fill email (always available from user account)
+                        if (string.IsNullOrEmpty(NewAddress.Email) && 
+                            !string.IsNullOrEmpty(user.Email))
+                        {
+                            NewAddress.Email = user.Email;
+                            
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                $"✅ Email filled: {NewAddress.Email}",
+                                LogLevel.Info
+                            );
+                        }
 
-                    // Auto-fill phone if available
-                    if (string.IsNullOrEmpty(NewAddress.PhoneNumber) && !string.IsNullOrEmpty(user.PhoneNumber))
-                    {
-                        NewAddress.PhoneNumber = user.PhoneNumber;
-                    }
+                        // Try to auto-fill name (may not be available)
+                        if (string.IsNullOrEmpty(NewAddress.FullName))
+                        {
+                            var fullName = $"{user.FirstName} {user.LastName}".Trim();
+                            
+                            if (!string.IsNullOrEmpty(fullName))
+                            {
+                                NewAddress.FullName = fullName;
+                                
+                                await MID_HelperFunctions.DebugMessageAsync(
+                                    $"✅ Name filled: {NewAddress.FullName}",
+                                    LogLevel.Info
+                                );
+                            }
+                            else
+                            {
+                                await MID_HelperFunctions.DebugMessageAsync(
+                                    "⚠️ User name not available in profile",
+                                    LogLevel.Warning
+                                );
+                            }
+                        }
 
-                    // Auto-fill email if available
-                    if (string.IsNullOrEmpty(NewAddress.Email) && !string.IsNullOrEmpty(user.Email))
-                    {
-                        NewAddress.Email = user.Email;
+                        // Try to auto-fill phone (may not be available)
+                        if (string.IsNullOrEmpty(NewAddress.PhoneNumber) && 
+                            !string.IsNullOrEmpty(user.PhoneNumber))
+                        {
+                            NewAddress.PhoneNumber = user.PhoneNumber;
+                            
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                $"✅ Phone filled: {NewAddress.PhoneNumber}",
+                                LogLevel.Info
+                            );
+                        }
+                        else if (string.IsNullOrEmpty(NewAddress.PhoneNumber))
+                        {
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                "⚠️ User phone not available in profile",
+                                LogLevel.Warning
+                            );
+                        }
                     }
+                }
+                catch (Exception userEx)
+                {
+                    await MID_HelperFunctions.LogExceptionAsync(userEx, "Getting user profile for auto-fill");
+                    // Continue even if user data fetch fails - location is already filled
                 }
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Address auto-filled: {NewAddress.City}, {NewAddress.State}",
+                "✅ Checkout address auto-fill completed",
                 LogLevel.Info
             );
+
+            // Show user-friendly message about what was filled
+            var missingFields = new List<string>();
+            if (string.IsNullOrEmpty(NewAddress.FullName)) missingFields.Add("name");
+            if (string.IsNullOrEmpty(NewAddress.PhoneNumber)) missingFields.Add("phone number");
+
+            if (missingFields.Any())
+            {
+                var message = $"Location detected: {locationData.City}, {locationData.State}. " +
+                             $"Please complete your {string.Join(" and ", missingFields)}.";
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
+            else
+            {
+                var message = $"Address auto-filled! Please review: {locationData.City}, {locationData.State}";
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
 
             StateHasChanged();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Auto-filling address");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Auto-filling checkout address");
+            Logger.LogError(ex, "Error during checkout address auto-fill");
+            
             await JSRuntime.InvokeVoidAsync("alert",
-                "An error occurred while detecting your location. Please enter your address manually.");
+                "Failed to detect location. Please enter your address manually.");
         }
         finally
         {
@@ -648,14 +731,6 @@ public partial class Checkout : ComponentBase
                 LogLevel.Info
             );
 
-            foreach (var item in CheckoutModel.Items)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"  📦 Ordering: {item.Name}, Image: {item.ImageUrl}, Qty: {item.Quantity}, Price: ₦{item.Price:N0}, Size: {item.Size}, Color: {item.Color}",
-                    LogLevel.Info
-                );
-            }
-
             var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
             if (!validation.IsValid)
             {
@@ -799,14 +874,7 @@ public partial class Checkout : ComponentBase
                 await CartService.ClearCartAsync(CurrentUserId!);
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "🗑️ Cart cleared after successful cart-based order",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Buy Now order complete - cart not affected",
+                    "🗑️ Cart cleared after successful order",
                     LogLevel.Info
                 );
             }
