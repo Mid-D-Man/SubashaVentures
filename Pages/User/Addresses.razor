@@ -55,6 +55,10 @@
                     <div class="address-content">
                         <h3>@address.FullName</h3>
                         <p class="address-phone">@address.PhoneNumber</p>
+                        @if (!string.IsNullOrEmpty(address.Email))
+                        {
+                            <p class="address-email">@address.Email</p>
+                        }
                         <p class="address-text">
                             @address.AddressLine1<br />
                             @if (!string.IsNullOrEmpty(address.AddressLine2))
@@ -110,27 +114,54 @@
                 <p>Your address information is securely stored and used only for delivery purposes.</p>
             </div>
 
+            <!-- Auto-Fill Button -->
+            <div class="auto-fill-section">
+                <button class="btn-auto-fill" 
+                        @onclick="AutoFillAddress" 
+                        disabled="@IsAutoFilling"
+                        type="button">
+                    @if (IsAutoFilling)
+                    {
+                        <span class="spinner"></span>
+                        <span>Detecting Location...</span>
+                    }
+                    else
+                    {
+                        <span class="icon">🌍</span>
+                        <span>Auto-Fill from Location</span>
+                    }
+                </button>
+                <p class="auto-fill-hint">Automatically detect and fill your address details</p>
+            </div>
+
             <InputField @bind-Value="CurrentAddress.FullName"
                        Label="Full Name"
                        Placeholder="Enter full name"
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("FullName")))"
-                       ErrorMessage="@ValidationErrors.FirstOrDefault("FullName")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("name"))))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("name"))" />
 
             <InputField @bind-Value="CurrentAddress.PhoneNumber"
                        Label="Phone Number"
-                       Placeholder="+234"
+                       Placeholder="+234 801 234 5678"
                        PrefixIcon="📱"
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("PhoneNumber")))"
-                       ErrorMessage="@ValidationErrors.FirstOrDefault("PhoneNumber")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("Phone"))))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("Phone"))" />
+
+            <InputField @bind-Value="CurrentAddress.Email"
+                       Label="Email (Optional)"
+                       Type="email"
+                       Placeholder="your.email@example.com"
+                       PrefixIcon="📧"
+                       IsRequired="false" />
 
             <InputField @bind-Value="CurrentAddress.AddressLine1"
                        Label="Delivery Address"
-                       Placeholder="Street address, P.O. Box, etc."
+                       Placeholder="Street address, house number, etc."
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("AddressLine1")))"
-                       ErrorMessage="@ValidationErrors.FirstOrDefault("AddressLine1")" />
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("Address"))))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("Address"))" />
 
             <InputField @bind-Value="CurrentAddress.AddressLine2"
                        Label="Address Line 2 (Optional)"
@@ -146,22 +177,27 @@
                             <option value="@state">@state</option>
                         }
                     </select>
+                    @if (!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("State"))))
+                    {
+                        <span class="error-message">@ValidationErrors.FirstOrDefault(e => e.Contains("State"))</span>
+                    }
                 </div>
 
                 <InputField @bind-Value="CurrentAddress.City"
                            Label="City"
                            Placeholder="Enter city"
                            IsRequired="true"
-                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("City")))"
-                           ErrorMessage="@ValidationErrors.FirstOrDefault("City")" />
+                           HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("City"))))"
+                           ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("City"))" />
             </div>
 
             <InputField @bind-Value="CurrentAddress.PostalCode"
                        Label="Postal Code"
-                       Placeholder="Enter postal code"
+                       Placeholder="Enter postal code (e.g., 100001)"
                        IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault("PostalCode")))"
-                       ErrorMessage="@ValidationErrors.FirstOrDefault("PostalCode")" />
+                       MaxLength="6"
+                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("Postal"))))"
+                       ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("Postal"))" />
 
             <div class="form-field">
                 <label>Address Type</label>
@@ -203,6 +239,15 @@
                    Variant="ConfirmationPopup.ConfirmationVariant.Danger"
                    ConfirmButtonText="Delete"
                    OnConfirm="ConfirmDeleteAddresses" />
+
+<!-- Auto-Fill Info Popup -->
+<InfoPopup @ref="AutoFillInfoPopup"
+           Title="@AutoFillPopupTitle"
+           Icon="@AutoFillPopupIcon"
+           Message="@AutoFillPopupMessage"
+           ShowCancelButton="false"
+           ConfirmButtonText="OK"
+           OnConfirm="CloseAutoFillPopup" />
 
 @code {
     // Component references and state variables will be in the .cs file
