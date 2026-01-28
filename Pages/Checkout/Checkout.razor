@@ -1,4 +1,4 @@
-<!-- Pages/Checkout/Checkout.razor -->
+<!-- Pages/Checkout/Checkout.razor - UPDATED ADDRESS SECTION ONLY -->
 @page "/checkout/{slug}"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
@@ -63,7 +63,7 @@
             <div class="checkout-forms">
                 @if (CurrentStep == 1)
                 {
-                    <!-- STEP 1: Shipping Address -->
+                    <!-- STEP 1: Shipping Address - UPDATED WITH AUTO-FILL -->
                     <div class="checkout-section">
                         <h2 class="section-title">
                             <span class="title-icon">📍</span>
@@ -125,13 +125,34 @@
                                         <button class="btn-cancel" @onclick="HideNewAddressForm">✕</button>
                                     </div>
                                 }
+
+                                <!-- Auto-Fill Button - Prominent Position -->
+                                <div class="checkout-auto-fill">
+                                    <button class="btn-auto-fill-checkout" 
+                                            @onclick="AutoFillCheckoutAddress" 
+                                            disabled="@IsAutoFilling"
+                                            type="button">
+                                        @if (IsAutoFilling)
+                                        {
+                                            <span class="spinner"></span>
+                                            <span>Detecting...</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="icon">🌍</span>
+                                            <span>Quick Fill My Address</span>
+                                        }
+                                    </button>
+                                    <p class="auto-fill-note">We'll detect your location and fill in the details</p>
+                                </div>
                                 
+                                <!-- Simplified Form - Only Essential Fields Visible -->
                                 <div class="form-grid">
                                     <InputField Label="Full name"
                                                 Type="text"
                                                 @bind-Value="NewAddress.FullName"
                                                 IsRequired="true"
-                                                Placeholder="John Doe" />
+                                                Placeholder="Your full name" />
                                 </div>
 
                                 <InputField Label="Phone Number"
@@ -141,36 +162,34 @@
                                             IsRequired="true"
                                             Placeholder="0801 234 5678" />
 
-                                <InputField Label="Email (Optional)"
-                                            Type="email"
-                                            @bind-Value="NewAddress.Email"
-                                            PrefixIcon="📧"
-                                            IsRequired="false"
-                                            Placeholder="john@example.com" />
-
-                                <InputField Label="Address Line 1"
+                                <InputField Label="Delivery Address"
                                             Type="text"
                                             @bind-Value="NewAddress.AddressLine1"
                                             IsRequired="true"
-                                            Placeholder="Street address, P.O. box" />
-
-                                <InputField Label="Address Line 2 (Optional)"
-                                            Type="text"
-                                            @bind-Value="NewAddress.AddressLine2"
-                                            Placeholder="Apartment, suite, unit, building, floor" />
+                                            Placeholder="Street address, house number" />
 
                                 <div class="form-grid">
-                                    <InputField Label="City"
-                                                Type="text"
-                                                @bind-Value="NewAddress.City"
-                                                IsRequired="true"
-                                                Placeholder="Lagos" />
+                                    <div class="form-field-inline">
+                                        <label>City <span class="required">*</span></label>
+                                        <input type="text" 
+                                               class="form-input-inline"
+                                               @bind="NewAddress.City"
+                                               placeholder="Enter city"
+                                               required />
+                                    </div>
                                     
-                                    <InputField Label="State"
-                                                Type="text"
-                                                @bind-Value="NewAddress.State"
-                                                IsRequired="true"
-                                                Placeholder="Lagos" />
+                                    <div class="form-field-inline">
+                                        <label>State <span class="required">*</span></label>
+                                        <select @bind="NewAddress.State" 
+                                                class="form-select-inline" 
+                                                required>
+                                            <option value="">Select</option>
+                                            @foreach (var state in NigerianStates)
+                                            {
+                                                <option value="@state">@state</option>
+                                            }
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <InputField Label="Postal Code"
@@ -204,7 +223,7 @@
                 }
                 else if (CurrentStep == 2)
                 {
-                    <!-- STEP 2: Delivery Method -->
+                    <!-- STEP 2: Delivery Method - NO CHANGES -->
                     <div class="checkout-section">
                         <div class="section-title-wrapper">
                             <h2 class="section-title">
@@ -263,7 +282,7 @@
                 }
                 else if (CurrentStep == 3)
                 {
-                    <!-- STEP 3: Payment Method -->
+                    <!-- STEP 3: Payment Method - NO CHANGES -->
                     <div class="checkout-section">
                         <h2 class="section-title">
                             <span class="title-icon">💳</span>
@@ -330,7 +349,7 @@
                 }
                 else if (CurrentStep == 4)
                 {
-                    <!-- STEP 4: Review Order -->
+                    <!-- STEP 4: Review Order - NO CHANGES -->
                     <div class="checkout-section">
                         <h2 class="section-title">
                             <span class="title-icon">📋</span>
@@ -448,7 +467,7 @@
                 }
             </div>
 
-            <!-- Right: Order Summary Sidebar -->
+            <!-- Right: Order Summary Sidebar - NO CHANGES -->
             <div class="order-summary-sidebar">
                 <div class="summary-card">
                     <h3 class="summary-title">Order Summary</h3>
@@ -521,7 +540,7 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Error Popup - FIXED -->
+<!-- Error Popup -->
 <InfoPopup @ref="ErrorPopup"
            IsVisible="@ShowErrorModal"
            Title="Order Failed"
