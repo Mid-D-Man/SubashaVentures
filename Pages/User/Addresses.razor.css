@@ -129,7 +129,14 @@
 .address-phone {
     font-size: 0.94rem;
     color: var(--text-secondary);
+    margin: 0 0 0.25rem;
+}
+
+.address-email {
+    font-size: 0.875rem;
+    color: var(--text-muted);
     margin: 0 0 1rem;
+    font-style: italic;
 }
 
 .address-text {
@@ -214,6 +221,80 @@
     margin: 0;
 }
 
+/* ===== AUTO-FILL SECTION ===== */
+.auto-fill-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(150, 153, 74, 0.08), rgba(74, 150, 153, 0.08));
+    border-radius: 12px;
+    border: 2px dashed rgba(150, 153, 74, 0.3);
+}
+
+.btn-auto-fill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(150, 153, 74, 0.2);
+}
+
+.btn-auto-fill:hover:not(:disabled) {
+    background: var(--hover-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(150, 153, 74, 0.3);
+}
+
+.btn-auto-fill:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-auto-fill .icon {
+    font-size: 1.25rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.btn-auto-fill .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.auto-fill-hint {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin: 0;
+}
+
+/* ===== FORM ELEMENTS ===== */
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -253,9 +334,16 @@
     box-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
 }
 
+.error-message {
+    font-size: 0.8125rem;
+    color: var(--danger-color);
+    margin-top: 0.25rem;
+}
+
 .address-type-options {
     display: flex;
     gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .type-option {
@@ -311,6 +399,21 @@
     background: var(--bg-primary);
 }
 
+[data-theme="dark"] .auto-fill-section {
+    background: linear-gradient(135deg, rgba(184, 187, 106, 0.08), rgba(106, 184, 187, 0.08));
+    border-color: rgba(184, 187, 106, 0.3);
+}
+
+[data-theme="dark"] .btn-auto-fill {
+    background: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(184, 187, 106, 0.2);
+}
+
+[data-theme="dark"] .btn-auto-fill:hover:not(:disabled) {
+    background: var(--hover-primary);
+    box-shadow: 0 4px 12px rgba(184, 187, 106, 0.3);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .page-header {
@@ -328,6 +431,16 @@
 
     .address-type-options {
         flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .auto-fill-section {
+        padding: 0.75rem;
+    }
+
+    .btn-auto-fill {
+        padding: 0.875rem 1.25rem;
+        font-size: 0.9375rem;
     }
 }
 
@@ -347,4 +460,17 @@
     .empty-state h2 {
         font-size: 1.25rem;
     }
-}
+
+    .btn-auto-fill {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-auto-fill .icon {
+        font-size: 1.125rem;
+    }
+
+    .auto-fill-hint {
+        font-size: 0.8125rem;
+    }
+    }
