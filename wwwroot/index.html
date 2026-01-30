@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>SubashaVentures</title>
     <base href="/" />
-    <link href="css/app.css" rel="stylesheet" />
     <link href="css/colors.css" rel="stylesheet" />
-    <link href="css/responsive.css" rel="stylesheet" />
     <link href="css/loading.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="css/responsive.css" rel="stylesheet" />
     <link href="SubashaVentures.styles.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
@@ -21,7 +21,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
 
-    <!-- Supabase JavaScript SDK - REQUIRED -->
+    <!-- Supabase JavaScript SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Chart.js -->
@@ -29,10 +29,15 @@
 </head>
 <body>
 <div id="app">
+    <!-- OPTIMIZED LOADING SCREEN -->
     <div id="loading-screen">
         <div class="loader-container">
-            <span class="loader"></span>
-            <div class="brand-text">SV</div>
+            <!-- Diamond with SV Inside -->
+            <div class="diamond-loader-wrapper">
+                <span class="loader"></span>
+                <div class="brand-text">SV</div>
+            </div>
+            <!-- Percentage Below -->
             <div class="percentage-text" id="loading-percentage">0%</div>
         </div>
     </div>
@@ -44,6 +49,7 @@
     <a class="dismiss">🗙</a>
 </div>
 
+<!-- Core Scripts -->
 <script src="js/firebaseSetup.js"></script>
 <script src="js/firestoreModule.js"></script>
 <script src="js/connectivityServices.js"></script>
@@ -53,14 +59,18 @@
 <script src="js/adminHelpers.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/imageCacheHelper.js"></script>
-
-<!-- Load Supabase OAuth AFTER Supabase SDK -->
 <script src="js/supabaseOAuth.js"></script>
+
+<!-- Payment Providers -->
 <script src="https://js.paystack.co/v2/inline.js"></script>
 <script src="https://checkout.flutterwave.com/v3.js"></script>
 <script src="js/paymentHandler.js"></script>
-    <script src="js/geolocation.js"></script>
+<script src="js/geolocation.js"></script>
+
+<!-- Blazor -->
 <script src="_framework/blazor.webassembly.js"></script>
+
+<!-- Service Worker -->
 <script>
     navigator.serviceWorker.register('service-worker.js');
 </script>

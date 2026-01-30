@@ -1,10 +1,10 @@
-@* App.razor - REMOVED JAVASCRIPT AUTH *@
+@* App.razor - WHITE FLASH FIX *@
 @using Microsoft.AspNetCore.Components.Authorization
 @implements IDisposable
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
-
 @inject ILogger<App> Logger
+@inject IJSRuntime JSRuntime
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly">
@@ -69,6 +69,31 @@
 </CascadingAuthenticationState>
 
 @code {
+    private bool isFirstRender = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && isFirstRender)
+        {
+            isFirstRender = false;
+            
+            try
+            {
+                // Wait a tiny bit to ensure DOM is fully rendered
+                await Task.Delay(100);
+                
+                // Hide loading screen - this prevents white flash
+                await JSRuntime.InvokeVoidAsync("loadingScreen.complete");
+                
+                Logger.LogInformation("✓ App rendered, loading screen hidden");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error hiding loading screen");
+            }
+        }
+    }
+
     private void NavigateToHome()
     {
         NavigationManager.NavigateTo("", forceLoad: false);

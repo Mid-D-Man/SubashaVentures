@@ -198,7 +198,7 @@ public partial class Orders : ComponentBase
     {
         Navigation.NavigateTo($"user/orders/track/{orderId}");
     }
-
+//ok need seprate order details page
     private void ViewOrder(string orderId)
     {
         Navigation.NavigateTo($"user/orders/{orderId}");
