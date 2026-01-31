@@ -3,6 +3,7 @@
 @using SubashaVentures.Services.Cart
 @using SubashaVentures.Services.Authorization
 @using SubashaVentures.Services.Products
+@using SubashaVentures.Models.Supabase
 @inject NavigationManager NavigationManager
 @inject IPermissionService PermissionService
 @inject ICartService CartService
@@ -218,26 +219,40 @@
                 return;
             }
 
-            // Add to cart
+            // ✅ AUTO-SELECT FIRST VARIANT IF PRODUCT HAS VARIANTS
+            string? selectedSize = null;
+            string? selectedColor = null;
+            
+            if (Product.Variants != null && Product.Variants.Any())
+            {
+                // Get first available variant
+                var firstVariant = Product.Variants.First();
+                selectedSize = firstVariant.Value.Size;
+                selectedColor = firstVariant.Value.Color;
+                
+                Console.WriteLine($"🔍 Auto-selected variant: Size={selectedSize ?? "null"}, Color={selectedColor ?? "null"}, Key={firstVariant.Key}");
+            }
+
+            // Add to cart with auto-selected variant (or null if no variants)
             var success = await CartService.AddToCartAsync(
                 currentUserId, 
                 Product.Id.ToString(), 
-                quantity: 1
+                quantity: 1,
+                size: selectedSize,
+                color: selectedColor
             );
             
             if (success)
             {
                 IsInCart = true;
                 
-            //tracking for cart, wishlist interactions no longer needed, trigger exist,
-            //in db to auto add to product analytics when user does so
                 // Invoke parent callback if provided
                 if (OnAddToCart.HasDelegate)
                 {
                     await OnAddToCart.InvokeAsync(Product.Id);
                 }
                 
-                Console.WriteLine($"✓ Added {Product.Name} to cart");
+                Console.WriteLine($"✓ Added {Product.Name} to cart (Size: {selectedSize ?? "none"}, Color: {selectedColor ?? "none"})");
             }
             else
             {
@@ -283,8 +298,6 @@
             if (success)
             {
                 IsFavorite = !IsFavorite;
-                
-              
                 
                 // Invoke parent callback if provided
                 if (OnToggleFavorite.HasDelegate)
