@@ -1,4 +1,4 @@
-@* App.razor - WHITE FLASH FIX *@
+@* App.razor - COMPLETE WHITE FLASH FIX *@
 @using Microsoft.AspNetCore.Components.Authorization
 @implements IDisposable
 @inject AuthenticationStateProvider AuthStateProvider
@@ -69,27 +69,38 @@
 </CascadingAuthenticationState>
 
 @code {
-    private bool isFirstRender = true;
+    private bool hasHiddenLoader = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && isFirstRender)
+        if (firstRender && !hasHiddenLoader)
         {
-            isFirstRender = false;
+            hasHiddenLoader = true;
             
             try
             {
-                // Wait a tiny bit to ensure DOM is fully rendered
-                await Task.Delay(100);
+                // Give extra time for layout to fully render
+                await Task.Delay(250);
                 
-                // Hide loading screen - this prevents white flash
+                // Hide loading screen
                 await JSRuntime.InvokeVoidAsync("loadingScreen.complete");
                 
-                Logger.LogInformation("✓ App rendered, loading screen hidden");
+                Logger.LogInformation("✓ App fully rendered, loading screen hidden");
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error hiding loading screen");
+                
+                // Fallback: try again after a delay
+                await Task.Delay(500);
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("loadingScreen.complete");
+                }
+                catch
+                {
+                    // Silent fail - loading screen will auto-hide after timeout
+                }
             }
         }
     }
