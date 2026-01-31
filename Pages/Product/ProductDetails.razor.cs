@@ -404,8 +404,6 @@ public partial class ProductDetails : ComponentBase, IDisposable
             {
                 IsInCart = true;
                 
-                await InteractionService.TrackAddToCartAsync(Product.Id, CurrentUserId);
-
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"✅ Added {SelectedQuantity}x {Product.Name} (Size: {SelectedSize}, Color: {SelectedColor}) to cart",
                     LogLevel.Info
@@ -535,10 +533,6 @@ public partial class ProductDetails : ComponentBase, IDisposable
             {
                 IsInWishlist = !IsInWishlist;
                 
-                if (IsInWishlist)
-                {
-                    await InteractionService.TrackWishlistAsync(Product.Id, CurrentUserId);
-                }
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"✅ {(IsInWishlist ? "Added to" : "Removed from")} wishlist: {Product.Name}",

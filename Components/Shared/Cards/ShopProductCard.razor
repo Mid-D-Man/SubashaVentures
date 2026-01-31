@@ -229,9 +229,8 @@
             {
                 IsInCart = true;
                 
-                // Track add to cart interaction
-                await InteractionService.TrackAddToCartAsync(Product.Id, currentUserId);
-                
+            //tracking for cart, wishlist interactions no longer needed, trigger exist,
+            //in db to auto add to product analytics when user does so
                 // Invoke parent callback if provided
                 if (OnAddToCart.HasDelegate)
                 {
@@ -285,11 +284,7 @@
             {
                 IsFavorite = !IsFavorite;
                 
-                //Track wishlist interaction (only when adding)
-                if (IsFavorite)
-                {
-                    await InteractionService.TrackWishlistAsync(Product.Id, currentUserId);
-                }
+              
                 
                 // Invoke parent callback if provided
                 if (OnToggleFavorite.HasDelegate)

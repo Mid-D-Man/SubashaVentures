@@ -207,11 +207,7 @@
             {
                 isInWishlist = !isInWishlist;
                 
-                // ✅ Track wishlist interaction (only when adding)
-                if (isInWishlist)
-                {
-                    await InteractionService.TrackWishlistAsync(Product.Id, currentUserId);
-                }
+              
             }
         }
         finally
@@ -263,9 +259,7 @@
             {
                 IsInCart = true;
                 
-                //  Track add to cart interaction
-                await InteractionService.TrackAddToCartAsync(Product.Id, currentUserId);
-                
+             
                 Console.WriteLine($"✓ Added {Product.Name} to cart");
             }
         }
