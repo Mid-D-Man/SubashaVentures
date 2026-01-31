@@ -16,22 +16,11 @@
     position: relative;
     background: linear-gradient(135deg,
         rgba(150, 153, 74, 0.1) 0%,
-        rgba(184, 187, 106, 0.15) 25%,
-        rgba(150, 153, 74, 0.05) 50%,
-        rgba(184, 187, 106, 0.1) 75%,
+        rgba(184, 187, 106, 0.15) 50%,
         rgba(150, 153, 74, 0.08) 100%
     );
-    background-size: 400% 400%;
-    animation: heroGradient 15s ease infinite;
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
     padding: 2rem 1rem;
     overflow: hidden;
-}
-
-@keyframes heroGradient {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
 }
 
 .hero-content {
@@ -255,30 +244,29 @@
     margin: 0;
 }
 
-/* ===== FEATURED PRODUCTS - PURE CSS AUTO-SCROLL ===== */
+/* ===== FEATURED PRODUCTS - OPTIMIZED SCROLLING ===== */
 .featured-section {
     padding: 4rem 0;
     overflow: hidden;
 }
 
 .scroll-wrapper {
+    width: 100%;
     overflow: hidden;
     position: relative;
-    width: 100%;
+    padding: 1rem 0;
 }
 
 .scroll-content {
     display: flex;
     gap: 2rem;
-    animation: autoScroll 40s linear infinite;
     width: max-content;
+    will-change: transform;
+    animation: smoothScroll 60s linear infinite;
 }
 
-.scroll-wrapper:hover .scroll-content {
-    animation-play-state: paused;
-}
-
-@keyframes autoScroll {
+/* Use transform for better performance */
+@keyframes smoothScroll {
     0% {
         transform: translateX(0);
     }
@@ -287,9 +275,22 @@
     }
 }
 
+/* Pause on hover - FIXED */
+.scroll-wrapper:hover .scroll-content {
+    animation-play-state: paused;
+}
+
 .product-card-wrapper {
-    flex: 0 0 320px;
-    width: 320px;
+    flex: 0 0 340px;
+    width: 340px;
+    height: auto;
+    display: flex;
+}
+
+/* Ensure cards fit properly */
+.product-card-wrapper > * {
+    width: 100%;
+    height: 100%;
 }
 
 .section-cta {
@@ -360,12 +361,7 @@
     border: 1px solid rgba(150, 153, 74, 0.3);
     overflow: hidden;
     position: relative;
-    background:
-        linear-gradient(135deg, rgba(150, 153, 74, 0.85) 0%, rgba(122, 125, 58, 0.9) 100%),
-        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"><rect fill="%2396994A" width="1200" height="400"/><text x="50%25" y="50%25" font-size="48" fill="white" opacity="0.3" text-anchor="middle" dominant-baseline="middle">Fashion Background</text></svg>');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    background: linear-gradient(135deg, rgba(150, 153, 74, 0.85) 0%, rgba(122, 125, 58, 0.9) 100%);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
 
@@ -474,41 +470,42 @@
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== TESTIMONIALS SECTION - PURE CSS AUTO-SCROLL ===== */
+/* ===== TESTIMONIALS SECTION - OPTIMIZED SCROLLING ===== */
 .testimonials-section {
     padding: 4rem 0;
     overflow: hidden;
 }
 
 .testimonials-scroll-wrapper {
+    width: 100%;
     overflow: hidden;
     position: relative;
-    width: 100%;
+    padding: 1rem 0;
 }
 
 .testimonials-scroll-content {
     display: flex;
     gap: 2rem;
-    animation: autoScroll 50s linear infinite;
     width: max-content;
+    will-change: transform;
+    animation: smoothScroll 80s linear infinite;
 }
 
+/* Pause on hover - FIXED */
 .testimonials-scroll-wrapper:hover .testimonials-scroll-content {
     animation-play-state: paused;
 }
 
 .testimonials-scroll-content > * {
-    flex: 0 0 340px;
-    width: 340px;
+    flex: 0 0 360px;
+    width: 360px;
 }
 
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .hero-section {
     background: linear-gradient(135deg,
         rgba(184, 187, 106, 0.1) 0%,
-        rgba(200, 203, 122, 0.15) 25%,
-        rgba(184, 187, 106, 0.05) 50%,
-        rgba(200, 203, 122, 0.1) 75%,
+        rgba(200, 203, 122, 0.15) 50%,
         rgba(184, 187, 106, 0.08) 100%
     );
 }
@@ -553,13 +550,13 @@
     }
     
     .product-card-wrapper {
-        flex: 0 0 280px;
-        width: 280px;
+        flex: 0 0 300px;
+        width: 300px;
     }
     
     .testimonials-scroll-content > * {
-        flex: 0 0 300px;
-        width: 300px;
+        flex: 0 0 320px;
+        width: 320px;
     }
 }
 
@@ -606,13 +603,13 @@
     }
     
     .product-card-wrapper {
-        flex: 0 0 260px;
-        width: 260px;
+        flex: 0 0 280px;
+        width: 280px;
     }
     
     .testimonials-scroll-content > * {
-        flex: 0 0 280px;
-        width: 280px;
+        flex: 0 0 300px;
+        width: 300px;
     }
     
     .newsletter-section {
@@ -656,13 +653,13 @@
     }
     
     .product-card-wrapper {
-        flex: 0 0 240px;
-        width: 240px;
+        flex: 0 0 260px;
+        width: 260px;
     }
     
     .testimonials-scroll-content > * {
-        flex: 0 0 260px;
-        width: 260px;
+        flex: 0 0 280px;
+        width: 280px;
     }
     
     .newsletter-section {
@@ -693,7 +690,6 @@
     .flip-text,
     .flip-text > div > div,
     .cta-primary,
-    .hero-section,
     .loading-spinner,
     .loading-spinner-small,
     .scroll-content,
