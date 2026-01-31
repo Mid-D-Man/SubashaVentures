@@ -290,7 +290,6 @@ public static class ProductModelExtensions
     
     /// <summary>
     /// Get stock for a specific variant or total product stock
-    /// ✅ FIXED: Now handles missing variants correctly
     /// </summary>
     public static int GetVariantStock(this ProductModel product, string? variantKey)
     {
@@ -304,17 +303,8 @@ public static class ProductModelExtensions
             return variant.Stock;
         }
         
-        // ✅ FIX: If variant key provided but not found, check if product has any variants
-        // If product has variants but this specific one doesn't exist, it's truly unavailable
-        if (product.Variants.Any())
-        {
-            // Variant was specified but doesn't exist - return 0
-            return 0;
-        }
-        
-        // ✅ FIX: If product has no variants at all, fall back to total stock
-        // This handles products that don't use variants
-        return product.Stock;
+        // Variant key provided but doesn't exist
+        return 0;
     }
     
     public static bool IsVariantInStock(this ProductModel product, string? variantKey)
@@ -347,47 +337,78 @@ public static class ProductModelExtensions
     
     /// <summary>
     /// Build a variant key from size and color
-    /// ✅ Format: "size_color" or just "size" or just "color"
+    /// ✅ FIXED: Treats empty strings as null
     /// </summary>
     public static string BuildVariantKey(string? size, string? color)
     {
-        if (string.IsNullOrEmpty(size) && string.IsNullOrEmpty(color))
+        // ✅ Normalize empty strings to null
+        var normalizedSize = string.IsNullOrWhiteSpace(size) ? null : size.Trim();
+        var normalizedColor = string.IsNullOrWhiteSpace(color) ? null : color.Trim();
+        
+        if (normalizedSize == null && normalizedColor == null)
             return string.Empty;
             
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(size)) parts.Add(size.Trim());
-        if (!string.IsNullOrEmpty(color)) parts.Add(color.Trim());
+        if (normalizedSize != null) parts.Add(normalizedSize);
+        if (normalizedColor != null) parts.Add(normalizedColor);
         
         return string.Join("_", parts);
     }
     
     /// <summary>
-    /// Try to find a variant key using case-insensitive search
-    /// ✅ NEW: Helps handle case sensitivity issues
+    /// Check if a product requires variant selection
     /// </summary>
-    public static string? FindVariantKeyCaseInsensitive(this ProductModel product, string? size, string? color)
+    public static bool RequiresVariantSelection(this ProductModel product)
     {
-        if (string.IsNullOrEmpty(size) && string.IsNullOrEmpty(color))
-            return null;
-            
-        // First try exact match
-        var exactKey = BuildVariantKey(size, color);
-        if (product.Variants.ContainsKey(exactKey))
-            return exactKey;
-        
-        // Try case-insensitive match
-        foreach (var kvp in product.Variants)
+        return product.Variants.Any();
+    }
+    
+    /// <summary>
+    /// Get available variant keys for this product
+    /// </summary>
+    public static List<string> GetAvailableVariantKeys(this ProductModel product)
+    {
+        return product.Variants.Keys.ToList();
+    }
+    
+    /// <summary>
+    /// Validate if a variant selection is complete for products that require variants
+    /// </summary>
+    public static (bool isValid, string? errorMessage) ValidateVariantSelection(
+        this ProductModel product, 
+        string? size, 
+        string? color)
+    {
+        // If product has no variants, no selection needed
+        if (!product.Variants.Any())
         {
-            var variant = kvp.Value;
-            var sizeMatches = string.IsNullOrEmpty(size) || 
-                             (variant.Size?.Equals(size, StringComparison.OrdinalIgnoreCase) ?? false);
-            var colorMatches = string.IsNullOrEmpty(color) || 
-                              (variant.Color?.Equals(color, StringComparison.OrdinalIgnoreCase) ?? false);
-            
-            if (sizeMatches && colorMatches)
-                return kvp.Key;
+            return (true, null);
         }
         
-        return null;
+        // ✅ Normalize empty strings
+        var normalizedSize = string.IsNullOrWhiteSpace(size) ? null : size.Trim();
+        var normalizedColor = string.IsNullOrWhiteSpace(color) ? null : color.Trim();
+        
+        // Product has variants, so we need to select one
+        var variantKey = BuildVariantKey(normalizedSize, normalizedColor);
+        
+        if (string.IsNullOrEmpty(variantKey))
+        {
+            // Build helpful error message
+            var requiredOptions = new List<string>();
+            if (product.Sizes.Any()) requiredOptions.Add("size");
+            if (product.Colors.Any()) requiredOptions.Add("color");
+            
+            var optionsText = string.Join(" and ", requiredOptions);
+            return (false, $"Please select a {optionsText} for this product.");
+        }
+        
+        // Check if the variant key exists
+        if (!product.Variants.ContainsKey(variantKey))
+        {
+            return (false, $"The selected combination ({variantKey}) is not available.");
+        }
+        
+        return (true, null);
     }
 }
