@@ -1,4 +1,4 @@
-/* ===== LOADING SCREEN - OPTIMIZED WITH MESH GRADIENT ===== */
+/* ===== LOADING SCREEN - OPTIMIZED WITH SIMPLE GRADIENT ===== */
 
 /* Base Loading Screen */
 #loading-screen {
@@ -8,18 +8,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-
-    /* Static Mesh Gradient - No Animation for Better Performance */
-    background:
-            radial-gradient(at 0% 0%, #96994A 0px, transparent 50%),
-            radial-gradient(at 100% 0%, #9A4A96 0px, transparent 50%),
-            radial-gradient(at 100% 100%, #4A9699 0px, transparent 50%),
-            radial-gradient(at 0% 100%, #B8BB6A 0px, transparent 50%),
-            radial-gradient(at 50% 50%, #96994A 0px, transparent 70%),
-            linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    background-size: 100% 100%;
-    background-position: center;
-
+    
+    /* Simple 3-Color Gradient - Primary Lime Green Focus */
+    background: linear-gradient(135deg, 
+        #96994A 0%,      /* Primary lime green */
+        #B8BB6A 50%,     /* Lighter lime */
+        #7A7D3A 100%     /* Darker lime */
+    );
+    
     opacity: 1;
     visibility: visible;
     transition: opacity 0.5s ease, visibility 0.5s ease;
@@ -37,27 +33,22 @@
     content: '';
     position: absolute;
     inset: 0;
-    background-image:
-            radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
-            radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 45%),
-            radial-gradient(circle at 60% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 35%),
-            radial-gradient(circle at 30% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 40%);
+    background-image: 
+        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 35%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.06) 0%, transparent 50%);
     animation: particleFloat 20s ease-in-out infinite;
     pointer-events: none;
 }
 
 @keyframes particleFloat {
-    0%, 100% {
+    0%, 100% { 
+        opacity: 0.4;
+        transform: translate(0, 0) scale(1); 
+    }
+    50% { 
         opacity: 0.6;
-        transform: translate(0, 0) scale(1);
-    }
-    33% {
-        opacity: 0.8;
-        transform: translate(20px, -25px) scale(1.05);
-    }
-    66% {
-        opacity: 0.7;
-        transform: translate(-15px, 15px) scale(0.95);
+        transform: translate(10px, -10px) scale(1.02); 
     }
 }
 
@@ -105,7 +96,7 @@
     position: absolute;
     inset: -20px;
     margin: auto;
-    background: linear-gradient(135deg, #96994A 0%, #B8BB6A 50%, #9A4A96 100%);
+    background: linear-gradient(135deg, #B8BB6A 0%, #96994A 100%);
     animation: diamondLoader 2s linear infinite;
 }
 
@@ -125,29 +116,29 @@
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 20;
-
+    
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 2rem;
     font-weight: 900;
     color: white;
-    text-shadow:
-            0 2px 10px rgba(0, 0, 0, 0.6),
-            0 0 20px rgba(150, 153, 74, 0.8);
+    text-shadow: 
+        0 2px 10px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(150, 153, 74, 0.8);
     letter-spacing: -1px;
     animation: brandPulse 2s ease-in-out infinite;
     pointer-events: none;
 }
 
 @keyframes brandPulse {
-    0%, 100% {
-        text-shadow:
-                0 2px 10px rgba(0, 0, 0, 0.6),
-                0 0 20px rgba(150, 153, 74, 0.8);
+    0%, 100% { 
+        text-shadow: 
+            0 2px 10px rgba(0, 0, 0, 0.6),
+            0 0 20px rgba(150, 153, 74, 0.8);
     }
-    50% {
-        text-shadow:
-                0 4px 15px rgba(0, 0, 0, 0.8),
-                0 0 30px rgba(150, 153, 74, 1);
+    50% { 
+        text-shadow: 
+            0 4px 15px rgba(0, 0, 0, 0.8),
+            0 0 30px rgba(150, 153, 74, 1);
     }
 }
 
@@ -156,8 +147,8 @@
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 1.25rem;
     font-weight: 600;
-    color: rgba(0, 0, 0, 0.7);
-    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     margin-top: 1rem;
 }
 
@@ -169,20 +160,20 @@
         width: 56px;
         height: 56px;
     }
-
+    
     .loader {
         width: 56px;
         height: 56px;
     }
-
+    
     .loader:after {
         inset: 7px;
     }
-
+    
     .loader:before {
         inset: -14px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-56px, -56px);
@@ -191,16 +182,16 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 1.4rem;
     }
-
+    
     .percentage-text {
         font-size: 1rem;
         margin-top: 0.75rem;
     }
-
+    
     .loader-container {
         gap: 1.25rem;
     }
@@ -212,20 +203,20 @@
         width: 64px;
         height: 64px;
     }
-
+    
     .loader {
         width: 64px;
         height: 64px;
     }
-
+    
     .loader:after {
         inset: 8px;
     }
-
+    
     .loader:before {
         inset: -16px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-64px, -64px);
@@ -234,16 +225,16 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 1.6rem;
     }
-
+    
     .percentage-text {
         font-size: 1.125rem;
         margin-top: 0.875rem;
     }
-
+    
     .loader-container {
         gap: 1.5rem;
     }
@@ -255,20 +246,20 @@
         width: 72px;
         height: 72px;
     }
-
+    
     .loader {
         width: 72px;
         height: 72px;
     }
-
+    
     .loader:after {
         inset: 9px;
     }
-
+    
     .loader:before {
         inset: -18px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-72px, -72px);
@@ -277,16 +268,16 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 1.8rem;
     }
-
+    
     .percentage-text {
         font-size: 1.2rem;
         margin-top: 1rem;
     }
-
+    
     .loader-container {
         gap: 1.75rem;
     }
@@ -298,20 +289,20 @@
         width: 80px;
         height: 80px;
     }
-
+    
     .loader {
         width: 80px;
         height: 80px;
     }
-
+    
     .loader:after {
         inset: 10px;
     }
-
+    
     .loader:before {
         inset: -20px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-80px, -80px);
@@ -320,11 +311,11 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 2rem;
     }
-
+    
     .percentage-text {
         font-size: 1.25rem;
         margin-top: 1rem;
@@ -337,20 +328,20 @@
         width: 96px;
         height: 96px;
     }
-
+    
     .loader {
         width: 96px;
         height: 96px;
     }
-
+    
     .loader:after {
         inset: 12px;
     }
-
+    
     .loader:before {
         inset: -24px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-96px, -96px);
@@ -359,16 +350,16 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 2.5rem;
     }
-
+    
     .percentage-text {
         font-size: 1.5rem;
         margin-top: 1.25rem;
     }
-
+    
     .loader-container {
         gap: 2.5rem;
     }
@@ -380,20 +371,20 @@
         width: 112px;
         height: 112px;
     }
-
+    
     .loader {
         width: 112px;
         height: 112px;
     }
-
+    
     .loader:after {
         inset: 14px;
     }
-
+    
     .loader:before {
         inset: -28px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-112px, -112px);
@@ -402,11 +393,11 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 3rem;
     }
-
+    
     .percentage-text {
         font-size: 1.75rem;
         margin-top: 1.5rem;
@@ -419,20 +410,20 @@
         width: 48px;
         height: 48px;
     }
-
+    
     .loader {
         width: 48px;
         height: 48px;
     }
-
+    
     .loader:after {
         inset: 6px;
     }
-
+    
     .loader:before {
         inset: -12px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-48px, -48px);
@@ -441,16 +432,16 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 1.2rem;
     }
-
+    
     .percentage-text {
         font-size: 0.875rem;
         margin-top: 0.5rem;
     }
-
+    
     .loader-container {
         gap: 1rem;
     }
@@ -462,20 +453,20 @@
         width: 40px;
         height: 40px;
     }
-
+    
     .loader {
         width: 40px;
         height: 40px;
     }
-
+    
     .loader:after {
         inset: 5px;
     }
-
+    
     .loader:before {
         inset: -10px;
     }
-
+    
     @keyframes diamondLoader {
         0%, 10% {
             transform: translate(-40px, -40px);
@@ -484,16 +475,16 @@
             transform: translate(0px, 0px);
         }
     }
-
+    
     .brand-text {
         font-size: 1rem;
     }
-
+    
     .percentage-text {
         font-size: 0.75rem;
         margin-top: 0.25rem;
     }
-
+    
     .loader-container {
         gap: 0.75rem;
     }
@@ -508,11 +499,11 @@
     .brand-text {
         animation: none;
     }
-
+    
     .loader:before {
         transform: translate(0px, 0px);
     }
-
+    
     .brand-text {
         text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
     }
@@ -521,34 +512,26 @@
 /* High Contrast Mode */
 @media (prefers-contrast: more) {
     #loading-screen {
-        background: #ffffff;
+        background: #96994A;
     }
-
+    
     .loader {
         background-color: #000000;
         border: 2px solid #ffffff;
     }
-
+    
     .loader:after {
         background: #ffffff;
     }
-
+    
     .brand-text {
         color: #000000;
         text-shadow: none;
     }
-
+    
     .percentage-text {
-        color: #000000;
+        color: #ffffff;
         text-shadow: none;
-    }
-}
-
-/* Dark Mode Support (if user prefers dark) */
-@media (prefers-color-scheme: dark) {
-    .percentage-text {
-        color: rgba(255, 255, 255, 0.9);
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
     }
 }
 
