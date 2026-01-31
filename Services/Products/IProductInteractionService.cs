@@ -1,4 +1,4 @@
-// Services/Products/IProductInteractionService.cs
+// Services/Products/IProductInteractionService.cs - CORRECTED VERSION
 using SubashaVentures.Models.Supabase;
 
 namespace SubashaVentures.Services.Products;
@@ -6,6 +6,9 @@ namespace SubashaVentures.Services.Products;
 /// <summary>
 /// Service for tracking user interactions with products
 /// Uses local batching to reduce edge function calls
+/// 
+/// IMPORTANT: Only tracks View and Click events
+/// Cart, Wishlist, and Purchase are handled by database triggers automatically
 /// </summary>
 public interface IProductInteractionService
 {
@@ -19,20 +22,11 @@ public interface IProductInteractionService
     /// </summary>
     Task TrackClickAsync(int productId, string userId);
     
-    /// <summary>
-    /// Track add to cart (batched locally)
-    /// </summary>
-    Task TrackAddToCartAsync(int productId, string userId);
-    
-    /// <summary>
-    /// Track product purchase (batched locally)
-    /// </summary>
-    Task TrackPurchaseAsync(int productId, string userId, decimal amount, int quantity);
-    
-    /// <summary>
-    /// Track wishlist add (batched locally)
-    /// </summary>
-    Task TrackWishlistAsync(int productId, string userId);
+    // NOTE: AddToCart, Purchase, and Wishlist are NOT tracked here
+    // They are automatically handled by database triggers when:
+    // - Items are added to cart table
+    // - Items are added to wishlist table  
+    // - Orders are marked as paid in orders table
     
     /// <summary>
     /// Force flush all pending interactions to edge function
@@ -56,15 +50,13 @@ public interface IProductInteractionService
 }
 
 /// <summary>
-/// Product interaction types
+/// Product interaction types (client-side only)
 /// </summary>
 public enum InteractionType
 {
     View,
-    Click,
-    AddToCart,
-    Purchase,
-    Wishlist
+    Click
+    // AddToCart, Purchase, Wishlist removed - handled by DB triggers
 }
 
 /// <summary>
@@ -76,8 +68,6 @@ public class ProductInteraction
     public string UserId { get; set; } = string.Empty;
     public InteractionType Type { get; set; }
     public DateTime Timestamp { get; set; }
-    public decimal? Amount { get; set; } // For purchases
-    public int? Quantity { get; set; } // For purchases
 }
 
 /// <summary>
