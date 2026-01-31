@@ -1,10 +1,11 @@
+// Domain/Product/ProductViewModel.cs - UPDATED: Removed analytics properties
 namespace SubashaVentures.Domain.Product;
 
 using SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// View model for displaying product information in the UI
-/// UPDATED: Added partnership and variant support
+/// UPDATED: Analytics properties removed (use ProductAnalyticsModel separately)
 /// </summary>
 public class ProductViewModel
 {
@@ -30,10 +31,8 @@ public class ProductViewModel
     public List<string> Images { get; set; } = new();
     public string? VideoUrl { get; set; }
     
-    // Variants (from JSONB)
+    // Variants
     public Dictionary<string, ProductVariant> Variants { get; set; } = new();
-    
-    // Auto-populated (read-only)
     public List<string> Sizes { get; set; } = new();
     public List<string> Colors { get; set; } = new();
     
@@ -56,9 +55,6 @@ public class ProductViewModel
     // Rating & Reviews
     public float Rating { get; set; }
     public int ReviewCount { get; set; }
-    
-    public int ViewCount { get; set; }
-    public int SalesCount { get; set; }
     
     // Metadata
     public DateTime CreatedAt { get; set; }
@@ -100,7 +96,6 @@ public class ProductViewModel
             Description = model.Description,
             LongDescription = model.LongDescription,
             
-            // Partnership
             IsOwnedByStore = model.IsOwnedByStore,
             PartnerId = model.PartnerId,
             
@@ -112,7 +107,6 @@ public class ProductViewModel
             Images = model.Images ?? new List<string>(),
             VideoUrl = model.VideoUrl,
             
-            // Variants
             Variants = model.Variants ?? new Dictionary<string, ProductVariant>(),
             Sizes = model.Sizes ?? new List<string>(),
             Colors = model.Colors ?? new List<string>(),
@@ -120,7 +114,6 @@ public class ProductViewModel
             Stock = model.Stock,
             Sku = model.Sku,
             
-            // Shipping
             BaseWeight = model.BaseWeight,
             BaseShippingCost = model.BaseShippingCost,
             HasFreeShipping = model.HasFreeShipping,
@@ -133,8 +126,6 @@ public class ProductViewModel
             
             Rating = model.Rating,
             ReviewCount = model.ReviewCount,
-            ViewCount = model.ViewCount,
-            SalesCount = model.SalesCount,
             
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,
@@ -153,7 +144,6 @@ public class ProductViewModel
             Description = this.Description,
             LongDescription = this.LongDescription,
             
-            // Partnership
             IsOwnedByStore = this.IsOwnedByStore,
             PartnerId = this.PartnerId,
             
@@ -165,12 +155,10 @@ public class ProductViewModel
             Images = this.Images ?? new List<string>(),
             VideoUrl = this.VideoUrl,
             
-            // Variants (DO NOT set sizes/colors/stock - auto-populated)
             Variants = this.Variants ?? new Dictionary<string, ProductVariant>(),
             
             Sku = this.Sku,
             
-            // Shipping
             BaseWeight = this.BaseWeight,
             BaseShippingCost = this.BaseShippingCost,
             HasFreeShipping = this.HasFreeShipping,
@@ -183,8 +171,6 @@ public class ProductViewModel
             
             Rating = this.Rating,
             ReviewCount = this.ReviewCount,
-            ViewCount = this.ViewCount,
-            SalesCount = this.SalesCount,
             
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt,
