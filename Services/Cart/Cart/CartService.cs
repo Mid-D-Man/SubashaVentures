@@ -1,4 +1,4 @@
-// Services/Cart/CartService.cs - COMPLETE FIXED VERSION
+// Services/Cart/CartService.cs - FIXED VERSION with variant validation
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Cart;
 using SubashaVentures.Services.Products;
@@ -43,7 +43,6 @@ public class CartService : ICartService
             {
                 try
                 {
-                    // ✅ Try to create empty cart for user
                     var newCart = new CartModel
                     {
                         UserId = userId,
@@ -62,12 +61,10 @@ public class CartService : ICartService
                 }
                 catch (Exception insertEx)
                 {
-                    // ✅ Check if it's a duplicate key error (23505)
                     if (insertEx.Message.Contains("23505") || 
                         insertEx.Message.Contains("duplicate key") ||
                         insertEx.Message.Contains("cart_pkey"))
                     {
-                        // Another thread/request already created it - that's fine!
                         await MID_HelperFunctions.DebugMessageAsync(
                             $"ℹ️ Cart already exists for user (created by another request): {userId}",
                             LogLevel.Debug
@@ -75,7 +72,6 @@ public class CartService : ICartService
                         return true;
                     }
                     
-                    // If it's a different error, re-throw
                     throw;
                 }
             }
@@ -85,7 +81,6 @@ public class CartService : ICartService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring cart exists");
-            // Don't fail the entire operation if cart check fails
             return false;
         }
     }
@@ -105,10 +100,8 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
-            // ✅ FIX 1: Ensure cart exists first (prevents 406 error)
             await EnsureCartExistsAsync(userId);
 
-            // ✅ FIX 2: Use Get() instead of Single() to handle empty results
             var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
@@ -124,8 +117,6 @@ public class CartService : ICartService
             }
 
             var cart = response.Models.First();
-
-            // Update cache
             _cartCountCache[userId] = cart.Items.Sum(i => i.quantity);
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -169,13 +160,9 @@ public class CartService : ICartService
                     continue;
                 }
 
-                // ✅ Build variant key properly
-                var variantKey = !string.IsNullOrEmpty(cartItem.size) || !string.IsNullOrEmpty(cartItem.color)
-                    ? ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color)
-                    : null;
-
-                // ✅ Get variant-specific data
                 var productModel = product.ToCloudModel();
+                var variantKey = ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color);
+
                 var price = productModel.GetVariantPrice(variantKey);
                 var stock = productModel.GetVariantStock(variantKey);
                 var imageUrl = productModel.GetVariantImage(variantKey);
@@ -238,12 +225,16 @@ public class CartService : ICartService
                 return false;
             }
 
+            // ✅ Normalize empty strings to null
+            var normalizedSize = string.IsNullOrWhiteSpace(size) ? null : size.Trim();
+            var normalizedColor = string.IsNullOrWhiteSpace(color) ? null : color.Trim();
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"➕ Adding to cart: User={userId}, Product={productId}, Qty={quantity}, Size={size}, Color={color}",
+                $"➕ Adding to cart: User={userId}, Product={productId}, Qty={quantity}, Size={normalizedSize ?? "null"}, Color={normalizedColor ?? "null"}",
                 LogLevel.Info
             );
 
-            // ✅ CRITICAL FIX: Validate product exists and has stock BEFORE adding
+            // Get and validate product
             var productIdInt = int.Parse(productId);
             var product = await _productService.GetProductByIdAsync(productIdInt);
 
@@ -257,24 +248,38 @@ public class CartService : ICartService
                 return false;
             }
 
-            // Convert to ProductModel to access extension methods
             var productModel = product.ToCloudModel();
 
-            // ✅ Build variant key
-            var variantKey = !string.IsNullOrEmpty(size) || !string.IsNullOrEmpty(color)
-                ? ProductModelExtensions.BuildVariantKey(size, color)
-                : null;
+            // ✅ CRITICAL: Validate variant selection if product has variants
+            var (isValidSelection, validationError) = productModel.ValidateVariantSelection(normalizedSize, normalizedColor);
+            
+            if (!isValidSelection)
+            {
+                _logger.LogWarning(
+                    "Invalid variant selection for product {ProductId}: {Error}",
+                    productId,
+                    validationError
+                );
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ {validationError}",
+                    LogLevel.Error
+                );
+                return false;
+            }
+
+            // Build variant key
+            var variantKey = ProductModelExtensions.BuildVariantKey(normalizedSize, normalizedColor);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 Checking stock for variant key: '{variantKey ?? "NO_VARIANT"}'",
+                $"🔍 Variant key: '{variantKey}'",
                 LogLevel.Info
             );
 
-            // ✅ Log all available variants for debugging
+            // Log available variants for debugging
             if (productModel.Variants.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"📦 Product has {productModel.Variants.Count} variants: {string.Join(", ", productModel.Variants.Keys)}",
+                    $"📦 Product has {productModel.Variants.Count} variant(s): {string.Join(", ", productModel.Variants.Keys)}",
                     LogLevel.Info
                 );
             }
@@ -286,11 +291,11 @@ public class CartService : ICartService
                 );
             }
 
-            // ✅ CRITICAL: Check stock for the specific variant
+            // Check stock
             var availableStock = productModel.GetVariantStock(variantKey);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"📊 Available stock for '{variantKey ?? "NO_VARIANT"}': {availableStock}",
+                $"📊 Available stock for '{variantKey}': {availableStock}",
                 LogLevel.Info
             );
 
@@ -298,37 +303,36 @@ public class CartService : ICartService
             {
                 _logger.LogWarning(
                     "Insufficient stock for product: {ProductId}. Requested: {Quantity}, Available: {Stock}, Variant: {VariantKey}", 
-                    productId, quantity, availableStock, variantKey ?? "NONE"
+                    productId, quantity, availableStock, variantKey
                 );
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ Insufficient stock: {product.Name} (Variant: {variantKey ?? "NONE"}). Available: {availableStock}, Requested: {quantity}",
+                    $"❌ Insufficient stock: {product.Name}. Available: {availableStock}, Requested: {quantity}",
                     LogLevel.Error
                 );
                 return false;
             }
 
-            // ✅ Ensure cart exists before calling RPC
+            // Ensure cart exists
             await EnsureCartExistsAsync(userId);
 
-            // Call Postgres function to add to cart
+            // Call Postgres function to add to cart (use normalized values)
             var result = await _supabaseClient.Rpc<List<CartItem>>(
                 "add_to_cart",
                 new
                 {
                     p_product_id = productId,
                     p_quantity = quantity,
-                    p_size = size,
-                    p_color = color
+                    p_size = normalizedSize,
+                    p_color = normalizedColor
                 }
             );
 
             if (result != null)
             {
-                // Clear cache
                 _cartCountCache.Remove(userId);
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Successfully added to cart! Cart now has {result.Count} unique items",
+                    $"✅ Successfully added to cart! Cart now has {result.Count} unique item(s)",
                     LogLevel.Info
                 );
 
@@ -358,7 +362,6 @@ public class CartService : ICartService
 
             if (newQuantity <= 0)
             {
-                // Remove item if quantity is 0 or negative
                 var parts = cartItemId.Split('_');
                 if (parts.Length >= 2)
                 {
@@ -374,7 +377,6 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
-            // Parse cartItemId (format: userId_productId_size_color)
             var idParts = cartItemId.Split('_');
             if (idParts.Length < 2)
             {
@@ -386,7 +388,6 @@ public class CartService : ICartService
             var itemSize = idParts.Length > 2 && idParts[2] != "null" ? idParts[2] : null;
             var itemColor = idParts.Length > 3 && idParts[3] != "null" ? idParts[3] : null;
 
-            // ✅ Validate stock BEFORE updating
             var productIdInt = int.Parse(productId);
             var product = await _productService.GetProductByIdAsync(productIdInt);
 
@@ -397,10 +398,7 @@ public class CartService : ICartService
             }
 
             var productModel = product.ToCloudModel();
-            var variantKey = !string.IsNullOrEmpty(itemSize) || !string.IsNullOrEmpty(itemColor)
-                ? ProductModelExtensions.BuildVariantKey(itemSize, itemColor)
-                : null;
-
+            var variantKey = ProductModelExtensions.BuildVariantKey(itemSize, itemColor);
             var availableStock = productModel.GetVariantStock(variantKey);
 
             if (availableStock < newQuantity)
@@ -416,7 +414,6 @@ public class CartService : ICartService
                 return false;
             }
 
-            // Get current cart
             var response = await _supabaseClient
                 .From<CartModel>()
                 .Where(c => c.UserId == userId)
@@ -430,7 +427,6 @@ public class CartService : ICartService
 
             var cart = response.Models.First();
 
-            // Update the specific item's quantity
             var updatedItems = cart.Items.Select(item =>
             {
                 if (item.product_id == productId && 
@@ -447,7 +443,6 @@ public class CartService : ICartService
 
             await cart.Update<CartModel>();
 
-            // Clear cache
             _cartCountCache.Remove(userId);
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -480,10 +475,8 @@ public class CartService : ICartService
                 LogLevel.Info
             );
 
-            // ✅ Ensure cart exists before calling RPC
             await EnsureCartExistsAsync(userId);
 
-            // Call Postgres function to remove from cart
             var result = await _supabaseClient.Rpc<List<CartItem>>(
                 "remove_from_cart",
                 new
@@ -496,7 +489,6 @@ public class CartService : ICartService
 
             if (result != null)
             {
-                // Clear cache
                 _cartCountCache.Remove(userId);
 
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -532,7 +524,6 @@ public class CartService : ICartService
                 LogLevel.Warning
             );
 
-            // ✅ Ensure cart exists before clearing
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -542,7 +533,7 @@ public class CartService : ICartService
 
             if (response?.Models == null || !response.Models.Any())
             {
-                return true; // Already empty
+                return true;
             }
 
             var cart = response.Models.First();
@@ -551,7 +542,6 @@ public class CartService : ICartService
 
             await cart.Update<CartModel>();
 
-            // Clear cache
             _cartCountCache.Remove(userId);
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -578,13 +568,11 @@ public class CartService : ICartService
                 return 0;
             }
 
-            // Check cache first
             if (_cartCountCache.TryGetValue(userId, out var cachedCount))
             {
                 return cachedCount;
             }
 
-            // ✅ Ensure cart exists before querying
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -594,7 +582,6 @@ public class CartService : ICartService
 
             var count = response?.Models?.FirstOrDefault()?.Items.Sum(i => i.quantity) ?? 0;
 
-            // Update cache
             _cartCountCache[userId] = count;
 
             return count;
@@ -610,10 +597,8 @@ public class CartService : ICartService
     {
         try
         {
-            // Parse composite ID
             var (parsedUserId, productId, size, color) = CartItemViewModel.ParseCompositeId(cartItemId);
         
-            // Verify userId matches
             if (parsedUserId != userId)
             {
                 _logger.LogWarning("User ID mismatch in RemoveFromCartByIdAsync");
@@ -639,7 +624,6 @@ public class CartService : ICartService
                 return false;
             }
 
-            // ✅ Ensure cart exists before checking
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -662,7 +646,6 @@ public class CartService : ICartService
 
         try
         {
-            // ✅ Ensure cart exists before validating
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -715,12 +698,8 @@ public class CartService : ICartService
                     });
                 }
 
-                // ✅ Check variant stock properly
                 var productModel = product.ToCloudModel();
-                var variantKey = !string.IsNullOrEmpty(cartItem.size) || !string.IsNullOrEmpty(cartItem.color)
-                    ? ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color)
-                    : null;
-
+                var variantKey = ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color);
                 var availableStock = productModel.GetVariantStock(variantKey);
 
                 if (availableStock < cartItem.quantity)
