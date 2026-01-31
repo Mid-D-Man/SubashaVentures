@@ -1,4 +1,4 @@
-// Domain/Statistics/StatisticsViewModel.cs
+// Domain/Statistics/StatisticsViewModel.cs - UPDATED: Added wishlist metrics
 namespace SubashaVentures.Domain.Statistics;
 
 public class GeneralStatistics
@@ -109,4 +109,33 @@ public class ProductPerformanceMetric
     public string ViewToCartDisplay => $"{ViewToCartRate:F1}%";
     public string CartToPurchaseDisplay => $"{CartToPurchaseRate:F1}%";
     public string ConversionDisplay => $"{OverallConversionRate:F1}%";
+}
+
+// ==================== NEW: Variant Analytics ====================
+
+public class VariantPerformance
+{
+    public long Id { get; set; }
+    public long ProductId { get; set; }
+    public string ProductName { get; set; } = "";
+    public string VariantKey { get; set; } = "";
+    public string? VariantSize { get; set; }
+    public string? VariantColor { get; set; }
+    public int TotalViews { get; set; }
+    public int TotalAddToCart { get; set; }
+    public int TotalPurchases { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public DateTime? LastPurchasedAt { get; set; }
+    
+    public string DisplayVariant => string.IsNullOrEmpty(VariantKey) 
+        ? "Default" 
+        : VariantKey.Replace("_", " / ");
+    
+    public string FormattedRevenue => $"₦{TotalRevenue:N0}";
+    
+    public decimal ConversionRate => TotalViews > 0 
+        ? (decimal)TotalPurchases / TotalViews * 100 
+        : 0;
+    
+    public string ConversionDisplay => $"{ConversionRate:F1}%";
 }
