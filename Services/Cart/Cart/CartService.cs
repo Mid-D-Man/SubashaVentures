@@ -1,4 +1,3 @@
-
 // Services/Cart/CartService.cs - COMPLETE FIXED VERSION
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Cart;
@@ -28,68 +27,68 @@ public class CartService : ICartService
     }
 
     /// <summary>
-/// Ensure cart row exists for user (create if missing)
-/// Race-condition safe - handles duplicate key errors gracefully
-/// </summary>
-private async Task<bool> EnsureCartExistsAsync(string userId)
-{
-    try
+    /// Ensure cart row exists for user (create if missing)
+    /// Race-condition safe - handles duplicate key errors gracefully
+    /// </summary>
+    private async Task<bool> EnsureCartExistsAsync(string userId)
     {
-        var response = await _supabaseClient
-            .From<CartModel>()
-            .Where(c => c.UserId == userId)
-            .Get();
-
-        if (response?.Models == null || !response.Models.Any())
+        try
         {
-            try
-            {
-                // ✅ Try to create empty cart for user
-                var newCart = new CartModel
-                {
-                    UserId = userId,
-                    Items = new List<CartItem>(),
-                    CreatedAt = DateTime.UtcNow
-                };
+            var response = await _supabaseClient
+                .From<CartModel>()
+                .Where(c => c.UserId == userId)
+                .Get();
 
-                await _supabaseClient
-                    .From<CartModel>()
-                    .Insert(newCart);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Created new cart for user: {userId}",
-                    LogLevel.Info
-                );
-            }
-            catch (Exception insertEx)
+            if (response?.Models == null || !response.Models.Any())
             {
-                // ✅ Check if it's a duplicate key error (23505)
-                if (insertEx.Message.Contains("23505") || 
-                    insertEx.Message.Contains("duplicate key") ||
-                    insertEx.Message.Contains("cart_pkey"))
+                try
                 {
-                    // Another thread/request already created it - that's fine!
+                    // ✅ Try to create empty cart for user
+                    var newCart = new CartModel
+                    {
+                        UserId = userId,
+                        Items = new List<CartItem>(),
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _supabaseClient
+                        .From<CartModel>()
+                        .Insert(newCart);
+
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"ℹ️ Cart already exists for user (created by another request): {userId}",
-                        LogLevel.Debug
+                        $"✅ Created new cart for user: {userId}",
+                        LogLevel.Info
                     );
-                    return true;
                 }
-                
-                // If it's a different error, re-throw
-                throw;
+                catch (Exception insertEx)
+                {
+                    // ✅ Check if it's a duplicate key error (23505)
+                    if (insertEx.Message.Contains("23505") || 
+                        insertEx.Message.Contains("duplicate key") ||
+                        insertEx.Message.Contains("cart_pkey"))
+                    {
+                        // Another thread/request already created it - that's fine!
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"ℹ️ Cart already exists for user (created by another request): {userId}",
+                            LogLevel.Debug
+                        );
+                        return true;
+                    }
+                    
+                    // If it's a different error, re-throw
+                    throw;
+                }
             }
-        }
 
-        return true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring cart exists");
+            // Don't fail the entire operation if cart check fails
+            return false;
+        }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring cart exists");
-        // Don't fail the entire operation if cart check fails
-        return false;
-    }
-}
 
     public async Task<List<CartModel>> GetUserCartAsync(string userId)
     {
@@ -170,15 +169,16 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                     continue;
                 }
 
-                // ✅ FIX 3: Build variant key properly
+                // ✅ Build variant key properly
                 var variantKey = !string.IsNullOrEmpty(cartItem.size) || !string.IsNullOrEmpty(cartItem.color)
                     ? ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color)
                     : null;
 
-                // ✅ FIX 4: Get variant-specific data
-                var price = product.GetVariantPrice(variantKey);
-                var stock = product.GetVariantStock(variantKey);
-                var imageUrl = product.GetVariantImage(variantKey);
+                // ✅ Get variant-specific data
+                var productModel = product.ToCloudModel();
+                var price = productModel.GetVariantPrice(variantKey);
+                var stock = productModel.GetVariantStock(variantKey);
+                var imageUrl = productModel.GetVariantImage(variantKey);
 
                 cartItemViewModels.Add(new CartItemViewModel
                 {
@@ -243,7 +243,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 LogLevel.Info
             );
 
-            // ✅ FIX 5: Validate product exists and has stock BEFORE adding
+            // ✅ CRITICAL FIX: Validate product exists and has stock BEFORE adding
             var productIdInt = int.Parse(productId);
             var product = await _productService.GetProductByIdAsync(productIdInt);
 
@@ -257,27 +257,57 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 return false;
             }
 
-            // Build variant key and check stock
+            // Convert to ProductModel to access extension methods
+            var productModel = product.ToCloudModel();
+
+            // ✅ Build variant key
             var variantKey = !string.IsNullOrEmpty(size) || !string.IsNullOrEmpty(color)
                 ? ProductModelExtensions.BuildVariantKey(size, color)
                 : null;
 
-            var availableStock = product.GetVariantStock(variantKey);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔍 Checking stock for variant key: '{variantKey ?? "NO_VARIANT"}'",
+                LogLevel.Info
+            );
+
+            // ✅ Log all available variants for debugging
+            if (productModel.Variants.Any())
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"📦 Product has {productModel.Variants.Count} variants: {string.Join(", ", productModel.Variants.Keys)}",
+                    LogLevel.Info
+                );
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"📦 Product has no variants. Total stock: {productModel.Stock}",
+                    LogLevel.Info
+                );
+            }
+
+            // ✅ CRITICAL: Check stock for the specific variant
+            var availableStock = productModel.GetVariantStock(variantKey);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"📊 Available stock for '{variantKey ?? "NO_VARIANT"}': {availableStock}",
+                LogLevel.Info
+            );
 
             if (availableStock < quantity)
             {
                 _logger.LogWarning(
-                    "Insufficient stock for product: {ProductId}. Requested: {Quantity}, Available: {Stock}", 
-                    productId, quantity, availableStock
+                    "Insufficient stock for product: {ProductId}. Requested: {Quantity}, Available: {Stock}, Variant: {VariantKey}", 
+                    productId, quantity, availableStock, variantKey ?? "NONE"
                 );
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ Insufficient stock: {product.Name}. Available: {availableStock}, Requested: {quantity}",
+                    $"❌ Insufficient stock: {product.Name} (Variant: {variantKey ?? "NONE"}). Available: {availableStock}, Requested: {quantity}",
                     LogLevel.Error
                 );
                 return false;
             }
 
-            // ✅ FIX 6: Ensure cart exists before calling RPC
+            // ✅ Ensure cart exists before calling RPC
             await EnsureCartExistsAsync(userId);
 
             // Call Postgres function to add to cart
@@ -298,7 +328,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 _cartCountCache.Remove(userId);
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Successfully added to cart! Cart now has {result.Count} items",
+                    $"✅ Successfully added to cart! Cart now has {result.Count} unique items",
                     LogLevel.Info
                 );
 
@@ -356,7 +386,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
             var itemSize = idParts.Length > 2 && idParts[2] != "null" ? idParts[2] : null;
             var itemColor = idParts.Length > 3 && idParts[3] != "null" ? idParts[3] : null;
 
-            // ✅ FIX 7: Validate stock BEFORE updating
+            // ✅ Validate stock BEFORE updating
             var productIdInt = int.Parse(productId);
             var product = await _productService.GetProductByIdAsync(productIdInt);
 
@@ -366,11 +396,12 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 return false;
             }
 
+            var productModel = product.ToCloudModel();
             var variantKey = !string.IsNullOrEmpty(itemSize) || !string.IsNullOrEmpty(itemColor)
                 ? ProductModelExtensions.BuildVariantKey(itemSize, itemColor)
                 : null;
 
-            var availableStock = product.GetVariantStock(variantKey);
+            var availableStock = productModel.GetVariantStock(variantKey);
 
             if (availableStock < newQuantity)
             {
@@ -449,7 +480,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 LogLevel.Info
             );
 
-            // ✅ FIX 8: Ensure cart exists before calling RPC
+            // ✅ Ensure cart exists before calling RPC
             await EnsureCartExistsAsync(userId);
 
             // Call Postgres function to remove from cart
@@ -501,7 +532,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 LogLevel.Warning
             );
 
-            // ✅ FIX 9: Ensure cart exists before clearing
+            // ✅ Ensure cart exists before clearing
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -553,7 +584,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 return cachedCount;
             }
 
-            // ✅ FIX 10: Ensure cart exists before querying
+            // ✅ Ensure cart exists before querying
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -608,7 +639,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                 return false;
             }
 
-            // ✅ FIX 11: Ensure cart exists before checking
+            // ✅ Ensure cart exists before checking
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -631,7 +662,7 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
 
         try
         {
-            // ✅ FIX 12: Ensure cart exists before validating
+            // ✅ Ensure cart exists before validating
             await EnsureCartExistsAsync(userId);
 
             var response = await _supabaseClient
@@ -684,12 +715,13 @@ private async Task<bool> EnsureCartExistsAsync(string userId)
                     });
                 }
 
-                // ✅ FIX 13: Check variant stock properly
+                // ✅ Check variant stock properly
+                var productModel = product.ToCloudModel();
                 var variantKey = !string.IsNullOrEmpty(cartItem.size) || !string.IsNullOrEmpty(cartItem.color)
                     ? ProductModelExtensions.BuildVariantKey(cartItem.size, cartItem.color)
                     : null;
 
-                var availableStock = product.GetVariantStock(variantKey);
+                var availableStock = productModel.GetVariantStock(variantKey);
 
                 if (availableStock < cartItem.quantity)
                 {
