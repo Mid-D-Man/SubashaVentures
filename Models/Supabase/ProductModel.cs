@@ -373,6 +373,7 @@ public static class ProductModelExtensions
     
     /// <summary>
     /// Validate if a variant selection is complete for products that require variants
+    /// ✅ FIXED: Better error message construction
     /// </summary>
     public static (bool isValid, string? errorMessage) ValidateVariantSelection(
         this ProductModel product, 
@@ -394,10 +395,21 @@ public static class ProductModelExtensions
         
         if (string.IsNullOrEmpty(variantKey))
         {
-            // Build helpful error message
+            // ✅ FIXED: Build error message from actual variant data, not sizes/colors arrays
+            // Check what the first variant requires
+            var firstVariant = product.Variants.FirstOrDefault().Value;
             var requiredOptions = new List<string>();
-            if (product.Sizes.Any()) requiredOptions.Add("size");
-            if (product.Colors.Any()) requiredOptions.Add("color");
+            
+            if (!string.IsNullOrEmpty(firstVariant?.Size))
+                requiredOptions.Add("size");
+            if (!string.IsNullOrEmpty(firstVariant?.Color))
+                requiredOptions.Add("color");
+            
+            if (!requiredOptions.Any())
+            {
+                // Product has variants but they don't specify size/color (shouldn't happen)
+                return (false, "Please select a variant for this product.");
+            }
             
             var optionsText = string.Join(" and ", requiredOptions);
             return (false, $"Please select a {optionsText} for this product.");
