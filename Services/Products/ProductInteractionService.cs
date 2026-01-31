@@ -1,4 +1,4 @@
-// Services/Products/ProductInteractionService.cs - SIZE-BASED ONLY, NO AUTO-TIMER
+// Services/Products/ProductInteractionService.cs - CORRECTED VERSION
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -9,6 +9,10 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Products;
 
+/// <summary>
+/// Product interaction service - ONLY handles View and Click events
+/// Cart, Wishlist, and Purchase are handled by database triggers
+/// </summary>
 public class ProductInteractionService : IProductInteractionService, IDisposable
 {
     private readonly IBlazorAppLocalStorageService _localStorage;
@@ -65,40 +69,9 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
         }, flushImmediately: false);
     }
 
-    public async Task TrackAddToCartAsync(int productId, string userId)
-    {
-        await AddInteractionAsync(new ProductInteraction
-        {
-            ProductId = productId,
-            UserId = userId,
-            Type = InteractionType.AddToCart,
-            Timestamp = DateTime.UtcNow
-        }, flushImmediately: true); // 🔥 FLUSH IMMEDIATELY
-    }
-
-    public async Task TrackPurchaseAsync(int productId, string userId, decimal amount, int quantity)
-    {
-        await AddInteractionAsync(new ProductInteraction
-        {
-            ProductId = productId,
-            UserId = userId,
-            Type = InteractionType.Purchase,
-            Timestamp = DateTime.UtcNow,
-            Amount = amount,
-            Quantity = quantity
-        }, flushImmediately: true); // 🔥 FLUSH IMMEDIATELY
-    }
-
-    public async Task TrackWishlistAsync(int productId, string userId)
-    {
-        await AddInteractionAsync(new ProductInteraction
-        {
-            ProductId = productId,
-            UserId = userId,
-            Type = InteractionType.Wishlist,
-            Timestamp = DateTime.UtcNow
-        }, flushImmediately: false);
-    }
+    // REMOVED: TrackAddToCartAsync - handled by cart table trigger
+    // REMOVED: TrackPurchaseAsync - handled by orders table trigger
+    // REMOVED: TrackWishlistAsync - handled by wishlist table trigger
 
     public async Task FlushPendingInteractionsAsync()
     {
@@ -150,7 +123,7 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🚀 Flushing {_pendingInteractions.Count} pending interactions",
+                $"🚀 Flushing {_pendingInteractions.Count} pending interactions (View/Click only)",
                 LogLevel.Info
             );
 
@@ -292,18 +265,8 @@ public class ProductInteractionService : IProductInteractionService, IDisposable
             // Save to localStorage for persistence
             await SavePendingInteractionsAsync();
 
-            // 🔥 IMMEDIATE FLUSH for critical events (AddToCart, Purchase)
-            if (flushImmediately)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"🔥 Critical event ({interaction.Type}), triggering immediate flush",
-                    LogLevel.Info
-                );
-                
-                await FlushPendingInteractionsAsync();
-            }
             // SIZE-BASED FLUSH: Auto-flush if batch size exceeded
-            else if (_pendingInteractions.Count >= MAX_BATCH_SIZE)
+            if (_pendingInteractions.Count >= MAX_BATCH_SIZE)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"📦 Max batch size ({MAX_BATCH_SIZE}) reached, triggering flush",
