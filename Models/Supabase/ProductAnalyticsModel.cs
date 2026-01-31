@@ -1,17 +1,16 @@
-// Models/Supabase/ProductAnalyticsModel.cs - UPDATED
+// Models/Supabase/ProductAnalyticsModel.cs - UPDATED: Added wishlist tracking
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
-/// Product analytics - shares same ID as product
-/// UPDATED: Added last_wishlist_at tracking
+/// Product analytics - SINGLE SOURCE OF TRUTH for all product metrics
+/// UPDATED: Added wishlist tracking columns
 /// </summary>
 [Table("product_analytics")]
 public class ProductAnalyticsModel : BaseModel
 {
-    // SAME ID AS PRODUCT - Primary Key
     [PrimaryKey("product_id", false)]
     [Column("product_id")]
     public int ProductId { get; set; }
@@ -22,7 +21,8 @@ public class ProductAnalyticsModel : BaseModel
     [Column("product_name")]
     public string ProductName { get; set; } = string.Empty;
     
-    // Aggregated Metrics
+    // ==================== CORE METRICS ====================
+    
     [Column("total_views")]
     public int TotalViews { get; set; }
     
@@ -38,17 +38,33 @@ public class ProductAnalyticsModel : BaseModel
     [Column("total_revenue")]
     public decimal TotalRevenue { get; set; }
     
-    // Conversion Metrics
+    // ==================== WISHLIST METRICS (NEW) ====================
+    
+    [Column("total_wishlist_adds")]
+    public int TotalWishlistAdds { get; set; }
+    
+    [Column("last_wishlisted_at")]
+    public DateTime? LastWishlistedAt { get; set; }
+    
+    // ==================== CONVERSION RATES ====================
+    
     [Column("view_to_cart_rate")]
-    public decimal ViewToCartRate { get; set; } // (AddToCart / Views) * 100
+    public decimal ViewToCartRate { get; set; }
     
     [Column("cart_to_purchase_rate")]
-    public decimal CartToPurchaseRate { get; set; } // (Purchases / AddToCart) * 100
+    public decimal CartToPurchaseRate { get; set; }
     
     [Column("overall_conversion_rate")]
-    public decimal OverallConversionRate { get; set; } // (Purchases / Views) * 100
+    public decimal OverallConversionRate { get; set; }
     
-    // Time-based Metrics
+    [Column("wishlist_to_cart_rate")]
+    public decimal WishlistToCartRate { get; set; }
+    
+    [Column("wishlist_to_purchase_rate")]
+    public decimal WishlistToPurchaseRate { get; set; }
+    
+    // ==================== TIME-BASED METRICS ====================
+    
     [Column("last_viewed_at")]
     public DateTime? LastViewedAt { get; set; }
     
@@ -58,17 +74,19 @@ public class ProductAnalyticsModel : BaseModel
     [Column("first_sale_date")]
     public DateTime? FirstSaleDate { get; set; }
     
-    // Performance Indicators
+    // ==================== PERFORMANCE INDICATORS ====================
+    
     [Column("is_trending")]
-    public bool IsTrending { get; set; } // Views increased >50% this week
+    public bool IsTrending { get; set; }
     
     [Column("is_best_seller")]
-    public bool IsBestSeller { get; set; } // Top 10% in purchases
+    public bool IsBestSeller { get; set; }
     
     [Column("needs_attention")]
-    public bool NeedsAttention { get; set; } // High views but low conversion
+    public bool NeedsAttention { get; set; }
     
-    // Timestamps
+    // ==================== TIMESTAMPS ====================
+    
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
     
