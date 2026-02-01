@@ -197,14 +197,6 @@ public class ProductOfTheDayService : IProductOfTheDayService
         // Rating weight (0-5 stars) = 30% of score
         score += (decimal)product.Rating * 6m;
 
-        // Sales count weight = 25% of score
-        // Normalize to 0-25 range (assuming max 100 sales)
-        score += Math.Min(product.SalesCount / 4m, 25m);
-
-        // View count weight = 20% of score
-        // Normalize to 0-20 range (assuming max 1000 views)
-        score += Math.Min(product.ViewCount / 50m, 20m);
-
         // Stock availability weight = 15% of score
         // Products with more stock get higher priority
         score += Math.Min(product.Stock / 10m, 15m);

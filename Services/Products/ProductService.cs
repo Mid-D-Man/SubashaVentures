@@ -199,13 +199,6 @@ public class ProductService : IProductService
                 // Initial metrics
                 Rating = 0,
                 ReviewCount = 0,
-                ViewCount = 0,
-                ClickCount = 0,
-                AddToCartCount = 0,
-                PurchaseCount = 0,
-                SalesCount = 0,
-                TotalRevenue = 0,
-                
                 // Settings
                 IsActive = true,
                 IsFeatured = request.IsFeatured,
@@ -785,9 +778,6 @@ public class ProductService : IProductService
             // Metrics
             Rating = model.Rating,
             ReviewCount = model.ReviewCount,
-            ViewCount = model.ViewCount,
-            SalesCount = model.SalesCount,
-            
             // Metadata
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,
