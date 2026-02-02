@@ -179,7 +179,6 @@
     position: relative;
     width: 100%;
     max-width: 400px;
-    aspect-ratio: 1;
     transform: perspective(1000px) rotateY(-5deg);
     transition: transform 0.3s ease;
 }
@@ -244,7 +243,7 @@
     margin: 0;
 }
 
-/* ===== FEATURED PRODUCTS - FIXED HEIGHT & MANUAL SCROLL ===== */
+/* ===== FEATURED PRODUCTS - FIXED SCROLL WITH PROPER LOOP ===== */
 .featured-section {
     padding: 4rem 0;
     overflow: hidden;
@@ -260,7 +259,7 @@
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
-    height: 620px; /* FIXED: Increased height to prevent clipping */
+    height: 620px;
 }
 
 .scroll-wrapper::-webkit-scrollbar {
@@ -288,29 +287,18 @@
     display: flex;
     gap: 2rem;
     width: max-content;
-    will-change: transform;
-    animation: smoothScroll 60s linear infinite;
+    will-change: scroll-position;
 }
 
-/* FIXED: Better performance with transform */
-@keyframes smoothScroll {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(-50%);
-    }
-}
-
-/* FIXED: Pause on hover AND enable manual scroll */
-.scroll-wrapper:hover .scroll-content {
-    animation-play-state: paused;
+/* Manual scroll - no auto animation */
+.scroll-content.paused {
+    animation: none;
 }
 
 .product-card-wrapper {
     flex: 0 0 340px;
     width: 340px;
-    height: 560px; /* FIXED: Explicit height to prevent clipping */
+    height: 560px;
     display: flex;
 }
 
@@ -377,7 +365,7 @@
     margin: 0;
 }
 
-/* ===== NEWSLETTER SECTION - FIXED DARK MODE TEXT ===== */
+/* ===== NEWSLETTER SECTION - FIXED INPUT TEXT COLOR ===== */
 .newsletter-section {
     min-height: 400px;
     padding: 5rem 2rem;
@@ -414,7 +402,7 @@
     font-family: 'Poppins', sans-serif;
     font-size: 2.5rem;
     font-weight: 800;
-    color: white; /* FIXED: Always white on dark gradient */
+    color: white;
     margin: 0 0 1.25rem 0;
     text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
     letter-spacing: -0.5px;
@@ -422,7 +410,7 @@
 
 .newsletter-description {
     font-size: 1.125rem;
-    color: rgba(255, 255, 255, 0.95); /* FIXED: Always white on dark gradient */
+    color: rgba(255, 255, 255, 0.95);
     margin: 0 0 2.5rem 0;
     line-height: 1.7;
     text-shadow: 0 1px 10px rgba(0, 0, 0, 0.3);
@@ -441,6 +429,7 @@
     width: 100%;
 }
 
+/* FIXED: Input text always dark in both light and dark mode */
 .newsletter-input {
     width: 100%;
     padding: 1rem 1.25rem;
@@ -448,7 +437,7 @@
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    color: var(--text-primary, #1f2937);
+    color: #1f2937 !important;
     font-size: 1.0625rem;
     outline: none;
     transition: all 0.3s ease;
@@ -457,7 +446,7 @@
 }
 
 .newsletter-input::placeholder {
-    color: var(--text-muted, #9ca3af);
+    color: #6b7280;
 }
 
 .newsletter-input:focus {
@@ -465,9 +454,18 @@
     background: white;
     box-shadow: 0 6px 30px rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
+    color: #1f2937 !important;
 }
 
-/* FIXED: Newsletter submit button - ALWAYS CLICKABLE */
+/* FIXED: Force dark text in dark mode too */
+[data-theme="dark"] .newsletter-input {
+    color: #1f2937 !important;
+}
+
+[data-theme="dark"] .newsletter-input:focus {
+    color: #1f2937 !important;
+}
+
 .newsletter-submit {
     width: 100%;
     background: white !important;
@@ -482,7 +480,7 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    pointer-events: all !important; /* FIXED: Force clickable */
+    pointer-events: all !important;
     opacity: 1 !important;
 }
 
@@ -499,12 +497,12 @@
 
 .newsletter-privacy {
     font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.85); /* FIXED: Always white on dark gradient */
+    color: rgba(255, 255, 255, 0.85);
     margin: 0;
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== TESTIMONIALS SECTION - FIXED CARD SIZING ===== */
+/* ===== TESTIMONIALS SECTION - FIXED SCROLL WITH PROPER LOOP ===== */
 .testimonials-section {
     padding: 4rem 0;
     overflow: hidden;
@@ -547,15 +545,15 @@
     display: flex;
     gap: 1.5rem;
     width: max-content;
-    will-change: transform;
-    animation: smoothScroll 80s linear infinite;
+    will-change: scroll-position;
 }
 
-.testimonials-scroll-wrapper:hover .testimonials-scroll-content {
-    animation-play-state: paused;
+/* Manual scroll - no auto animation */
+.testimonials-scroll-content.paused {
+    animation: none;
 }
 
-/* FIXED: Consistent card sizing across ALL breakpoints */
+/* FIXED: Consistent card sizing */
 .testimonials-scroll-content > * {
     flex: 0 0 340px;
     width: 340px;
@@ -599,17 +597,17 @@
     color: var(--text-body, #d1d5db);
 }
 
-/* FIXED: Dark theme newsletter - text stays WHITE */
+/* Newsletter stays white text in dark mode */
 [data-theme="dark"] .newsletter-title {
-    color: white; /* Keep white on dark gradient */
+    color: white;
 }
 
 [data-theme="dark"] .newsletter-description {
-    color: rgba(255, 255, 255, 0.95); /* Keep white on dark gradient */
+    color: rgba(255, 255, 255, 0.95);
 }
 
 [data-theme="dark"] .newsletter-privacy {
-    color: rgba(255, 255, 255, 0.85); /* Keep white on dark gradient */
+    color: rgba(255, 255, 255, 0.85);
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -651,13 +649,13 @@
     }
     
     .scroll-wrapper {
-        height: 580px; /* FIXED: Adjusted for tablet */
+        height: 560px;
     }
     
     .product-card-wrapper {
-        flex: 0 0 300px;
-        width: 300px;
-        height: 520px;
+        flex: 0 0 280px;
+        width: 280px;
+        height: 480px;
     }
     
     .testimonials-scroll-content > * {
@@ -699,17 +697,17 @@
     }
     
     .hero-image-container {
-        max-width: 280px; /* FIXED: Smaller POTD on tablet */
+        max-width: 320px;
     }
     
     .scroll-wrapper {
-        height: 540px; /* FIXED */
+        height: 520px;
     }
     
     .product-card-wrapper {
-        flex: 0 0 280px;
-        width: 280px;
-        height: 480px;
+        flex: 0 0 260px;
+        width: 260px;
+        height: 440px;
     }
     
     .testimonials-scroll-content > * {
@@ -773,10 +771,9 @@
         font-size: 1rem;
     }
     
-    /* FIXED: POTD card much smaller on mobile */
+    /* FIXED: POTD card properly sized for mobile */
     .hero-image-container {
-        max-width: 240px;
-        max-height: 320px;
+        max-width: 100%;
     }
     
     .stat-number {
@@ -788,16 +785,16 @@
     }
     
     .scroll-wrapper {
-        height: 500px; /* FIXED: Mobile height */
+        height: 480px;
     }
     
     .product-card-wrapper {
-        flex: 0 0 260px;
-        width: 260px;
-        height: 440px;
+        flex: 0 0 240px;
+        width: 240px;
+        height: 400px;
     }
     
-    /* FIXED: Review cards much smaller and consistent */
+    /* FIXED: Review cards properly sized */
     .testimonials-scroll-content > * {
         flex: 0 0 280px !important;
         width: 280px !important;
@@ -832,14 +829,13 @@
 /* Extra Small Mobile (< 360px) */
 @media (max-width: 359px) {
     .hero-image-container {
-        max-width: 200px;
-        max-height: 280px;
+        max-width: 100%;
     }
     
     .product-card-wrapper {
-        flex: 0 0 240px;
-        width: 240px;
-        height: 420px;
+        flex: 0 0 220px;
+        width: 220px;
+        height: 380px;
     }
     
     /* FIXED: Even smaller review cards for tiny screens */
