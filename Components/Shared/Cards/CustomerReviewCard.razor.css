@@ -9,8 +9,9 @@
     gap: 0.875rem;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
     height: 100%;
-    width: 100%; /* FIXED: Full width of container */
+    width: 100%;
     box-sizing: border-box;
+    min-height: 280px;
 }
 
 .review-card:hover {
@@ -130,7 +131,7 @@
     color: var(--text-secondary, #6b7280);
     margin: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     word-wrap: break-word;
@@ -367,18 +368,81 @@
     color: var(--text-on-primary, #212529);
 }
 
-/* ===== MOBILE FIRST RESPONSIVE - FIXED SIZING ===== */
+/* ===== MOBILE FIRST RESPONSIVE - CONSISTENT SIZING ===== */
 
-/* Base: Mobile (320px - 480px) */
-@media (max-width: 480px) {
+/* Extra Small Mobile (< 360px) */
+@media (max-width: 359px) {
+    .review-card {
+        padding: 0.75rem;
+        gap: 0.625rem;
+        min-height: 240px;
+    }
+
+    .reviewer-avatar,
+    .reviewer-avatar-placeholder {
+        width: 36px;
+        height: 36px;
+    }
+
+    .avatar-initial {
+        font-size: 0.9375rem;
+    }
+
+    .reviewer-name {
+        font-size: 0.8125rem;
+    }
+
+    .review-date {
+        font-size: 0.6875rem;
+    }
+
+    .review-title {
+        font-size: 0.875rem;
+    }
+
+    .review-comment {
+        font-size: 0.75rem;
+        -webkit-line-clamp: 2;
+    }
+
+    .rating-number {
+        font-size: 0.9375rem;
+    }
+
+    .rating-stars {
+        font-size: 0.625rem;
+    }
+
+    .review-image-wrapper,
+    .review-image-more {
+        width: 56px;
+        height: 56px;
+    }
+
+    .review-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding-top: 0.625rem;
+    }
+
+    .badge {
+        font-size: 0.6875rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .review-helpful {
+        font-size: 0.6875rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* Small Mobile (360px - 480px) */
+@media (min-width: 360px) and (max-width: 480px) {
     .review-card {
         padding: 0.875rem;
         gap: 0.75rem;
-        max-width: 100%; /* FIXED: Prevent overflow */
-    }
-
-    .review-header {
-        flex-wrap: wrap;
+        min-height: 260px;
     }
 
     .reviewer-avatar,
@@ -395,12 +459,25 @@
         font-size: 0.875rem;
     }
 
+    .review-date {
+        font-size: 0.75rem;
+    }
+
     .review-title {
         font-size: 0.9375rem;
     }
 
     .review-comment {
         font-size: 0.8125rem;
+        -webkit-line-clamp: 3;
+    }
+
+    .rating-number {
+        font-size: 1rem;
+    }
+
+    .rating-stars {
+        font-size: 0.6875rem;
     }
 
     .review-image-wrapper,
@@ -414,13 +491,21 @@
         align-items: flex-start;
         gap: 0.625rem;
     }
+
+    .badge {
+        font-size: 0.75rem;
+    }
+
+    .review-helpful {
+        font-size: 0.75rem;
+    }
 }
 
-/* Landscape phones (481px - 575px) */
-@media (min-width: 481px) and (max-width: 575px) {
+/* Mobile Landscape (481px - 767px) */
+@media (min-width: 481px) and (max-width: 767px) {
     .review-card {
         padding: 0.9375rem;
-        max-width: 100%;
+        min-height: 280px;
     }
 
     .review-image-wrapper,
@@ -430,24 +515,11 @@
     }
 }
 
-/* Small Tablets (576px - 767px) */
-@media (min-width: 576px) and (max-width: 767px) {
-    .review-card {
-        padding: 1rem;
-        max-width: 100%;
-    }
-
-    .review-image-wrapper,
-    .review-image-more {
-        width: 72px;
-        height: 72px;
-    }
-}
-
 /* Tablets (768px - 991px) */
 @media (min-width: 768px) and (max-width: 991px) {
     .review-card {
         padding: 1rem;
+        min-height: 300px;
     }
 
     .review-image-wrapper,
@@ -461,6 +533,7 @@
 @media (min-width: 992px) {
     .review-card {
         padding: 1.125rem;
+        min-height: 320px;
     }
 
     .review-image-wrapper,
