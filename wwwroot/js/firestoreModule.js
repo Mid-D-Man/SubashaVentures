@@ -1,4 +1,4 @@
-// wwwroot/js/firestoreModule.js - FIXED: Prevent multiple initializations
+// wwwroot/js/firestoreModule.js 
 
 window.firestoreModule = (function () {
     let db = null;
@@ -33,13 +33,13 @@ window.firestoreModule = (function () {
     //#region ==================== INITIALIZATION ====================
 
     async function initializeFirestore() {
-        // CRITICAL FIX: Return existing promise if initialization is in progress
+        // Return existing promise if initialization is in progress
         if (initializationPromise) {
             console.log("⏳ Firestore initialization already in progress, waiting...");
             return initializationPromise;
         }
 
-        // CRITICAL FIX: If already initialized, return immediately
+        //  If already initialized, return immediately
         if (isInitialized && db) {
             console.log("✓ Firestore already initialized, reusing existing instance");
             return true;
@@ -56,7 +56,7 @@ window.firestoreModule = (function () {
                     return true;
                 }
 
-                // CRITICAL FIX: Get existing Firestore instance if it exists
+                //  Get existing Firestore instance if it exists
                 try {
                     db = firebase.firestore();
                     console.log("✓ Retrieved existing Firestore instance");
@@ -65,7 +65,7 @@ window.firestoreModule = (function () {
                     throw error;
                 }
 
-                // CRITICAL FIX: Only set settings if this is truly the first initialization
+                //  Only set settings if this is truly the first initialization
                 // Check if settings have already been applied by checking if we can get a collection
                 try {
                     // Try a simple operation to see if Firestore is ready
@@ -146,7 +146,7 @@ window.firestoreModule = (function () {
         try {
             console.log(`📖 Getting document: ${collection}/${id}`);
 
-            // CRITICAL FIX: Always ensure initialization
+            //  Always ensure initialization
             if (!isInitialized || !db) {
                 console.log("⚠️ Firestore not initialized, initializing now...");
                 const initialized = await initializeFirestore();

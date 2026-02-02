@@ -31,7 +31,8 @@ window.geolocationHelper = {
         }
     },
 
-    // Optional: Get precise location using browser GPS (requires user permission)
+    //try use this instead ip based always goes to lagos
+    //  Get precise location using browser GPS (requires user permission)
     getCurrentPosition: function () {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {

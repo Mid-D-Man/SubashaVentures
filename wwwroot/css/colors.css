@@ -99,7 +99,7 @@ body,
     --text-success: #16a34a;
     --text-warning: #ca8a04;
 
-    /* NEW: Context-Based Text Colors */
+    /* Context-Based Text Colors */
     --text-on-light: #111827;              /* Dark text on light backgrounds */
     --text-on-dark: #ffffff;               /* White text on dark backgrounds */
     --text-on-image: #ffffff;              /* White text over images */
@@ -156,7 +156,7 @@ body.dark-mode,
     --card-background: #1e293b;
     --image-background: #334155;
 
-    /* ENHANCED TYPOGRAPHY - Dark Theme */
+    /* TYPOGRAPHY - Dark Theme */
     --text-primary: #f8fafc;
     --text-secondary: #e2e8f0;
     --text-tertiary: #cbd5e1;
@@ -176,7 +176,7 @@ body.dark-mode,
     --text-success: #4ade80;
     --text-warning: #fbbf24;
 
-    /* NEW: Context-Based Text Colors - Dark Theme */
+    /* Context-Based Text Colors - Dark Theme */
     --text-on-light: #0f172a;              /* Dark text on light backgrounds (same) */
     --text-on-dark: #f8fafc;               /* Near white text on dark backgrounds */
     --text-on-image: #ffffff;              /* White text over images */
@@ -244,7 +244,7 @@ body.dark-mode,
 .text-heading { color: var(--text-heading) !important; }
 .text-body { color: var(--text-body) !important; }
 
-/* NEW: Context-Based Text Utilities */
+/* Context-Based Text Utilities */
 .text-on-light { color: var(--text-on-light) !important; }
 .text-on-dark { color: var(--text-on-dark) !important; }
 .text-on-image { color: var(--text-on-image) !important; }
@@ -384,5 +384,5 @@ small, .caption {
         --text-primary: #ffffff;
         --text-heading: #ffffff;
         --text-on-dark: #ffffff;
-    }
-    }
+    }  
+}

@@ -254,7 +254,7 @@ window.imageCompressor = {
     },
 
     /**
-     * FIXED: Load image from blob with better error handling and timeout
+     * Load image from blob with better error handling and timeout
      * @private
      */
     _loadImageSafe(blob) {

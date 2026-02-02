@@ -12,8 +12,7 @@
     /* Simple 3-Color Gradient - Primary Lime Green Focus */
     background: linear-gradient(135deg, 
         #96994A 0%,      /* Primary lime green */
-        #B8BB6A 50%,     /* Lighter lime */
-        #7A7D3A 100%     /* Darker lime */
+        #B8BB6A 50%,     /* Lighter lime */ #6f7135 100%     /* Darker lime */
     );
     
     opacity: 1;
