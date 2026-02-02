@@ -488,7 +488,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // ✅ NEW: Generate variant SKU based on main product SKU
+    // ✅ UPDATED: Generate variant SKU with -VR- prefix to distinguish from main product
     private void GenerateVariantSku()
     {
         if (string.IsNullOrEmpty(productForm.Sku))
@@ -505,7 +505,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             ? string.Join("-", variantIdentifier).ToUpperInvariant()
             : Guid.NewGuid().ToString("N").Substring(0, 4).ToUpper();
 
-        variantForm.Sku = $"{productForm.Sku}-{suffix}";
+        // ✅ CHANGE: Added -VR- to make variant SKUs noticeably different
+        variantForm.Sku = $"{productForm.Sku}-VR-{suffix}";
         StateHasChanged();
     }
 
@@ -584,7 +585,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             StateHasChanged();
         }
     }
-
     private bool ValidateProductForm()
     {
         validationErrors.Clear();
@@ -625,7 +625,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
         return 0;
     }
-// ==================== VARIANT MODAL ====================
+
+    // ==================== VARIANT MODAL ====================
 
     private void OpenVariantModal()
     {
@@ -1123,38 +1124,40 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
                 OnSale = p.IsOnSale ? "Yes" : "No",
                 Rating = p.Rating,
                 Reviews = p.ReviewCount,
-                Views = p.ViewCount,
-                Sales = p.SalesCount,
                 CreatedAt = p.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
                 UpdatedAt = p.UpdatedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? ""
             }).ToList();
 
             var csv = new StringBuilder();
             
-            csv.AppendLine("ID,SKU,Name,Owner,Category,Brand,Price,Original Price,Discount %,Stock,Variants,Status,Featured,On Sale,Rating,Reviews,Views,Sales,Created At,Updated At");
+            // ✅ FIXED: Explicit column names without analytics
+            csv.AppendLine("ID,SKU,Name,Owner,Category,Brand,Price,Original Price,Discount %,Stock,Variants,Status,Featured,On Sale,Rating,Reviews,Created At,Updated At");
             
             foreach (var item in exportData)
             {
-                csv.AppendLine($"{item.ID}," +
-                              $"\"{EscapeCsv(item.SKU)}\"," +
-                              $"\"{EscapeCsv(item.Name)}\"," +
-                              $"\"{EscapeCsv(item.Owner)}\"," +
-                              $"\"{EscapeCsv(item.Category)}\"," +
-                              $"\"{EscapeCsv(item.Brand)}\"," +
-                              $"{item.Price}," +
-                              $"{item.OriginalPrice}," +
-                              $"{item.Discount}," +
-                              $"{item.Stock}," +
-                              $"{item.VariantCount}," +
-                              $"{item.Status}," +
-                              $"{item.Featured}," +
-                              $"{item.OnSale}," +
-                              $"{item.Rating}," +
-                              $"{item.Reviews}," +
-                              $"{item.Views}," +
-                              $"{item.Sales}," +
-                              $"{item.CreatedAt}," +
-                              $"{item.UpdatedAt}");
+                // ✅ FIXED: Explicit string formatting to avoid ambiguous calls
+                var line = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17}",
+                    item.ID.ToString(),
+                    EscapeCsv(item.SKU),
+                    EscapeCsv(item.Name),
+                    EscapeCsv(item.Owner),
+                    EscapeCsv(item.Category),
+                    EscapeCsv(item.Brand),
+                    item.Price.ToString("F2"),
+                    item.OriginalPrice?.ToString("F2") ?? "",
+                    item.Discount.ToString(),
+                    item.Stock.ToString(),
+                    item.VariantCount.ToString(),
+                    item.Status,
+                    item.Featured,
+                    item.OnSale,
+                    item.Rating.ToString("F1"),
+                    item.Reviews.ToString(),
+                    item.CreatedAt,
+                    item.UpdatedAt
+                );
+                
+                csv.AppendLine(line);
             }
 
             var fileName = $"products_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
@@ -1185,15 +1188,14 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private string EscapeCsv(string value)
     {
         if (string.IsNullOrEmpty(value))
-            return "";
+            return "\"\"";
         
-        if (value.Contains("\""))
-            value = value.Replace("\"", "\"\"");
+        value = value.Replace("\"", "\"\"");
         
         if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
-            return value;
+            return $"\"{value}\"";
         
-        return value;
+        return $"\"{value}\"";
     }
 
     // ==================== PAGINATION ====================
@@ -1253,7 +1255,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     {
         notificationComponent?.ShowInfo(message);
     }
-// ==================== MAPPING ====================
+
+    // ==================== MAPPING ====================
 
     private ProductFormData MapToFormData(ProductViewModel product)
     {
