@@ -1,6 +1,7 @@
 @page "/"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Layout.Main
 @using SubashaVentures.Domain.Product
 @layout LandingPageLayout
@@ -57,10 +58,9 @@
                 <div class="hero-image-container">
                     @if (isLoadingPOTD)
                     {
-                        <div class="hero-image-placeholder">
-                            <div class="loading-spinner-small"></div>
-                            <span>Loading...</span>
-                        </div>
+                        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
+                                      Variant="LoadingSpinner.SpinnerVariant.Circle"
+                                      Message="Loading Product of the Day..." />
                     }
                     else if (productOfTheDay != null)
                     {
@@ -82,7 +82,7 @@
         </div>
     </section>
 
-    <!-- Featured Products Section - AUTO-SCROLL -->
+    <!-- Featured Products Section -->
     <section class="featured-section">
         <div class="section-header">
             <h2 class="section-title">Featured Products</h2>
@@ -91,9 +91,15 @@
 
         @if (isLoadingFeatured)
         {
-            <div class="loading-container">
-                <div class="loading-spinner"></div>
-                <p class="loading-text">Loading featured products...</p>
+            <div class="scroll-wrapper">
+                <div class="scroll-content">
+                    @for (int i = 0; i < 6; i++)
+                    {
+                        <div class="product-card-wrapper">
+                            <SkeletonCard />
+                        </div>
+                    }
+                </div>
             </div>
         }
         else if (featuredProducts.Any())
