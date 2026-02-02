@@ -29,9 +29,37 @@ public interface IProductService
     Task<bool> RemoveProductVariantAsync(int productId, string variantKey);
     Task<Dictionary<string, ProductVariant>?> GetProductVariantsAsync(int productId);
     
-    // Analytics
+    // ==================== ANALYTICS (ADMIN ONLY) ====================
+    
+    /// <summary>
+    /// Get product analytics - ADMIN ONLY (RLS enforced)
+    /// </summary>
     Task<ProductAnalyticsModel?> GetProductAnalyticsAsync(int productId);
+    
+    /// <summary>
+    /// Get analytics for multiple products - ADMIN ONLY
+    /// </summary>
+    Task<List<ProductAnalyticsModel>> GetProductAnalyticsBatchAsync(List<int> productIds);
+    
+    /// <summary>
+    /// Update product analytics conversion rates - ADMIN ONLY
+    /// </summary>
     Task<bool> UpdateProductAnalyticsAsync(int productId);
+    
+    /// <summary>
+    /// Get variant analytics for a product - ADMIN ONLY
+    /// </summary>
+    Task<List<ProductVariantAnalyticsModel>> GetVariantAnalyticsAsync(int productId);
+    
+    /// <summary>
+    /// Get specific variant analytics - ADMIN ONLY
+    /// </summary>
+    Task<ProductVariantAnalyticsModel?> GetVariantAnalyticsAsync(int productId, string variantKey);
+    
+    /// <summary>
+    /// Get all variant analytics across all products - ADMIN ONLY
+    /// </summary>
+    Task<List<ProductVariantAnalyticsModel>> GetAllVariantAnalyticsAsync(int skip = 0, int take = 100);
     
     // Utilities
     string GenerateUniqueSku();

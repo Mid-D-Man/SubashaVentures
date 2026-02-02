@@ -135,7 +135,7 @@ public class ProductService : IProductService
                 return null;
             }
 
-            // ✅ FIX: Fetch category name from CategoryService
+            // Fetch category name from CategoryService
             string categoryName = "";
             if (!string.IsNullOrEmpty(request.CategoryId))
             {
@@ -189,7 +189,7 @@ public class ProductService : IProductService
                 // Inventory
                 Sku = request.Sku,
                 
-                // ✅ FIX: Set both category_id AND category name
+                // Set both category_id AND category name
                 CategoryId = request.CategoryId,
                 Category = categoryName,
                 SubCategory = request.SubCategory,
@@ -199,6 +199,7 @@ public class ProductService : IProductService
                 // Initial metrics
                 Rating = 0,
                 ReviewCount = 0,
+                
                 // Settings
                 IsActive = true,
                 IsFeatured = request.IsFeatured,
@@ -246,9 +247,12 @@ public class ProductService : IProductService
                     TotalAddToCart = 0,
                     TotalPurchases = 0,
                     TotalRevenue = 0,
+                    TotalWishlistAdds = 0,
                     ViewToCartRate = 0,
                     CartToPurchaseRate = 0,
                     OverallConversionRate = 0,
+                    WishlistToCartRate = 0,
+                    WishlistToPurchaseRate = 0,
                     IsTrending = false,
                     IsBestSeller = false,
                     NeedsAttention = false,
@@ -288,7 +292,6 @@ public class ProductService : IProductService
             return null;
         }
     }
-
     public async Task<bool> UpdateProductAsync(int productId, UpdateProductRequest request)
     {
         try
@@ -326,7 +329,7 @@ public class ProductService : IProductService
             if (request.BaseShippingCost.HasValue) existingProduct.BaseShippingCost = request.BaseShippingCost.Value;
             if (request.HasFreeShipping.HasValue) existingProduct.HasFreeShipping = request.HasFreeShipping.Value;
             
-            // ✅ FIX: Category handling - fetch category name if category_id changed
+            // Category handling - fetch category name if category_id changed
             if (request.CategoryId != null && request.CategoryId != existingProduct.CategoryId)
             {
                 existingProduct.CategoryId = request.CategoryId;
@@ -497,7 +500,7 @@ public class ProductService : IProductService
             return new List<ProductViewModel>();
         }
     }
-
+    
     public async Task<bool> UpdateProductStockAsync(int productId, int newStock)
     {
         try
@@ -660,7 +663,9 @@ public class ProductService : IProductService
             return null;
         }
     }
-
+    
+    // ==================== ANALYTICS METHODS (ADMIN ONLY - RLS ENFORCED) ====================
+    
     private async Task<ProductAnalyticsModel?> GetProductAnalyticsByProductIdAsync(int productId)
     {
         try
@@ -693,6 +698,30 @@ public class ProductService : IProductService
         }
     }
 
+    public async Task<List<ProductAnalyticsModel>> GetProductAnalyticsBatchAsync(List<int> productIds)
+    {
+        try
+        {
+            var analyticsList = new List<ProductAnalyticsModel>();
+            
+            foreach (var productId in productIds)
+            {
+                var analytics = await GetProductAnalyticsByProductIdAsync(productId);
+                if (analytics != null)
+                {
+                    analyticsList.Add(analytics);
+                }
+            }
+            
+            return analyticsList;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting batch analytics");
+            return new List<ProductAnalyticsModel>();
+        }
+    }
+
     public async Task<bool> UpdateProductAnalyticsAsync(int productId)
     {
         try
@@ -700,6 +729,7 @@ public class ProductService : IProductService
             var analytics = await GetProductAnalyticsByProductIdAsync(productId);
             if (analytics == null) return false;
 
+            // Recalculate conversion rates
             if (analytics.TotalViews > 0)
             {
                 analytics.ViewToCartRate = (decimal)analytics.TotalAddToCart / analytics.TotalViews * 100;
@@ -709,6 +739,12 @@ public class ProductService : IProductService
             if (analytics.TotalAddToCart > 0)
             {
                 analytics.CartToPurchaseRate = (decimal)analytics.TotalPurchases / analytics.TotalAddToCart * 100;
+            }
+
+            if (analytics.TotalWishlistAdds > 0)
+            {
+                analytics.WishlistToCartRate = (decimal)analytics.TotalAddToCart / analytics.TotalWishlistAdds * 100;
+                analytics.WishlistToPurchaseRate = (decimal)analytics.TotalPurchases / analytics.TotalWishlistAdds * 100;
             }
 
             analytics.UpdatedAt = DateTime.UtcNow;
@@ -723,6 +759,60 @@ public class ProductService : IProductService
         }
     }
 
+    public async Task<List<ProductVariantAnalyticsModel>> GetVariantAnalyticsAsync(int productId)
+    {
+        try
+        {
+            var analytics = await _database.GetWithFilterAsync<ProductVariantAnalyticsModel>(
+                "product_id",
+                Constants.Operator.Equals,
+                productId
+            );
+            
+            return analytics;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting variant analytics for product: {productId}");
+            return new List<ProductVariantAnalyticsModel>();
+        }
+    }
+
+    public async Task<ProductVariantAnalyticsModel?> GetVariantAnalyticsAsync(int productId, string variantKey)
+    {
+        try
+        {
+            var allAnalytics = await GetVariantAnalyticsAsync(productId);
+            return allAnalytics.FirstOrDefault(va => va.VariantKey == variantKey);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, 
+                $"Getting variant analytics: {productId}/{variantKey}"
+            );
+            return null;
+        }
+    }
+
+    public async Task<List<ProductVariantAnalyticsModel>> GetAllVariantAnalyticsAsync(int skip = 0, int take = 100)
+    {
+        try
+        {
+            var allAnalytics = await _database.GetAllAsync<ProductVariantAnalyticsModel>();
+            
+            return allAnalytics
+                .Skip(skip)
+                .Take(take)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting all variant analytics");
+            return new List<ProductVariantAnalyticsModel>();
+        }
+    }
+    
     public string GenerateUniqueSku()
     {
         var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
@@ -778,6 +868,7 @@ public class ProductService : IProductService
             // Metrics
             Rating = model.Rating,
             ReviewCount = model.ReviewCount,
+            
             // Metadata
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,

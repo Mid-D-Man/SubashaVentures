@@ -64,26 +64,37 @@ public partial class LandingPage : ComponentBase
             var allProducts = await ProductService.GetProductsAsync(0, 100);
             Console.WriteLine($"📦 Total products retrieved: {allProducts.Count}");
             
-            featuredProducts = allProducts
+            // ✅ FIX: Get featured products in random order (no analytics sorting)
+            var availableFeatured = allProducts
                 .Where(p => p.IsFeatured && p.IsActive && p.Stock > 0)
-                .OrderByDescending(p => p.Rating)
-                .ThenByDescending(p => p.SalesCount)
-                .Take(6)
                 .ToList();
             
-            Console.WriteLine($"⭐ Featured products found: {featuredProducts.Count}");
+            Console.WriteLine($"⭐ Featured products found: {availableFeatured.Count}");
             
-            if (!featuredProducts.Any())
+            if (availableFeatured.Any())
             {
-                Console.WriteLine("⚠ No featured products, using top-rated instead");
-                featuredProducts = allProducts
-                    .Where(p => p.IsActive && p.Stock > 0)
-                    .OrderByDescending(p => p.Rating)
-                    .ThenByDescending(p => p.SalesCount)
+                // ✅ Randomize order and take 6
+                var random = new Random();
+                featuredProducts = availableFeatured
+                    .OrderBy(x => random.Next())
                     .Take(6)
                     .ToList();
                 
-                Console.WriteLine($"📊 Top-rated products selected: {featuredProducts.Count}");
+                Console.WriteLine($"🎲 Featured products selected (random order): {featuredProducts.Count}");
+            }
+            else
+            {
+                Console.WriteLine("⚠ No featured products, using random active products instead");
+                
+                // Fallback: random active products with stock
+                var random = new Random();
+                featuredProducts = allProducts
+                    .Where(p => p.IsActive && p.Stock > 0)
+                    .OrderBy(x => random.Next())
+                    .Take(6)
+                    .ToList();
+                
+                Console.WriteLine($"📊 Random active products selected: {featuredProducts.Count}");
             }
         }
         catch (Exception ex)
@@ -189,7 +200,7 @@ public partial class LandingPage : ComponentBase
         await Task.CompletedTask;
     }
 
-    // ===== NEWSLETTER HANDLERS - FIXED IMPLEMENTATION =====
+    // ===== NEWSLETTER HANDLERS =====
     private async Task HandleNewsletterSubmit()
     {
         if (string.IsNullOrWhiteSpace(newsletterEmail))
