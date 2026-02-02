@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Feb  1 00:36:50 UTC 2026
+Generated: Mon Feb  2 01:35:08 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: edd723d3d289dd531b6b39f9d9d442702d7985ac
+Commit: 69f22ae39732dc39cd26036581d5db843706b88f
 Branch: master
 ==================================
 
@@ -194,9 +194,14 @@ Pages/Checkout/Checkout.razor.css
 Pages/Main/LandingPage.razor
 Pages/Main/LandingPage.razor.cs
 Pages/Main/LandingPage.razor.css
+Pages/Main/LandingPage.razor.js
 Pages/Product/ProductDetails.razor
 Pages/Product/ProductDetails.razor.cs
 Pages/Product/ProductDetails.razor.css
+Pages/Shared/InvalidPage.razor
+Pages/Shared/InvalidPage.razor.cs
+Pages/Shared/InvalidPage.razor.css
+Pages/Shared/InvalidPage.razor.js
 Pages/Shop/Shop.razor
 Pages/Shop/Shop.razor.cs
 Pages/Shop/Shop.razor.css
@@ -210,6 +215,9 @@ Pages/User/Messages.razor
 Pages/User/Messages.razor.css
 Pages/User/Offers.razor
 Pages/User/Offers.razor.css
+Pages/User/OrderDetails.razor
+Pages/User/OrderDetails.razor.cs
+Pages/User/OrderDetails.razor.css
 Pages/User/OrderTracking.razor
 Pages/User/OrderTracking.razor.cs
 Pages/User/OrderTracking.razor.css
@@ -404,6 +412,7 @@ Directory Structure:
 ./  Checkout
 ./  Main
 ./  Product
+./  Shared
 ./  Shop
 ./  User
 ./Properties
@@ -444,14 +453,15 @@ Directory Structure:
 ./  css
 ./  icons
 ./  js
+./  svgs
 
 File Count Summary:
 ==================
-.cs       : 162 files
-.razor    : 75 files
+.cs       : 164 files
+.razor    : 77 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
-.css      : 74 files
-.js       : 16 files
+.css      : 76 files
+.js       : 18 files
 .html     : 1 files
