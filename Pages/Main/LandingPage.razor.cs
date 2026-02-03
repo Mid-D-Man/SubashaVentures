@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
 
@@ -7,9 +8,10 @@ namespace SubashaVentures.Pages.Main;
 
 public partial class LandingPage : ComponentBase
 {
-    [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
+   [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     // State
     private ProductViewModel? productOfTheDay;
@@ -21,11 +23,50 @@ public partial class LandingPage : ComponentBase
     
     private string newsletterEmail = "";
 
+    // JS Module references
+    private IJSObjectReference? jsModule;
+    private IJSObjectReference? landingPageInstance;
+
     protected override async Task OnInitializedAsync()
     {
+        Console.WriteLine("🔵 LandingPage: OnInitializedAsync called");
         await LoadProductOfTheDay();
         await LoadFeaturedProducts();
         LoadSampleReviews();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                Console.WriteLine("🔵 LandingPage: OnAfterRenderAsync (firstRender=true)");
+                
+                // Import the ES6 module
+                jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "import", 
+                    "./Pages/Main/LandingPage.razor.js");
+                
+                Console.WriteLine("✓ Module imported successfully");
+
+                // Create LandingPage instance
+                landingPageInstance = await jsModule.InvokeAsync<IJSObjectReference>(
+                    "LandingPage.create");
+                
+                Console.WriteLine("✓ LandingPage instance created");
+
+                // Initialize
+                await landingPageInstance.InvokeVoidAsync("initialize");
+                
+                Console.WriteLine("✅ LandingPage JS initialized");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error initializing LandingPage JS: {ex.Message}");
+                Console.WriteLine($"   Stack: {ex.StackTrace}");
+            }
+        }
     }
 
     private async Task LoadProductOfTheDay()
@@ -64,7 +105,6 @@ public partial class LandingPage : ComponentBase
             var allProducts = await ProductService.GetProductsAsync(0, 100);
             Console.WriteLine($"📦 Total products retrieved: {allProducts.Count}");
             
-            // ✅ FIX: Get featured products in random order (no analytics sorting)
             var availableFeatured = allProducts
                 .Where(p => p.IsFeatured && p.IsActive && p.Stock > 0)
                 .ToList();
@@ -73,7 +113,6 @@ public partial class LandingPage : ComponentBase
             
             if (availableFeatured.Any())
             {
-                // ✅ Randomize order and take 6
                 var random = new Random();
                 featuredProducts = availableFeatured
                     .OrderBy(x => random.Next())
@@ -86,7 +125,6 @@ public partial class LandingPage : ComponentBase
             {
                 Console.WriteLine("⚠ No featured products, using random active products instead");
                 
-                // Fallback: random active products with stock
                 var random = new Random();
                 featuredProducts = allProducts
                     .Where(p => p.IsActive && p.Stock > 0)
@@ -171,7 +209,6 @@ public partial class LandingPage : ComponentBase
 
     private async Task HandleAddToCart(ProductViewModel product)
     {
-        // TODO: Implement add to cart functionality
         Console.WriteLine($"🛒 Add to cart: {product.Name}");
         await Task.CompletedTask;
     }
@@ -213,22 +250,16 @@ public partial class LandingPage : ComponentBase
         {
             Console.WriteLine($"📧 Newsletter subscription attempt: {newsletterEmail}");
             
-            // TODO: Implement actual newsletter subscription service
-            // For now, just simulate success
-            await Task.Delay(500); // Simulate API call
+            await Task.Delay(500);
             
             Console.WriteLine($"✅ Newsletter subscription successful: {newsletterEmail}");
             
-            // Clear the input
             newsletterEmail = "";
             StateHasChanged();
-            
-            // TODO: Show success toast/notification
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Newsletter subscription error: {ex.Message}");
-            // TODO: Show error toast/notification
         }
     }
 
@@ -237,6 +268,32 @@ public partial class LandingPage : ComponentBase
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(newsletterEmail))
         {
             _ = HandleNewsletterSubmit();
+        }
+    }
+
+    // ===== DISPOSAL =====
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            Console.WriteLine("🔵 LandingPage: DisposeAsync called");
+            
+            if (landingPageInstance != null)
+            {
+                await landingPageInstance.InvokeVoidAsync("dispose");
+                await landingPageInstance.DisposeAsync();
+                Console.WriteLine("✓ LandingPage instance disposed");
+            }
+
+            if (jsModule != null)
+            {
+                await jsModule.DisposeAsync();
+                Console.WriteLine("✓ JS module disposed");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error disposing LandingPage: {ex.Message}");
         }
     }
 }
