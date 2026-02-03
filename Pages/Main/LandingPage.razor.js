@@ -1,75 +1,114 @@
 export class LandingPage {
     constructor() {
-        this.scrollWrappers = [];
+        this.autoScrollIntervals = [];
         this.isDragging = false;
         this.startX = 0;
         this.scrollLeft = 0;
+        this.userInteracting = false;
     }
 
     initialize() {
         console.log('✅ LandingPage.js initialized');
         
-        // Wait for DOM to be ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.setupInfiniteScroll());
+            document.addEventListener('DOMContentLoaded', () => this.setupScrolls());
         } else {
-            this.setupInfiniteScroll();
+            this.setupScrolls();
         }
     }
 
-    setupInfiniteScroll() {
-        // Find all scroll wrappers
+    setupScrolls() {
         const featuredWrapper = document.querySelector('.featured-section .scroll-wrapper');
         const testimonialsWrapper = document.querySelector('.testimonials-section .testimonials-scroll-wrapper');
 
         if (featuredWrapper) {
-            this.setupScrollLoop(featuredWrapper, '.scroll-content', '.product-card-wrapper');
+            this.setupInfiniteAutoScroll(featuredWrapper, '.scroll-content', 1);
         }
 
         if (testimonialsWrapper) {
-            this.setupScrollLoop(testimonialsWrapper, '.testimonials-scroll-content', 'div > *');
+            this.setupInfiniteAutoScroll(testimonialsWrapper, '.testimonials-scroll-content', 1);
         }
     }
 
-    setupScrollLoop(wrapper, contentSelector, itemSelector) {
+    setupInfiniteAutoScroll(wrapper, contentSelector, scrollSpeed = 1) {
         const content = wrapper.querySelector(contentSelector);
         if (!content) return;
 
-        let isScrolling = false;
-        let scrollTimeout;
+        let animationId = null;
+        let currentPosition = 0;
+        let isPaused = false;
 
-        // Handle scroll event with infinite loop
-        wrapper.addEventListener('scroll', () => {
-            if (!isScrolling) {
-                isScrolling = true;
+        const autoScroll = () => {
+            if (!isPaused && !this.userInteracting) {
+                currentPosition += scrollSpeed;
+                
+                const maxScroll = content.scrollWidth / 2;
+                
+                if (currentPosition >= maxScroll) {
+                    currentPosition = 0;
+                }
+                
+                wrapper.scrollLeft = currentPosition;
             }
+            
+            animationId = requestAnimationFrame(autoScroll);
+        };
 
-            // Clear previous timeout
-            clearTimeout(scrollTimeout);
+        // Start auto-scroll
+        animationId = requestAnimationFrame(autoScroll);
 
-            // Set timeout to detect when scrolling stops
-            scrollTimeout = setTimeout(() => {
-                isScrolling = false;
-                this.checkScrollPosition(wrapper, content, itemSelector);
-            }, 150);
+        // Pause on hover
+        wrapper.addEventListener('mouseenter', () => {
+            isPaused = true;
         });
 
-        // Handle mouse drag
+        wrapper.addEventListener('mouseleave', () => {
+            isPaused = false;
+        });
+
+        // Pause on touch/drag
+        wrapper.addEventListener('touchstart', () => {
+            this.userInteracting = true;
+            isPaused = true;
+        });
+
+        wrapper.addEventListener('touchend', () => {
+            this.userInteracting = false;
+            setTimeout(() => {
+                isPaused = false;
+            }, 2000);
+        });
+
+        // Mouse drag
         wrapper.addEventListener('mousedown', (e) => {
             this.isDragging = true;
+            this.userInteracting = true;
+            isPaused = true;
             this.startX = e.pageX - wrapper.offsetLeft;
             this.scrollLeft = wrapper.scrollLeft;
             wrapper.style.cursor = 'grabbing';
         });
 
         wrapper.addEventListener('mouseleave', () => {
-            this.isDragging = false;
-            wrapper.style.cursor = 'grab';
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.userInteracting = false;
+                wrapper.style.cursor = 'grab';
+                setTimeout(() => {
+                    isPaused = false;
+                }, 2000);
+            }
         });
 
         wrapper.addEventListener('mouseup', () => {
-            this.isDragging = false;
-            wrapper.style.cursor = 'grab';
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.userInteracting = false;
+                wrapper.style.cursor = 'grab';
+                setTimeout(() => {
+                    isPaused = false;
+                }, 2000);
+            }
         });
 
         wrapper.addEventListener('mousemove', (e) => {
@@ -77,61 +116,36 @@ export class LandingPage {
             e.preventDefault();
             const x = e.pageX - wrapper.offsetLeft;
             const walk = (x - this.startX) * 2;
-            wrapper.scrollLeft = this.scrollLeft - walk;
+            currentPosition = this.scrollLeft - walk;
+            wrapper.scrollLeft = currentPosition;
         });
 
-        // Touch support
-        let touchStartX = 0;
-        let touchScrollLeft = 0;
-
-        wrapper.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].pageX - wrapper.offsetLeft;
-            touchScrollLeft = wrapper.scrollLeft;
+        // Manual scroll detection
+        let scrollTimeout;
+        wrapper.addEventListener('scroll', () => {
+            if (!this.isDragging && !this.userInteracting) {
+                this.userInteracting = true;
+                isPaused = true;
+                
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    this.userInteracting = false;
+                    isPaused = false;
+                }, 2000);
+            }
         });
 
-        wrapper.addEventListener('touchmove', (e) => {
-            const x = e.touches[0].pageX - wrapper.offsetLeft;
-            const walk = (x - touchStartX) * 2;
-            wrapper.scrollLeft = touchScrollLeft - walk;
+        // Store animation ID for cleanup
+        this.autoScrollIntervals.push(() => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
         });
-
-        // Store reference
-        this.scrollWrappers.push({ wrapper, content, itemSelector });
-    }
-
-    checkScrollPosition(wrapper, content, itemSelector) {
-        const items = content.querySelectorAll(itemSelector);
-        if (items.length === 0) return;
-
-        const itemWidth = items[0].offsetWidth;
-        const gap = parseInt(getComputedStyle(content).gap) || 0;
-        const totalItemWidth = itemWidth + gap;
-        const halfContentWidth = (items.length / 2) * totalItemWidth;
-
-        const scrollLeft = wrapper.scrollLeft;
-        const maxScroll = content.scrollWidth - wrapper.clientWidth;
-
-        // If scrolled near the end (past 75% of the halfway point)
-        if (scrollLeft > halfContentWidth * 0.75) {
-            // Reset to the beginning smoothly
-            wrapper.scrollTo({
-                left: 0,
-                behavior: 'auto'
-            });
-        }
-        // If scrolled to the very beginning (less than one item width)
-        else if (scrollLeft < totalItemWidth) {
-            // Jump to the middle section
-            wrapper.scrollTo({
-                left: halfContentWidth * 0.25,
-                behavior: 'auto'
-            });
-        }
     }
 
     destroy() {
-        // Cleanup if needed
-        this.scrollWrappers = [];
+        this.autoScrollIntervals.forEach(cleanup => cleanup());
+        this.autoScrollIntervals = [];
     }
 }
 
@@ -139,13 +153,12 @@ export class LandingPage {
 if (typeof window !== 'undefined') {
     window.LandingPage = LandingPage;
     
-    // Create instance and initialize
     const landingPageInstance = new LandingPage();
     landingPageInstance.initialize();
     
-    // Re-initialize on Blazor page updates
     if (window.Blazor) {
         window.Blazor.addEventListener('enhancedload', () => {
+            landingPageInstance.destroy();
             landingPageInstance.initialize();
         });
     }
