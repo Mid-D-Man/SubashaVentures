@@ -1,7 +1,6 @@
 
 
 
-
 // Layout/Main/FooterSection.razor.js
 export class FooterSection {
     constructor() {

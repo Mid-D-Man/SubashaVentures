@@ -1,24 +1,26 @@
+
+
 .footer-section {
     width: 100%;
     position: relative;
     overflow-y: auto;
-    
+
     /* Gradient background */
-    background: linear-gradient(180deg, 
-        rgba(150, 153, 74, 0.1) 0%, 
-        rgba(150, 153, 74, 0.2) 50%,
-        rgba(150, 153, 74, 0.15) 100%
+    background: linear-gradient(180deg,
+    rgba(150, 153, 74, 0.1) 0%,
+    rgba(150, 153, 74, 0.2) 50%,
+    rgba(150, 153, 74, 0.15) 100%
     );
-    
+
     /* Glassmorphism effect */
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid rgba(150, 153, 74, 0.3);
-    
+
     /* Custom scrollbar */
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.5) transparent;
-    
+
     /* FIXED: Add proper padding and min-height */
     padding: 2.5rem 0 1.5rem 0;
     min-height: 400px;
@@ -298,19 +300,19 @@
     color: white;
     border: none;
     cursor: pointer;
-    
+
     display: flex;
     align-items: center;
     justify-content: center;
-    
+
     transform: translateY(100px) scale(0.8);
     opacity: 0;
     visibility: hidden;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    
+
     z-index: 1000;
     box-shadow: 0 4px 20px rgba(150, 153, 74, 0.4);
-    
+
     /* Add glow effect */
     position: relative;
     overflow: visible;
@@ -371,10 +373,10 @@
 
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .footer-section {
-    background: linear-gradient(180deg, 
-        rgba(184, 187, 106, 0.1) 0%, 
-        rgba(184, 187, 106, 0.15) 50%,
-        rgba(184, 187, 106, 0.1) 100%
+    background: linear-gradient(180deg,
+    rgba(184, 187, 106, 0.1) 0%,
+    rgba(184, 187, 106, 0.15) 50%,
+    rgba(184, 187, 106, 0.1) 100%
     );
     border-top: 1px solid rgba(184, 187, 106, 0.3);
 }
@@ -467,7 +469,7 @@
         grid-template-columns: 2fr 1fr 1fr;
         gap: 2rem;
     }
-    
+
     .contact-column {
         grid-column: 1 / -1;
         max-width: none;
@@ -479,56 +481,56 @@
     .footer-section {
         padding: 2rem 0 1rem 0;
     }
-    
+
     .footer-container {
         padding: 0 1rem;
     }
-    
+
     .footer-top {
         grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
     }
-    
+
     .brand-column {
         grid-column: 1 / -1;
         max-width: none;
         margin-bottom: 1rem;
     }
-    
+
     .contact-column {
         grid-column: 1 / -1;
         margin-top: 1rem;
     }
-    
+
     .footer-bottom {
         flex-direction: column;
         gap: 1.25rem;
         text-align: center;
         align-items: center;
     }
-    
+
     .footer-legal {
         flex-direction: column;
         gap: 0.75rem;
         align-items: center;
     }
-    
+
     .legal-links {
         justify-content: center;
     }
-    
+
     .payment-methods {
         flex-direction: column;
         gap: 0.75rem;
     }
-    
+
     .scroll-to-top {
         bottom: 1.25rem;
         right: 1.25rem;
         width: 52px;
         height: 52px;
     }
-    
+
     .scroll-icon {
         width: 22px;
         height: 22px;
@@ -539,73 +541,73 @@
     .footer-section {
         padding: 1.5rem 0 1rem 0;
     }
-    
+
     .footer-container {
         padding: 0 0.75rem;
     }
-    
+
     .footer-top {
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
-    
+
     .brand-column,
     .contact-column {
         grid-column: 1;
         margin: 0;
         max-width: none;
     }
-    
+
     .brand-logo {
         justify-content: center;
     }
-    
+
     .brand-description {
         text-align: center;
     }
-    
+
     .social-links {
         justify-content: center;
     }
-    
+
     .footer-title {
         text-align: center;
     }
-    
+
     .footer-title::after {
         left: 50%;
         transform: translateX(-50%);
     }
-    
+
     .footer-links {
         align-items: center;
     }
-    
+
     .footer-links li a {
         text-align: center;
     }
-    
+
     .contact-info {
         align-items: center;
     }
-    
+
     .contact-item {
         justify-content: center;
         text-align: center;
     }
-    
+
     .legal-links {
         flex-direction: column;
         gap: 0.5rem;
     }
-    
+
     .scroll-to-top {
         bottom: 1rem;
         right: 1rem;
         width: 48px;
         height: 48px;
     }
-    
+
     .scroll-icon {
         width: 20px;
         height: 20px;
@@ -636,14 +638,14 @@
         transition: none;
         animation: none;
     }
-    
+
     .social-link:hover,
     .footer-links li a:hover,
     .payment-icon:hover,
     .scroll-to-top:hover {
         transform: none;
     }
-    
+
     .scroll-to-top:hover .scroll-icon {
         animation: none;
     }
@@ -654,11 +656,11 @@
     .footer-section {
         border-top-width: 2px;
     }
-    
+
     .footer-bottom {
         border-top-width: 2px;
     }
-    
+
     .social-link,
     .scroll-to-top {
         border: 2px solid currentColor;
@@ -671,7 +673,7 @@
     .scroll-to-top {
         display: none;
     }
-    
+
     .footer-section {
         background: white;
         border-top: 1px solid #000;
