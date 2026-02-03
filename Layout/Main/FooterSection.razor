@@ -140,13 +140,36 @@
 @code {
     private bool showScrollTop = false;
     private DotNetObjectReference<FooterSection>? dotNetRef;
+    private IJSObjectReference? jsModule;
+    private IJSObjectReference? footerInstance;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            dotNetRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("footerScrollHandler.initialize", dotNetRef);
+            try
+            {
+                // Import the ES6 module
+                jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "import", 
+                    "./Layout/Main/FooterSection.razor.js");
+
+                // Create .NET reference
+                dotNetRef = DotNetObjectReference.Create(this);
+
+                // Create FooterSection instance and initialize
+                footerInstance = await jsModule.InvokeAsync<IJSObjectReference>(
+                    "FooterSection.create");
+
+                // Initialize the instance
+                await footerInstance.InvokeVoidAsync("initialize", dotNetRef);
+
+                Console.WriteLine("✅ FooterSection initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error initializing FooterSection: {ex.Message}");
+            }
         }
     }
 
@@ -159,11 +182,39 @@
 
     private async Task ScrollToTop()
     {
-        await JS.InvokeVoidAsync("footerScrollHandler.scrollToTop");
+        try
+        {
+            if (footerInstance != null)
+            {
+                await footerInstance.InvokeVoidAsync("scrollToTop");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error scrolling to top: {ex.Message}");
+        }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        dotNetRef?.Dispose();
+        try
+        {
+            if (footerInstance != null)
+            {
+                await footerInstance.InvokeVoidAsync("dispose");
+                await footerInstance.DisposeAsync();
+            }
+
+            if (jsModule != null)
+            {
+                await jsModule.DisposeAsync();
+            }
+
+            dotNetRef?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error disposing FooterSection: {ex.Message}");
+        }
     }
 }
