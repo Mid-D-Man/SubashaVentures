@@ -127,6 +127,7 @@
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
+    justify-content: flex-start;
 }
 
 .cta-primary {
@@ -287,12 +288,7 @@
     display: flex;
     gap: 2rem;
     width: max-content;
-    will-change: scroll-position;
-}
-
-/* Manual scroll - no auto animation */
-.scroll-content.paused {
-    animation: none;
+    will-change: transform;
 }
 
 .product-card-wrapper {
@@ -365,7 +361,7 @@
     margin: 0;
 }
 
-/* ===== NEWSLETTER SECTION - FIXED INPUT TEXT COLOR ===== */
+/* ===== NEWSLETTER SECTION ===== */
 .newsletter-section {
     min-height: 400px;
     padding: 5rem 2rem;
@@ -429,7 +425,6 @@
     width: 100%;
 }
 
-/* FIXED: Input text always dark in both light and dark mode */
 .newsletter-input {
     width: 100%;
     padding: 1rem 1.25rem;
@@ -457,7 +452,6 @@
     color: #1f2937 !important;
 }
 
-/* FIXED: Force dark text in dark mode too */
 [data-theme="dark"] .newsletter-input {
     color: #1f2937 !important;
 }
@@ -502,7 +496,7 @@
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== TESTIMONIALS SECTION - FIXED SCROLL WITH PROPER LOOP ===== */
+/* ===== TESTIMONIALS SECTION ===== */
 .testimonials-section {
     padding: 4rem 0;
     overflow: hidden;
@@ -545,15 +539,9 @@
     display: flex;
     gap: 1.5rem;
     width: max-content;
-    will-change: scroll-position;
+    will-change: transform;
 }
 
-/* Manual scroll - no auto animation */
-.testimonials-scroll-content.paused {
-    animation: none;
-}
-
-/* FIXED: Consistent card sizing */
 .testimonials-scroll-content > * {
     flex: 0 0 340px;
     width: 340px;
@@ -597,7 +585,6 @@
     color: var(--text-body, #d1d5db);
 }
 
-/* Newsletter stays white text in dark mode */
 [data-theme="dark"] .newsletter-title {
     color: white;
 }
@@ -644,8 +631,25 @@
         text-align: center;
     }
     
+    .hero-text {
+        align-items: center;
+    }
+    
     .hero-title {
         font-size: 3rem;
+        align-items: center;
+    }
+    
+    .title-animated {
+        justify-content: center;
+    }
+    
+    .hero-actions {
+        justify-content: center;
+    }
+    
+    .hero-stats {
+        justify-content: center;
     }
     
     .scroll-wrapper {
@@ -682,22 +686,50 @@
         text-align: center;
     }
     
+    .hero-text {
+        align-items: center;
+    }
+    
     .hero-title {
         font-size: 2.5rem;
+        align-items: center;
+    }
+    
+    .title-static {
+        text-align: center;
     }
     
     .title-animated {
         height: 3rem;
         width: 100%;
         min-width: auto;
+        justify-content: center;
     }
     
     .flip-text > div {
         height: 3rem;
     }
     
+    .hero-description {
+        text-align: center;
+    }
+    
+    .hero-actions {
+        justify-content: center;
+    }
+    
+    .hero-stats {
+        justify-content: center;
+    }
+    
+    /* FIXED: POTD card 50% width and reduced height */
     .hero-image-container {
-        max-width: 320px;
+        max-width: 50%;
+        margin: 0 auto;
+    }
+    
+    .hero-potd-card {
+        height: 35vh;
     }
     
     .scroll-wrapper {
@@ -745,22 +777,34 @@
     
     .hero-content {
         grid-template-columns: 1fr;
-        text-align: center;
+        text-align: left;
         gap: 1.5rem;
+    }
+    
+    .hero-text {
+        align-items: flex-start;
+        padding: 0 0.5rem;
     }
     
     .hero-title {
         font-size: 2rem;
+        align-items: flex-start;
+    }
+    
+    .title-static {
+        text-align: left;
     }
     
     .title-animated {
         height: 2.5rem;
         width: 100%;
         min-width: auto;
+        justify-content: flex-start;
     }
     
     .flip-text > div {
         height: 2.5rem;
+        justify-content: flex-start;
     }
     
     .flip-text > div > div {
@@ -769,15 +813,42 @@
     
     .hero-description {
         font-size: 1rem;
+        text-align: left;
     }
     
-    /* FIXED: POTD card properly sized for mobile */
+    /* FIXED: Buttons centered */
+    .hero-actions {
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .hero-stats {
+        justify-content: center;
+        gap: 1rem;
+    }
+    
+    /* FIXED: POTD card 50% width and 7% of original height */
+    .hero-visual {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    
     .hero-image-container {
-        max-width: 100%;
+        max-width: 50%;
+        width: 50%;
+    }
+    
+    .hero-potd-card {
+        height: 280px;
     }
     
     .stat-number {
         font-size: 1.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
     }
     
     .section-title {
@@ -794,7 +865,6 @@
         height: 400px;
     }
     
-    /* FIXED: Review cards properly sized */
     .testimonials-scroll-content > * {
         flex: 0 0 280px !important;
         width: 280px !important;
@@ -828,8 +898,34 @@
 
 /* Extra Small Mobile (< 360px) */
 @media (max-width: 359px) {
+    .hero-title {
+        font-size: 1.75rem;
+    }
+    
+    .title-animated {
+        height: 2rem;
+    }
+    
+    .flip-text > div {
+        height: 2rem;
+    }
+    
+    .flip-text > div > div {
+        font-size: 1.75rem;
+    }
+    
+    .hero-description {
+        font-size: 0.9rem;
+    }
+    
+    /* FIXED: Even smaller POTD card */
     .hero-image-container {
-        max-width: 100%;
+        max-width: 50%;
+        width: 50%;
+    }
+    
+    .hero-potd-card {
+        height: 250px;
     }
     
     .product-card-wrapper {
@@ -838,7 +934,6 @@
         height: 380px;
     }
     
-    /* FIXED: Even smaller review cards for tiny screens */
     .testimonials-scroll-content > * {
         flex: 0 0 260px !important;
         width: 260px !important;
