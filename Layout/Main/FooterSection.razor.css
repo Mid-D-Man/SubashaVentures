@@ -286,15 +286,15 @@
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
 }
 
-/* Scroll to Top Button */
+/* ===== SCROLL TO TOP BUTTON - FIXED STYLING ===== */
 .scroll-to-top {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    width: 50px;
-    height: 50px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    background: var(--primary-color, #96994A);
+    background: linear-gradient(135deg, var(--primary-color, #96994A) 0%, #B8BB6A 100%);
     color: white;
     border: none;
     cursor: pointer;
@@ -303,34 +303,73 @@
     align-items: center;
     justify-content: center;
     
-    transform: translateY(100px);
+    transform: translateY(100px) scale(0.8);
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     
     z-index: 1000;
-    box-shadow: 0 4px 20px rgba(150, 153, 74, 0.3);
+    box-shadow: 0 4px 20px rgba(150, 153, 74, 0.4);
+    
+    /* Add glow effect */
+    position: relative;
+    overflow: visible;
+}
+
+.scroll-to-top::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color, #96994A), #B8BB6A);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+    filter: blur(8px);
+}
+
+.scroll-to-top:hover::before {
+    opacity: 0.6;
 }
 
 .scroll-to-top.visible {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
     visibility: visible;
 }
 
 .scroll-to-top:hover {
-    background: var(--hover-primary, #7A7D3A);
+    background: linear-gradient(135deg, #B8BB6A 0%, var(--primary-color, #96994A) 100%);
     transform: translateY(-4px) scale(1.05);
-    box-shadow: 0 8px 25px rgba(150, 153, 74, 0.5);
+    box-shadow: 0 8px 30px rgba(150, 153, 74, 0.6);
+}
+
+.scroll-to-top:active {
+    transform: translateY(-2px) scale(0.98);
 }
 
 .scroll-icon {
-    font-size: 1.5rem;
-    font-weight: bold;
-    line-height: 1;
+    width: 24px;
+    height: 24px;
+    stroke-width: 2.5px;
+    transition: transform 0.3s ease;
 }
 
-/* Dark Theme */
+.scroll-to-top:hover .scroll-icon {
+    transform: translateY(-2px);
+    animation: bounce 0.6s ease infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(-2px);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+/* ===== DARK THEME ===== */
 [data-theme="dark"] .footer-section {
     background: linear-gradient(180deg, 
         rgba(184, 187, 106, 0.1) 0%, 
@@ -408,16 +447,21 @@
 }
 
 [data-theme="dark"] .scroll-to-top {
-    background: var(--primary-color, #B8BB6A);
+    background: linear-gradient(135deg, var(--primary-color, #B8BB6A) 0%, #C8CB7A 100%);
     color: var(--text-on-primary, #212529);
     box-shadow: 0 4px 25px rgba(184, 187, 106, 0.5);
 }
 
-[data-theme="dark"] .scroll-to-top:hover {
-    box-shadow: 0 8px 30px rgba(184, 187, 106, 0.7);
+[data-theme="dark"] .scroll-to-top::before {
+    background: linear-gradient(135deg, var(--primary-color, #B8BB6A), #C8CB7A);
 }
 
-/* Responsive Design */
+[data-theme="dark"] .scroll-to-top:hover {
+    background: linear-gradient(135deg, #C8CB7A 0%, var(--primary-color, #B8BB6A) 100%);
+    box-shadow: 0 8px 35px rgba(184, 187, 106, 0.7);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 1024px) {
     .footer-top {
         grid-template-columns: 2fr 1fr 1fr;
@@ -481,12 +525,13 @@
     .scroll-to-top {
         bottom: 1.25rem;
         right: 1.25rem;
-        width: 48px;
-        height: 48px;
+        width: 52px;
+        height: 52px;
     }
     
     .scroll-icon {
-        font-size: 1.375rem;
+        width: 22px;
+        height: 22px;
     }
 }
 
@@ -557,16 +602,17 @@
     .scroll-to-top {
         bottom: 1rem;
         right: 1rem;
-        width: 44px;
-        height: 44px;
+        width: 48px;
+        height: 48px;
     }
     
     .scroll-icon {
-        font-size: 1.25rem;
+        width: 20px;
+        height: 20px;
     }
 }
 
-/* Accessibility */
+/* ===== ACCESSIBILITY ===== */
 .social-link:focus-visible,
 .footer-links li a:focus-visible,
 .legal-links a:focus-visible,
@@ -575,14 +621,20 @@
     outline-offset: 2px;
 }
 
-/* Reduced motion support */
+[data-theme="dark"] .scroll-to-top:focus-visible {
+    outline-color: var(--primary-color, #B8BB6A);
+}
+
+/* ===== REDUCED MOTION SUPPORT ===== */
 @media (prefers-reduced-motion: reduce) {
     .social-link,
     .footer-links li a,
     .legal-links a,
     .payment-icon,
-    .scroll-to-top {
+    .scroll-to-top,
+    .scroll-icon {
         transition: none;
+        animation: none;
     }
     
     .social-link:hover,
@@ -591,9 +643,13 @@
     .scroll-to-top:hover {
         transform: none;
     }
+    
+    .scroll-to-top:hover .scroll-icon {
+        animation: none;
+    }
 }
 
-/* High contrast mode */
+/* ===== HIGH CONTRAST MODE ===== */
 @media (prefers-contrast: more) {
     .footer-section {
         border-top-width: 2px;
@@ -609,15 +665,15 @@
     }
 }
 
-/* Print styles */
+/* ===== PRINT STYLES ===== */
 @media print {
     .social-links,
     .scroll-to-top {
         display: none;
     }
     
-    .footer-section{
-background: white;
-border-top: 1px solid #000;
-}
+    .footer-section {
+        background: white;
+        border-top: 1px solid #000;
+    }
 }
