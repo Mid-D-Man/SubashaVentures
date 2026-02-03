@@ -1,4 +1,4 @@
-// loading.js - Optimized loading screen controller with smooth transitions
+// loading.js - Fixed with proper Blazor lifecycle integration
 
 (function() {
     'use strict';
@@ -6,6 +6,7 @@
     let loadingProgress = 0;
     let loadingInterval = null;
     let isLoading = true;
+    let hasCompleted = false; // Prevent multiple completions
 
     // Get loading elements
     function getLoadingElements() {
@@ -23,23 +24,20 @@
         }
     }
 
-    // Simulate loading progress (smoother progression)
+    // Simulate loading progress
     function simulateProgress() {
-        if (loadingProgress < 90) {
-            // Fast initial progress
+        if (loadingProgress < 85) { // Stop at 85% until Blazor completes
             if (loadingProgress < 30) {
                 loadingProgress += Math.random() * 3 + 2;
             }
-            // Medium progress
             else if (loadingProgress < 60) {
                 loadingProgress += Math.random() * 2 + 1;
             }
-            // Slow down near the end
             else {
-                loadingProgress += Math.random() * 1 + 0.5;
+                loadingProgress += Math.random() * 0.5 + 0.3;
             }
 
-            loadingProgress = Math.min(loadingProgress, 90);
+            loadingProgress = Math.min(loadingProgress, 85);
             updatePercentage(loadingProgress);
         }
     }
@@ -52,16 +50,17 @@
 
         loadingProgress = 0;
         updatePercentage(0);
-
-        // Update every 100ms for smooth progress
         loadingInterval = setInterval(simulateProgress, 100);
     }
 
     // Complete loading and hide screen
     function completeLoading() {
-        if (!isLoading) return;
+        if (!isLoading || hasCompleted) return;
 
+        hasCompleted = true;
         isLoading = false;
+
+        console.log('✅ Loading screen completing...');
 
         // Clear interval
         if (loadingInterval) {
@@ -73,23 +72,24 @@
         loadingProgress = 100;
         updatePercentage(100);
 
-        // Hide loading screen after brief delay
+        // Hide loading screen
         setTimeout(() => {
             const elements = getLoadingElements();
             if (elements.screen) {
                 elements.screen.classList.add('hidden');
 
-                // Remove from DOM after transition completes
+                // Remove from DOM after transition
                 setTimeout(() => {
                     if (elements.screen && elements.screen.parentNode) {
                         elements.screen.parentNode.removeChild(elements.screen);
+                        console.log('✅ Loading screen removed');
                     }
-                }, 500); // Match CSS transition duration
+                }, 500);
             }
-        }, 300); // Show 100% briefly
+        }, 200);
     }
 
-    // Expose methods to window for Blazor to call
+    // Expose methods to window for Blazor
     window.loadingScreen = {
         start: startProgress,
         complete: completeLoading,
@@ -106,12 +106,12 @@
         startProgress();
     }
 
-    // Fallback: Auto-complete after 10 seconds if Blazor doesn't call it
+    // Extended fallback timeout - give Blazor more time
     setTimeout(() => {
-        if (isLoading) {
-            console.warn('Loading screen auto-completing after timeout');
+        if (isLoading && !hasCompleted) {
+            console.warn('⚠️ Loading screen auto-completing after extended timeout');
             completeLoading();
         }
-    }, 10000);
+    }, 15000); // 15 seconds instead of 10
 
 })();
