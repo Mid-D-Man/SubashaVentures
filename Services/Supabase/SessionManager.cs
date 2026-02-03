@@ -1,3 +1,4 @@
+// Services/Supabase/SessionManager.cs - ENHANCED
 using System.Threading;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
@@ -6,23 +7,20 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Supabase;
 
-/// <summary>
-/// Manages Supabase session with refresh lock to prevent concurrent refresh attempts
-/// CRITICAL: Prevents "refresh_token_already_used" errors
-/// </summary>
 public class SessionManager
 {
     private const string AccessTokenKey = "supabase_access_token";
     private const string RefreshTokenKey = "supabase_refresh_token";
     private const string SessionExpiryKey = "supabase_session_expiry";
+    private const string PkceVerifierKey = "supabase_pkce_verifier";
+    private const string OAuthReturnUrlKey = "oauth_return_url";
     
     private readonly IBlazorAppLocalStorageService _localStorage;
     private readonly ILogger<SessionManager> _logger;
     
-    // Refresh lock - prevents concurrent refresh attempts
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private DateTime _lastRefreshAttempt = DateTime.MinValue;
-    private const int RefreshCooldownSeconds = 10; // Supabase's reuse interval
+    private const int RefreshCooldownSeconds = 10;
     
     public SessionManager(
         IBlazorAppLocalStorageService localStorage,
@@ -32,9 +30,6 @@ public class SessionManager
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get stored session tokens (if valid)
-    /// </summary>
     public async Task<StoredSession?> GetStoredSessionAsync()
     {
         try
@@ -45,10 +40,6 @@ public class SessionManager
 
             if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "No stored session found",
-                    LogLevel.Debug
-                );
                 return null;
             }
 
@@ -73,9 +64,6 @@ public class SessionManager
         }
     }
 
-    /// <summary>
-    /// Store session tokens
-    /// </summary>
     public async Task StoreSessionAsync(Session session)
     {
         try
@@ -95,9 +83,6 @@ public class SessionManager
         }
     }
 
-    /// <summary>
-    /// Clear stored session
-    /// </summary>
     public async Task ClearSessionAsync()
     {
         try
@@ -117,9 +102,6 @@ public class SessionManager
         }
     }
 
-    /// <summary>
-    /// Check if session needs refresh (within 5 minutes of expiry)
-    /// </summary>
     public bool ShouldRefresh(DateTime? expiresAt)
     {
         if (expiresAt == null) return true;
@@ -128,14 +110,8 @@ public class SessionManager
         return timeUntilExpiry.TotalMinutes < 5;
     }
 
-    /// <summary>
-    /// Execute refresh with lock to prevent concurrent attempts
-    /// CRITICAL: This prevents "refresh_token_already_used" errors
-    /// </summary>
-    public async Task<Session?> ExecuteRefreshWithLockAsync(
-        Func<Task<Session?>> refreshFunc)
+    public async Task<Session?> ExecuteRefreshWithLockAsync(Func<Task<Session?>> refreshFunc)
     {
-        // Check cooldown period
         var timeSinceLastRefresh = DateTime.UtcNow - _lastRefreshAttempt;
         if (timeSinceLastRefresh.TotalSeconds < RefreshCooldownSeconds)
         {
@@ -146,19 +122,13 @@ public class SessionManager
             return null;
         }
 
-        // Acquire lock (wait if another refresh is in progress)
         await _refreshLock.WaitAsync();
         
         try
         {
-            // Double-check cooldown after acquiring lock
             timeSinceLastRefresh = DateTime.UtcNow - _lastRefreshAttempt;
             if (timeSinceLastRefresh.TotalSeconds < RefreshCooldownSeconds)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "⏭️ Skipping refresh - another refresh just completed",
-                    LogLevel.Debug
-                );
                 return null;
             }
 
@@ -173,32 +143,46 @@ public class SessionManager
             if (session != null)
             {
                 await StoreSessionAsync(session);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Session refreshed successfully",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Session refresh returned null",
-                    LogLevel.Warning
-                );
             }
 
             return session;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Session refresh");
-            _logger.LogError(ex, "Error during locked session refresh");
-            return null;
         }
         finally
         {
             _refreshLock.Release();
         }
+    }
+
+    // PKCE Verifier Management
+    public async Task StorePkceVerifier(string verifier)
+    {
+        await _localStorage.SetItemAsync(PkceVerifierKey, verifier);
+    }
+
+    public async Task<string?> GetPkceVerifier()
+    {
+        return await _localStorage.GetItemAsync<string>(PkceVerifierKey);
+    }
+
+    public async Task ClearPkceVerifier()
+    {
+        await _localStorage.RemoveItemAsync(PkceVerifierKey);
+    }
+
+    // OAuth Return URL Management
+    public async Task StoreOAuthReturnUrl(string url)
+    {
+        await _localStorage.SetItemAsync(OAuthReturnUrlKey, url);
+    }
+
+    public async Task<string?> GetOAuthReturnUrl()
+    {
+        return await _localStorage.GetItemAsync<string>(OAuthReturnUrlKey);
+    }
+
+    public async Task ClearOAuthReturnUrl()
+    {
+        await _localStorage.RemoveItemAsync(OAuthReturnUrlKey);
     }
 }
 

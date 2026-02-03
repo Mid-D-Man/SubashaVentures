@@ -98,7 +98,8 @@ builder.Services.AddAuthorizationCore(options =>
         policy.RequireRole("superior_admin", "user"));
 });
 builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
-
+// Add SessionManager to DI container
+builder.Services.AddScoped<SessionManager>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<SupabaseAuthService>();
 builder.Services.AddScoped<AuthenticationStateProvider, SupabaseAuthStateProvider>();

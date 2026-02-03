@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - COMPLETE WITH MFA & PASSWORD RESET
+// Services/Supabase/SupabaseAuthService.cs - COMPLETE WITH SESSION MANAGER
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
@@ -15,36 +15,97 @@ namespace SubashaVentures.Services.Supabase;
 
 public class SupabaseAuthService : ISupabaseAuthService
 {
-    private const string AccessTokenKey = "supabase_access_token";
-    private const string RefreshTokenKey = "supabase_refresh_token";
-    private const string UserSessionKey = "supabase_user_session";
-    private const string PkceVerifierKey = "supabase_pkce_verifier";
-
     private readonly Client _supabase;
-    private readonly IBlazorAppLocalStorageService _localStorage;
+    private readonly SessionManager _sessionManager;
     private readonly NavigationManager _navigationManager;
     private readonly ILogger<SupabaseAuthService> _logger;
 
+    private const string PkceVerifierKey = "supabase_pkce_verifier";
+
     public SupabaseAuthService(
         Client supabase,
-        IBlazorAppLocalStorageService localStorage,
+        SessionManager sessionManager,
         NavigationManager navigationManager,
         ILogger<SupabaseAuthService> logger)
     {
         _supabase = supabase;
-        _localStorage = localStorage;
+        _sessionManager = sessionManager;
         _navigationManager = navigationManager;
         _logger = logger;
     }
 
+    // ==================== INITIALIZATION & SESSION RESTORATION ====================
+
+    /// <summary>
+    /// Initialize auth service and restore session from storage
+    /// Called once on app startup
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "🔐 Initializing SupabaseAuthService...",
+                LogLevel.Info
+            );
+
+            // Try to restore session from storage
+            var storedSession = await _sessionManager.GetStoredSessionAsync();
+            
+            if (storedSession != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Found stored session (expires: {storedSession.ExpiresAt})",
+                    LogLevel.Info
+                );
+
+                // Check if session needs refresh
+                if (_sessionManager.ShouldRefresh(storedSession.ExpiresAt))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "🔄 Session near expiry, refreshing...",
+                        LogLevel.Info
+                    );
+
+                    await RefreshSessionAsync();
+                }
+                else
+                {
+                    // Restore session to Supabase client
+                    await _supabase.Auth.SetSession(
+                        storedSession.AccessToken,
+                        storedSession.RefreshToken
+                    );
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "✓ Session restored successfully",
+                        LogLevel.Info
+                    );
+                }
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "ℹ️ No stored session found",
+                    LogLevel.Info
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing auth service");
+            _logger.LogError(ex, "Failed to initialize auth service");
+        }
+    }
+
     // ==================== SIGN IN WITH EMAIL/PASSWORD ====================
-    
+
     public async Task<SupabaseAuthResult> SignInAsync(string email, string password)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Attempting sign in for: {email}",
+                $"🔑 Attempting sign in for: {email}",
                 LogLevel.Info
             );
 
@@ -60,10 +121,11 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            await StoreSessionAsync(session);
+            // Store session using SessionManager
+            await _sessionManager.StoreSessionAsync(session);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User signed in successfully: {email}",
+                $"✅ User signed in successfully: {email}",
                 LogLevel.Info
             );
 
@@ -104,13 +166,13 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     // ==================== SIGN UP ====================
-    
+
     public async Task<SupabaseAuthResult> SignUpAsync(string email, string password, UserModel userData)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Attempting sign up for: {email}",
+                $"📝 Attempting sign up for: {email}",
                 LogLevel.Info
             );
 
@@ -138,10 +200,11 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            await CreateUserProfileAsync(session.User, userData);
+            // Create user profile (done by database trigger, but we verify)
+            await EnsureUserProfileExistsAsync(session.User, userData);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User signed up successfully: {email}",
+                $"✅ User signed up successfully: {email}",
                 LogLevel.Info
             );
 
@@ -180,7 +243,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
     }
 
-    // ==================== SIGN IN WITH GOOGLE OAUTH (PKCE FLOW) ====================
+    // ==================== GOOGLE OAUTH (PKCE) ====================
 
     public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
     {
@@ -193,16 +256,11 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (!string.IsNullOrEmpty(returnUrl))
             {
-                await _localStorage.SetItemAsync("oauth_return_url", returnUrl);
+                await _sessionManager.StoreOAuthReturnUrl(returnUrl);
             }
 
             var baseUri = _navigationManager.BaseUri;
             var redirectUrl = $"{baseUri}auth/callback";
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔗 Redirect URL: {redirectUrl}",
-                LogLevel.Info
-            );
 
             var options = new SignInOptions
             {
@@ -214,10 +272,10 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
             {
-                await _localStorage.SetItemAsync(PkceVerifierKey, result.PKCEVerifier);
+                await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ PKCE verifier stored, redirecting to: {result.Uri}",
+                    $"✅ PKCE verifier stored, redirecting to Google...",
                     LogLevel.Info
                 );
 
@@ -225,66 +283,37 @@ public class SupabaseAuthService : ISupabaseAuthService
                 return true;
             }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Google OAuth initiation failed",
-                LogLevel.Error
-            );
-
             return false;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth PKCE sign-in");
-            _logger.LogError(ex, "Error initiating Google OAuth PKCE sign-in");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth");
             return false;
         }
     }
-
-    // ==================== HANDLE OAUTH CALLBACK (PKCE FLOW) ====================
 
     public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Processing OAuth PKCE callback at: {_navigationManager.Uri}",
-                LogLevel.Info
-            );
-
             var uri = new Uri(_navigationManager.Uri);
             var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
             if (!queryParams.TryGetValue("code", out var codeValues) || codeValues.Count == 0)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ No authorization code found in callback URL",
-                    LogLevel.Error
-                );
-
                 return new SupabaseAuthResult
                 {
                     Success = false,
-                    Message = "OAuth authentication failed - no authorization code received",
+                    Message = "OAuth authentication failed - no authorization code",
                     ErrorCode = "OAUTH_NO_CODE"
                 };
             }
 
             var code = codeValues.First();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Authorization code extracted: {code.Substring(0, Math.Min(20, code.Length))}...",
-                LogLevel.Info
-            );
-
-            var pkceVerifier = await _localStorage.GetItemAsync<string>(PkceVerifierKey);
+            var pkceVerifier = await _sessionManager.GetPkceVerifier();
 
             if (string.IsNullOrEmpty(pkceVerifier))
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ PKCE verifier not found in storage",
-                    LogLevel.Error
-                );
-
                 return new SupabaseAuthResult
                 {
                     Success = false,
@@ -293,20 +322,10 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✅ PKCE verifier retrieved from storage",
-                LogLevel.Info
-            );
-
             var session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
 
             if (session == null || string.IsNullOrEmpty(session.AccessToken))
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Failed to exchange code for session",
-                    LogLevel.Error
-                );
-
                 return new SupabaseAuthResult
                 {
                     Success = false,
@@ -315,18 +334,16 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            await _localStorage.RemoveItemAsync(PkceVerifierKey);
-            await StoreSessionAsync(session);
+            // Clean up PKCE verifier
+            await _sessionManager.ClearPkceVerifier();
 
-            var user = session.User;
-            if (user != null)
+            // Store session
+            await _sessionManager.StoreSessionAsync(session);
+
+            // Ensure user profile exists
+            if (session.User != null)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ OAuth PKCE sign-in successful for: {user.Email}",
-                    LogLevel.Info
-                );
-
-                await EnsureUserProfileExistsAsync(user);
+                await EnsureUserProfileExistsAsync(session.User);
             }
 
             return new SupabaseAuthResult
@@ -338,14 +355,8 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth PKCE callback");
-            _logger.LogError(ex, "Error handling OAuth PKCE callback");
-            
-            try
-            {
-                await _localStorage.RemoveItemAsync(PkceVerifierKey);
-            }
-            catch { }
+            await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
+            await _sessionManager.ClearPkceVerifier();
             
             return new SupabaseAuthResult
             {
@@ -357,35 +368,33 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     // ==================== SIGN OUT ====================
-    
+
     public async Task<bool> SignOutAsync()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Signing out user",
+                "🚪 Signing out user...",
                 LogLevel.Info
             );
 
             await _supabase.Auth.SignOut();
-            await ClearStoredSessionAsync();
+            await _sessionManager.ClearSessionAsync();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "✓ User signed out successfully",
+                "✅ User signed out successfully",
                 LogLevel.Info
             );
 
-            _logger.LogInformation("User signed out successfully");
             return true;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign out");
-            _logger.LogError(ex, "Error signing out");
             
             try
             {
-                await ClearStoredSessionAsync();
+                await _sessionManager.ClearSessionAsync();
             }
             catch { }
             
@@ -394,7 +403,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     // ==================== SESSION MANAGEMENT ====================
-    
+
     public async Task<User?> GetCurrentUserAsync()
     {
         try
@@ -405,20 +414,16 @@ public class SupabaseAuthService : ISupabaseAuthService
                 return session.User;
             }
 
-            var accessToken = await _localStorage.GetItemAsync<string>(AccessTokenKey);
-            var refreshToken = await _localStorage.GetItemAsync<string>(RefreshTokenKey);
-
-            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+            // Try to restore from storage
+            var storedSession = await _sessionManager.GetStoredSessionAsync();
+            if (storedSession != null)
             {
-                var restoredSession = await _supabase.Auth.SetSession(accessToken, refreshToken);
-                if (restoredSession?.User != null)
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "Session restored from storage",
-                        LogLevel.Info
-                    );
-                    return restoredSession.User;
-                }
+                var restoredSession = await _supabase.Auth.SetSession(
+                    storedSession.AccessToken,
+                    storedSession.RefreshToken
+                );
+
+                return restoredSession?.User;
             }
 
             return null;
@@ -440,20 +445,14 @@ public class SupabaseAuthService : ISupabaseAuthService
                 return session;
             }
 
-            var accessToken = await _localStorage.GetItemAsync<string>(AccessTokenKey);
-            var refreshToken = await _localStorage.GetItemAsync<string>(RefreshTokenKey);
-
-            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+            // Try to restore from storage
+            var storedSession = await _sessionManager.GetStoredSessionAsync();
+            if (storedSession != null)
             {
-                var restoredSession = await _supabase.Auth.SetSession(accessToken, refreshToken);
-                if (restoredSession != null)
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "Session restored from storage",
-                        LogLevel.Info
-                    );
-                    return restoredSession;
-                }
+                return await _supabase.Auth.SetSession(
+                    storedSession.AccessToken,
+                    storedSession.RefreshToken
+                );
             }
 
             return null;
@@ -467,89 +466,41 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     public async Task<bool> IsAuthenticatedAsync()
     {
-        try
-        {
-            var user = await GetCurrentUserAsync();
-            var isAuthenticated = user != null;
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Authentication check: {(isAuthenticated ? "Authenticated" : "Not authenticated")}",
-                LogLevel.Debug
-            );
-            
-            return isAuthenticated;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking authentication");
-            return false;
-        }
+        var user = await GetCurrentUserAsync();
+        return user != null;
     }
 
     public async Task<bool> RefreshSessionAsync()
     {
-        try
+        // Use SessionManager's refresh with lock to prevent concurrent refresh
+        var refreshedSession = await _sessionManager.ExecuteRefreshWithLockAsync(async () =>
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Refreshing session",
-                LogLevel.Info
-            );
-
-            var session = await _supabase.Auth.RefreshSession();
-            
-            if (session != null && !string.IsNullOrEmpty(session.AccessToken))
+            try
             {
-                await StoreSessionAsync(session);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Session refreshed successfully",
-                    LogLevel.Info
-                );
-                
-                return true;
+                return await _supabase.Auth.RefreshSession();
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Refresh failed");
+                return null;
+            }
+        });
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Session refresh failed",
-                LogLevel.Warning
-            );
-
-            return false;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Refreshing session");
-            _logger.LogError(ex, "Error refreshing session");
-            return false;
-        }
+        return refreshedSession != null;
     }
 
     // ==================== PASSWORD MANAGEMENT ====================
-    
+
     public async Task<bool> SendPasswordResetEmailAsync(string email)
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Sending password reset email to: {email}",
-                LogLevel.Info
-            );
-
-            var redirectUrl = $"{_navigationManager.BaseUri}reset-password";
-            
             await _supabase.Auth.ResetPasswordForEmail(email);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✓ Password reset email sent",
-                LogLevel.Info
-            );
-            
             return true;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Sending password reset email");
-            _logger.LogError(ex, "Error sending password reset email to {Email}", email);
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Send password reset");
             return false;
         }
     }
@@ -558,16 +509,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Updating password",
-                LogLevel.Info
-            );
-
-            var attributes = new UserAttributes
-            {
-                Password = newPassword
-            };
-
+            var attributes = new UserAttributes { Password = newPassword };
             var user = await _supabase.Auth.Update(attributes);
 
             if (user == null)
@@ -580,62 +522,31 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✓ Password updated successfully",
-                LogLevel.Info
-            );
-
             return new SupabaseAuthResult
             {
                 Success = true,
                 Message = "Password updated successfully"
             };
         }
-        catch (GotrueException ex)
-        {
-            var errorCode = GetErrorCode(ex.Message);
-            var errorMessage = GetFriendlyErrorMessage(errorCode);
-            
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Updating password");
-            _logger.LogError(ex, "Error updating password");
-            
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = errorMessage,
-                ErrorCode = errorCode
-            };
-        }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Updating password");
-            _logger.LogError(ex, "Unexpected error updating password");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Update password");
             return new SupabaseAuthResult
             {
                 Success = false,
-                Message = "An unexpected error occurred",
-                ErrorCode = "UNEXPECTED_ERROR"
+                Message = "Failed to update password",
+                ErrorCode = "UPDATE_ERROR"
             };
         }
     }
 
     public async Task<SupabaseAuthResult> ChangePasswordAsync(string newPassword)
-    {
-        // Alias for UpdatePasswordAsync for consistency
-        return await UpdatePasswordAsync(newPassword);
-    }
+        => await UpdatePasswordAsync(newPassword);
 
     public async Task<SupabaseAuthResult> ResetPasswordWithTokenAsync(string token, string newPassword)
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Resetting password with token",
-                LogLevel.Info
-            );
-
-            // Verify token and set new password
             var session = await _supabase.Auth.VerifyOTP(token, token, Constants.EmailOtpType.Recovery);
             
             if (session == null)
@@ -648,57 +559,38 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Now update password
             var updateResult = await UpdatePasswordAsync(newPassword);
             
             if (updateResult.Success)
             {
-                await StoreSessionAsync(session);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Password reset successfully",
-                    LogLevel.Info
-                );
+                await _sessionManager.StoreSessionAsync(session);
             }
 
             return updateResult;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Resetting password with token");
-            _logger.LogError(ex, "Error resetting password");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Reset password with token");
             return new SupabaseAuthResult
             {
                 Success = false,
-                Message = "Failed to reset password. Please request a new reset link.",
+                Message = "Failed to reset password",
                 ErrorCode = "RESET_ERROR"
             };
         }
     }
 
     // ==================== EMAIL VERIFICATION ====================
-    
+
     public async Task<bool> VerifyEmailAsync(string email, string token)
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Verifying email with token for: {email}",
-                LogLevel.Info
-            );
-
             var session = await _supabase.Auth.VerifyOTP(email, token, Constants.EmailOtpType.Email);
             
             if (session != null)
             {
-                await StoreSessionAsync(session);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Email verified successfully",
-                    LogLevel.Info
-                );
-                
+                await _sessionManager.StoreSessionAsync(session);
                 return true;
             }
 
@@ -706,8 +598,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying email");
-            _logger.LogError(ex, "Error verifying email");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verify email");
             return false;
         }
     }
@@ -716,78 +607,39 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Resending verification email to: {email}",
-                LogLevel.Info
-            );
-
             await _supabase.Auth.SignUp(email, "");
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✓ Verification email resent",
-                LogLevel.Info
-            );
-            
             return true;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Resending verification email");
-            _logger.LogError(ex, "Error resending verification email");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Resend verification");
             return false;
         }
     }
 
-    // ==================== USER PROFILE MANAGEMENT ====================
-    
+    // ==================== PROFILE MANAGEMENT ====================
+
     public async Task<bool> UpdateUserProfileAsync(Dictionary<string, object> updates)
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Updating user profile metadata",
-                LogLevel.Info
-            );
-
-            var attributes = new UserAttributes
-            {
-                Data = updates
-            };
-
+            var attributes = new UserAttributes { Data = updates };
             var user = await _supabase.Auth.Update(attributes);
-            
-            if (user != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ User profile updated successfully",
-                    LogLevel.Info
-                );
-                
-                return true;
-            }
-
-            return false;
+            return user != null;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Updating user profile");
-            _logger.LogError(ex, "Error updating user profile");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Update profile");
             return false;
         }
     }
 
-    // ==================== MFA (MULTI-FACTOR AUTHENTICATION) ====================
-
+    // ==================== MFA ====================
+    
     public async Task<MfaEnrollmentResult> EnrollMfaAsync(string factorType)
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Enrolling MFA factor type: {factorType}",
-                LogLevel.Info
-            );
-
-            // Get current user
             var user = await GetCurrentUserAsync();
             if (user == null)
             {
@@ -798,7 +650,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Enroll TOTP factor
             var enrollResponse = await _supabase.Auth.Enroll(new MfaEnrollParams
             {
                 FactorType = factorType,
@@ -814,11 +665,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ MFA factor enrolled: {enrollResponse.Id}",
-                LogLevel.Info
-            );
-
             return new MfaEnrollmentResult
             {
                 Success = true,
@@ -829,9 +675,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Enrolling MFA");
-            _logger.LogError(ex, "Error enrolling MFA");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Enroll MFA");
             return new MfaEnrollmentResult
             {
                 Success = false,
@@ -844,12 +688,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Verifying MFA factor: {factorId}",
-                LogLevel.Info
-            );
-
-            // Challenge the factor
             var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams
             {
                 FactorId = factorId
@@ -865,7 +703,6 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Verify the code
             var verifyResponse = await _supabase.Auth.Verify(new MfaVerifyParams
             {
                 FactorId = factorId,
@@ -875,11 +712,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (verifyResponse?.User != null)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ MFA factor verified successfully",
-                    LogLevel.Info
-                );
-
                 return new SupabaseAuthResult
                 {
                     Success = true,
@@ -896,9 +728,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying MFA");
-            _logger.LogError(ex, "Error verifying MFA");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verify MFA");
             return new SupabaseAuthResult
             {
                 Success = false,
@@ -912,11 +742,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Unenrolling MFA factor: {factorId}",
-                LogLevel.Warning
-            );
-
             var response = await _supabase.Auth.Unenroll(new MfaUnenrollParams
             {
                 FactorId = factorId
@@ -924,11 +749,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (response != null)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ MFA factor unenrolled successfully",
-                    LogLevel.Warning
-                );
-
                 return new SupabaseAuthResult
                 {
                     Success = true,
@@ -945,9 +765,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Unenrolling MFA");
-            _logger.LogError(ex, "Error unenrolling MFA");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Unenroll MFA");
             return new SupabaseAuthResult
             {
                 Success = false,
@@ -961,23 +779,14 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Getting enrolled MFA factors",
-                LogLevel.Info
-            );
-
             var factors = await _supabase.Auth.ListFactors();
 
             if (factors == null || !factors.All.Any())
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "No MFA factors enrolled",
-                    LogLevel.Info
-                );
                 return new List<MfaFactor>();
             }
 
-            var mfaFactors = factors.All.Select(f => new MfaFactor
+            return factors.All.Select(f => new MfaFactor
             {
                 Id = f.Id,
                 Type = f.FactorType,
@@ -986,18 +795,10 @@ public class SupabaseAuthService : ISupabaseAuthService
                 CreatedAt = f.CreatedAt,
                 UpdatedAt = f.UpdatedAt
             }).ToList();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Found {mfaFactors.Count} MFA factor(s)",
-                LogLevel.Info
-            );
-
-            return mfaFactors;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting MFA factors");
-            _logger.LogError(ex, "Error getting MFA factors");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Get MFA factors");
             return null;
         }
     }
@@ -1006,32 +807,16 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Challenging MFA factor: {factorId}",
-                LogLevel.Info
-            );
-
             var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams
             {
                 FactorId = factorId
             });
 
-            if (challengeResponse != null && !string.IsNullOrEmpty(challengeResponse.Id))
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ MFA challenge created: {challengeResponse.Id}",
-                    LogLevel.Info
-                );
-
-                return challengeResponse.Id;
-            }
-
-            return null;
+            return challengeResponse?.Id;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Challenging MFA");
-            _logger.LogError(ex, "Error challenging MFA");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Challenge MFA");
             return null;
         }
     }
@@ -1040,11 +825,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Verifying MFA challenge: {challengeId}",
-                LogLevel.Info
-            );
-
             var verifyResponse = await _supabase.Auth.Verify(new MfaVerifyParams
             {
                 FactorId = factorId,
@@ -1054,12 +834,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             if (verifyResponse?.User != null)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ MFA challenge verified successfully",
-                    LogLevel.Info
-                );
-
-                // Store session if provided
                 if (verifyResponse.AccessToken != null)
                 {
                     var session = new Session
@@ -1068,21 +842,13 @@ public class SupabaseAuthService : ISupabaseAuthService
                         RefreshToken = verifyResponse.RefreshToken,
                         User = verifyResponse.User
                     };
-                    await StoreSessionAsync(session);
+                    await _sessionManager.StoreSessionAsync(session);
                 }
 
                 return new SupabaseAuthResult
                 {
                     Success = true,
-                    Message = "MFA verification successful",
-                    Session = verifyResponse.AccessToken != null ? new SupabaseSessionInfo
-                    {
-                        AccessToken = verifyResponse.AccessToken,
-                        RefreshToken = verifyResponse.RefreshToken ?? "",
-                        UserId = verifyResponse.User.Id,
-                        UserEmail = verifyResponse.User.Email ?? "",
-                        ExpiresAt = DateTime.UtcNow.AddHours(1)
-                    } : null
+                    Message = "MFA verification successful"
                 };
             }
 
@@ -1095,9 +861,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Verifying MFA challenge");
-            _logger.LogError(ex, "Error verifying MFA challenge");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Verify MFA challenge");
             return new SupabaseAuthResult
             {
                 Success = false,
@@ -1108,49 +872,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     // ==================== PRIVATE HELPER METHODS ====================
-    
-    private async Task StoreSessionAsync(Session session)
-    {
-        try
-        {
-            await _localStorage.SetItemAsync(AccessTokenKey, session.AccessToken);
-            await _localStorage.SetItemAsync(RefreshTokenKey, session.RefreshToken ?? "");
-            
-            var sessionInfo = CreateSessionInfo(session);
-            await _localStorage.SetItemAsync(UserSessionKey, sessionInfo);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Session stored in local storage",
-                LogLevel.Debug
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error storing session");
-            throw;
-        }
-    }
-
-    private async Task ClearStoredSessionAsync()
-    {
-        try
-        {
-            await _localStorage.RemoveItemAsync(AccessTokenKey);
-            await _localStorage.RemoveItemAsync(RefreshTokenKey);
-            await _localStorage.RemoveItemAsync(UserSessionKey);
-            await _localStorage.RemoveItemAsync("oauth_return_url");
-            await _localStorage.RemoveItemAsync(PkceVerifierKey);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Stored session cleared",
-                LogLevel.Debug
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error clearing stored session");
-        }
-    }
 
     private SupabaseSessionInfo CreateSessionInfo(Session session)
     {
@@ -1164,60 +885,7 @@ public class SupabaseAuthService : ISupabaseAuthService
         };
     }
 
-    private async Task CreateUserProfileAsync(User authUser, UserModel userData)
-    {
-        try
-        {
-            var existingProfile = await _supabase
-                .From<UserModel>()
-                .Where(u => u.Id == authUser.Id)
-                .Single();
-
-            if (existingProfile != null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User profile already exists (created by trigger): {authUser.Email}",
-                    LogLevel.Info
-                );
-                return;
-            }
-
-            var userProfile = new UserModel
-            {
-                Id = authUser.Id,
-                Email = authUser.Email ?? "",
-                FirstName = userData.FirstName,
-                LastName = userData.LastName,
-                PhoneNumber = userData.PhoneNumber,
-                AvatarUrl = userData.AvatarUrl,
-                IsEmailVerified = false,
-                IsPhoneVerified = false,
-                AccountStatus = "Active",
-                EmailNotifications = true,
-                SmsNotifications = false,
-                PreferredLanguage = "en",
-                Currency = "NGN",
-                MembershipTier = "Bronze",
-                Role = "user",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = authUser.Id
-            };
-
-            await _supabase.From<UserModel>().Insert(userProfile);
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ User profile created for: {authUser.Email} with role: user",
-                LogLevel.Info
-            );
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Creating user profile");
-            _logger.LogError(ex, "Error creating user profile");
-        }
-    }
-
-    private async Task EnsureUserProfileExistsAsync(User authUser)
+    private async Task EnsureUserProfileExistsAsync(User authUser, UserModel? userData = null)
     {
         try
         {
@@ -1232,9 +900,9 @@ public class SupabaseAuthService : ISupabaseAuthService
                 {
                     Id = authUser.Id,
                     Email = authUser.Email ?? "",
-                    FirstName = authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
-                    LastName = authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
-                    AvatarUrl = authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
+                    FirstName = userData?.FirstName ?? authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
+                    LastName = userData?.LastName ?? authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
+                    AvatarUrl = userData?.AvatarUrl ?? authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
                     IsEmailVerified = authUser.EmailConfirmedAt != null,
                     AccountStatus = "Active",
                     EmailNotifications = true,
@@ -1248,29 +916,16 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
 
                 await _supabase.From<UserModel>().Insert(userProfile);
-                
-                var updates = new Dictionary<string, object>
-                {
-                    { "role", "user" }
-                };
 
-                var attributes = new UserAttributes
-                {
-                    Data = updates
-                };
-
-                await _supabase.Auth.Update(attributes);
-                
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ OAuth user profile created for: {authUser.Email} with role in JWT",
+                    $"✓ User profile created: {authUser.Email}",
                     LogLevel.Info
                 );
             }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring user profile exists");
-            _logger.LogError(ex, "Error ensuring user profile exists");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensure user profile exists");
         }
     }
 
