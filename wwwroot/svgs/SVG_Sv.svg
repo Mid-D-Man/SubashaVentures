@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="150" viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Stylized cursive SV -->
+  <text x="50%" y="50%" 
+        font-family="Brush Script MT, cursive" 
+        font-size="80" 
+        fill="white" 
+        text-anchor="middle" 
+        dominant-baseline="middle"
+        font-weight="normal"
+        letter-spacing="0">
+    SV
+  </text>
+
+</svg>

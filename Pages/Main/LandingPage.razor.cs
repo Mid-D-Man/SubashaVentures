@@ -18,7 +18,7 @@ public partial class LandingPage : ComponentBase
     private List<ProductViewModel> featuredProducts = new();
     private List<ReviewViewModel> sampleReviews = new();
     
-    private bool isLoadingPOTD = true;
+    private bool isLoadingPOTD = true; 
     private bool isLoadingFeatured = true;
     
     private string newsletterEmail = "";
