@@ -1,7 +1,3 @@
-
-
-
-
 // Layout/Main/FooterSection.razor.js
 export class FooterSection {
     constructor() {
@@ -9,10 +5,10 @@ export class FooterSection {
         this.scrollThreshold = 300;
         this.ticking = false;
         this.pageContent = null;
+        this.scrollHandler = null;
     }
 
     initialize(dotNetReference) {
-        console.log('✅ FooterSection.js initialized');
         this.dotNetRef = dotNetReference;
         this.setupScrollListener();
     }
@@ -21,7 +17,6 @@ export class FooterSection {
         this.pageContent = document.querySelector('.page-content');
 
         if (!this.pageContent) {
-            console.warn('⚠️ .page-content not found, retrying...');
             setTimeout(() => this.setupScrollListener(), 100);
             return;
         }
@@ -32,21 +27,20 @@ export class FooterSection {
 
             if (this.dotNetRef) {
                 this.dotNetRef.invokeMethodAsync('UpdateScrollTopVisibility', shouldShow)
-                    .catch(err => console.error('Error invoking UpdateScrollTopVisibility:', err));
+                    .catch(() => {});
             }
 
             this.ticking = false;
         };
 
-        const onScroll = () => {
+        this.scrollHandler = () => {
             if (!this.ticking) {
                 window.requestAnimationFrame(checkScroll);
                 this.ticking = true;
             }
         };
 
-        this.pageContent.addEventListener('scroll', onScroll);
-        console.log('✓ Scroll listener attached to .page-content');
+        this.pageContent.addEventListener('scroll', this.scrollHandler);
     }
 
     scrollToTop() {
@@ -55,26 +49,19 @@ export class FooterSection {
                 top: 0,
                 behavior: 'smooth'
             });
-        } else {
-            console.warn('⚠️ Cannot scroll - .page-content not found');
         }
     }
 
     dispose() {
-        console.log('🗑️ FooterSection disposed');
+        if (this.pageContent && this.scrollHandler) {
+            this.pageContent.removeEventListener('scroll', this.scrollHandler);
+        }
         this.dotNetRef = null;
         this.pageContent = null;
+        this.scrollHandler = null;
     }
 }
 
-// Auto-initialize for Blazor
 if (typeof window !== 'undefined') {
     window.FooterSection = FooterSection;
-
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('📄 DOM ready - FooterSection available');
-        });
-    }
 }
