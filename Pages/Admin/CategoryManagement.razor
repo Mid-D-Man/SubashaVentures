@@ -4,6 +4,7 @@
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Domain.Enums
 @layout AdminLayout
 
 <div class="category-management">
@@ -11,7 +12,7 @@
     <div class="cm-header">
         <div class="cm-header-left">
             <h1 class="cm-title">Category Management</h1>
-            <p class="cm-subtitle">Manage product categories for your store</p>
+            <p class="cm-subtitle">Manage product categories with SVG icons</p>
         </div>
         <div class="cm-header-right">
             <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
@@ -89,9 +90,15 @@
                         <tr class="@(category.IsActive ? "" : "inactive")">
                             <td>
                                 <div class="category-name-cell">
-                                    @if (!string.IsNullOrEmpty(category.IconEmoji))
+                                    @if (category.IconSvgType != SvgType.None)
                                     {
-                                        <span class="category-icon">@category.IconEmoji</span>
+                                        <div class="category-icon-svg">
+                                            @((MarkupString)await VisualElements.GetSvgWithColorAsync(
+                                                category.IconSvgType, 
+                                                24, 
+                                                24, 
+                                                "var(--primary-color)"))
+                                        </div>
                                     }
                                     <div class="category-name-info">
                                         <span class="category-name">@category.Name</span>
@@ -138,7 +145,6 @@
         </div>
     }
 </div>
-
 <!-- Add/Edit Category Modal -->
 <DynamicModal @ref="categoryModal"
               Title="@(isEditMode ? "Edit Category" : "Add Category")"
@@ -170,11 +176,55 @@
                          rows="3"></textarea>
             </div>
 
-            <InputField @bind-Value="editingCategory.IconEmoji"
-                       Label="Icon Emoji"
-                       Placeholder="e.g., 👔"
-                       HelperText="Single emoji to represent this category"
-                       CssClass="form-field" />
+            <!-- SVG Icon Picker -->
+            <div class="form-field">
+                <label class="input-label">Category Icon</label>
+                
+                <!-- Selected Icon Preview -->
+                <div class="icon-preview-container" @onclick="ToggleIconPicker">
+                    @if (editingCategory.IconSvgType != SvgType.None)
+                    {
+                        <div class="selected-icon">
+                            @((MarkupString)await VisualElements.GetSvgWithColorAsync(
+                                editingCategory.IconSvgType, 
+                                32, 
+                                32, 
+                                "var(--primary-color)"))
+                        </div>
+                        <span class="selected-icon-name">@editingCategory.IconSvgType.ToString()</span>
+                    }
+                    else
+                    {
+                        <div class="selected-icon-placeholder">
+                            <span>No icon selected</span>
+                        </div>
+                    }
+                    <button type="button" class="icon-picker-toggle">
+                        @(showIconPicker ? "▲" : "▼")
+                    </button>
+                </div>
+
+                <!-- Icon Picker Dropdown -->
+                @if (showIconPicker)
+                {
+                    <div class="icon-picker-dropdown">
+                        <div class="icon-picker-grid">
+                            @foreach (var iconType in availableCategoryIcons)
+                            {
+                                <div class="icon-picker-item @(editingCategory.IconSvgType == iconType ? "selected" : "")"
+                                     @onclick="@(() => SelectIcon(iconType))"
+                                     title="@iconType.ToString()">
+                                    @((MarkupString)await VisualElements.GetSvgWithColorAsync(
+                                        iconType, 
+                                        28, 
+                                        28, 
+                                        editingCategory.IconSvgType == iconType ? "var(--primary-color)" : "var(--text-secondary)"))
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
 
             <div class="form-field">
                 <label class="input-label">Display Order</label>
@@ -224,6 +274,7 @@
                    IsProcessing="@isDeleting"
                    OnConfirm="ConfirmDeleteCategory"
                    OnCancel="CancelDeleteCategory" />
+
 <NotificationComponent @ref="notificationComponent" 
                       Position="NotificationPosition.TopRight"
                       AutoDismissTime="5000" />
