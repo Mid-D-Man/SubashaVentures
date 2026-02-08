@@ -1,4 +1,5 @@
 using SubashaVentures.Domain.Product;
+using SubashaVentures.Domain.Enums;
 
 namespace SubashaVentures.Services.Categories;
 
@@ -21,7 +22,7 @@ public class CreateCategoryRequest
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
-    public string? IconEmoji { get; set; }
+    public SvgType IconSvgType { get; set; } = SvgType.None;
     public string? ParentId { get; set; }
     public int DisplayOrder { get; set; }
 }
@@ -31,7 +32,7 @@ public class UpdateCategoryRequest
     public string? Name { get; set; }
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
-    public string? IconEmoji { get; set; }
+    public SvgType? IconSvgType { get; set; }
     public int? DisplayOrder { get; set; }
     public bool? IsActive { get; set; }
 }
