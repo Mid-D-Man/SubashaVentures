@@ -1,6 +1,7 @@
 namespace SubashaVentures.Domain.Product;
 
 using SubashaVentures.Models.Firebase;
+using SubashaVentures.Domain.Enums;
 
 public class CategoryViewModel
 {
@@ -9,7 +10,12 @@ public class CategoryViewModel
     public string Slug { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
-    public string? IconEmoji { get; set; }
+    
+    /// <summary>
+    /// SVG icon type for this category (replaces IconEmoji)
+    /// </summary>
+    public SvgType IconSvgType { get; set; } = SvgType.None;
+    
     public string? ParentId { get; set; }
     public int ProductCount { get; set; }
     public int DisplayOrder { get; set; }
@@ -33,7 +39,7 @@ public class CategoryViewModel
             Slug = model.Slug,
             Description = model.Description,
             ImageUrl = model.ImageUrl,
-            IconEmoji = model.IconEmoji,
+            IconSvgType = model.IconSvgType,
             ParentId = model.ParentId,
             ProductCount = model.ProductCount,
             DisplayOrder = model.DisplayOrder,
@@ -54,7 +60,7 @@ public class CategoryViewModel
             Slug = this.Slug,
             Description = this.Description,
             ImageUrl = this.ImageUrl,
-            IconEmoji = this.IconEmoji,
+            IconSvgType = this.IconSvgType,
             ParentId = this.ParentId,
             ProductCount = this.ProductCount,
             DisplayOrder = this.DisplayOrder,
