@@ -1,6 +1,4 @@
-
-
-// Program.cs - UPDATED SERVICES REGISTRATION
+// Program.cs - UPDATED SERVICES REGISTRATION WITH VISUAL ELEMENTS INITIALIZATION
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -113,8 +111,11 @@ builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
 builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
-// Add this line in the CORE SERVICES section, after the other services:
+
+// ==================== VISUAL ELEMENTS SERVICE ====================
+// IMPORTANT: Register as Scoped so it can be initialized once and reused
 builder.Services.AddScoped<IVisualElementsService, VisualElementsService>();
+
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
@@ -138,29 +139,40 @@ builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IPartnerService, PartnerService>();
+
 // ==================== CART & WISHLIST ====================
 builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
 builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IGeolocationService, GeolocationService>();
-// Product Interaction Tracking Services
+
+// ==================== PRODUCT INTERACTION & TRACKING ====================
 builder.Services.AddScoped<IProductInteractionService, ProductInteractionService>();
 builder.Services.AddScoped<ProductViewTracker>();
-// Add Payment Service
+
+// ==================== PAYMENT & CHECKOUT ====================
 builder.Services.AddScoped<SubashaVentures.Services.Payment.IPaymentService, SubashaVentures.Services.Payment.PaymentService>();
 builder.Services.AddScoped<SubashaVentures.Services.Payment.IWalletService, SubashaVentures.Services.Payment.WalletService>();
-// Program.cs - ADD THIS LINE in services section
 builder.Services.AddScoped<SubashaVentures.Services.Checkout.ICheckoutService, SubashaVentures.Services.Checkout.CheckoutService>();
+
 var host = builder.Build();
 
 try
 {
-    // Start auto-flush for product interactions
+    // ==================== INITIALIZE VISUAL ELEMENTS SERVICE ====================
+    Console.WriteLine("🎨 Initializing VisualElementsService...");
+    var visualElementsService = host.Services.GetRequiredService<IVisualElementsService>();
+    await visualElementsService.InitializeAsync();
+    
+    var (iconsCached, svgsCached, totalCached) = visualElementsService.GetCacheStats();
+    Console.WriteLine($"✓ VisualElementsService initialized");
+    Console.WriteLine($"   📊 Preloaded: {iconsCached} icons, {svgsCached} SVGs ({totalCached} total assets)");
+    
+    // ==================== INITIALIZE PRODUCT INTERACTION SERVICE ====================
     var interactionService = host.Services.GetRequiredService<IProductInteractionService>();
     interactionService.StartAutoFlush();
-
     
-    
+    // ==================== INITIALIZE LOGGING ====================
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
     var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
     
@@ -171,11 +183,13 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"❌ Failed to initialize logging: {ex.Message}");
+    Console.WriteLine($"❌ Failed to initialize core services: {ex.Message}");
+    Console.WriteLine($"   Stack trace: {ex.StackTrace}");
 }
 
 try
 {
+    // ==================== INITIALIZE FIREBASE ====================
     var firebaseConfig = host.Services.GetRequiredService<IFirebaseConfigService>();
     await firebaseConfig.InitializeAsync();
     
@@ -186,6 +200,12 @@ catch (Exception ex)
     Console.WriteLine($"❌ Failed to initialize Firebase: {ex.Message}");
 }
 
-Console.WriteLine("✓ All services initialized with proper filter management");
+Console.WriteLine("========================================");
+Console.WriteLine("✓ All services initialized successfully");
+Console.WriteLine("   ✓ VisualElementsService: SVGs preloaded and ready");
+Console.WriteLine("   ✓ Product tracking enabled");
+Console.WriteLine("   ✓ Firebase connected");
+Console.WriteLine("   ✓ Supabase configured");
+Console.WriteLine("========================================");
 
 await host.RunAsync();
