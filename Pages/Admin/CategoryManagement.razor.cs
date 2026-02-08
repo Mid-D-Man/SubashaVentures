@@ -1,6 +1,7 @@
-// Pages/Admin/CategoryManagement.razor.cs - FIXED
+// Pages/Admin/CategoryManagement.razor.cs
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Firebase;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Notifications;
@@ -13,6 +14,7 @@ namespace SubashaVentures.Pages.Admin;
 public partial class CategoryManagement : ComponentBase
 {
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private ILogger<CategoryManagement> Logger { get; set; } = default!;
 
     private bool isLoading = true;
@@ -21,11 +23,29 @@ public partial class CategoryManagement : ComponentBase
     private bool isSaving = false;
     private bool isConfirmationOpen = false;
     private bool isDeleting = false;
+    private bool showIconPicker = false;
 
     private List<CategoryModel> categories = new();
     private CategoryFormData editingCategory = new();
     private CategoryModel? categoryToDelete = null;
     private Dictionary<string, string> validationErrors = new();
+    
+    // Available category icons (curated list)
+    private readonly List<SvgType> availableCategoryIcons = new()
+    {
+        SvgType.AllProducts,
+        SvgType.Beddings,
+        SvgType.ChildrenClothes,
+        SvgType.Dress,
+        SvgType.Tuxido,
+        SvgType.ShopNow,
+        SvgType.Cart,
+        SvgType.Wishlist,
+        SvgType.Heart,
+        SvgType.Star,
+        SvgType.Flame,
+        SvgType.ThumbsUp
+    };
 
     private DynamicModal? categoryModal;
     private ConfirmationPopup? confirmationPopup;
@@ -83,9 +103,11 @@ public partial class CategoryManagement : ComponentBase
             Id = Guid.NewGuid().ToString(),
             IsActive = true,
             DisplayOrder = categories.Count,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IconSvgType = SvgType.AllProducts // Default icon
         };
         validationErrors.Clear();
+        showIconPicker = false;
         isCategoryModalOpen = true;
         StateHasChanged();
     }
@@ -99,7 +121,7 @@ public partial class CategoryManagement : ComponentBase
             Name = category.Name,
             Slug = category.Slug,
             Description = category.Description,
-            IconEmoji = category.IconEmoji,
+            IconSvgType = category.IconSvgType,
             ImageUrl = category.ImageUrl,
             ParentId = category.ParentId,
             DisplayOrder = category.DisplayOrder,
@@ -109,6 +131,7 @@ public partial class CategoryManagement : ComponentBase
             UpdatedAt = DateTime.UtcNow
         };
         validationErrors.Clear();
+        showIconPicker = false;
         isCategoryModalOpen = true;
         StateHasChanged();
     }
@@ -118,6 +141,20 @@ public partial class CategoryManagement : ComponentBase
         isCategoryModalOpen = false;
         editingCategory = new();
         validationErrors.Clear();
+        showIconPicker = false;
+        StateHasChanged();
+    }
+
+    private void ToggleIconPicker()
+    {
+        showIconPicker = !showIconPicker;
+        StateHasChanged();
+    }
+
+    private void SelectIcon(SvgType iconType)
+    {
+        editingCategory.IconSvgType = iconType;
+        showIconPicker = false;
         StateHasChanged();
     }
 
@@ -143,7 +180,7 @@ public partial class CategoryManagement : ComponentBase
                 Slug = editingCategory.Slug,
                 Description = editingCategory.Description,
                 ImageUrl = editingCategory.ImageUrl,
-                IconEmoji = editingCategory.IconEmoji,
+                IconSvgType = editingCategory.IconSvgType,
                 ParentId = editingCategory.ParentId,
                 ProductCount = editingCategory.ProductCount,
                 DisplayOrder = editingCategory.DisplayOrder,
@@ -307,7 +344,7 @@ public partial class CategoryManagement : ComponentBase
         notificationComponent?.ShowNotification(message, NotificationType.Info);
     }
 
-    // Form data class (not a record)
+    // Form data class
     public class CategoryFormData
     {
         public string Id { get; set; } = "";
@@ -315,7 +352,7 @@ public partial class CategoryManagement : ComponentBase
         public string Slug { get; set; } = "";
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
-        public string? IconEmoji { get; set; }
+        public SvgType IconSvgType { get; set; } = SvgType.None;
         public string? ParentId { get; set; }
         public int ProductCount { get; set; }
         public int DisplayOrder { get; set; }
