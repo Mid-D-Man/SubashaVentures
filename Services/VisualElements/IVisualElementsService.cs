@@ -7,15 +7,24 @@ using SubashaVentures.Domain.Enums;
 /// </summary>
 public interface IVisualElementsService
 {
+    // ===== INITIALIZATION =====
+    
+    /// <summary>
+    /// Initialize and preload all assets
+    /// Must be called at application startup
+    /// </summary>
+    Task InitializeAsync();
+    
+    /// <summary>
+    /// Check if service has been initialized
+    /// </summary>
+    bool IsInitialized { get; }
+    
     // ===== ICON METHODS =====
     
     /// <summary>
     /// Get an icon URL by type and size
     /// </summary>
-    /// <param name="iconType">Type of icon</param>
-    /// <param name="size">Size of icon</param>
-    /// <param name="useFallback">Whether to return fallback on error</param>
-    /// <returns>Icon URL or fallback</returns>
     Task<string> GetIconAsync(IconType iconType, IconSize size, bool useFallback = true);
     
     /// <summary>
@@ -47,18 +56,46 @@ public interface IVisualElementsService
     // ===== SVG METHODS =====
     
     /// <summary>
-    /// Get an SVG by type
+    /// Get an SVG by type (returns raw SVG markup)
     /// </summary>
-    /// <param name="svgType">Type of SVG</param>
-    /// <param name="useFallback">Whether to return fallback on error</param>
-    /// <returns>SVG markup as string</returns>
     Task<string> GetSvgAsync(SvgType svgType, bool useFallback = true);
+    
+    /// <summary>
+    /// Get an SVG with custom size
+    /// </summary>
+    Task<string> GetSvgAsync(SvgType svgType, int width, int height, bool useFallback = true);
+    
+    /// <summary>
+    /// Get an SVG with preset size
+    /// </summary>
+    Task<string> GetSvgAsync(SvgType svgType, SvgSize size, bool useFallback = true);
+    
+    /// <summary>
+    /// Get an SVG with custom color
+    /// </summary>
+    Task<string> GetSvgWithColorAsync(SvgType svgType, string color, bool useFallback = true);
+    
+    /// <summary>
+    /// Get an SVG with custom size and color
+    /// </summary>
+    Task<string> GetSvgWithColorAsync(SvgType svgType, int width, int height, string color, bool useFallback = true);
+    
+    /// <summary>
+    /// Get an SVG with multiple customizations
+    /// </summary>
+    Task<string> GetCustomSvgAsync(
+        SvgType svgType,
+        int? width = null,
+        int? height = null,
+        string? fillColor = null,
+        string? strokeColor = null,
+        string? className = null,
+        string? transform = null,
+        bool useFallback = true);
     
     /// <summary>
     /// Get SVG by name (for dynamically loaded SVGs)
     /// </summary>
-    /// <param name="name">SVG filename without extension</param>
-    /// <param name="useFallback">Whether to return fallback on error</param>
     Task<string> GetSvgByNameAsync(string name, bool useFallback = true);
     
     /// <summary>
@@ -66,23 +103,49 @@ public interface IVisualElementsService
     /// </summary>
     Task<bool> SvgExistsAsync(SvgType svgType);
     
+    // ===== SVG MANIPULATION =====
+    
+    /// <summary>
+    /// Change fill color of SVG markup
+    /// </summary>
+    string ChangeSvgColor(string svgMarkup, string color);
+    
+    /// <summary>
+    /// Change stroke color of SVG markup
+    /// </summary>
+    string ChangeSvgStroke(string svgMarkup, string strokeColor, int? strokeWidth = null);
+    
+    /// <summary>
+    /// Resize SVG markup
+    /// </summary>
+    string ResizeSvg(string svgMarkup, int width, int height);
+    
+    /// <summary>
+    /// Add class to SVG markup
+    /// </summary>
+    string AddSvgClass(string svgMarkup, string className);
+    
+    /// <summary>
+    /// Apply transform to SVG
+    /// </summary>
+    string TransformSvg(string svgMarkup, string transform);
+    
+    // ===== UTILITY METHODS =====
+    
     /// <summary>
     /// Generate a custom SVG with given markup
     /// </summary>
-    /// <param name="svgMarkup">SVG path/shape markup (inner content)</param>
-    /// <param name="width">SVG width</param>
-    /// <param name="height">SVG height</param>
-    /// <param name="viewBox">Optional custom viewBox (defaults to "0 0 {width} {height}")</param>
-    /// <param name="additionalAttributes">Optional additional SVG attributes (e.g., "fill='currentColor'")</param>
-    /// <returns>Complete SVG element as string</returns>
     string GenerateSvg(string svgMarkup, int width = 24, int height = 24, string? viewBox = null, string? additionalAttributes = null);
     
     /// <summary>
     /// Generate an inline data URI SVG (useful for backgrounds)
     /// </summary>
-    /// <param name="svgMarkup">Complete SVG markup</param>
-    /// <returns>Data URI string</returns>
     string GenerateSvgDataUri(string svgMarkup);
+    
+    /// <summary>
+    /// Get SVG as Base64 data URI
+    /// </summary>
+    Task<string> GetSvgAsBase64Async(SvgType svgType);
     
     // ===== CACHE METHODS =====
     
@@ -95,6 +158,11 @@ public interface IVisualElementsService
     /// Preload commonly used icons and SVGs into cache
     /// </summary>
     Task PreloadCommonAssetsAsync();
+    
+    /// <summary>
+    /// Preload specific SVGs
+    /// </summary>
+    Task PreloadSvgsAsync(params SvgType[] svgTypes);
     
     /// <summary>
     /// Get cache statistics
