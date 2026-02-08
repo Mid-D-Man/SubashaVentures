@@ -1,4 +1,5 @@
 using SubashaVentures.Domain.Product;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -215,7 +216,7 @@ public class CategoryService : ICategoryService, IDisposable
                 Slug = GenerateSlug(request.Name),
                 Description = request.Description?.Trim(),
                 ImageUrl = request.ImageUrl?.Trim(),
-                IconEmoji = request.IconEmoji?.Trim(),
+                IconSvgType = request.IconSvgType,
                 ParentId = request.ParentId?.Trim(),
                 DisplayOrder = request.DisplayOrder,
                 IsActive = true,
@@ -229,7 +230,7 @@ public class CategoryService : ICategoryService, IDisposable
             if (!string.IsNullOrEmpty(id))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category created: {request.Name} (ID: {id})",
+                    $"✓ Category created: {request.Name} (ID: {id}, Icon: {request.IconSvgType})",
                     LogLevel.Info
                 );
             }
@@ -270,7 +271,7 @@ public class CategoryService : ICategoryService, IDisposable
                 Slug = !string.IsNullOrEmpty(request.Name) ? GenerateSlug(request.Name) : existing.Slug,
                 Description = request.Description ?? existing.Description,
                 ImageUrl = request.ImageUrl ?? existing.ImageUrl,
-                IconEmoji = request.IconEmoji ?? existing.IconEmoji,
+                IconSvgType = request.IconSvgType ?? existing.IconSvgType,
                 ParentId = existing.ParentId,
                 DisplayOrder = request.DisplayOrder ?? existing.DisplayOrder,
                 IsActive = request.IsActive ?? existing.IsActive,
@@ -284,7 +285,7 @@ public class CategoryService : ICategoryService, IDisposable
             if (success)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category updated: {updated.Name}",
+                    $"✓ Category updated: {updated.Name} (Icon: {updated.IconSvgType})",
                     LogLevel.Info
                 );
             }
@@ -366,7 +367,7 @@ public class CategoryService : ICategoryService, IDisposable
             Slug = model.Slug,
             Description = model.Description,
             ImageUrl = model.ImageUrl,
-            IconEmoji = model.IconEmoji,
+            IconSvgType = model.IconSvgType,
             ParentId = model.ParentId,
             ProductCount = model.ProductCount,
             DisplayOrder = model.DisplayOrder,
