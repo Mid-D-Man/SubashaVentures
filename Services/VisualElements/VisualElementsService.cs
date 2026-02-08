@@ -1,6 +1,8 @@
 namespace SubashaVentures.Services.VisualElements;
 
 using System.Collections.Concurrent;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Enums;
 using SubashaVentures.Utilities.Constants;
@@ -8,7 +10,7 @@ using SubashaVentures.Services.Storage;
 
 /// <summary>
 /// Service for managing visual elements like icons and SVGs across the application
-/// Handles case-insensitive file lookups with fallback strategies
+/// Preloads assets at startup and provides manipulation capabilities
 /// </summary>
 public class VisualElementsService : IVisualElementsService
 {
@@ -21,8 +23,10 @@ public class VisualElementsService : IVisualElementsService
     private readonly ConcurrentDictionary<string, string> _iconCache = new();
     private readonly ConcurrentDictionary<string, string> _svgCache = new();
     
-    // Base URL for assets
-    private string _baseUrl = string.Empty;
+    // Initialization flag
+    private bool _isInitialized = false;
+    
+    public bool IsInitialized => _isInitialized;
     
     public VisualElementsService(
         IJSRuntime jsRuntime,
@@ -38,61 +42,54 @@ public class VisualElementsService : IVisualElementsService
 
     // ===== INITIALIZATION =====
     
-    private async Task EnsureInitializedAsync()
+    public async Task InitializeAsync()
     {
-        if (string.IsNullOrEmpty(_baseUrl))
+        if (_isInitialized)
         {
-            try
-            {
-                _baseUrl = await _jsRuntime.InvokeAsync<string>("eval", "window.location.origin");
-                _logger.LogInformation($"✓ VisualElementsService initialized with base URL: {_baseUrl}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"⚠ Could not get base URL: {ex.Message}");
-                _baseUrl = string.Empty;
-            }
+            _logger.LogInformation("VisualElementsService already initialized");
+            return;
+        }
+        
+        _logger.LogInformation("🎨 Initializing VisualElementsService...");
+        
+        try
+        {
+            // Preload all common assets
+            await PreloadCommonAssetsAsync();
+            
+            _isInitialized = true;
+            _logger.LogInformation("✓ VisualElementsService initialized successfully");
+            _logger.LogInformation($"   📊 Cache: {_iconCache.Count} icons, {_svgCache.Count} SVGs loaded");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Failed to initialize VisualElementsService");
+            throw;
         }
     }
 
     // ===== ICON METHODS =====
     
-    // Services/VisualElements/VisualElementsService.cs - SIMPLIFIED INITIALIZATION
     public async Task<string> GetIconAsync(IconType iconType, IconSize size, bool useFallback = true)
     {
-        var cacheKey = $"{VisualElementsConstants.CACHE_KEY_PREFIX}icon_{iconType}_{(int)size}";
-    
+        var cacheKey = $"{VisualElementsConstants.ICON_CACHE_PREFIX}{iconType}_{(int)size}";
+        
         // Check cache first
         if (_iconCache.TryGetValue(cacheKey, out var cachedUrl))
         {
             return cachedUrl;
         }
-    
-        // ✅ Use RELATIVE paths - HttpClient already has BaseAddress
+        
         var iconPath = VisualElementsConstants.GetIconPath(iconType, size);
-    
+        
         try
         {
-            // ✅ Try primary path first (UPPERCASE - matches actual files)
             var response = await _httpClient.GetAsync(iconPath, HttpCompletionOption.ResponseHeadersRead);
-        
+            
             if (response.IsSuccessStatusCode)
             {
-                var fullUrl = $"{_httpClient.BaseAddress}{iconPath.TrimStart('/')}";
+                var fullUrl = $"{_httpClient.BaseAddress?.ToString().TrimEnd('/')}/{iconPath.TrimStart('/')}";
                 _iconCache.TryAdd(cacheKey, fullUrl);
-                _logger.LogDebug($"✓ Icon cached: {iconPath}");
-                return fullUrl;
-            }
-        
-            // ✅ Fallback: try lowercase
-            var lowerPath = iconPath.Replace("SBV_ICON", "sbv_icon");
-            response = await _httpClient.GetAsync(lowerPath, HttpCompletionOption.ResponseHeadersRead);
-        
-            if (response.IsSuccessStatusCode)
-            {
-                var fullUrl = $"{_httpClient.BaseAddress}{lowerPath.TrimStart('/')}";
-                _iconCache.TryAdd(cacheKey, fullUrl);
-                _logger.LogDebug($"✓ Icon cached (lowercase): {lowerPath}");
                 return fullUrl;
             }
         }
@@ -100,39 +97,8 @@ public class VisualElementsService : IVisualElementsService
         {
             _logger.LogWarning($"❌ Failed to load icon {iconPath}: {ex.Message}");
         }
-    
-        _logger.LogWarning($"⚠ Icon not found for {iconType} at size {(int)size}");
+        
         return useFallback ? VisualElementsConstants.FALLBACK_ICON : string.Empty;
-    }
-    
-    /// <summary>
-    /// Generate path variations to handle case-sensitivity issues across platforms
-    /// Actual files are UPPERCASE based on manifest.json
-    /// </summary>
-    private List<string> GetIconPathVariations(IconType iconType, IconSize size)
-    {
-        var variations = new List<string>();
-        var basePath = VisualElementsConstants.ICONS_BASE_PATH;
-        var sizeValue = (int)size;
-        
-        switch (iconType)
-        {
-            case IconType.SBV_ICON:
-                // Primary: Uppercase (matches actual files in project)
-                variations.Add($"{basePath}/SBV_ICON_{sizeValue}.png");
-                
-                // Fallback: Lowercase
-                variations.Add($"{basePath}/sbv_icon_{sizeValue}.png");
-                
-                // Fallback: Mixed case
-                variations.Add($"{basePath}/Sbv_Icon_{sizeValue}.png");
-                break;
-                
-            default:
-                throw new ArgumentOutOfRangeException(nameof(iconType));
-        }
-        
-        return variations;
     }
     
     public async Task<string> GetIconAsync(IconType iconType)
@@ -144,75 +110,46 @@ public class VisualElementsService : IVisualElementsService
     {
         try
         {
-            var pathVariations = GetIconPathVariations(iconType, size);
-            
-            foreach (var iconPath in pathVariations)
-            {
-                var fullUrl = string.IsNullOrEmpty(_baseUrl) ? iconPath : $"{_baseUrl}/{iconPath}";
-                
-                try
-                {
-                    var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        return true;
-                    }
-                }
-                catch
-                {
-                    // Continue to next variation
-                }
-            }
-            
-            return false;
+            var iconPath = VisualElementsConstants.GetIconPath(iconType, size);
+            var response = await _httpClient.GetAsync(iconPath, HttpCompletionOption.ResponseHeadersRead);
+            return response.IsSuccessStatusCode;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogDebug($"Icon existence check failed: {ex.Message}");
             return false;
         }
     }
     
     public List<IconSize> GetAvailableSizes(IconType iconType)
     {
-        // All SBV_ICON sizes are available based on manifest.json
         return iconType switch
         {
             IconType.SBV_ICON => new List<IconSize>
             {
-                IconSize.Size_72,
-                IconSize.Size_96,
-                IconSize.Size_128,
-                IconSize.Size_144,
-                IconSize.Size_152,
-                IconSize.Size_192,
-                IconSize.Size_384,
-                IconSize.Size_512,
-                IconSize.Size_1024
+                IconSize.Size_72, IconSize.Size_96, IconSize.Size_128,
+                IconSize.Size_144, IconSize.Size_152, IconSize.Size_192,
+                IconSize.Size_384, IconSize.Size_512, IconSize.Size_1024
             },
             _ => new List<IconSize>()
         };
     }
 
-    // ===== SPECIFIC SBV_ICON HELPERS =====
+    // ===== SBV_ICON HELPERS =====
     
-    public string GetSBVIcon_72() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_72);
-    public string GetSBVIcon_96() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_96);
-    public string GetSBVIcon_128() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_128);
-    public string GetSBVIcon_144() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_144);
-    public string GetSBVIcon_152() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_152);
-    public string GetSBVIcon_192() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_192);
-    public string GetSBVIcon_384() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_384);
-    public string GetSBVIcon_512() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_512);
-    public string GetSBVIcon_1024() => BuildIconUrl(IconType.SBV_ICON, IconSize.Size_1024);
+    public string GetSBVIcon_72() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_72);
+    public string GetSBVIcon_96() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_96);
+    public string GetSBVIcon_128() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_128);
+    public string GetSBVIcon_144() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_144);
+    public string GetSBVIcon_152() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_152);
+    public string GetSBVIcon_192() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_192);
+    public string GetSBVIcon_384() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_384);
+    public string GetSBVIcon_512() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_512);
+    public string GetSBVIcon_1024() => GetCachedIcon(IconType.SBV_ICON, IconSize.Size_1024);
     
-    /// <summary>
-    /// Build icon URL using primary case (UPPERCASE - matches actual files)
-    /// </summary>
-    private string BuildIconUrl(IconType iconType, IconSize size)
+    private string GetCachedIcon(IconType iconType, IconSize size)
     {
-        var iconPath = VisualElementsConstants.GetIconPath(iconType, size);
-        return string.IsNullOrEmpty(_baseUrl) ? iconPath : $"{_baseUrl}/{iconPath}";
+        var cacheKey = $"{VisualElementsConstants.ICON_CACHE_PREFIX}{iconType}_{(int)size}";
+        return _iconCache.TryGetValue(cacheKey, out var url) ? url : VisualElementsConstants.FALLBACK_ICON;
     }
 
     // ===== SVG METHODS =====
@@ -224,9 +161,7 @@ public class VisualElementsService : IVisualElementsService
             return useFallback ? VisualElementsConstants.FALLBACK_SVG : string.Empty;
         }
         
-        await EnsureInitializedAsync();
-        
-        var cacheKey = $"{VisualElementsConstants.CACHE_KEY_PREFIX}svg_{svgType}";
+        var cacheKey = $"{VisualElementsConstants.SVG_CACHE_PREFIX}{svgType}";
         
         // Check cache first
         if (_svgCache.TryGetValue(cacheKey, out var cachedSvg))
@@ -234,49 +169,89 @@ public class VisualElementsService : IVisualElementsService
             return cachedSvg;
         }
         
-        // Try multiple case variations
-        var pathVariations = GetSvgPathVariations(svgType);
+        var svgPath = VisualElementsConstants.GetSvgPath(svgType);
         
-        foreach (var svgPath in pathVariations)
+        try
         {
-            var fullUrl = string.IsNullOrEmpty(_baseUrl) ? svgPath : $"{_baseUrl}/{svgPath}";
+            var svgContent = await _httpClient.GetStringAsync(svgPath);
             
-            try
+            if (!string.IsNullOrEmpty(svgContent))
             {
-                var svgContent = await _httpClient.GetStringAsync(fullUrl);
-                
-                if (!string.IsNullOrEmpty(svgContent))
-                {
-                    _svgCache.TryAdd(cacheKey, svgContent);
-                    _logger.LogDebug($"✓ SVG cached: {svgPath}");
-                    return svgContent;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug($"❌ Failed to load SVG variation {svgPath}: {ex.Message}");
+                _svgCache.TryAdd(cacheKey, svgContent);
+                return svgContent;
             }
         }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"❌ Failed to load SVG {svgPath}: {ex.Message}");
+        }
         
-        _logger.LogWarning($"⚠ SVG not found for {svgType} (tried {pathVariations.Count} variations)");
         return useFallback ? VisualElementsConstants.FALLBACK_SVG : string.Empty;
     }
     
-    /// <summary>
-    /// Generate path variations for SVG files
-    /// </summary>
-    private List<string> GetSvgPathVariations(SvgType svgType)
+    public async Task<string> GetSvgAsync(SvgType svgType, int width, int height, bool useFallback = true)
     {
-        var variations = new List<string>();
-        var basePath = VisualElementsConstants.SVGS_BASE_PATH;
-        var enumName = svgType.ToString();
+        var svg = await GetSvgAsync(svgType, useFallback);
+        return ResizeSvg(svg, width, height);
+    }
+    
+    public async Task<string> GetSvgAsync(SvgType svgType, SvgSize size, bool useFallback = true)
+    {
+        var dimension = (int)size;
+        return await GetSvgAsync(svgType, dimension, dimension, useFallback);
+    }
+    
+    public async Task<string> GetSvgWithColorAsync(SvgType svgType, string color, bool useFallback = true)
+    {
+        var svg = await GetSvgAsync(svgType, useFallback);
+        return ChangeSvgColor(svg, color);
+    }
+    
+    public async Task<string> GetSvgWithColorAsync(SvgType svgType, int width, int height, string color, bool useFallback = true)
+    {
+        var svg = await GetSvgAsync(svgType, useFallback);
+        svg = ResizeSvg(svg, width, height);
+        return ChangeSvgColor(svg, color);
+    }
+    
+    public async Task<string> GetCustomSvgAsync(
+        SvgType svgType,
+        int? width = null,
+        int? height = null,
+        string? fillColor = null,
+        string? strokeColor = null,
+        string? className = null,
+        string? transform = null,
+        bool useFallback = true)
+    {
+        var svg = await GetSvgAsync(svgType, useFallback);
         
-        // Try: lowercase, original case, uppercase
-        variations.Add($"{basePath}/{enumName.ToLowerInvariant()}.svg");
-        variations.Add($"{basePath}/{enumName}.svg");
-        variations.Add($"{basePath}/{enumName.ToUpperInvariant()}.svg");
+        if (width.HasValue && height.HasValue)
+        {
+            svg = ResizeSvg(svg, width.Value, height.Value);
+        }
         
-        return variations;
+        if (!string.IsNullOrEmpty(fillColor))
+        {
+            svg = ChangeSvgColor(svg, fillColor);
+        }
+        
+        if (!string.IsNullOrEmpty(strokeColor))
+        {
+            svg = ChangeSvgStroke(svg, strokeColor);
+        }
+        
+        if (!string.IsNullOrEmpty(className))
+        {
+            svg = AddSvgClass(svg, className);
+        }
+        
+        if (!string.IsNullOrEmpty(transform))
+        {
+            svg = TransformSvg(svg, transform);
+        }
+        
+        return svg;
     }
     
     public async Task<string> GetSvgByNameAsync(string name, bool useFallback = true)
@@ -286,48 +261,30 @@ public class VisualElementsService : IVisualElementsService
             return useFallback ? VisualElementsConstants.FALLBACK_SVG : string.Empty;
         }
         
-        await EnsureInitializedAsync();
+        var cacheKey = $"{VisualElementsConstants.SVG_CACHE_PREFIX}custom_{name.ToLowerInvariant()}";
         
-        var cacheKey = $"{VisualElementsConstants.CACHE_KEY_PREFIX}svg_{name.ToLowerInvariant()}";
-        
-        // Check cache first
         if (_svgCache.TryGetValue(cacheKey, out var cachedSvg))
         {
             return cachedSvg;
         }
         
-        // Try multiple case variations
-        var basePath = VisualElementsConstants.SVGS_BASE_PATH;
-        var pathVariations = new List<string>
-        {
-            $"{basePath}/{name.ToLowerInvariant()}.svg",
-            $"{basePath}/{name}.svg",
-            $"{basePath}/{name.ToUpperInvariant()}.svg",
-            $"{basePath}/{char.ToUpperInvariant(name[0]) + name.Substring(1).ToLowerInvariant()}.svg"
-        };
+        var svgPath = $"{VisualElementsConstants.SVGS_BASE_PATH}/{name}.svg";
         
-        foreach (var svgPath in pathVariations)
+        try
         {
-            var fullUrl = string.IsNullOrEmpty(_baseUrl) ? svgPath : $"{_baseUrl}/{svgPath}";
+            var svgContent = await _httpClient.GetStringAsync(svgPath);
             
-            try
+            if (!string.IsNullOrEmpty(svgContent))
             {
-                var svgContent = await _httpClient.GetStringAsync(fullUrl);
-                
-                if (!string.IsNullOrEmpty(svgContent))
-                {
-                    _svgCache.TryAdd(cacheKey, svgContent);
-                    _logger.LogDebug($"✓ SVG cached: {svgPath}");
-                    return svgContent;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug($"❌ Failed to load SVG variation {svgPath}: {ex.Message}");
+                _svgCache.TryAdd(cacheKey, svgContent);
+                return svgContent;
             }
         }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"❌ Failed to load custom SVG {svgPath}: {ex.Message}");
+        }
         
-        _logger.LogWarning($"⚠ SVG not found for name '{name}' (tried {pathVariations.Count} variations)");
         return useFallback ? VisualElementsConstants.FALLBACK_SVG : string.Empty;
     }
     
@@ -338,40 +295,120 @@ public class VisualElementsService : IVisualElementsService
         
         try
         {
-            var pathVariations = GetSvgPathVariations(svgType);
-            
-            foreach (var svgPath in pathVariations)
-            {
-                var fullUrl = string.IsNullOrEmpty(_baseUrl) ? svgPath : $"{_baseUrl}/{svgPath}";
-                
-                try
-                {
-                    var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        return true;
-                    }
-                }
-                catch
-                {
-                    // Continue to next variation
-                }
-            }
-            
-            return false;
+            var svgPath = VisualElementsConstants.GetSvgPath(svgType);
+            var response = await _httpClient.GetAsync(svgPath, HttpCompletionOption.ResponseHeadersRead);
+            return response.IsSuccessStatusCode;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogDebug($"SVG existence check failed: {ex.Message}");
             return false;
         }
     }
+
+    // ===== SVG MANIPULATION =====
+    
+    public string ChangeSvgColor(string svgMarkup, string color)
+    {
+        if (string.IsNullOrWhiteSpace(svgMarkup))
+            return svgMarkup;
+        
+        // Replace fill attributes
+        svgMarkup = Regex.Replace(svgMarkup, @"fill\s*=\s*[""']#[0-9a-fA-F]{3,8}[""']", $"fill=\"{color}\"", RegexOptions.IgnoreCase);
+        svgMarkup = Regex.Replace(svgMarkup, @"fill\s*=\s*[""']rgb\([^)]+\)[""']", $"fill=\"{color}\"", RegexOptions.IgnoreCase);
+        svgMarkup = Regex.Replace(svgMarkup, @"fill\s*=\s*[""'][^""']+[""']", $"fill=\"{color}\"", RegexOptions.IgnoreCase);
+        
+        return svgMarkup;
+    }
+    
+    public string ChangeSvgStroke(string svgMarkup, string strokeColor, int? strokeWidth = null)
+    {
+        if (string.IsNullOrWhiteSpace(svgMarkup))
+            return svgMarkup;
+        
+        // Replace stroke color
+        svgMarkup = Regex.Replace(svgMarkup, @"stroke\s*=\s*[""'][^""']+[""']", $"stroke=\"{strokeColor}\"", RegexOptions.IgnoreCase);
+        
+        // Replace stroke width if provided
+        if (strokeWidth.HasValue)
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"stroke-width\s*=\s*[""'][^""']+[""']", $"stroke-width=\"{strokeWidth.Value}\"", RegexOptions.IgnoreCase);
+        }
+        
+        return svgMarkup;
+    }
+    
+    public string ResizeSvg(string svgMarkup, int width, int height)
+    {
+        if (string.IsNullOrWhiteSpace(svgMarkup))
+            return svgMarkup;
+        
+        // Replace or add width attribute
+        if (Regex.IsMatch(svgMarkup, @"width\s*=", RegexOptions.IgnoreCase))
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"width\s*=\s*[""'][^""']+[""']", $"width=\"{width}\"", RegexOptions.IgnoreCase);
+        }
+        else
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"<svg", $"<svg width=\"{width}\"", RegexOptions.IgnoreCase);
+        }
+        
+        // Replace or add height attribute
+        if (Regex.IsMatch(svgMarkup, @"height\s*=", RegexOptions.IgnoreCase))
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"height\s*=\s*[""'][^""']+[""']", $"height=\"{height}\"", RegexOptions.IgnoreCase);
+        }
+        else
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"<svg", $"<svg height=\"{height}\"", RegexOptions.IgnoreCase);
+        }
+        
+        return svgMarkup;
+    }
+    
+    public string AddSvgClass(string svgMarkup, string className)
+    {
+        if (string.IsNullOrWhiteSpace(svgMarkup) || string.IsNullOrWhiteSpace(className))
+            return svgMarkup;
+        
+        if (Regex.IsMatch(svgMarkup, @"class\s*=", RegexOptions.IgnoreCase))
+        {
+            // Append to existing class
+            svgMarkup = Regex.Replace(svgMarkup, @"class\s*=\s*[""']([^""']*)[""']", 
+                m => $"class=\"{m.Groups[1].Value} {className}\"", RegexOptions.IgnoreCase);
+        }
+        else
+        {
+            // Add new class attribute
+            svgMarkup = Regex.Replace(svgMarkup, @"<svg", $"<svg class=\"{className}\"", RegexOptions.IgnoreCase);
+        }
+        
+        return svgMarkup;
+    }
+    
+    public string TransformSvg(string svgMarkup, string transform)
+    {
+        if (string.IsNullOrWhiteSpace(svgMarkup) || string.IsNullOrWhiteSpace(transform))
+            return svgMarkup;
+        
+        if (Regex.IsMatch(svgMarkup, @"transform\s*=", RegexOptions.IgnoreCase))
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"transform\s*=\s*[""'][^""']*[""']", 
+                $"transform=\"{transform}\"", RegexOptions.IgnoreCase);
+        }
+        else
+        {
+            svgMarkup = Regex.Replace(svgMarkup, @"<svg", $"<svg transform=\"{transform}\"", RegexOptions.IgnoreCase);
+        }
+        
+        return svgMarkup;
+    }
+
+    // ===== UTILITY METHODS =====
     
     public string GenerateSvg(string svgMarkup, int width = 24, int height = 24, string? viewBox = null, string? additionalAttributes = null)
     {
         if (string.IsNullOrWhiteSpace(svgMarkup))
         {
-            _logger.LogWarning("⚠ Empty SVG markup provided");
             return VisualElementsConstants.FALLBACK_SVG;
         }
         
@@ -385,11 +422,9 @@ public class VisualElementsService : IVisualElementsService
     {
         if (string.IsNullOrWhiteSpace(svgMarkup))
         {
-            _logger.LogWarning("⚠ Empty SVG markup for data URI");
             return VisualElementsConstants.FALLBACK_ICON;
         }
         
-        // URL encode the SVG for data URI
         var encoded = Uri.EscapeDataString(svgMarkup)
             .Replace("%20", " ")
             .Replace("%3D", "=")
@@ -400,6 +435,14 @@ public class VisualElementsService : IVisualElementsService
             .Replace("%22", "'");
         
         return $"data:image/svg+xml,{encoded}";
+    }
+    
+    public async Task<string> GetSvgAsBase64Async(SvgType svgType)
+    {
+        var svg = await GetSvgAsync(svgType);
+        var bytes = Encoding.UTF8.GetBytes(svg);
+        var base64 = Convert.ToBase64String(bytes);
+        return $"data:image/svg+xml;base64,{base64}";
     }
 
     // ===== CACHE METHODS =====
@@ -435,7 +478,15 @@ public class VisualElementsService : IVisualElementsService
         
         await Task.WhenAll(tasks);
         
-        _logger.LogInformation($"✓ Preloaded {tasks.Count} assets");
+        _logger.LogInformation($"✓ Preloaded {tasks.Count} assets ({_iconCache.Count} icons, {_svgCache.Count} SVGs)");
+    }
+    
+    public async Task PreloadSvgsAsync(params SvgType[] svgTypes)
+    {
+        var tasks = svgTypes.Select(svgType => GetSvgAsync(svgType)).ToList();
+        await Task.WhenAll(tasks);
+        
+        _logger.LogInformation($"✓ Preloaded {svgTypes.Length} specific SVGs");
     }
     
     public (int IconsCached, int SvgsCached, int TotalCached) GetCacheStats()
