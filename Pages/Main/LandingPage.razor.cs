@@ -8,7 +8,7 @@ using SubashaVentures.Services.VisualElements;
 
 namespace SubashaVentures.Pages.Main;
 
-public partial class LandingPage : ComponentBase
+public partial class LandingPage : ComponentBase, IAsyncDisposable
 {
     [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private IProductService ProductService { get; set; } = default!;
@@ -25,7 +25,6 @@ public partial class LandingPage : ComponentBase
     
     private string newsletterEmail = "";
     
-    // Button icons
     private string shopNowIcon = "";
     private string storyIcon = "";
     private string allProductsIcon = "";
@@ -67,7 +66,6 @@ public partial class LandingPage : ComponentBase
     {
         try
         {
-            // Load button icons with white color for primary buttons
             shopNowIcon = await VisualElements.GetSvgWithColorAsync(SvgType.ShopNow, 20, 20, "currentColor");
             storyIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Story, 20, 20, "currentColor");
             allProductsIcon = await VisualElements.GetSvgWithColorAsync(SvgType.AllProducts, 20, 20, "currentColor");
