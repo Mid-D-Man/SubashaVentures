@@ -108,12 +108,31 @@
 
 .rating-stars {
     display: flex;
-    gap: 0.125rem;
-    font-size: 0.7rem;
+    gap: 2px;
 }
 
 .star {
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: #d1d5db;
+    transition: color 0.2s ease;
+}
+
+.star :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.star.filled {
+    color: #fbbf24;
+}
+
+.star.filled :global(svg) {
+    fill: #fbbf24;
 }
 
 /* ===== CONTENT ===== */
@@ -242,15 +261,23 @@
     line-height: 1;
 }
 
+.badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+}
+
+.badge-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
 .badge.verified {
     background: rgba(16, 185, 129, 0.1);
     color: var(--success-color, #10b981);
-}
-
-.badge svg {
-    display: block;
-    width: 14px;
-    height: 14px;
 }
 
 .review-actions {
@@ -275,6 +302,22 @@
     line-height: 1;
 }
 
+.helpful-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: currentColor;
+    transition: color 0.2s ease;
+}
+
+.helpful-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
 .review-helpful:hover {
     background: rgba(150, 153, 74, 0.1);
     border-color: var(--primary-color, #96994A);
@@ -287,10 +330,12 @@
     color: white;
 }
 
-.review-helpful svg {
-    display: block;
-    width: 16px;
-    height: 16px;
+.review-helpful.active .helpful-icon {
+    color: white;
+}
+
+.review-helpful.active .helpful-icon :global(svg) {
+    fill: white;
 }
 
 /* ===== DARK THEME ===== */
@@ -409,8 +454,9 @@
         font-size: 0.9375rem;
     }
 
-    .rating-stars {
-        font-size: 0.625rem;
+    .star {
+        width: 12px;
+        height: 12px;
     }
 
     .review-image-wrapper,
@@ -430,10 +476,20 @@
         font-size: 0.6875rem;
         padding: 0.25rem 0.5rem;
     }
+    
+    .badge-icon {
+        width: 12px;
+        height: 12px;
+    }
 
     .review-helpful {
         font-size: 0.6875rem;
         padding: 0.25rem 0.5rem;
+    }
+    
+    .helpful-icon {
+        width: 14px;
+        height: 14px;
     }
 }
 
@@ -476,8 +532,9 @@
         font-size: 1rem;
     }
 
-    .rating-stars {
-        font-size: 0.6875rem;
+    .star {
+        width: 13px;
+        height: 13px;
     }
 
     .review-image-wrapper,
@@ -562,4 +619,4 @@
     .review-image-more:hover {
         transform: none;
     }
-}
+    }
