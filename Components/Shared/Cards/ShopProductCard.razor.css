@@ -143,12 +143,29 @@
 }
 
 .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 4px 12px;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     border-radius: 6px;
     letter-spacing: 0.5px;
+}
+
+.badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+}
+
+.badge-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .badge-featured {
@@ -253,7 +270,7 @@
     text-decoration: line-through;
 }
 
-/* ===== RATING ===== */
+/* ===== RATING WITH SVG STARS ===== */
 .product-rating {
     display: flex;
     align-items: center;
@@ -267,12 +284,23 @@
 }
 
 .star {
-    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
     color: #4b5563;
+    transition: color 0.2s ease;
+}
+
+.star :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .star.filled {
-    color: #f59e0b;
+    color: #fbbf24;
 }
 
 .rating-text {
@@ -304,6 +332,20 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+}
+
+.btn-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .btn-add-cart:hover:not(.disabled):not(.loading) {
@@ -347,6 +389,7 @@
 
 .btn-favorite.active {
     background: #374151;
+    border-color: #ef4444;
 }
 
 .btn-favorite.loading {
@@ -354,13 +397,34 @@
 }
 
 .heart-icon {
-    font-size: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
     color: white;
     transition: color 0.2s ease;
 }
 
+.heart-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.heart-icon.filled {
+    color: #ef4444;
+}
+
 .btn-favorite.active .heart-icon {
-    color: #f59e0b;
+    animation: heartBeat 0.5s ease;
+}
+
+@keyframes heartBeat {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.2); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.1); }
 }
 
 /* ===== LOADING SPINNER ===== */
@@ -384,8 +448,8 @@
 
 /* ===== RESPONSIVE - ENHANCED WITH MORE BREAKPOINTS ===== */
 
-/* Extra Small Mobile Portrait (≤360px) */
-@media (max-width: 360px) {
+/* Extra Small Devices (Phones Portrait, < 576px) */
+@media (max-width: 575px) {
     .product-details {
         padding: 6px;
         gap: 4px;
@@ -409,7 +473,8 @@
     }
 
     .star {
-        font-size: 0.6875rem;
+        width: 14px;
+        height: 14px;
     }
 
     .rating-text {
@@ -421,18 +486,29 @@
         font-size: 0.5625rem;
     }
 
+    .btn-icon {
+        width: 14px;
+        height: 14px;
+    }
+
     .btn-favorite {
         width: 36px;
         height: 36px;
     }
 
     .heart-icon {
-        font-size: 0.9375rem;
+        width: 16px;
+        height: 16px;
     }
 
     .badge {
         padding: 2px 6px;
         font-size: 0.5625rem;
+    }
+    
+    .badge-icon {
+        width: 12px;
+        height: 12px;
     }
     
     .placeholder-emoji {
@@ -465,7 +541,8 @@
     }
 
     .star {
-        font-size: 0.75rem;
+        width: 15px;
+        height: 15px;
     }
 
     .rating-text {
@@ -477,13 +554,19 @@
         font-size: 0.625rem;
     }
 
+    .btn-icon {
+        width: 16px;
+        height: 16px;
+    }
+
     .btn-favorite {
         width: 40px;
         height: 40px;
     }
 
     .heart-icon {
-        font-size: 1rem;
+        width: 18px;
+        height: 18px;
     }
 
     .badge {
@@ -586,132 +669,7 @@
     }
 }
 
-/* Small Desktop (1025px - 1366px) */
-@media (min-width: 1025px) and (max-width: 1366px) {
-    .shop-product-card {
-        border-radius: 14px;
-    }
-
-    .product-details {
-        padding: 14px;
-        gap: 9px;
-    }
-
-    .product-meta {
-        font-size: 0.8125rem;
-    }
-
-    .product-name {
-        font-size: 0.9375rem;
-    }
-
-    .current-price {
-        font-size: 1.0625rem;
-    }
-
-    .original-price {
-        font-size: 0.8125rem;
-    }
-
-    .btn-add-cart {
-        padding: 11px 18px;
-        font-size: 0.8125rem;
-    }
-
-    .btn-favorite {
-        width: 50px;
-        height: 50px;
-    }
-
-    .heart-icon {
-        font-size: 1.375rem;
-    }
-}
-
-/* Large Desktop (≥1367px) */
-@media (min-width: 1367px) {
-    .shop-product-card {
-        border-radius: 16px;
-    }
-
-    .product-details {
-        padding: 16px;
-        gap: 10px;
-    }
-
-    .product-meta {
-        font-size: 0.875rem;
-    }
-
-    .product-name {
-        font-size: 1rem;
-    }
-
-    .current-price {
-        font-size: 1.125rem;
-    }
-
-    .original-price {
-        font-size: 0.875rem;
-    }
-
-    .star {
-        font-size: 1rem;
-    }
-
-    .rating-text {
-        font-size: 0.8125rem;
-    }
-
-    .btn-add-cart {
-        padding: 12px 20px;
-        font-size: 0.875rem;
-    }
-
-    .btn-favorite {
-        width: 52px;
-        height: 52px;
-    }
-
-    .heart-icon {
-        font-size: 1.5rem;
-    }
-
-    .badge {
-        padding: 6px 14px;
-        font-size: 0.875rem;
-    }
-}
-
-/* Ultra-wide Desktop (≥1920px) */
-@media (min-width: 1920px) {
-    .shop-product-card {
-        border-radius: 18px;
-    }
-
-    .product-details {
-        padding: 18px;
-        gap: 12px;
-    }
-
-    .product-name {
-        font-size: 1.125rem;
-    }
-
-    .current-price {
-        font-size: 1.25rem;
-    }
-
-    .btn-add-cart {
-        padding: 14px 22px;
-        font-size: 0.9375rem;
-    }
-
-    .btn-favorite {
-        width: 56px;
-        height: 56px;
-    }
-}
+/* Desktop (1025px+) - Default styles already applied */
 
 /* Short landscape screens (height ≤ 600px) */
 @media (max-height: 600px) and (orientation: landscape) {
@@ -761,7 +719,8 @@
     .btn-favorite,
     .shop-product-card.featured,
     .spinner-small,
-    .badge-in-cart {
+    .badge-in-cart,
+    .btn-favorite.active .heart-icon {
         transition: none;
         animation: none;
     }
@@ -775,10 +734,4 @@
 .shop-product-card:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
-}
-
-.btn-add-cart:focus-visible,
-.btn-favorite:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-                          }
+    }
