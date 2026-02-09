@@ -1,19 +1,23 @@
-
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
-
 @using SubashaVentures.Services.Wishlist
 @using SubashaVentures.Services.Cart
 @using SubashaVentures.Services.Authorization
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
 @inject NavigationManager NavigationManager
 @inject IPermissionService PermissionService
 @inject ICartService CartService
 @inject IWishlistService WishlistService
+@inject IVisualElementsService VisualElementsService
 
 <div class="potd-card @CssClass">
     <div class="potd-header">
         <div class="potd-badge">
-            <span class="badge-icon">*</span>
+            @if (!string.IsNullOrEmpty(starSvg))
+            {
+                <span class="badge-icon">@((MarkupString)starSvg)</span>
+            }
             <span class="badge-text">Product of the Day</span>
         </div>
         <div class="potd-timer" title="Refreshes daily">
@@ -48,12 +52,22 @@
                     </div>
                 }
                 
-                @* Wishlist Button *@
-                <button class="potd-wishlist-btn @(isInWishlist ? "active" : "")" 
+                @* Wishlist Button with SVG *@
+                <button class="potd-wishlist-btn @(isInWishlist ? "active" : "") @(IsTogglingWishlist ? "loading" : "")" 
                         @onclick="HandleWishlistToggle" 
                         @onclick:stopPropagation="true"
+                        disabled="@IsTogglingWishlist"
                         title="@(isInWishlist ? "Remove from wishlist" : "Add to wishlist")">
-                    <span class="heart-icon">@(isInWishlist ? "♥" : "♡")</span>
+                    @if (IsTogglingWishlist)
+                    {
+                        <span class="spinner-icon"></span>
+                    }
+                    else if (!string.IsNullOrEmpty(heartSvg))
+                    {
+                        <span class="heart-icon @(isInWishlist ? "filled" : "")">
+                            @((MarkupString)heartSvg)
+                        </span>
+                    }
                 </button>
             </div>
 
@@ -63,7 +77,10 @@
                     @if (Product.Rating > 0)
                     {
                         <div class="potd-rating">
-                            <span class="rating-icon">⭐</span>
+                            @if (!string.IsNullOrEmpty(starSvg))
+                            {
+                                <span class="rating-icon">@((MarkupString)starSvg)</span>
+                            }
                             <span class="rating-value">@Product.Rating.ToString("F1")</span>
                             <span class="rating-count">(@Product.ReviewCount)</span>
                         </div>
@@ -95,19 +112,34 @@
                 </div>
 
                 <div class="potd-actions">
-                    <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
-                                  OnClick="HandleAddToCart"
-                                  IsDisabled="@(!Product.IsInStock)"
-                                  CssClass="potd-add-cart-btn">
-                        @(Product.IsInStock ? "🛒 Add to Cart" : "Out of Stock")
-                    </PrimaryButton>
+                    <button class="potd-add-cart-btn @(IsAddingToCart ? "loading" : "")"
+                            @onclick="HandleAddToCart"
+                            @onclick:stopPropagation="true"
+                            disabled="@(!Product.IsInStock || IsAddingToCart)">
+                        @if (IsAddingToCart)
+                        {
+                            <span class="btn-spinner"></span>
+                            <span>Adding...</span>
+                        }
+                        else if (Product.IsInStock)
+                        {
+                            @if (!string.IsNullOrEmpty(cartSvg))
+                            {
+                                <span class="btn-icon">@((MarkupString)cartSvg)</span>
+                            }
+                            <span>Add to Cart</span>
+                        }
+                        else
+                        {
+                            <span>Out of Stock</span>
+                        }
+                    </button>
                     
-                    <SecondaryButton Size="SecondaryButton.ButtonSize.Large"
-                                    Variant="SecondaryButton.ButtonVariant.Outline"
-                                    OnClick="HandleViewDetails"
-                                    CssClass="potd-view-btn">
+                    <button class="potd-view-btn"
+                            @onclick="HandleViewDetails"
+                            @onclick:stopPropagation="true">
                         View Details
-                    </SecondaryButton>
+                    </button>
                 </div>
             </div>
         </div>
@@ -138,10 +170,20 @@
     [Parameter] public EventCallback<ProductViewModel> OnViewDetails { get; set; }
 
     private bool isInWishlist = false;
+    private bool IsAddingToCart = false;
+    private bool IsTogglingWishlist = false;
     private string? currentUserId;
+    
+    // SVG strings
+    private string starSvg = string.Empty;
+    private string heartSvg = string.Empty;
+    private string cartSvg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
+        // Load SVGs
+        await LoadSvgsAsync();
+        
         // Check if user is authenticated and get their wishlist status
         if (Product != null && await PermissionService.IsAuthenticatedAsync())
         {
@@ -171,6 +213,43 @@
         }
     }
 
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            var starTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Star, 
+                width: 16, 
+                height: 16,
+                fillColor: "currentColor"
+            );
+            
+            var heartTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Heart, 
+                width: 24, 
+                height: 24,
+                fillColor: "currentColor"
+            );
+            
+            var cartTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Cart, 
+                width: 18, 
+                height: 18,
+                fillColor: "currentColor"
+            );
+
+            await Task.WhenAll(starTask, heartTask, cartTask);
+            
+            starSvg = await starTask;
+            heartSvg = await heartTask;
+            cartSvg = await cartTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading SVGs: {ex.Message}");
+        }
+    }
+
     private string GetTimeRemaining()
     {
         var now = DateTime.UtcNow;
@@ -194,48 +273,58 @@
     {
         if (Product != null)
         {
-            // Navigate to product details page
             NavigationManager.NavigateTo($"product/{Product.Slug}");
         }
     }
 
     private async Task HandleAddToCart(MouseEventArgs e)
     {
-        if (Product == null || !Product.IsInStock) return;
+        if (Product == null || !Product.IsInStock || IsAddingToCart) return;
 
-        // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-        {
-            return;
-        }
+        IsAddingToCart = true;
+        StateHasChanged();
 
-        if (string.IsNullOrEmpty(currentUserId))
+        try
         {
-            currentUserId = await PermissionService.GetCurrentUserIdAsync();
-        }
-
-        if (string.IsNullOrEmpty(currentUserId))
-        {
-            PermissionService.ShowAuthRequiredMessage("add items to cart");
-            return;
-        }
-
-        // Add to cart
-        var success = await CartService.AddToCartAsync(
-            currentUserId, 
-            Product.Id.ToString(), 
-            quantity: 1
-        );
-        
-        if (success)
-        {
-            // Invoke parent callback if provided
-            if (OnAddToCart.HasDelegate)
+            // Check authentication
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
             {
-                await OnAddToCart.InvokeAsync(Product);
+                return;
             }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("add items to cart");
+                return;
+            }
+
+            // Add to cart
+            var success = await CartService.AddToCartAsync(
+                currentUserId, 
+                Product.Id.ToString(), 
+                quantity: 1
+            );
             
-            Console.WriteLine($"✓ Added {Product.Name} to cart");
+            if (success)
+            {
+                // Invoke parent callback if provided
+                if (OnAddToCart.HasDelegate)
+                {
+                    await OnAddToCart.InvokeAsync(Product);
+                }
+                
+                Console.WriteLine($"✓ Added {Product.Name} to cart");
+            }
+        }
+        finally
+        {
+            IsAddingToCart = false;
+            StateHasChanged();
         }
     }
 
@@ -243,38 +332,48 @@
     {
         if (Product != null)
         {
-            // Navigate to product details page
             NavigationManager.NavigateTo($"product/{Product.Slug}");
         }
     }
 
     private async Task HandleWishlistToggle(MouseEventArgs e)
     {
-        if (Product == null) return;
+        if (Product == null || IsTogglingWishlist) return;
 
-        // Check authentication
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+        IsTogglingWishlist = true;
+        StateHasChanged();
+
+        try
         {
-            return;
+            // Check authentication
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                currentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("add items to wishlist");
+                return;
+            }
+
+            // Toggle wishlist
+            var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
+            
+            if (success)
+            {
+                isInWishlist = !isInWishlist;
+                StateHasChanged();
+            }
         }
-
-        if (string.IsNullOrEmpty(currentUserId))
+        finally
         {
-            currentUserId = await PermissionService.GetCurrentUserIdAsync();
-        }
-
-        if (string.IsNullOrEmpty(currentUserId))
-        {
-            PermissionService.ShowAuthRequiredMessage("add items to wishlist");
-            return;
-        }
-
-        // Toggle wishlist
-        var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
-        
-        if (success)
-        {
-            isInWishlist = !isInWishlist;
+            IsTogglingWishlist = false;
             StateHasChanged();
         }
     }
