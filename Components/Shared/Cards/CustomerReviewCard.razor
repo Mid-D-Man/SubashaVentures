@@ -1,4 +1,7 @@
 @using SubashaVentures.Domain.Product
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
+@inject IVisualElementsService VisualElementsService
 
 <div class="review-card @CssClass">
     <div class="review-header">
@@ -23,9 +26,12 @@
         <div class="review-rating-badge">
             <span class="rating-number">@Review.Rating</span>
             <span class="rating-stars">
-                @for (int i = 0; i < Review.Rating; i++)
+                @if (!string.IsNullOrEmpty(starSvg))
                 {
-                    <span class="star">⭐</span>
+                    @for (int i = 0; i < Review.Rating; i++)
+                    {
+                        <span class="star filled">@((MarkupString)starSvg)</span>
+                    }
                 }
             </span>
         </div>
@@ -68,10 +74,11 @@
             @if (Review.IsVerifiedPurchase)
             {
                 <span class="badge verified">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
-                    </svg>
-                    Verified Purchase
+                    @if (!string.IsNullOrEmpty(checkMarkSvg))
+                    {
+                        <span class="badge-icon">@((MarkupString)checkMarkSvg)</span>
+                    }
+                    <span>Verified Purchase</span>
                 </span>
             }
         </div>
@@ -80,9 +87,10 @@
             <button class="review-helpful @(IsHelpful ? "active" : "")" 
                     @onclick="HandleHelpfulClick"
                     title="Mark as helpful">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="@(IsHelpful ? "currentColor" : "none")" stroke="currentColor">
-                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" stroke-width="2"/>
-                </svg>
+                @if (!string.IsNullOrEmpty(thumbsUpSvg))
+                {
+                    <span class="helpful-icon @(IsHelpful ? "filled" : "")">@((MarkupString)thumbsUpSvg)</span>
+                }
                 <span>Helpful (@GetHelpfulCount())</span>
             </button>
         </div>
@@ -98,6 +106,54 @@
     [Parameter] public EventCallback<ReviewViewModel> OnShowMoreImages { get; set; }
 
     private bool IsExpanded { get; set; }
+    
+    // SVG strings
+    private string starSvg = string.Empty;
+    private string checkMarkSvg = string.Empty;
+    private string thumbsUpSvg = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSvgsAsync();
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            // Load all SVGs in parallel
+            var starTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Star, 
+                width: 14, 
+                height: 14,
+                fillColor: "currentColor"
+            );
+            
+            var checkMarkTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.CheckMark, 
+                width: 14, 
+                height: 14,
+                fillColor: "currentColor"
+            );
+            
+            var thumbsUpTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.ThumbsUp, 
+                width: 16, 
+                height: 16,
+                fillColor: "currentColor"
+            );
+
+            await Task.WhenAll(starTask, checkMarkTask, thumbsUpTask);
+            
+            starSvg = await starTask;
+            checkMarkSvg = await checkMarkTask;
+            thumbsUpSvg = await thumbsUpTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading review card SVGs: {ex.Message}");
+        }
+    }
 
     private string GetInitial(string name)
     {
