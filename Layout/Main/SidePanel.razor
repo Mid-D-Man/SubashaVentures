@@ -48,15 +48,39 @@
                     <div class="nav-section">
                         <h4 class="section-title">My Account</h4>
                         <a class="nav-link" @onclick="() => NavigateTo(UserDirectory)">
+                            @if (navIconCache.ContainsKey("user"))
+                            {
+                                <div class="nav-icon">
+                                    @((MarkupString)navIconCache["user"])
+                                </div>
+                            }
                             <span class="nav-text">Me</span>
                         </a>
                         <a class="nav-link" @onclick="() => NavigateTo(ProfileDirectory)">
+                            @if (navIconCache.ContainsKey("settings"))
+                            {
+                                <div class="nav-icon">
+                                    @((MarkupString)navIconCache["settings"])
+                                </div>
+                            }
                             <span class="nav-text">Profile Settings</span>
                         </a>
                         <a class="nav-link" @onclick="() => NavigateTo(OrdersDirectory)">
+                            @if (navIconCache.ContainsKey("orders"))
+                            {
+                                <div class="nav-icon">
+                                    @((MarkupString)navIconCache["orders"])
+                                </div>
+                            }
                             <span class="nav-text">My Orders</span>
                         </a>
                         <a class="nav-link" @onclick="() => NavigateTo(WishlistDirectory)">
+                            @if (navIconCache.ContainsKey("wishlist"))
+                            {
+                                <div class="nav-icon">
+                                    @((MarkupString)navIconCache["wishlist"])
+                                </div>
+                            }
                             <span class="nav-text">Wishlist</span>
                         </a>
                     </div>
@@ -65,9 +89,21 @@
                 <div class="nav-section">
                     <h4 class="section-title">Shop</h4>
                     <a class="nav-link" @onclick="() => NavigateTo(HomeDirectory)">
+                        @if (navIconCache.ContainsKey("home"))
+                        {
+                            <div class="nav-icon">
+                                @((MarkupString)navIconCache["home"])
+                            </div>
+                        }
                         <span class="nav-text">Home</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(ShopDirectory)">
+                        @if (navIconCache.ContainsKey("allproducts"))
+                        {
+                            <div class="nav-icon">
+                                @((MarkupString)navIconCache["allproducts"])
+                            </div>
+                        }
                         <span class="nav-text">All Products</span>
                     </a>
                 </div>
@@ -115,15 +151,39 @@
                 <div class="nav-section">
                     <h4 class="section-title">Support</h4>
                     <a class="nav-link" @onclick="() => NavigateTo(AboutDirectory)">
+                        @if (navIconCache.ContainsKey("about"))
+                        {
+                            <div class="nav-icon">
+                                @((MarkupString)navIconCache["about"])
+                            </div>
+                        }
                         <span class="nav-text">About Us</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(ContactDirectory)">
+                        @if (navIconCache.ContainsKey("contact"))
+                        {
+                            <div class="nav-icon">
+                                @((MarkupString)navIconCache["contact"])
+                            </div>
+                        }
                         <span class="nav-text">Contact</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(HelpDirectory)">
+                        @if (navIconCache.ContainsKey("help"))
+                        {
+                            <div class="nav-icon">
+                                @((MarkupString)navIconCache["help"])
+                            </div>
+                        }
                         <span class="nav-text">Help Center</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(TrackOrderDirectory)">
+                        @if (navIconCache.ContainsKey("track"))
+                        {
+                            <div class="nav-icon">
+                                @((MarkupString)navIconCache["track"])
+                            </div>
+                        }
                         <span class="nav-text">Track Orders</span>
                     </a>
                 </div>
@@ -178,6 +238,9 @@
     
     // Cache for pre-rendered category SVGs
     private Dictionary<string, string> categorySvgCache = new();
+    
+    // Cache for navigation icons
+    private Dictionary<string, string> navIconCache = new();
 
     public enum ActionType
     {
@@ -190,6 +253,7 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadAuthenticationState();
+        await LoadNavigationIcons();
         await LoadTopCategories();
         
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
@@ -252,6 +316,32 @@
     {
         if (string.IsNullOrEmpty(userName)) return "?";
         return userName.Substring(0, 1).ToUpper();
+    }
+    
+    private async Task LoadNavigationIcons()
+    {
+        try
+        {
+            // Load all navigation icons with proper colors
+            var iconColor = "var(--text-secondary, #666)";
+            
+            navIconCache["user"] = await VisualElements.GetSvgWithColorAsync(SvgType.User, 20, 20, iconColor);
+            navIconCache["settings"] = await VisualElements.GetSvgWithColorAsync(SvgType.Settings, 20, 20, iconColor);
+            navIconCache["orders"] = await VisualElements.GetSvgWithColorAsync(SvgType.Order, 20, 20, iconColor);
+            navIconCache["wishlist"] = await VisualElements.GetSvgWithColorAsync(SvgType.Wishlist, 20, 20, iconColor);
+            navIconCache["home"] = await VisualElements.GetSvgWithColorAsync(SvgType.Home, 20, 20, iconColor);
+            navIconCache["allproducts"] = await VisualElements.GetSvgWithColorAsync(SvgType.AllProducts, 20, 20, iconColor);
+            navIconCache["about"] = await VisualElements.GetSvgWithColorAsync(SvgType.About, 20, 20, iconColor);
+            navIconCache["contact"] = await VisualElements.GetSvgWithColorAsync(SvgType.Contact, 20, 20, iconColor);
+            navIconCache["help"] = await VisualElements.GetSvgWithColorAsync(SvgType.HelpCenter, 20, 20, iconColor);
+            navIconCache["track"] = await VisualElements.GetSvgWithColorAsync(SvgType.TrackOrders, 20, 20, iconColor);
+            
+            Console.WriteLine($"✓ Loaded {navIconCache.Count} navigation icons");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading navigation icons: {ex.Message}");
+        }
     }
 
     private async Task LoadTopCategories()
