@@ -4,7 +4,10 @@
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Layout.Main
 @using SubashaVentures.Domain.Product
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
 @layout LandingPageLayout
+@inject IVisualElementsService VisualElements
 
 <div class="landing-page">
     <!-- Hero Section -->
@@ -28,16 +31,20 @@
                     From trendy fashion to cozy home essentials - find everything you love at Subasha.
                 </p>
                 <div class="hero-actions">
-                    <PrimaryButton Size="PrimaryButton.ButtonSize.Large" 
-                                  OnClick="@NavigateToShop"
-                                  CssClass="cta-primary">
-                        🛍️ Shop Now
-                    </PrimaryButton>
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
-                                    Size="SecondaryButton.ButtonSize.Large" 
-                                    CssClass="cta-secondary">
-                        📖 Our Story
-                    </SecondaryButton>
+                    <button class="professional-btn primary" @onclick="NavigateToShop">
+                        @if (!string.IsNullOrEmpty(shopNowIcon))
+                        {
+                            <span class="btn-icon">@((MarkupString)shopNowIcon)</span>
+                        }
+                        <span class="btn-label">Shop Now</span>
+                    </button>
+                    <button class="professional-btn secondary">
+                        @if (!string.IsNullOrEmpty(storyIcon))
+                        {
+                            <span class="btn-icon">@((MarkupString)storyIcon)</span>
+                        }
+                        <span class="btn-label">Our Story</span>
+                    </button>
                 </div>
                 <div class="hero-stats">
                     <div class="stat-item">
@@ -129,10 +136,13 @@
             </div>
 
             <div class="section-cta">
-                <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
-                              OnClick="@NavigateToShop">
-                    View All Products
-                </PrimaryButton>
+                <button class="professional-btn primary large" @onclick="NavigateToShop">
+                    @if (!string.IsNullOrEmpty(allProductsIcon))
+                    {
+                        <span class="btn-icon">@((MarkupString)allProductsIcon)</span>
+                    }
+                    <span class="btn-label">View All Products</span>
+                </button>
             </div>
         }
         else
@@ -208,5 +218,8 @@
 </div>
 
 @code {
-    // All code is in LandingPage.razor.cs
+    // Button icons cache
+    private string shopNowIcon = "";
+    private string storyIcon = "";
+    private string allProductsIcon = "";
 }
