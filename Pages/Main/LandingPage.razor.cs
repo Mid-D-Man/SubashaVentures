@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Product;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Services.Products;
+using SubashaVentures.Services.VisualElements;
 
 namespace SubashaVentures.Pages.Main;
 
@@ -10,6 +12,7 @@ public partial class LandingPage : ComponentBase
 {
     [Inject] private IProductOfTheDayService ProductOfTheDayService { get; set; } = default!;
     [Inject] private IProductService ProductService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -21,12 +24,18 @@ public partial class LandingPage : ComponentBase
     private bool isLoadingFeatured = true;
     
     private string newsletterEmail = "";
+    
+    // Button icons
+    private string shopNowIcon = "";
+    private string storyIcon = "";
+    private string allProductsIcon = "";
 
     private IJSObjectReference? jsModule;
     private IJSObjectReference? landingPageInstance;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadButtonIcons();
         await LoadProductOfTheDay();
         await LoadFeaturedProducts();
         LoadSampleReviews();
@@ -51,6 +60,23 @@ public partial class LandingPage : ComponentBase
             {
                 Console.WriteLine($"Error initializing LandingPage JS: {ex.Message}");
             }
+        }
+    }
+    
+    private async Task LoadButtonIcons()
+    {
+        try
+        {
+            // Load button icons with white color for primary buttons
+            shopNowIcon = await VisualElements.GetSvgWithColorAsync(SvgType.ShopNow, 20, 20, "currentColor");
+            storyIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Story, 20, 20, "currentColor");
+            allProductsIcon = await VisualElements.GetSvgWithColorAsync(SvgType.AllProducts, 20, 20, "currentColor");
+            
+            Console.WriteLine("✓ Loaded landing page button icons");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading button icons: {ex.Message}");
         }
     }
 
