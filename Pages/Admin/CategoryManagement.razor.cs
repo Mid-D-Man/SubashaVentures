@@ -2,10 +2,12 @@
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Services.VisualElements;
+using SubashaVentures.Services.Categories;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Domain.Enums;
+using SubashaVentures.Domain.Product;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -15,6 +17,7 @@ public partial class CategoryManagement : ComponentBase
 {
     [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
     [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
+    [Inject] private ICategoryService CategoryService { get; set; } = default!;
     [Inject] private ILogger<CategoryManagement> Logger { get; set; } = default!;
 
     private bool isLoading = true;
@@ -25,10 +28,15 @@ public partial class CategoryManagement : ComponentBase
     private bool isDeleting = false;
     private bool showIconPicker = false;
 
-    private List<CategoryModel> categories = new();
+    private List<CategoryViewModel> categories = new();
     private CategoryFormData editingCategory = new();
     private CategoryModel? categoryToDelete = null;
     private Dictionary<string, string> validationErrors = new();
+    
+    // Cache for pre-rendered SVGs
+    private Dictionary<string, string> categorySvgCache = new();
+    private Dictionary<SvgType, string> iconSvgCache = new();
+    private string? selectedIconSvg = null;
     
     // Available category icons (curated list)
     private readonly List<SvgType> availableCategoryIcons = new()
@@ -43,8 +51,8 @@ public partial class CategoryManagement : ComponentBase
         SvgType.Wishlist,
         SvgType.Heart,
         SvgType.Star,
-        SvgType.Flame,
-        SvgType.ThumbsUp
+        SvgType.ThumbsUp,
+        SvgType.Flame
     };
 
     private DynamicModal? categoryModal;
@@ -55,12 +63,34 @@ public partial class CategoryManagement : ComponentBase
     {
         try
         {
+            // Pre-load all icon SVGs for picker
+            await PreloadIconSvgs();
             await LoadCategoriesAsync();
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "CategoryManagement initialization");
             ShowError("Failed to initialize category management");
+        }
+    }
+
+    private async Task PreloadIconSvgs()
+    {
+        try
+        {
+            foreach (var iconType in availableCategoryIcons)
+            {
+                var svg = await VisualElements.GetSvgWithColorAsync(
+                    iconType, 
+                    28, 
+                    28, 
+                    "var(--text-secondary)");
+                iconSvgCache[iconType] = svg;
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Preloading icon SVGs");
         }
     }
 
@@ -71,17 +101,27 @@ public partial class CategoryManagement : ComponentBase
             isLoading = true;
             StateHasChanged();
 
-            var loadedCategories = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
+            categories = await CategoryService.GetAllCategoriesAsync();
             
-            if (loadedCategories != null)
+            // Pre-render category SVGs for table
+            categorySvgCache.Clear();
+            foreach (var category in categories)
             {
-                categories = loadedCategories;
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Loaded {categories.Count} categories",
-                    LogLevel.Info
-                );
+                if (category.IconSvgType != SvgType.None)
+                {
+                    var svg = await VisualElements.GetSvgWithColorAsync(
+                        category.IconSvgType, 
+                        24, 
+                        24, 
+                        "var(--primary-color)");
+                    categorySvgCache[category.Id] = svg;
+                }
             }
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {categories.Count} categories",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
@@ -95,7 +135,7 @@ public partial class CategoryManagement : ComponentBase
         }
     }
 
-    private void OpenAddCategoryModal()
+    private async Task OpenAddCategoryModal()
     {
         isEditMode = false;
         editingCategory = new CategoryFormData
@@ -108,11 +148,19 @@ public partial class CategoryManagement : ComponentBase
         };
         validationErrors.Clear();
         showIconPicker = false;
+        
+        // Pre-render selected icon
+        selectedIconSvg = await VisualElements.GetSvgWithColorAsync(
+            editingCategory.IconSvgType, 
+            32, 
+            32, 
+            "var(--primary-color)");
+        
         isCategoryModalOpen = true;
         StateHasChanged();
     }
 
-    private void OpenEditCategoryModal(CategoryModel category)
+    private async Task OpenEditCategoryModal(CategoryViewModel category)
     {
         isEditMode = true;
         editingCategory = new CategoryFormData
@@ -132,6 +180,17 @@ public partial class CategoryManagement : ComponentBase
         };
         validationErrors.Clear();
         showIconPicker = false;
+        
+        // Pre-render selected icon
+        if (editingCategory.IconSvgType != SvgType.None)
+        {
+            selectedIconSvg = await VisualElements.GetSvgWithColorAsync(
+                editingCategory.IconSvgType, 
+                32, 
+                32, 
+                "var(--primary-color)");
+        }
+        
         isCategoryModalOpen = true;
         StateHasChanged();
     }
@@ -142,6 +201,7 @@ public partial class CategoryManagement : ComponentBase
         editingCategory = new();
         validationErrors.Clear();
         showIconPicker = false;
+        selectedIconSvg = null;
         StateHasChanged();
     }
 
@@ -151,10 +211,18 @@ public partial class CategoryManagement : ComponentBase
         StateHasChanged();
     }
 
-    private void SelectIcon(SvgType iconType)
+    private async Task SelectIcon(SvgType iconType)
     {
         editingCategory.IconSvgType = iconType;
         showIconPicker = false;
+        
+        // Update selected icon preview
+        selectedIconSvg = await VisualElements.GetSvgWithColorAsync(
+            iconType, 
+            32, 
+            32, 
+            "var(--primary-color)");
+        
         StateHasChanged();
     }
 
@@ -168,35 +236,36 @@ public partial class CategoryManagement : ComponentBase
             isSaving = true;
             StateHasChanged();
 
-            if (string.IsNullOrEmpty(editingCategory.Slug))
-            {
-                editingCategory.Slug = GenerateSlug(editingCategory.Name);
-            }
-
-            var categoryModel = new CategoryModel
-            {
-                Id = editingCategory.Id,
-                Name = editingCategory.Name,
-                Slug = editingCategory.Slug,
-                Description = editingCategory.Description,
-                ImageUrl = editingCategory.ImageUrl,
-                IconSvgType = editingCategory.IconSvgType,
-                ParentId = editingCategory.ParentId,
-                ProductCount = editingCategory.ProductCount,
-                DisplayOrder = editingCategory.DisplayOrder,
-                IsActive = editingCategory.IsActive,
-                CreatedAt = editingCategory.CreatedAt,
-                UpdatedAt = editingCategory.UpdatedAt
-            };
+            var request = isEditMode 
+                ? new UpdateCategoryRequest
+                {
+                    Name = editingCategory.Name,
+                    Description = editingCategory.Description,
+                    ImageUrl = editingCategory.ImageUrl,
+                    IconSvgType = editingCategory.IconSvgType,
+                    DisplayOrder = editingCategory.DisplayOrder,
+                    IsActive = editingCategory.IsActive
+                }
+                : null;
 
             bool success;
             if (isEditMode)
             {
-                success = await FirestoreService.UpdateDocumentAsync("categories", categoryModel.Id, categoryModel);
+                success = await CategoryService.UpdateCategoryAsync(editingCategory.Id, request!);
             }
             else
             {
-                var id = await FirestoreService.AddDocumentAsync("categories", categoryModel, categoryModel.Id);
+                var createRequest = new CreateCategoryRequest
+                {
+                    Name = editingCategory.Name,
+                    Description = editingCategory.Description,
+                    ImageUrl = editingCategory.ImageUrl,
+                    IconSvgType = editingCategory.IconSvgType,
+                    ParentId = editingCategory.ParentId,
+                    DisplayOrder = editingCategory.DisplayOrder
+                };
+                
+                var id = await CategoryService.CreateCategoryAsync(createRequest);
                 success = !string.IsNullOrEmpty(id);
             }
 
@@ -250,16 +319,7 @@ public partial class CategoryManagement : ComponentBase
         return true;
     }
 
-    private string GenerateSlug(string name)
-    {
-        return name
-            .ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("'", "")
-            .Replace("&", "and");
-    }
-
-    private void HandleDeleteCategory(CategoryModel category)
+    private void HandleDeleteCategory(CategoryViewModel category)
     {
         if (category.ProductCount > 0)
         {
@@ -271,7 +331,22 @@ public partial class CategoryManagement : ComponentBase
             return;
         }
 
-        categoryToDelete = category;
+        categoryToDelete = new CategoryModel
+        {
+            Id = category.Id,
+            Name = category.Name,
+            Slug = category.Slug,
+            Description = category.Description,
+            ImageUrl = category.ImageUrl,
+            IconSvgType = category.IconSvgType,
+            ParentId = category.ParentId,
+            ProductCount = category.ProductCount,
+            DisplayOrder = category.DisplayOrder,
+            IsActive = category.IsActive,
+            CreatedAt = category.CreatedAt,
+            UpdatedAt = category.UpdatedAt
+        };
+        
         isConfirmationOpen = true;
         StateHasChanged();
     }
@@ -286,7 +361,7 @@ public partial class CategoryManagement : ComponentBase
             isDeleting = true;
             StateHasChanged();
 
-            var success = await FirestoreService.DeleteDocumentAsync("categories", categoryToDelete.Id);
+            var success = await CategoryService.DeleteCategoryAsync(categoryToDelete.Id);
 
             if (success)
             {

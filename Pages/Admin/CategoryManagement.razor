@@ -90,14 +90,10 @@
                         <tr class="@(category.IsActive ? "" : "inactive")">
                             <td>
                                 <div class="category-name-cell">
-                                    @if (category.IconSvgType != SvgType.None)
+                                    @if (category.IconSvgType != SvgType.None && categorySvgCache.ContainsKey(category.Id))
                                     {
                                         <div class="category-icon-svg">
-                                            @((MarkupString)await VisualElements.GetSvgWithColorAsync(
-                                                category.IconSvgType, 
-                                                24, 
-                                                24, 
-                                                "var(--primary-color)"))
+                                            @((MarkupString)categorySvgCache[category.Id])
                                         </div>
                                     }
                                     <div class="category-name-info">
@@ -145,6 +141,7 @@
         </div>
     }
 </div>
+
 <!-- Add/Edit Category Modal -->
 <DynamicModal @ref="categoryModal"
               Title="@(isEditMode ? "Edit Category" : "Add Category")"
@@ -182,14 +179,10 @@
                 
                 <!-- Selected Icon Preview -->
                 <div class="icon-preview-container" @onclick="ToggleIconPicker">
-                    @if (editingCategory.IconSvgType != SvgType.None)
+                    @if (editingCategory.IconSvgType != SvgType.None && selectedIconSvg != null)
                     {
                         <div class="selected-icon">
-                            @((MarkupString)await VisualElements.GetSvgWithColorAsync(
-                                editingCategory.IconSvgType, 
-                                32, 
-                                32, 
-                                "var(--primary-color)"))
+                            @((MarkupString)selectedIconSvg)
                         </div>
                         <span class="selected-icon-name">@editingCategory.IconSvgType.ToString()</span>
                     }
@@ -211,14 +204,13 @@
                         <div class="icon-picker-grid">
                             @foreach (var iconType in availableCategoryIcons)
                             {
-                                <div class="icon-picker-item @(editingCategory.IconSvgType == iconType ? "selected" : "")"
+                                var isSelected = editingCategory.IconSvgType == iconType;
+                                var iconSvg = iconSvgCache.GetValueOrDefault(iconType, "");
+                                
+                                <div class="icon-picker-item @(isSelected ? "selected" : "")"
                                      @onclick="@(() => SelectIcon(iconType))"
                                      title="@iconType.ToString()">
-                                    @((MarkupString)await VisualElements.GetSvgWithColorAsync(
-                                        iconType, 
-                                        28, 
-                                        28, 
-                                        editingCategory.IconSvgType == iconType ? "var(--primary-color)" : "var(--text-secondary)"))
+                                    @((MarkupString)iconSvg)
                                 </div>
                             }
                         </div>

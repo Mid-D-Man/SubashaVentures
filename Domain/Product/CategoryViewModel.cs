@@ -20,6 +20,8 @@ public class CategoryViewModel
     public int ProductCount { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public List<CategoryViewModel> SubCategories { get; set; } = new();
     
     // ==================== CONVERSION METHODS ====================
@@ -44,6 +46,8 @@ public class CategoryViewModel
             ProductCount = model.ProductCount,
             DisplayOrder = model.DisplayOrder,
             IsActive = model.IsActive,
+            CreatedAt = model.CreatedAt,
+            UpdatedAt = model.UpdatedAt,
             SubCategories = new List<CategoryViewModel>()
         };
     }
@@ -65,7 +69,8 @@ public class CategoryViewModel
             ProductCount = this.ProductCount,
             DisplayOrder = this.DisplayOrder,
             IsActive = this.IsActive,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = this.CreatedAt,
+            UpdatedAt = this.UpdatedAt
         };
     }
     

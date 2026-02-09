@@ -1,11 +1,14 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @using SubashaVentures.Services.Categories
+@using SubashaVentures.Services.VisualElements
 @using SubashaVentures.Domain.Product
+@using SubashaVentures.Domain.Enums
 @using SubashaVentures.Utilities.HelperScripts
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ICategoryService CategoryService
+@inject IVisualElementsService VisualElements
 @inject ShopStateService ShopState
 @implements IDisposable
 
@@ -84,9 +87,11 @@
                         @foreach (var category in TopCategories)
                         {
                             <a class="nav-link" @onclick="() => NavigateToShopWithCategory(category)">
-                                @if (!string.IsNullOrEmpty(category.IconEmoji))
+                                @if (category.IconSvgType != SvgType.None && categorySvgCache.ContainsKey(category.Id))
                                 {
-                                    <span class="category-icon">@category.IconEmoji</span>
+                                    <div class="category-icon-svg">
+                                        @((MarkupString)categorySvgCache[category.Id])
+                                    </div>
                                 }
                                 <span class="nav-text">@category.Name</span>
                             </a>
@@ -170,6 +175,9 @@
     private List<CategoryViewModel> TopCategories = new();
     private bool IsLoadingCategories = true;
     private bool HasMoreCategories = false;
+    
+    // Cache for pre-rendered category SVGs
+    private Dictionary<string, string> categorySvgCache = new();
 
     public enum ActionType
     {
@@ -262,6 +270,21 @@
                     .ToList();
                 
                 HasMoreCategories = allCategories.Count > MAX_CATEGORIES_TO_SHOW;
+                
+                // Pre-render category SVGs
+                categorySvgCache.Clear();
+                foreach (var category in TopCategories)
+                {
+                    if (category.IconSvgType != SvgType.None)
+                    {
+                        var svg = await VisualElements.GetSvgWithColorAsync(
+                            category.IconSvgType, 
+                            20, 
+                            20, 
+                            "var(--primary-color)");
+                        categorySvgCache[category.Id] = svg;
+                    }
+                }
             }
             else
             {
