@@ -6,7 +6,6 @@
     gap: 4rem;
     padding: 0;
     margin: 0;
-    overflow-x: hidden;
 }
 
 /* ===== HERO SECTION ===== */
@@ -22,8 +21,6 @@
     );
     padding: 2rem 1rem;
     overflow: hidden;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .hero-content {
@@ -34,15 +31,12 @@
     gap: 3rem;
     align-items: center;
     width: 100%;
-    box-sizing: border-box;
 }
 
 .hero-text {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .hero-title {
@@ -54,8 +48,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .title-static {
@@ -129,10 +121,6 @@
     line-height: 1.6;
     color: var(--text-body, #4b5563);
     margin: 0;
-    width: 100%;
-    box-sizing: border-box;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
 }
 
 /* ===== PROFESSIONAL BUTTONS ===== */
@@ -155,7 +143,6 @@
     white-space: nowrap;
     position: relative;
     overflow: hidden;
-    box-sizing: border-box;
 }
 
 /* Primary Button */
@@ -259,15 +246,12 @@
     gap: 1rem;
     flex-wrap: wrap;
     justify-content: flex-start;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .hero-stats {
     display: flex;
     gap: 2rem;
     margin-top: 1rem;
-    flex-wrap: wrap;
 }
 
 .stat-item {
@@ -294,8 +278,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .hero-image-container {
@@ -304,7 +286,6 @@
     max-width: 400px;
     transform: perspective(1000px) rotateY(-5deg);
     transition: transform 0.3s ease;
-    box-sizing: border-box;
 }
 
 .hero-image-container:hover {
@@ -351,8 +332,6 @@
 .section-header {
     text-align: center;
     margin-bottom: 3rem;
-    padding: 0 1rem;
-    box-sizing: border-box;
 }
 
 .section-title {
@@ -373,8 +352,6 @@
 .featured-section {
     padding: 4rem 0;
     overflow: hidden;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .scroll-wrapper {
@@ -384,15 +361,18 @@
     position: relative;
     padding: 1rem 0;
     cursor: grab;
+
     will-change: scroll-position;
     transform: translateZ(0);
     -webkit-overflow-scrolling: touch;
+
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
+
     scroll-snap-type: x proximity;
     scroll-behavior: smooth;
+
     height: 620px;
-    box-sizing: border-box;
 }
 
 .scroll-wrapper::-webkit-scrollbar {
@@ -420,6 +400,7 @@
     display: flex;
     gap: 2rem;
     width: max-content;
+
     will-change: transform;
     transform: translateZ(0);
 }
@@ -429,10 +410,12 @@
     width: 340px;
     height: 560px;
     display: flex;
+
     scroll-snap-align: start;
+
     contain: layout style paint;
+
     transition: opacity 0.3s ease, transform 0.3s ease;
-    box-sizing: border-box;
 }
 
 .product-card-wrapper > * {
@@ -453,8 +436,6 @@
 .section-cta {
     text-align: center;
     margin-top: 3rem;
-    padding: 0 1rem;
-    box-sizing: border-box;
 }
 
 .loading-container {
@@ -522,7 +503,6 @@
     position: relative;
     background: linear-gradient(135deg, rgba(150, 153, 74, 0.85) 0%, rgba(122, 125, 58, 0.9) 100%);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-    box-sizing: border-box;
 }
 
 .newsletter-section::before {
@@ -539,7 +519,6 @@
     max-width: 600px;
     margin: 0 auto;
     text-align: center;
-    box-sizing: border-box;
 }
 
 .newsletter-title {
@@ -571,7 +550,6 @@
     max-width: 450px;
     margin: 0 auto;
     width: 100%;
-    box-sizing: border-box;
 }
 
 .newsletter-input {
@@ -625,7 +603,6 @@
     letter-spacing: 0.5px;
     pointer-events: all !important;
     opacity: 1 !important;
-    box-sizing: border-box;
 }
 
 .newsletter-submit:hover:not(:disabled) {
@@ -650,8 +627,6 @@
 .testimonials-section {
     padding: 4rem 0;
     overflow: hidden;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .testimonials-scroll-wrapper {
@@ -661,14 +636,16 @@
     position: relative;
     padding: 1rem 0;
     cursor: grab;
+
     will-change: scroll-position;
     transform: translateZ(0);
     -webkit-overflow-scrolling: touch;
+
     scrollbar-width: thin;
     scrollbar-color: rgba(150, 153, 74, 0.3) transparent;
+
     scroll-snap-type: x proximity;
     scroll-behavior: smooth;
-    box-sizing: border-box;
 }
 
 .testimonials-scroll-wrapper::-webkit-scrollbar {
@@ -696,6 +673,7 @@
     display: flex;
     gap: 1.5rem;
     width: max-content;
+
     will-change: transform;
     transform: translateZ(0);
 }
@@ -705,10 +683,12 @@
     width: 340px;
     max-width: 340px;
     min-width: 340px;
+
     scroll-snap-align: start;
+
     contain: layout style paint;
+
     transition: opacity 0.3s ease, transform 0.3s ease;
-    box-sizing: border-box;
 }
 
 .testimonials-scroll-content > *.in-view {
@@ -1004,7 +984,7 @@
 
     .hero-section {
         min-height: auto;
-        padding: 1.5rem 1rem;
+        padding: 1.5rem 0;
     }
 
     .hero-content {
@@ -1018,19 +998,15 @@
         align-items: flex-start;
         padding: 0 1rem;
         gap: 1.25rem;
-        max-width: 100%;
     }
 
     .hero-title {
         font-size: 2rem;
         align-items: flex-start;
-        max-width: 100%;
     }
 
     .title-static {
         text-align: left;
-        max-width: 100%;
-        word-wrap: break-word;
     }
 
     .title-animated {
@@ -1053,46 +1029,35 @@
         font-size: 1rem;
         text-align: left;
         line-height: 1.5;
-        max-width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        padding-right: 0;
     }
 
+    /* FIXED: Center buttons on mobile */
     .hero-actions {
-        justify-content: flex-start;
+        justify-content: center;
         width: 100%;
         flex-direction: row;
         gap: 0.75rem;
-        margin: 0;
-        padding: 0;
+        margin: 0 auto;
     }
     
     .hero-actions .professional-btn {
-        flex: 1 1 calc(50% - 0.375rem);
+        flex: 1;
         min-width: 0;
-        max-width: calc(50% - 0.375rem);
-        padding: 0.75rem 0.5rem;
+        max-width: 48%;
+        padding: 0.75rem 1rem;
         font-size: 0.875rem;
-        white-space: nowrap;
     }
     
     .hero-actions .professional-btn .btn-icon {
         width: 18px;
         height: 18px;
     }
-    
-    .hero-actions .professional-btn .btn-label {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
 
     .hero-stats {
-        justify-content: flex-start;
+        justify-content: center;
         gap: 1.5rem;
         flex-wrap: wrap;
-        padding: 0;
-        margin: 0;
+        padding: 0 1rem;
     }
 
     .stat-item {
@@ -1108,6 +1073,7 @@
         font-size: 0.75rem;
     }
     
+    /* FIXED: Prevent POD card from going outside screen */
     .hero-visual {
         width: 100%;
         padding: 0 1rem;
@@ -1125,16 +1091,14 @@
         width: 100%;
     }
 
-    .section-header {
-        padding: 0 1rem;
-    }
-
     .section-title {
         font-size: 1.75rem;
+        padding: 0 1rem;
     }
     
     .section-subtitle {
         font-size: 1rem;
+        padding: 0 1rem;
     }
 
     .scroll-wrapper {
@@ -1209,8 +1173,9 @@
         font-size: 0.9rem;
     }
     
+    /* Ensure buttons fit on very small screens */
     .hero-actions .professional-btn {
-        padding: 0.625rem 0.4rem;
+        padding: 0.625rem 0.75rem;
         font-size: 0.8125rem;
     }
     
@@ -1346,4 +1311,4 @@
         background: white;
         box-shadow: none;
     }
-        }
+    }
