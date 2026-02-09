@@ -1,14 +1,16 @@
-@using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Product
 @using SubashaVentures.Services.Wishlist
 @using SubashaVentures.Services.Cart
 @using SubashaVentures.Services.Authorization
 @using SubashaVentures.Services.Products
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
 @inject NavigationManager NavigationManager
 @inject IPermissionService PermissionService
 @inject ICartService CartService
 @inject IWishlistService WishlistService
 @inject IProductInteractionService InteractionService
+@inject IVisualElementsService VisualElementsService
 
 <div class="featured-product-card @CssClass" @onclick="HandleCardClick">
     
@@ -24,20 +26,32 @@
         else
         {
             <div class="image-skeleton">
-                <span class="placeholder-icon">✨</span>
+                <span class="placeholder-icon">📦</span>
             </div>
         }
         
         @* Badges *@
         <div class="badges-row">
-            <span class="badge featured-badge">⭐ Featured</span>
+            <span class="badge featured-badge">
+                @if (!string.IsNullOrEmpty(flameSvg))
+                {
+                    <span class="badge-icon">@((MarkupString)flameSvg)</span>
+                }
+                <span>Featured</span>
+            </span>
             @if (Product.IsOnSale && Product.Discount > 0)
             {
                 <span class="badge sale-badge">-@Product.Discount%</span>
             }
             @if (IsInCart)
             {
-                <span class="badge cart-badge">✓ In Cart</span>
+                <span class="badge cart-badge">
+                    @if (!string.IsNullOrEmpty(checkMarkSvg))
+                    {
+                        <span class="badge-icon">@((MarkupString)checkMarkSvg)</span>
+                    }
+                    <span>In Cart</span>
+                </span>
             }
         </div>
         
@@ -51,9 +65,11 @@
             {
                 <span class="spinner-icon"></span>
             }
-            else
+            else if (!string.IsNullOrEmpty(heartSvg))
             {
-                <span class="heart-icon">@(isInWishlist ? "♥" : "♡")</span>
+                <span class="heart-icon @(isInWishlist ? "filled" : "")">
+                    @((MarkupString)heartSvg)
+                </span>
             }
         </button>
     </div>
@@ -82,9 +98,15 @@
         {
             <div class="product-rating">
                 <div class="rating-stars">
-                    @for (int i = 1; i <= 5; i++)
+                    @if (!string.IsNullOrEmpty(starSvg))
                     {
-                        <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            int starIndex = i;
+                            <span class="star @(starIndex <= Product.Rating ? "filled" : "")">
+                                @((MarkupString)starSvg)
+                            </span>
+                        }
                     }
                 </div>
                 <span class="review-count">(@Product.ReviewCount)</span>
@@ -104,11 +126,19 @@
                 }
                 else if (IsInCart)
                 {
-                    <span>✓ In Cart</span>
+                    @if (!string.IsNullOrEmpty(checkMarkSvg))
+                    {
+                        <span class="btn-icon">@((MarkupString)checkMarkSvg)</span>
+                    }
+                    <span>In Cart</span>
                 }
                 else if (Product.IsInStock)
                 {
-                    <span>🛒 Add to Cart</span>
+                    @if (!string.IsNullOrEmpty(cartSvg))
+                    {
+                        <span class="btn-icon">@((MarkupString)cartSvg)</span>
+                    }
+                    <span>Add to Cart</span>
                 }
                 else
                 {
@@ -135,9 +165,19 @@
     private bool IsAddingToCart = false;
     private bool IsTogglingWishlist = false;
     private string? currentUserId;
+    
+    // SVG strings
+    private string starSvg = string.Empty;
+    private string heartSvg = string.Empty;
+    private string cartSvg = string.Empty;
+    private string checkMarkSvg = string.Empty;
+    private string flameSvg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
+        // Load SVGs
+        await LoadSvgsAsync();
+        
         // Check if user is authenticated and get their wishlist status
         if (await PermissionService.IsAuthenticatedAsync())
         {
@@ -147,6 +187,60 @@
                 isInWishlist = await WishlistService.IsInWishlistAsync(currentUserId, Product.Id.ToString());
                 IsInCart = await CartService.IsInCartAsync(currentUserId, Product.Id.ToString());
             }
+        }
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            // Load all SVGs in parallel
+            var starTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Star, 
+                width: 16, 
+                height: 16,
+                fillColor: "currentColor"
+            );
+            
+            var heartTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Heart, 
+                width: 24, 
+                height: 24,
+                fillColor: "currentColor"
+            );
+            
+            var cartTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Cart, 
+                width: 18, 
+                height: 18,
+                fillColor: "currentColor"
+            );
+            
+            var checkMarkTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.CheckMark, 
+                width: 16, 
+                height: 16,
+                fillColor: "currentColor"
+            );
+            
+            var flameTask = VisualElementsService.GetCustomSvgAsync(
+                SvgType.Flame, 
+                width: 16, 
+                height: 16,
+                fillColor: "currentColor"
+            );
+
+            await Task.WhenAll(starTask, heartTask, cartTask, checkMarkTask, flameTask);
+            
+            starSvg = await starTask;
+            heartSvg = await heartTask;
+            cartSvg = await cartTask;
+            checkMarkSvg = await checkMarkTask;
+            flameSvg = await flameTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading SVGs: {ex.Message}");
         }
     }
 
@@ -206,8 +300,6 @@
             if (success)
             {
                 isInWishlist = !isInWishlist;
-                
-              
             }
         }
         finally
@@ -248,18 +340,29 @@
                 return;
             }
 
+            // AUTO-SELECT FIRST VARIANT IF PRODUCT HAS VARIANTS
+            string? selectedSize = null;
+            string? selectedColor = null;
+            
+            if (Product.Variants != null && Product.Variants.Any())
+            {
+                var firstVariant = Product.Variants.First();
+                selectedSize = firstVariant.Value.Size;
+                selectedColor = firstVariant.Value.Color;
+            }
+
             // Add to cart
             var success = await CartService.AddToCartAsync(
                 currentUserId, 
                 Product.Id.ToString(), 
-                quantity: 1
+                quantity: 1,
+                size: selectedSize,
+                color: selectedColor
             );
             
             if (success)
             {
                 IsInCart = true;
-                
-             
                 Console.WriteLine($"✓ Added {Product.Name} to cart");
             }
         }
