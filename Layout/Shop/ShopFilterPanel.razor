@@ -1,5 +1,8 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
+@inject IVisualElementsService VisualElements
 
 <div class="filter-panel">
     @if (IsLoading)
@@ -54,10 +57,18 @@
                     <button 
                         class="rating-btn @(MinRating == currentRating ? "active" : "")"
                         @onclick="@(() => SetMinRating(currentRating))">
-                        @for (int i = 0; i < 5; i++)
-                        {
-                            <span class="star @(i < currentRating ? "filled" : "")">★</span>
-                        }
+                        <div class="stars-row">
+                            @for (int i = 0; i < 5; i++)
+                            {
+                                int starIndex = i;
+                                <span class="star @(starIndex < currentRating ? "filled" : "")">
+                                    @if (!string.IsNullOrEmpty(starSvg))
+                                    {
+                                        @((MarkupString)starSvg)
+                                    }
+                                </span>
+                            }
+                        </div>
                         <span class="rating-text">& Up</span>
                     </button>
                 }
@@ -128,3 +139,37 @@
         </div>
     }
 </div>
+
+@code {
+    private string starSvg = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFilterOptionsFromFirebase();
+        
+        if (CurrentFilters != null)
+        {
+            SyncWithCurrentFilters();
+        }
+        
+        // Load star SVG
+        await LoadStarSvgAsync();
+    }
+
+    private async Task LoadStarSvgAsync()
+    {
+        try
+        {
+            starSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star,
+                width: 16,
+                height: 16,
+                fillColor: "currentColor"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading star SVG: {ex.Message}");
+        }
+    }
+}
