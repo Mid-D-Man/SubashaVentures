@@ -7,7 +7,6 @@
 @using SubashaVentures.Services.VisualElements
 @using SubashaVentures.Domain.Enums
 @layout LandingPageLayout
-@inject IVisualElementsService VisualElements
 
 <div class="landing-page">
     <!-- Hero Section -->
@@ -216,10 +215,3 @@
         </div>
     </section>
 </div>
-
-@code {
-    // Button icons cache
-    private string shopNowIcon = "";
-    private string storyIcon = "";
-    private string allProductsIcon = "";
-}
