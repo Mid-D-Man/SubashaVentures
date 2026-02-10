@@ -1,0 +1,415 @@
+/* Components/Admin/Orders/AdminOrderCard.razor.css */
+
+.admin-order-card {
+    background: var(--bg-surface);
+    border: 2px solid var(--border-light);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.admin-order-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px var(--shadow-medium);
+    border-color: var(--primary-color);
+}
+
+.admin-order-card.selected {
+    border-color: var(--primary-color);
+    background: rgba(150, 153, 74, 0.05);
+    box-shadow: 0 4px 16px var(--shadow-light);
+}
+
+/* Card Selection */
+.card-selection {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+}
+
+.card-selection input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+/* Card Header */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-right: 2rem;
+}
+
+.order-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.order-number {
+    font-family: 'Poppins', monospace;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.urgent-indicator {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--danger-color);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    display: inline-block;
+    animation: urgentPulse 2s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(0.98); }
+}
+
+.status-badge {
+    padding: 0.375rem 0.875rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.status-badge.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning-color);
+}
+
+.status-badge.processing {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--info-color);
+}
+
+.status-badge.shipped {
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--purple-color);
+}
+
+.status-badge.delivered {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success-color);
+}
+
+.status-badge.cancelled {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+}
+
+.status-badge.failed {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-muted);
+}
+
+.status-badge.refunded {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-muted);
+}
+
+/* Customer Section */
+.card-customer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: rgba(150, 153, 74, 0.05);
+    border-radius: 8px;
+}
+
+.customer-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.customer-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.customer-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.94rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.customer-email {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Card Details */
+.card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.detail-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.detail-value.total {
+    color: var(--primary-color);
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.payment-badge {
+    padding: 0.25rem 0.625rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.payment-badge.paid {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success-color);
+}
+
+.payment-badge.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning-color);
+}
+
+.payment-badge.failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+}
+
+.payment-badge.refunded {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-muted);
+}
+
+/* Delivery Section */
+.card-delivery {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.875rem;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 8px;
+    border-left: 3px solid var(--info-color);
+}
+
+.card-delivery.urgent {
+    background: rgba(239, 68, 68, 0.08);
+    border-left-color: var(--danger-color);
+    animation: deliveryPulse 3s ease-in-out infinite;
+}
+
+.card-delivery.delivered {
+    background: rgba(16, 185, 129, 0.08);
+    border-left-color: var(--success-color);
+}
+
+.card-delivery.cancelled {
+    background: rgba(107, 114, 128, 0.08);
+    border-left-color: var(--text-muted);
+}
+
+@keyframes deliveryPulse {
+    0%, 100% { background: rgba(239, 68, 68, 0.08); }
+    50% { background: rgba(239, 68, 68, 0.15); }
+}
+
+.delivery-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.delivery-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.delivery-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.delivery-time {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.card-delivery.urgent .delivery-time {
+    color: var(--danger-color);
+}
+
+.card-delivery.delivered .delivery-time {
+    color: var(--success-color);
+}
+
+/* Tracking Section */
+.card-tracking {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgba(150, 153, 74, 0.05);
+    border-radius: 8px;
+    border: 1px dashed var(--border-medium);
+}
+
+.tracking-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.tracking-number {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Card Actions */
+.card-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.card-action-btn {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-light);
+    background: var(--bg-primary);
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: inherit;
+}
+
+.card-action-btn.view {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.card-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-light);
+}
+
+.card-action-btn.view:hover {
+    background: var(--hover-primary);
+    border-color: var(--hover-primary);
+}
+
+/* Dark Theme */
+[data-theme="dark"] .admin-order-card {
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .admin-order-card.selected {
+    background: rgba(184, 187, 106, 0.08);
+}
+
+[data-theme="dark"] .card-customer {
+    background: rgba(184, 187, 106, 0.08);
+}
+
+[data-theme="dark"] .customer-avatar {
+    background: var(--primary-color);
+}
+
+[data-theme="dark"] .card-tracking {
+    background: rgba(184, 187, 106, 0.08);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .card-action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .card-action-btn.view {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--text-on-primary);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .admin-order-card {
+        padding: 1rem;
+    }
+
+    .order-number {
+        font-size: 1rem;
+    }
+
+    .customer-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 0.875rem;
+    }
+                      }
