@@ -171,26 +171,26 @@ public partial class ProductDetails : ComponentBase, IDisposable
     }
 
     protected override async Task OnParametersSetAsync()
+{
+    // Handle slug changes (e.g., from related products)
+    if (!IsLoading && Product != null && !Product.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase))
     {
-        // Handle slug changes (e.g., from related products)
-        if (!IsLoading && Product != null && !Product.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase))
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Slug changed from {Product.Slug} to {Slug}, reloading...",
-                LogLevel.Info
-            );
-            
-            IsLoading = true;
-            ImageLoading = true;
-            ThumbnailsLoading = true;
-            StateHasChanged();
-            
-            await LoadProductDetails();
-            
-            IsLoading = false;
-            StateHasChanged();
-        }
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"🔄 Slug changed from {Product.Slug} to {Slug}, reloading...",
+            LogLevel.Info
+        );
+        
+        IsLoading = true;
+        ImageLoading = true;  // Only show skeleton when loading new product
+        ThumbnailsLoading = true;
+        StateHasChanged();
+        
+        await LoadProductDetails();
+        
+        IsLoading = false;
+        StateHasChanged();
     }
+}
 
 private async Task LoadProductDetails()
 {
