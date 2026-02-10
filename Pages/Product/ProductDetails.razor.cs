@@ -276,11 +276,12 @@ private void SelectImage(string image)
 }
     
     private void HandleImageLoad()
-    {
-        ImageLoading = false;
-        ThumbnailsLoading = false;
-        StateHasChanged();
-    }
+{
+    // Additional safety - ensure loading states are false when image loads
+    ImageLoading = false;
+    ThumbnailsLoading = false;
+    StateHasChanged();
+}
 
     private async Task CheckCartAndWishlistStatus()
     {
