@@ -1,11 +1,12 @@
-<!-- Pages/Product/ProductDetails.razor -->
 @page "/product/{slug}"
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Layout.ProductDetails
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
 @layout ProductDetailsLayout
+@inject IVisualElementsService VisualElements
 
 <PageTitle>@(Product?.Name ?? "Product Details") - SubashaVentures</PageTitle>
 
@@ -19,7 +20,12 @@
     else if (Product == null)
     {
         <div class="error-container">
-            <div class="error-icon">📦</div>
+            <div class="error-icon">
+                @if (!string.IsNullOrEmpty(warningSvg))
+                {
+                    @((MarkupString)warningSvg)
+                }
+            </div>
             <h2>Product Not Found</h2>
             <p>The product you're looking for doesn't exist or has been removed.</p>
             <button class="btn-primary" @onclick="NavigateToShop">Browse Products</button>
@@ -31,14 +37,21 @@
             @* Image Gallery Section *@
             <div class="product-images">
                 <div class="main-image">
-                    @if (!string.IsNullOrEmpty(SelectedImage))
+                    @if (ImageLoading)
                     {
-                        <img src="@SelectedImage" alt="@Product.Name" />
+                        <SkeletonCard CssClass="image-skeleton" />
+                    }
+                    else if (!string.IsNullOrEmpty(SelectedImage))
+                    {
+                        <img src="@SelectedImage" alt="@Product.Name" @onload="HandleImageLoad" />
                     }
                     else
                     {
                         <div class="image-placeholder">
-                            <span class="placeholder-icon">📦</span>
+                            @if (!string.IsNullOrEmpty(allProductsSvg))
+                            {
+                                @((MarkupString)allProductsSvg)
+                            }
                         </div>
                     }
                     
@@ -46,15 +59,33 @@
                     <div class="image-badges">
                         @if (Product.IsFeatured)
                         {
-                            <span class="badge badge-featured">⭐ Featured</span>
+                            <span class="badge badge-featured">
+                                @if (!string.IsNullOrEmpty(starSvg))
+                                {
+                                    <span class="badge-icon">@((MarkupString)starSvg)</span>
+                                }
+                                <span>Featured</span>
+                            </span>
                         }
                         @if (Product.IsOnSale && Product.Discount > 0)
                         {
-                            <span class="badge badge-sale">-@Product.Discount% OFF</span>
+                            <span class="badge badge-sale">
+                                @if (!string.IsNullOrEmpty(flameSvg))
+                                {
+                                    <span class="badge-icon">@((MarkupString)flameSvg)</span>
+                                }
+                                <span>-@Product.Discount% OFF</span>
+                            </span>
                         }
                         @if (!Product.IsInStock)
                         {
-                            <span class="badge badge-out-of-stock">Out of Stock</span>
+                            <span class="badge badge-out-of-stock">
+                                @if (!string.IsNullOrEmpty(warningSvg))
+                                {
+                                    <span class="badge-icon">@((MarkupString)warningSvg)</span>
+                                }
+                                <span>Out of Stock</span>
+                            </span>
                         }
                     </div>
                 </div>
@@ -66,7 +97,14 @@
                         {
                             <div class="thumbnail @(image == SelectedImage ? "active" : "")" 
                                  @onclick="() => SelectImage(image)">
-                                <img src="@image" alt="@Product.Name" />
+                                @if (ThumbnailsLoading)
+                                {
+                                    <div class="thumbnail-skeleton"></div>
+                                }
+                                else
+                                {
+                                    <img src="@image" alt="@Product.Name" />
+                                }
                             </div>
                         }
                     </div>
@@ -97,7 +135,13 @@
                             <div class="stars">
                                 @for (int i = 1; i <= 5; i++)
                                 {
-                                    <span class="star @(i <= Product.Rating ? "filled" : "")">★</span>
+                                    int currentStar = i;
+                                    <span class="star @(currentStar <= Product.Rating ? "filled" : "")">
+                                        @if (!string.IsNullOrEmpty(starSvg))
+                                        {
+                                            @((MarkupString)starSvg)
+                                        }
+                                    </span>
                                 }
                             </div>
                             <span class="rating-text">@Product.DisplayRating</span>
@@ -105,8 +149,7 @@
                         </div>
                     }
                 </div>
-
-                @* Price Section *@
+@* Price Section *@
                 <div class="price-section">
                     <div class="price-wrapper">
                         @if (Product.IsOnSale && Product.OriginalPrice.HasValue)
@@ -119,18 +162,43 @@
                     {
                         var savings = Product.OriginalPrice.Value - Product.Price;
                         <div class="savings-badge">
-                            You save ₦@savings.ToString("N0") (@Product.Discount% off)
+                            @if (!string.IsNullOrEmpty(checkMarkSvg))
+                            {
+                                <span class="savings-icon">@((MarkupString)checkMarkSvg)</span>
+                            }
+                            <span>You save ₦@savings.ToString("N0") (@Product.Discount% off)</span>
                         </div>
                     }
                 </div>
 
                 @* Stock Status *@
                 <div class="stock-status @(GetVariantStock() > 0 ? "in-stock" : "out-of-stock")">
-                    <span class="status-icon">@(GetVariantStock() > 0 ? "✓" : "✗")</span>
+                    <span class="status-icon">
+                        @if (GetVariantStock() > 0)
+                        {
+                            @if (!string.IsNullOrEmpty(checkMarkSvg))
+                            {
+                                @((MarkupString)checkMarkSvg)
+                            }
+                        }
+                        else
+                        {
+                            @if (!string.IsNullOrEmpty(closeSvg))
+                            {
+                                @((MarkupString)closeSvg)
+                            }
+                        }
+                    </span>
                     <span class="status-text">@GetStockStatus()</span>
                     @if (GetVariantStock() > 0 && GetVariantStock() <= 10)
                     {
-                        <span class="stock-count">Only @GetVariantStock() left!</span>
+                        <span class="stock-count">
+                            @if (!string.IsNullOrEmpty(warningSvg))
+                            {
+                                <span class="warning-icon">@((MarkupString)warningSvg)</span>
+                            }
+                            Only @GetVariantStock() left!
+                        </span>
                     }
                 </div>
 
@@ -188,19 +256,34 @@
                     @if (GetVariantHasFreeShipping())
                     {
                         <div class="shipping-item free-shipping">
-                            <span class="shipping-icon">🚚</span>
+                            <span class="shipping-icon">
+                                @if (!string.IsNullOrEmpty(shippingSvg))
+                                {
+                                    @((MarkupString)shippingSvg)
+                                }
+                            </span>
                             <span class="shipping-text">FREE Shipping</span>
                         </div>
                     }
                     else
                     {
                         <div class="shipping-item">
-                            <span class="shipping-icon">🚚</span>
+                            <span class="shipping-icon">
+                                @if (!string.IsNullOrEmpty(shippingSvg))
+                                {
+                                    @((MarkupString)shippingSvg)
+                                }
+                            </span>
                             <span class="shipping-text">Shipping: ₦@GetVariantShippingCost().ToString("N0")</span>
                         </div>
                     }
                     <div class="shipping-item">
-                        <span class="shipping-icon">⚖️</span>
+                        <span class="shipping-icon">
+                            @if (!string.IsNullOrEmpty(weightSvg))
+                            {
+                                @((MarkupString)weightSvg)
+                            }
+                        </span>
                         <span class="shipping-text">Weight: @GetVariantWeight() kg</span>
                     </div>
                 </div>
@@ -228,13 +311,18 @@
                         <span class="quantity-info">Max: @GetVariantStock()</span>
                     </div>
                 }
-
-                @* Action Buttons *@
+@* Action Buttons *@
                 <div class="action-buttons">
                     @if (IsInCart)
                     {
                         <button class="btn-view-cart" @onclick="NavigateToCart">
-                            <span>✓ IN CART - VIEW CART</span>
+                            <span class="btn-icon">
+                                @if (!string.IsNullOrEmpty(checkMarkSvg))
+                                {
+                                    @((MarkupString)checkMarkSvg)
+                                }
+                            </span>
+                            <span>IN CART - VIEW CART</span>
                         </button>
                     }
                     else
@@ -249,7 +337,13 @@
                             }
                             else if (GetVariantStock() > 0)
                             {
-                                <span>🛒 ADD TO CART</span>
+                                <span class="btn-icon">
+                                    @if (!string.IsNullOrEmpty(cartSvg))
+                                    {
+                                        @((MarkupString)cartSvg)
+                                    }
+                                </span>
+                                <span>ADD TO CART</span>
                             }
                             else
                             {
@@ -268,7 +362,13 @@
                         }
                         else
                         {
-                            <span>⚡ BUY NOW</span>
+                            <span class="btn-icon">
+                                @if (!string.IsNullOrEmpty(buyNowSvg))
+                                {
+                                    @((MarkupString)buyNowSvg)
+                                }
+                            </span>
+                            <span>BUY NOW</span>
                         }
                     </button>
                 </div>
@@ -277,7 +377,12 @@
                     @if (IsInWishlist)
                     {
                         <button class="btn-view-wishlist" @onclick="NavigateToWishlist">
-                            <span class="heart-icon">♥</span>
+                            <span class="heart-icon heart-filled">
+                                @if (!string.IsNullOrEmpty(heartSvg))
+                                {
+                                    @((MarkupString)heartSvg)
+                                }
+                            </span>
                             <span>IN WISHLIST - VIEW</span>
                         </button>
                     }
@@ -292,7 +397,12 @@
                             }
                             else
                             {
-                                <span class="heart-icon">♡</span>
+                                <span class="heart-icon">
+                                    @if (!string.IsNullOrEmpty(heartSvg))
+                                    {
+                                        @((MarkupString)heartSvg)
+                                    }
+                                </span>
                                 <span>ADD TO WISHLIST</span>
                             }
                         </button>
@@ -333,7 +443,11 @@
                 @if (IsAuthenticated)
                 {
                     <button class="btn-write-review" @onclick="OpenReviewForm">
-                        ✍️ Write a Review
+                        @if (!string.IsNullOrEmpty(editSvg))
+                        {
+                            <span class="review-icon">@((MarkupString)editSvg)</span>
+                        }
+                        <span>Write a Review</span>
                     </button>
                 }
             </div>
