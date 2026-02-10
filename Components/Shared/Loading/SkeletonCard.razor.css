@@ -23,7 +23,7 @@
 
 .skeleton-image {
     width: 100%;
-    flex: 0 0 65%;
+    aspect-ratio: 1 / 1; /* Match product card image aspect ratio */
     background: linear-gradient(
         90deg,
         var(--gray-200) 25%,
@@ -44,7 +44,7 @@
 }
 
 .skeleton-content {
-    padding: 1rem;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -140,7 +140,7 @@
 /* Extra Small Mobile (< 360px) */
 @media (max-width: 359px) {
     .skeleton-content {
-        padding: 8px;
+        padding: 6px;
         gap: 0.5rem;
     }
 
@@ -171,7 +171,7 @@
 /* Small Mobile (360px - 480px) */
 @media (min-width: 360px) and (max-width: 480px) {
     .skeleton-content {
-        padding: 10px;
+        padding: 8px;
         gap: 0.625rem;
     }
 
@@ -201,4 +201,4 @@
     .skeleton-stock {
         animation: none;
     }
-}
+    }
