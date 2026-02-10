@@ -192,78 +192,89 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
-    private async Task LoadProductDetails()
+private async Task LoadProductDetails()
+{
+    try
     {
-        try
+        // Get all products and find by slug
+        var allProducts = await ProductService.GetAllProductsAsync();
+        Product = allProducts.FirstOrDefault(p => 
+            p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase) && 
+            p.IsActive && 
+            !string.IsNullOrEmpty(p.Name)
+        );
+
+        if (Product == null)
         {
-            // Get all products and find by slug
-            var allProducts = await ProductService.GetAllProductsAsync();
-            Product = allProducts.FirstOrDefault(p => 
-                p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase) && 
-                p.IsActive && 
-                !string.IsNullOrEmpty(p.Name)
-            );
-
-            if (Product == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ Product not found for slug: {Slug}",
-                    LogLevel.Warning
-                );
-                return;
-            }
-
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Product loaded: {Product.Name} (ID: {Product.Id})",
-                LogLevel.Info
+                $"❌ Product not found for slug: {Slug}",
+                LogLevel.Warning
             );
-
-            // Set selected image
-            SelectedImage = Product.Images?.FirstOrDefault() ?? string.Empty;
-            
-            // Initialize variant selection to first available
-            if (Product.Sizes != null && Product.Sizes.Any())
-            {
-                SelectedSize = Product.Sizes.First();
-            }
-            
-            if (Product.Colors != null && Product.Colors.Any())
-            {
-                SelectedColor = Product.Colors.First();
-            }
-            
-            UpdateVariantKey();
-
-            // Track product view
-            if (!string.IsNullOrEmpty(CurrentUserId))
-            {
-                await InteractionService.TrackViewAsync(Product.Id, CurrentUserId);
-            }
-
-            // Track in localStorage for history page
-            await ViewTracker.TrackProductViewAsync(Product);
-
-            // Load user-specific data
-            if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
-            {
-                await CheckCartAndWishlistStatus();
-            }
-
-            // Load reviews
-            await LoadReviews();
-
-            // Load related products
-            await LoadRelatedProducts();
-
-            StateHasChanged();
+            return;
         }
-        catch (Exception ex)
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✅ Product loaded: {Product.Name} (ID: {Product.Id})",
+            LogLevel.Info
+        );
+
+        // Set selected image
+        SelectedImage = Product.Images?.FirstOrDefault() ?? string.Empty;
+        
+        // Reset image loading states after product is loaded
+        ImageLoading = false;
+        ThumbnailsLoading = false;
+        
+        // Initialize variant selection to first available
+        if (Product.Sizes != null && Product.Sizes.Any())
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading product details: {Slug}");
-            Logger.LogError(ex, "Failed to load product details");
+            SelectedSize = Product.Sizes.First();
         }
-    }
+        
+        if (Product.Colors != null && Product.Colors.Any())
+        {
+            SelectedColor = Product.Colors.First();
+        }
+        
+        UpdateVariantKey();
 
+        // Track product view
+        if (!string.IsNullOrEmpty(CurrentUserId))
+        {
+            await InteractionService.TrackViewAsync(Product.Id, CurrentUserId);
+        }
+
+        // Track in localStorage for history page
+        await ViewTracker.TrackProductViewAsync(Product);
+
+        // Load user-specific data
+        if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
+        {
+            await CheckCartAndWishlistStatus();
+        }
+
+        // Load reviews
+        await LoadReviews();
+
+        // Load related products
+        await LoadRelatedProducts();
+
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading product details: {Slug}");
+        Logger.LogError(ex, "Failed to load product details");
+    }
+}
+
+private void SelectImage(string image)
+{
+    // Don't show skeleton when switching between already-loaded images
+    SelectedImage = image;
+    StateHasChanged();
+}
+    
     private void HandleImageLoad()
     {
         ImageLoading = false;
