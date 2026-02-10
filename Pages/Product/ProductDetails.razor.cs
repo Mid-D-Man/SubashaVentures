@@ -4,8 +4,10 @@ using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Cart;
 using SubashaVentures.Services.Wishlist;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Models.Supabase;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.Tracking;
 using SubashaVentures.Components.Shared.Modals;
@@ -24,6 +26,7 @@ public partial class ProductDetails : ComponentBase, IDisposable
     [Inject] private ICartService CartService { get; set; } = default!;
     [Inject] private IWishlistService WishlistService { get; set; } = default!;
     [Inject] private IProductInteractionService InteractionService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private ProductViewTracker ViewTracker { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private ILogger<ProductDetails> Logger { get; set; } = default!;
@@ -41,6 +44,8 @@ public partial class ProductDetails : ComponentBase, IDisposable
     private bool IsPurchasing = false;
     private bool ShowReviewForm = false;
     private bool ShowReviewConfirmation = false;
+    private bool ImageLoading = true;
+    private bool ThumbnailsLoading = true;
     
     private string? CurrentUserId;
     private string SelectedImage = string.Empty;
@@ -50,6 +55,20 @@ public partial class ProductDetails : ComponentBase, IDisposable
     private string? SelectedSize = null;
     private string? SelectedColor = null;
     private string? CurrentVariantKey = null;
+    
+    // SVG icons
+    private string starSvg = string.Empty;
+    private string flameSvg = string.Empty;
+    private string warningSvg = string.Empty;
+    private string checkMarkSvg = string.Empty;
+    private string closeSvg = string.Empty;
+    private string cartSvg = string.Empty;
+    private string heartSvg = string.Empty;
+    private string shippingSvg = string.Empty;
+    private string weightSvg = string.Empty;
+    private string buyNowSvg = string.Empty;
+    private string editSvg = string.Empty;
+    private string allProductsSvg = string.Empty;
     
     // Track time spent on page
     private Stopwatch? _pageViewStopwatch;
@@ -71,6 +90,9 @@ public partial class ProductDetails : ComponentBase, IDisposable
                 LogLevel.Info
             );
 
+            // Load SVGs first
+            await LoadSvgsAsync();
+
             IsAuthenticated = await PermissionService.IsAuthenticatedAsync();
             if (IsAuthenticated)
             {
@@ -90,6 +112,64 @@ public partial class ProductDetails : ComponentBase, IDisposable
         }
     }
 
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            var tasks = new[]
+            {
+                VisualElements.GetCustomSvgAsync(SvgType.Star, width: 16, height: 16, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Flame, width: 16, height: 16, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Warning, width: 20, height: 20, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.CheckMark, width: 18, height: 18, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Close, width: 18, height: 18, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Cart, width: 20, height: 20, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Heart, width: 20, height: 20, fillColor: "currentColor"),
+                Task.Run(async () => VisualElements.GenerateSvg(
+                    "<path d='M3 3h18v2H3V3zm0 6h18v2H3V9zm0 6h18v2H3v-2z'/><path d='M19 7l-5 5 5 5'/>",
+                    width: 20, height: 20, viewBox: "0 0 24 24"
+                )), // Shipping truck icon
+                Task.Run(async () => VisualElements.GenerateSvg(
+                    "<path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/>",
+                    width: 20, height: 20, viewBox: "0 0 24 24"
+                )), // Weight scale icon
+                Task.Run(async () => VisualElements.GenerateSvg(
+                    "<path d='M13 3l-6 9h4v9l6-9h-4V3z'/>",
+                    width: 20, height: 20, viewBox: "0 0 24 24"
+                )), // Buy now lightning bolt
+                Task.Run(async () => VisualElements.GenerateSvg(
+                    "<path d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/>",
+                    width: 18, height: 18, viewBox: "0 0 24 24"
+                )), // Edit/write review pencil
+                VisualElements.GetCustomSvgAsync(SvgType.AllProducts, width: 64, height: 64, fillColor: "var(--gray-400)")
+            };
+
+            var results = await Task.WhenAll(tasks);
+
+            starSvg = results[0];
+            flameSvg = results[1];
+            warningSvg = results[2];
+            checkMarkSvg = results[3];
+            closeSvg = results[4];
+            cartSvg = results[5];
+            heartSvg = results[6];
+            shippingSvg = results[7];
+            weightSvg = results[8];
+            buyNowSvg = results[9];
+            editSvg = results[10];
+            allProductsSvg = results[11];
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "✓ All product detail SVGs loaded successfully",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading product detail SVGs");
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         // Handle slug changes (e.g., from related products)
@@ -101,6 +181,8 @@ public partial class ProductDetails : ComponentBase, IDisposable
             );
             
             IsLoading = true;
+            ImageLoading = true;
+            ThumbnailsLoading = true;
             StateHasChanged();
             
             await LoadProductDetails();
@@ -180,6 +262,13 @@ public partial class ProductDetails : ComponentBase, IDisposable
             await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading product details: {Slug}");
             Logger.LogError(ex, "Failed to load product details");
         }
+    }
+
+    private void HandleImageLoad()
+    {
+        ImageLoading = false;
+        ThumbnailsLoading = false;
+        StateHasChanged();
     }
 
     private async Task CheckCartAndWishlistStatus()
@@ -334,6 +423,7 @@ public partial class ProductDetails : ComponentBase, IDisposable
 
     private void SelectImage(string image)
     {
+        ImageLoading = true;
         SelectedImage = image;
         StateHasChanged();
     }
@@ -432,75 +522,75 @@ public partial class ProductDetails : ComponentBase, IDisposable
     }
 
     private async Task HandleBuyNow()
-{
-    if (Product == null || GetVariantStock() == 0 || IsPurchasing) return;
-
-    IsPurchasing = true;
-    StateHasChanged();
-
-    try
     {
-        if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-        {
-            return;
-        }
+        if (Product == null || GetVariantStock() == 0 || IsPurchasing) return;
 
-        if (string.IsNullOrEmpty(CurrentUserId))
-        {
-            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-        }
-
-        if (string.IsNullOrEmpty(CurrentUserId))
-        {
-            PermissionService.ShowAuthRequiredMessage("purchase items");
-            return;
-        }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"⚡ Buy Now clicked: {Product.Name}, Qty: {SelectedQuantity}, Size: {SelectedSize}, Color: {SelectedColor}",
-            LogLevel.Info
-        );
-
-        // Build query parameters for checkout
-        var queryParams = new List<string>
-        {
-            $"productId={Product.Id}",
-            $"quantity={SelectedQuantity}"
-        };
-
-        if (!string.IsNullOrEmpty(SelectedSize))
-        {
-            queryParams.Add($"size={Uri.EscapeDataString(SelectedSize)}");
-        }
-
-        if (!string.IsNullOrEmpty(SelectedColor))
-        {
-            queryParams.Add($"color={Uri.EscapeDataString(SelectedColor)}");
-        }
-
-        var queryString = string.Join("&", queryParams);
-        
-        // Navigate to checkout with product details
-        var checkoutUrl = $"checkout/{Product.Slug}?{queryString}";
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Navigating to checkout: {checkoutUrl}",
-            LogLevel.Info
-        );
-
-        Navigation.NavigateTo(checkoutUrl);
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Buy now");
-        Logger.LogError(ex, "Failed to process buy now");
-    }
-    finally
-    {
-        IsPurchasing = false;
+        IsPurchasing = true;
         StateHasChanged();
+
+        try
+        {
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
+            }
+
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                PermissionService.ShowAuthRequiredMessage("purchase items");
+                return;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"⚡ Buy Now clicked: {Product.Name}, Qty: {SelectedQuantity}, Size: {SelectedSize}, Color: {SelectedColor}",
+                LogLevel.Info
+            );
+
+            // Build query parameters for checkout
+            var queryParams = new List<string>
+            {
+                $"productId={Product.Id}",
+                $"quantity={SelectedQuantity}"
+            };
+
+            if (!string.IsNullOrEmpty(SelectedSize))
+            {
+                queryParams.Add($"size={Uri.EscapeDataString(SelectedSize)}");
+            }
+
+            if (!string.IsNullOrEmpty(SelectedColor))
+            {
+                queryParams.Add($"color={Uri.EscapeDataString(SelectedColor)}");
+            }
+
+            var queryString = string.Join("&", queryParams);
+            
+            // Navigate to checkout with product details
+            var checkoutUrl = $"checkout/{Product.Slug}?{queryString}";
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Navigating to checkout: {checkoutUrl}",
+                LogLevel.Info
+            );
+
+            Navigation.NavigateTo(checkoutUrl);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Buy now");
+            Logger.LogError(ex, "Failed to process buy now");
+        }
+        finally
+        {
+            IsPurchasing = false;
+            StateHasChanged();
+        }
     }
-}
 
     private async Task HandleWishlistToggle()
     {
@@ -532,7 +622,6 @@ public partial class ProductDetails : ComponentBase, IDisposable
             if (success)
             {
                 IsInWishlist = !IsInWishlist;
-                
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"✅ {(IsInWishlist ? "Added to" : "Removed from")} wishlist: {Product.Name}",
@@ -598,12 +687,12 @@ public partial class ProductDetails : ComponentBase, IDisposable
 
     private void NavigateToShop()
     {
-        Navigation.NavigateTo("shop");
+        Navigation.NavigateTo("/shop");
     }
 
     private void NavigateToCategory(string categoryId)
     {
-        Navigation.NavigateTo($"shop?category={categoryId}");
+        Navigation.NavigateTo($"/shop?category={categoryId}");
     }
 
     public void Dispose()
