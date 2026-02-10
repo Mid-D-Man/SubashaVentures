@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Shop;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
+using SubashaVentures.Services.VisualElements;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -14,8 +16,9 @@ public partial class ShopFilterPanel : ComponentBase
     
     [Inject] private ICategoryService CategoryService { get; set; } = null!;
     [Inject] private IBrandService BrandService { get; set; } = null!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = null!;
 
-    // ✅ Lists from FIREBASE (authoritative source)
+    // Lists from FIREBASE (authoritative source)
     private List<string> Categories = new();
     private List<string> Brands = new();
     
@@ -32,24 +35,47 @@ public partial class ShopFilterPanel : ComponentBase
     
     private bool IsLoading = true;
     
-    // ✅ Track last synced state to avoid re-syncing unnecessarily
+    // SVG
+    public string StarSvg { get; private set; } = string.Empty;
+    
+    // Track last synced state to avoid re-syncing unnecessarily
     private FilterState? LastSyncedFilters = null;
 
     protected override async Task OnInitializedAsync()
     {
-        // ✅ Load from FIREBASE FIRST
+        // Load star SVG
+        await LoadStarSvgAsync();
+        
+        // Load from FIREBASE FIRST
         await LoadFilterOptionsFromFirebase();
         
-        // ✅ THEN sync with current filters
+        // THEN sync with current filters
         if (CurrentFilters != null)
         {
             SyncWithCurrentFilters();
         }
     }
 
+    private async Task LoadStarSvgAsync()
+    {
+        try
+        {
+            StarSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star,
+                width: 16,
+                height: 16,
+                fillColor: "currentColor"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading star SVG: {ex.Message}");
+        }
+    }
+
     protected override void OnParametersSet()
     {
-        // ✅ Only sync if CurrentFilters actually changed
+        // Only sync if CurrentFilters actually changed
         if (CurrentFilters != null && !IsLoading)
         {
             // Check if filters actually changed
@@ -98,14 +124,14 @@ public partial class ShopFilterPanel : ComponentBase
         OnSale = CurrentFilters.OnSale;
         FreeShipping = CurrentFilters.FreeShipping;
         
-        // ✅ Store last synced state
+        // Store last synced state
         LastSyncedFilters = CurrentFilters.Clone();
         
         StateHasChanged();
     }
 
     /// <summary>
-    /// ✅ Load categories and brands from FIREBASE (authoritative source)
+    /// Load categories and brands from FIREBASE (authoritative source)
     /// NO FALLBACKS - if Firebase fails, show empty lists
     /// </summary>
     private async Task LoadFilterOptionsFromFirebase()
@@ -120,11 +146,11 @@ public partial class ShopFilterPanel : ComponentBase
                 LogLevel.Info
             );
             
-            // ✅ Load from Firebase
+            // Load from Firebase
             var firebaseCategories = await CategoryService.GetAllCategoriesAsync();
             var firebaseBrands = await BrandService.GetAllBrandsAsync();
             
-            // ✅ Extract names (these are correct like "Mens Clothing", "Womens Clothing")
+            // Extract names (these are correct like "Mens Clothing", "Womens Clothing")
             Categories = firebaseCategories
                 .Where(c => c.IsActive)
                 .Select(c => c.Name.Trim())
@@ -151,7 +177,7 @@ public partial class ShopFilterPanel : ComponentBase
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading filter options from Firebase");
             
-            // ✅ NO FALLBACKS - if Firebase fails, we have bigger problems
+            // NO FALLBACKS - if Firebase fails, we have bigger problems
             Categories = new List<string>();
             Brands = new List<string>();
         }
@@ -171,13 +197,13 @@ public partial class ShopFilterPanel : ComponentBase
 
     private bool IsChecked(List<string> list, string value)
     {
-        // ✅ EXACT match only
+        // EXACT match only
         return list.Contains(value, StringComparer.Ordinal);
     }
 
     private void ToggleCategory(string category)
     {
-        // ✅ EXACT match toggle
+        // EXACT match toggle
         if (SelectedCategories.Contains(category, StringComparer.Ordinal))
         {
             SelectedCategories.Remove(category);
@@ -195,7 +221,7 @@ public partial class ShopFilterPanel : ComponentBase
 
     private void ToggleBrand(string brand)
     {
-        // ✅ EXACT match toggle
+        // EXACT match toggle
         if (SelectedBrands.Contains(brand, StringComparer.Ordinal))
         {
             SelectedBrands.Remove(brand);
@@ -263,7 +289,7 @@ public partial class ShopFilterPanel : ComponentBase
         
         Console.WriteLine($"📤 Sending filters to Shop page: Categories=[{string.Join(", ", filters.Categories)}]");
 
-        // ✅ Update last synced state before invoking callback
+        // Update last synced state before invoking callback
         LastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
@@ -300,7 +326,7 @@ public partial class ShopFilterPanel : ComponentBase
             LogLevel.Info
         );
 
-        // ✅ Update last synced state before invoking callback
+        // Update last synced state before invoking callback
         LastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
