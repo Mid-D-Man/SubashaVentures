@@ -433,13 +433,7 @@ private void SelectImage(string image)
         }
     }
 
-    private void SelectImage(string image)
-    {
-        ImageLoading = true;
-        SelectedImage = image;
-        StateHasChanged();
-    }
-
+    
     private void IncreaseQuantity()
     {
         if (SelectedQuantity < GetVariantStock())
