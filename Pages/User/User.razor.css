@@ -21,6 +21,14 @@
     margin: 0;
 }
 
+/* ===== LOADING CONTAINER ===== */
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+}
+
 /* ===== DASHBOARD GRID ===== */
 .dashboard-grid {
     display: grid;
@@ -64,14 +72,21 @@
 }
 
 .card-icon {
-    font-size: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
     margin-bottom: 1rem;
-    filter: grayscale(0.3);
-    transition: filter 0.3s ease;
+    height: 40px;
+    transition: transform 0.3s ease;
 }
 
-.dashboard-card:hover .card-icon {
-    filter: grayscale(0);
+.card-icon svg {
+    width: 40px;
+    height: 40px;
+    transition: transform 0.3s ease;
+}
+
+.dashboard-card:hover .card-icon svg {
     transform: scale(1.1);
 }
 
@@ -87,6 +102,20 @@
     font-size: 0.94rem;
     color: var(--text-secondary);
     margin: 0;
+}
+
+.card-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    min-width: 24px;
+    text-align: center;
 }
 
 .card-arrow {
@@ -118,6 +147,19 @@
 
 .stat-card {
     text-align: center;
+}
+
+.stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.5rem;
+    height: 32px;
+}
+
+.stat-icon svg {
+    width: 32px;
+    height: 32px;
 }
 
 .stat-value {
@@ -165,8 +207,9 @@
         padding: 1.5rem;
     }
 
-    .card-icon {
-        font-size: 2rem;
+    .card-icon svg {
+        width: 32px;
+        height: 32px;
     }
 
     .dashboard-card h3 {
@@ -205,7 +248,21 @@
         padding: 1.25rem;
     }
 
+    .card-icon {
+        height: 32px;
+    }
+
+    .card-icon svg {
+        width: 28px;
+        height: 28px;
+    }
+
     .quick-stats {
         grid-template-columns: 1fr;
     }
-}
+
+    .stat-icon svg {
+        width: 28px;
+        height: 28px;
+    }
+    }
