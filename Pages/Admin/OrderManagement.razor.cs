@@ -148,55 +148,56 @@ public partial class OrderManagement : ComponentBase
     // ===== FILTERS AND SEARCH =====
 
     private void ApplyFilters()
+{
+    // Fix: Convert to List immediately
+    filteredOrders = allOrders.ToList();
+
+    // Search filter
+    if (!string.IsNullOrWhiteSpace(searchQuery))
     {
-        filteredOrders = allOrders.AsEnumerable();
-
-        // Search filter
-        if (!string.IsNullOrWhiteSpace(searchQuery))
-        {
-            var query = searchQuery.ToLower();
-            filteredOrders = filteredOrders.Where(o =>
-                o.OrderNumber.ToLower().Contains(query) ||
-                o.CustomerName.ToLower().Contains(query) ||
-                o.CustomerEmail.ToLower().Contains(query) ||
-                o.CustomerPhone.Contains(query)
-            ).ToList();
-        }
-
-        // Status filter
-        if (!string.IsNullOrWhiteSpace(statusFilter))
-        {
-            if (Enum.TryParse<OrderStatus>(statusFilter, out var status))
-            {
-                filteredOrders = filteredOrders.Where(o => o.Status == status).ToList();
-            }
-        }
-
-        // Payment filter
-        if (!string.IsNullOrWhiteSpace(paymentFilter))
-        {
-            if (Enum.TryParse<PaymentStatus>(paymentFilter, out var paymentStatus))
-            {
-                filteredOrders = filteredOrders.Where(o => o.PaymentStatus == paymentStatus).ToList();
-            }
-        }
-
-        // Sort
-        filteredOrders = sortOrder switch
-        {
-            "oldest" => filteredOrders.OrderBy(o => o.CreatedAt).ToList(),
-            "amount-high" => filteredOrders.OrderByDescending(o => o.Total).ToList(),
-            "amount-low" => filteredOrders.OrderBy(o => o.Total).ToList(),
-            "pending-delivery" => filteredOrders
-                .Where(o => o.Status == OrderStatus.Shipped || o.Status == OrderStatus.Processing)
-                .OrderBy(o => GetEstimatedDeliveryTime(o))
-                .ToList(),
-            _ => filteredOrders.OrderByDescending(o => o.CreatedAt).ToList(), // newest (default)
-        };
-
-        // Paginate
-        ApplyPagination();
+        var query = searchQuery.ToLower();
+        filteredOrders = filteredOrders.Where(o =>
+            o.OrderNumber.ToLower().Contains(query) ||
+            o.CustomerName.ToLower().Contains(query) ||
+            o.CustomerEmail.ToLower().Contains(query) ||
+            o.CustomerPhone.Contains(query)
+        ).ToList();
     }
+
+    // Status filter
+    if (!string.IsNullOrWhiteSpace(statusFilter))
+    {
+        if (Enum.TryParse<OrderStatus>(statusFilter, out var status))
+        {
+            filteredOrders = filteredOrders.Where(o => o.Status == status).ToList();
+        }
+    }
+
+    // Payment filter
+    if (!string.IsNullOrWhiteSpace(paymentFilter))
+    {
+        if (Enum.TryParse<PaymentStatus>(paymentFilter, out var paymentStatus))
+        {
+            filteredOrders = filteredOrders.Where(o => o.PaymentStatus == paymentStatus).ToList();
+        }
+    }
+
+    // Sort
+    filteredOrders = sortOrder switch
+    {
+        "oldest" => filteredOrders.OrderBy(o => o.CreatedAt).ToList(),
+        "amount-high" => filteredOrders.OrderByDescending(o => o.Total).ToList(),
+        "amount-low" => filteredOrders.OrderBy(o => o.Total).ToList(),
+        "pending-delivery" => filteredOrders
+            .Where(o => o.Status == OrderStatus.Shipped || o.Status == OrderStatus.Processing)
+            .OrderBy(o => GetEstimatedDeliveryTime(o))
+            .ToList(),
+        _ => filteredOrders.OrderByDescending(o => o.CreatedAt).ToList(), // newest (default)
+    };
+
+    // Paginate
+    ApplyPagination();
+}
 
     private void ApplyPagination()
     {
