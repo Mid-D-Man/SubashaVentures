@@ -1,7 +1,14 @@
 @page "/user"
 @layout UserLayout
+@using SubashaVentures.Layout.User
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Domain.Enums
+@using SubashaVentures.Services.Orders
+@using SubashaVentures.Services.Users
+@using SubashaVentures.Services.Cart
+@using SubashaVentures.Services.Wishlist
+@using SubashaVentures.Services.VisualElements
+@using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Navigation
 @inject IOrderService OrderService
 @inject IUserService UserService
