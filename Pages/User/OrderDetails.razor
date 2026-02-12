@@ -1,6 +1,226 @@
 @page "/user/orders/details/{OrderId}"
-<h3>OrderDetails</h3>
+@layout SubashaVentures.Layout.User.UserLayout
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Domain.Order
+@using SubashaVentures.Services.VisualElements
 
-@code {
-    
-}
+<div class="order-details-page">
+    @if (IsLoading)
+    {
+        <div class="details-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
+                          Message="Loading order details..." />
+        </div>
+    }
+    else if (Order == null)
+    {
+        <div class="details-error">
+            <div class="error-icon" @ref="errorIconRef"></div>
+            <h2>Order Not Found</h2>
+            <p>We couldn't find the order you're looking for.</p>
+            <button class="btn-back" @onclick="NavigateToOrders">
+                <div class="icon" @ref="backIconRef"></div>
+                Back to Orders
+            </button>
+        </div>
+    }
+    else
+    {
+        @* Page Header *@
+        <div class="details-header">
+            <button class="btn-back-nav" @onclick="NavigateToOrders">
+                <div class="icon" @ref="navBackIconRef"></div>
+                Back to Orders
+            </button>
+            <div class="header-info">
+                <h1>Order Details</h1>
+                <p class="order-number">Order #@Order.OrderNumber</p>
+            </div>
+        </div>
+
+        @* Order Status Card *@
+        <div class="status-card">
+            <div class="status-header">
+                <div class="status-info">
+                    <span class="status-badge @GetStatusClass(Order.Status)">
+                        @Order.Status
+                    </span>
+                    <span class="order-date">
+                        <div class="icon" @ref="calendarIconRef"></div>
+                        Placed on @Order.CreatedAt.ToString("MMMM dd, yyyy 'at' hh:mm tt")
+                    </span>
+                </div>
+                @if (Order.CanTrack)
+                {
+                    <button class="btn-track-order" @onclick="TrackOrder">
+                        <div class="icon" @ref="trackIconRef"></div>
+                        Track Order
+                    </button>
+                }
+            </div>
+        </div>
+
+        @* Order Items Section *@
+        <div class="items-section">
+            <h2>Order Items (@Order.Items.Count)</h2>
+            <div class="items-list">
+                @foreach (var item in Order.Items)
+                {
+                    <div class="item-wrapper">
+                        <OrderItemCard Item="@item" 
+                                     ShowActions="true"
+                                     CanReview="@(Order.Status == OrderStatus.Delivered && CanReviewProduct(item.ProductId))"
+                                     OnViewProduct="@ViewProduct"
+                                     OnReviewProduct="@ReviewProduct" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Pricing Summary *@
+        <div class="pricing-section">
+            <h2>Order Summary</h2>
+            <div class="pricing-card">
+                <div class="pricing-row">
+                    <span class="label">Subtotal</span>
+                    <span class="value">₦@Order.Subtotal.ToString("N0")</span>
+                </div>
+                <div class="pricing-row">
+                    <span class="label">Shipping</span>
+                    <span class="value">₦@Order.ShippingCost.ToString("N0")</span>
+                </div>
+                @if (Order.Discount > 0)
+                {
+                    <div class="pricing-row discount">
+                        <span class="label">Discount</span>
+                        <span class="value">-₦@Order.Discount.ToString("N0")</span>
+                    </div>
+                }
+                @if (Order.Tax > 0)
+                {
+                    <div class="pricing-row">
+                        <span class="label">Tax</span>
+                        <span class="value">₦@Order.Tax.ToString("N0")</span>
+                    </div>
+                }
+                <div class="pricing-row total">
+                    <span class="label">Total</span>
+                    <strong class="value">@Order.DisplayTotal</strong>
+                </div>
+            </div>
+        </div>
+
+        @* Shipping Information *@
+        <div class="shipping-section">
+            <h2>Shipping Information</h2>
+            <div class="shipping-card">
+                <div class="info-row">
+                    <div class="icon" @ref="addressIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Delivery Address</span>
+                        <p class="info-value">@Order.ShippingAddress</p>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="icon" @ref="shippingIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Shipping Method</span>
+                        <p class="info-value">@Order.ShippingMethod</p>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Order.TrackingNumber))
+                {
+                    <div class="info-row">
+                        <div class="icon" @ref="trackingIconRef"></div>
+                        <div class="info-content">
+                            <span class="info-label">Tracking Number</span>
+                            <p class="info-value tracking-number">@Order.TrackingNumber</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Payment Information *@
+        <div class="payment-section">
+            <h2>Payment Information</h2>
+            <div class="payment-card">
+                <div class="info-row">
+                    <div class="icon" @ref="paymentIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Payment Method</span>
+                        <p class="info-value">@Order.PaymentMethod</p>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="icon" @ref="statusIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Payment Status</span>
+                        <p class="info-value">
+                            <span class="payment-status @GetPaymentStatusClass(Order.PaymentStatus)">
+                                @Order.PaymentStatus
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Order.PaymentReference))
+                {
+                    <div class="info-row">
+                        <div class="icon" @ref="referenceIconRef"></div>
+                        <div class="info-content">
+                            <span class="info-label">Payment Reference</span>
+                            <p class="info-value reference-number">@Order.PaymentReference</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Customer Information *@
+        <div class="customer-section">
+            <h2>Customer Information</h2>
+            <div class="customer-card">
+                <div class="info-row">
+                    <div class="icon" @ref="userIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Name</span>
+                        <p class="info-value">@Order.CustomerName</p>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="icon" @ref="emailIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Email</span>
+                        <p class="info-value">@Order.CustomerEmail</p>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="icon" @ref="phoneIconRef"></div>
+                    <div class="info-content">
+                        <span class="info-label">Phone</span>
+                        <p class="info-value">@Order.CustomerPhone</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Action Buttons *@
+        <div class="actions-section">
+            @if (Order.CanCancel)
+            {
+                <button class="btn-cancel-order" @onclick="CancelOrder">
+                    <div class="icon" @ref="cancelIconRef"></div>
+                    Cancel Order
+                </button>
+            }
+            @if (NeedsSupportButton)
+            {
+                <button class="btn-contact-support" @onclick="ContactSupport">
+                    <div class="icon" @ref="supportIconRef"></div>
+                    Contact Support
+                </button>
+            }
+        </div>
+    }
+</div>
