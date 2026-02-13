@@ -1,0 +1,89 @@
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
+@inherits LayoutComponentBase
+@inject IVisualElementsService VisualElements
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="product-details-layout">
+    @* Top Navigation Banner *@
+    <div class="top-banner">
+        <div class="banner-content">
+            <button class="banner-btn back-btn" @onclick="NavigateToShop" title="Back to Shop">
+                @if (!string.IsNullOrEmpty(backSvg))
+                {
+                    <span class="btn-icon">@((MarkupString)backSvg)</span>
+                }
+                <span class="btn-text">Back to Shop</span>
+            </button>
+            
+            <button class="banner-btn top-btn" @onclick="ScrollToTop" title="Scroll to Top">
+                @if (!string.IsNullOrEmpty(upSvg))
+                {
+                    <span class="btn-icon">@((MarkupString)upSvg)</span>
+                }
+                <span class="btn-text">To Top</span>
+            </button>
+        </div>
+    </div>
+
+    @* Main Content *@
+    <main class="layout-main">
+        @Body
+    </main>
+</div>
+
+@code {
+    private string backSvg = string.Empty;
+    private string upSvg = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSvgsAsync();
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            // Create custom back arrow SVG
+            backSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Close,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor",
+                transform: "rotate(90)"
+            );
+            
+            // Create custom up arrow SVG (rotated close icon)
+            upSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Close,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor",
+                transform: "rotate(180)"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading banner SVGs: {ex.Message}");
+        }
+    }
+
+    private void NavigateToShop()
+    {
+        Navigation.NavigateTo("/shop");
+    }
+
+    private async Task ScrollToTop()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.scrollTo", new { top = 0, behavior = "smooth" });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error scrolling to top: {ex.Message}");
+        }
+    }
+}

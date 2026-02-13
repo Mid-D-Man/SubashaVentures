@@ -1,6 +1,11 @@
 @inherits LayoutComponentBase
+@using SubashaVentures.Services.Cart
+@using SubashaVentures.Services.Auth
+@using SubashaVentures.Services.Supabase
 @inject NavigationManager NavigationManager
 @inject ShopStateService ShopState
+@inject ICartService CartService
+@inject SupabaseAuthService AuthService
 
 <div class="shop-layout-wrapper">
     @* Top Navigation - Uses ShopStateService *@
@@ -22,9 +27,32 @@
 </div>
 
 @code {
-    [Parameter] public int CartItemCount { get; set; } = 0;
+    private int CartItemCount { get; set; } = 0;
+    private string? currentUserId;
 
-    //use the state service to broadcast events
+    protected override async Task OnInitializedAsync()
+    {
+        // Get current user and cart count
+        await LoadCartCountAsync();
+    }
+
+    private async Task LoadCartCountAsync()
+    {
+        try
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user != null)
+            {
+                currentUserId = user.Id;
+                CartItemCount = await CartService.GetCartItemCountAsync(currentUserId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading cart count: {ex.Message}");
+        }
+    }
+
     private async Task HandleSearchFromNav(string query)
     {
         await ShopState.NotifySearchChanged(query);

@@ -1,4 +1,9 @@
 @using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Services.Supabase
+@using SubashaVentures.Domain.Enums
+@inject IVisualElementsService VisualElements
+@inject ISupabaseAuthService AuthService
 
 <nav class="shop-top-nav">
     <div class="nav-container">
@@ -8,14 +13,19 @@
             <span class="logo-icon">SV</span>
         </a>
 
-        @* Search Bar Binded *@
+        @* Search Bar *@
         <div class="search-container">
+            <div class="search-icon-wrapper">
+                @if (!string.IsNullOrEmpty(searchSvg))
+                {
+                    <span class="search-icon">@((MarkupString)searchSvg)</span>
+                }
+            </div>
             <InputField 
                 Type="text"
                 Placeholder="Search products..."
                 Value="@SearchQuery"
                 ValueChanged="HandleSearchInput"
-                PrefixIcon="🔍"
                 ShowClearButton="true"
                 Size="InputField.InputSize.Medium"
                 CssClass="shop-search-input" />
@@ -24,8 +34,11 @@
         @* Right Actions *@
         <div class="nav-actions">
             @* Cart *@
-            <a href="user/cart" class="nav-btn">
-                <span class="btn-icon">🛒</span>
+            <a href="user/cart" class="nav-btn cart-btn">
+                @if (!string.IsNullOrEmpty(cartSvg))
+                {
+                    <span class="nav-icon">@((MarkupString)cartSvg)</span>
+                }
                 @if (CartItemCount > 0)
                 {
                     <span class="cart-badge">@CartItemCount</span>
@@ -33,8 +46,15 @@
             </a>
 
             @* Profile *@
-            <a href="user" class="nav-btn">
-                <span class="btn-icon">👤</span>
+            <a href="user" class="nav-btn profile-btn">
+                @if (!string.IsNullOrEmpty(UserAvatarUrl))
+                {
+                    <img src="@UserAvatarUrl" alt="Profile" class="profile-avatar" />
+                }
+                else if (!string.IsNullOrEmpty(userSvg))
+                {
+                    <span class="nav-icon">@((MarkupString)userSvg)</span>
+                }
             </a>
         </div>
     </div>
@@ -45,8 +65,79 @@
     [Parameter] public int CartItemCount { get; set; }
     
     private string SearchQuery { get; set; } = "";
+    private string UserAvatarUrl { get; set; } = "";
+    
+    // SVG icons
+    private string searchSvg = string.Empty;
+    private string cartSvg = string.Empty;
+    private string userSvg = string.Empty;
 
-    // FIXED: Properly handle search input
+    protected override async Task OnInitializedAsync()
+    {
+        // Load SVGs
+        await LoadSvgsAsync();
+        
+        // Try to get user avatar if authenticated
+        await LoadUserAvatarAsync();
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            var searchTask = VisualElements.GetCustomSvgAsync(
+                SvgType.Search,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor"
+            );
+            
+            var cartTask = VisualElements.GetCustomSvgAsync(
+                SvgType.Cart,
+                width: 22,
+                height: 22,
+                fillColor: "currentColor"
+            );
+            
+            var userTask = VisualElements.GetCustomSvgAsync(
+                SvgType.User,
+                width: 22,
+                height: 22,
+                fillColor: "currentColor"
+            );
+
+            await Task.WhenAll(searchTask, cartTask, userTask);
+            
+            searchSvg = await searchTask;
+            cartSvg = await cartTask;
+            userSvg = await userTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading SVGs: {ex.Message}");
+        }
+    }
+
+    private async Task LoadUserAvatarAsync()
+    {
+        try
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user != null && user.UserMetadata != null)
+            {
+                // Try to get avatar_url from user metadata
+                if (user.UserMetadata.TryGetValue("avatar_url", out var avatarObj))
+                {
+                    UserAvatarUrl = avatarObj?.ToString() ?? "";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user avatar: {ex.Message}");
+        }
+    }
+
     private async Task HandleSearchInput(string value)
     {
         SearchQuery = value ?? "";

@@ -1,4 +1,4 @@
-/* ===== SHOP FOOTER ===== */
+/* ===== SHOP FOOTER - NO EXTRA PADDING ===== */
 .shop-footer {
     width: 100%;
     background: var(--bg-surface);
@@ -7,8 +7,8 @@
 }
 
 .footer-container {
-    max-width: 1440px;
-    margin: 0 auto;
+    max-width: 100%;
+    margin: 0;
     padding: 48px 20px 24px;
 }
 
@@ -115,6 +115,10 @@
         grid-template-columns: repeat(2, 1fr);
         gap: 40px;
     }
+    
+    .footer-container {
+        padding: 56px 28px 28px;
+    }
 }
 
 @media (min-width: 1024px) {
@@ -141,4 +145,15 @@
 
 [data-theme="dark"] .footer-bottom {
     border-top-color: var(--border-dark);
-    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+.newsletter-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.newsletter-input:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}

@@ -1,19 +1,25 @@
-/* ===== SHOP LAYOUT WRAPPER ===== */
+/* ===== SHOP LAYOUT WRAPPER - NO PADDING ===== */
 .shop-layout-wrapper {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     background: var(--bg-primary);
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
-/* ===== SHOP CONTAINER (Left Sidebar + Right Content) ===== */
+/* ===== SHOP CONTAINER (Left Sidebar + Right Content) - NO PADDING ===== */
 .shop-container {
     display: flex;
     flex: 1;
     width: 100%;
-    max-width: 1920px;
-    margin: 0 auto;
+    max-width: 100%;
+    margin: 0;
     margin-top: 60px; /* Space for fixed navigation */
+    padding: 0; /* REMOVED PADDING */
 }
 
 /* ===== DESKTOP FILTER SIDEBAR (Left - 30%) ===== */
@@ -46,13 +52,15 @@
     background: rgba(150, 153, 74, 0.5);
 }
 
-/* ===== MAIN SHOP CONTENT (Right - 70%) ===== */
+/* ===== MAIN SHOP CONTENT (Right - 70%) - NO PADDING ===== */
 .shop-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0; /* Prevents flex item from overflowing */
+    min-width: 0;
     overflow-x: hidden;
+    padding: 0; /* REMOVED PADDING */
+    margin: 0;
 }
 
 /* ===== MOBILE FILTER DRAWER ===== */
@@ -63,7 +71,7 @@
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
     animation: fadeIn 0.2s ease;
-    display: none; /* Hidden on desktop */
+    display: none;
 }
 
 @keyframes fadeIn {
@@ -137,7 +145,7 @@
 /* Mobile (≤768px) - Show mobile drawer, hide desktop sidebar */
 @media (max-width: 768px) {
     .shop-container {
-        margin-top: 56px; /* Smaller nav on mobile */
+        margin-top: 56px;
     }
 
     .desktop-only {

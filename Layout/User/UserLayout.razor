@@ -1,11 +1,14 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using SubashaVentures.Domain.Enums
+@using SubashaVentures.Services.VisualElements
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IVisualElementsService VisualElements
 @namespace SubashaVentures.Layout.User
 
 <div class="user-layout">
-    <div class="user-sidebar">
+    <div class="user-sidebar @(isMobileSidebarOpen ? "mobile-open" : "")">
         <div class="user-profile-card">
             <div class="user-avatar">
                 <img src="@UserAvatar" alt="@UserName" />
@@ -15,88 +18,222 @@
         </div>
 
         <nav class="user-nav">
-            <a href="user" class="user-nav-item @(IsActive("/user") ? "active" : "")">
-                <span class="nav-icon">👤</span>
+            <a href="user" class="user-nav-item @(IsActive("user") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)userSvg)</span>
                 <span class="nav-text">Profile</span>
             </a>
-            <a href="user/addresses" class="user-nav-item @(IsActive("/user/addresses") ? "active" : "")">
-                <span class="nav-icon">📍</span>
+            <a href="user/addresses" class="user-nav-item @(IsActive("user/addresses") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)addressSvg)</span>
                 <span class="nav-text">Addresses</span>
             </a>
-            <a href="user/orders" class="user-nav-item @(IsActive("/user/orders") ? "active" : "")">
-                <span class="nav-icon">📦</span>
+            <a href="user/orders" class="user-nav-item @(IsActive("user/orders") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)orderSvg)</span>
                 <span class="nav-text">Orders</span>
             </a>
-            <a href="user/messages" class="user-nav-item @(IsActive("/user/messages") ? "active" : "")">
-                <span class="nav-icon">💬</span>
+            <a href="user/messages" class="user-nav-item @(IsActive("user/messages") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)messagesSvg)</span>
                 <span class="nav-text">Messages</span>
             </a>
-            <a href="user/reviews" class="user-nav-item @(IsActive("/user/reviews") ? "active" : "")">
-                <span class="nav-icon">⭐</span>
+            <a href="user/reviews" class="user-nav-item @(IsActive("user/reviews") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)starSvg)</span>
                 <span class="nav-text">Reviews</span>
             </a>
-            <a href="user/history" class="user-nav-item @(IsActive("/user/history") ? "active" : "")">
-                <span class="nav-icon">🕐</span>
+            <a href="user/history" class="user-nav-item @(IsActive("user/history") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)historySvg)</span>
                 <span class="nav-text">History</span>
             </a>
-            <a href="user/payment" class="user-nav-item @(IsActive("/user/payment") ? "active" : "")">
-                <span class="nav-icon">💳</span>
+            <a href="user/payment" class="user-nav-item @(IsActive("user/payment") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)paymentSvg)</span>
                 <span class="nav-text">Payment</span>
             </a>
-            <a href="user/offers" class="user-nav-item @(IsActive("/user/offers") ? "active" : "")">
-                <span class="nav-icon">🎁</span>
+            <a href="user/offers" class="user-nav-item @(IsActive("user/offers") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)offerSvg)</span>
                 <span class="nav-text">Offers</span>
             </a>
-            <a href="user/support" class="user-nav-item @(IsActive("/user/support") ? "active" : "")">
-                <span class="nav-icon">🆘</span>
+            <a href="user/support" class="user-nav-item @(IsActive("user/support") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)helpSvg)</span>
                 <span class="nav-text">Support</span>
             </a>
-            <a href="user/settings" class="user-nav-item @(IsActive("/user/settings") ? "active" : "")">
-                <span class="nav-icon">⚙️</span>
+            <a href="user/settings" class="user-nav-item @(IsActive("user/settings") ? "active" : "")" @onclick="CloseMobileSidebar">
+                <span class="nav-icon">@((MarkupString)settingsSvg)</span>
                 <span class="nav-text">Settings</span>
             </a>
         </nav>
     </div>
 
     <div class="user-content">
-        <button class="mobile-menu-toggle" @onclick="ToggleMobileMenu">
-            <span class="burger-icon">☰</span>
+        <button class="mobile-menu-toggle" @onclick="ToggleMobileMenu" aria-label="Toggle menu">
+            <span class="burger-icon">@((MarkupString)menuSvg)</span>
         </button>
         
         @Body
     </div>
+    
+    @if (isMobileSidebarOpen)
+    {
+        <div class="mobile-overlay" @onclick="CloseMobileSidebar"></div>
+    }
 </div>
 
 @code {
     private string UserName = "Loading...";
     private string UserEmail = "";
     private string UserAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%2396994A' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='48' fill='white' text-anchor='middle' dy='.3em'%3EU%3C/text%3E%3C/svg%3E";
+    
+    private bool isMobileSidebarOpen = false;
+    
+    // SVG markup for navigation icons (24x24)
+    private string userSvg = string.Empty;
+    private string addressSvg = string.Empty;
+    private string orderSvg = string.Empty;
+    private string messagesSvg = string.Empty;
+    private string starSvg = string.Empty;
+    private string historySvg = string.Empty;
+    private string paymentSvg = string.Empty;
+    private string offerSvg = string.Empty;
+    private string helpSvg = string.Empty;
+    private string settingsSvg = string.Empty;
+    private string menuSvg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        
-        if (user.Identity?.IsAuthenticated == true)
+        await LoadSvgsAsync();
+        await LoadUserInfoAsync();
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
         {
-            UserEmail = user.Identity.Name ?? "";
-            UserName = user.FindFirst("first_name")?.Value + " " + user.FindFirst("last_name")?.Value ?? "User";
+            // Load all navigation SVGs (24x24 for sidebar)
+            userSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.User, 
+                width: 24, 
+                height: 24
+            );
             
-            var avatarUrl = user.FindFirst("avatar_url")?.Value;
-            if (!string.IsNullOrEmpty(avatarUrl))
+            addressSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Address, 
+                width: 24, 
+                height: 24
+            );
+            
+            orderSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Order, 
+                width: 24, 
+                height: 24
+            );
+            
+            messagesSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Messages, 
+                width: 24, 
+                height: 24
+            );
+            
+            starSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star, 
+                width: 24, 
+                height: 24
+            );
+            
+            historySvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.History, 
+                width: 24, 
+                height: 24
+            );
+            
+            paymentSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Payment, 
+                width: 24, 
+                height: 24
+            );
+            
+            offerSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Offer, 
+                width: 24, 
+                height: 24
+            );
+            
+            helpSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.HelpCenter, 
+                width: 24, 
+                height: 24
+            );
+            
+            settingsSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Settings, 
+                width: 24, 
+                height: 24
+            );
+            
+            // Create hamburger menu SVG
+            menuSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='2' stroke-linecap='round' d='M4 6h16M4 12h16M4 18h16'/>",
+                24, 24, "0 0 24 24", "fill='none'"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading navigation SVGs: {ex.Message}");
+        }
+    }
+
+    private async Task LoadUserInfoAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            if (user.Identity?.IsAuthenticated == true)
             {
-                UserAvatar = avatarUrl;
+                UserEmail = user.Identity.Name ?? "";
+                
+                var firstName = user.FindFirst("first_name")?.Value ?? "";
+                var lastName = user.FindFirst("last_name")?.Value ?? "";
+                UserName = $"{firstName} {lastName}".Trim();
+                
+                if (string.IsNullOrEmpty(UserName))
+                {
+                    UserName = "User";
+                }
+                
+                var avatarUrl = user.FindFirst("avatar_url")?.Value;
+                if (!string.IsNullOrEmpty(avatarUrl))
+                {
+                    UserAvatar = avatarUrl;
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user info: {ex.Message}");
         }
     }
 
     private bool IsActive(string path)
     {
-        return Navigation.Uri.Contains(path);
+        var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        
+        // Exact match for user (dashboard)
+        if (path == "user")
+        {
+            return currentPath == "user" || currentPath == "user/";
+        }
+        
+        // Contains match for sub-pages
+        return currentPath.Contains(path);
     }
 
     private void ToggleMobileMenu()
     {
-        // Mobile menu toggle logic
+        isMobileSidebarOpen = !isMobileSidebarOpen;
+        StateHasChanged();
+    }
+    
+    private void CloseMobileSidebar()
+    {
+        isMobileSidebarOpen = false;
+        StateHasChanged();
     }
 }

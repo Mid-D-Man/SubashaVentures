@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Feb  9 13:16:52 UTC 2026
+Generated: Thu Feb 12 01:49:04 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: b457bc9c210634d9247a8c5572f3b4c99e3cae5f
+Commit: 2ebf7618536175ce581d3f1b22f4bde2b8bbe01d
 Branch: master
 ==================================
 
@@ -12,6 +12,8 @@ App.razor
 App.razor.css
 Components/Admin/Images/AdminImageCard.razor
 Components/Admin/Images/AdminImageCard.razor.css
+Components/Admin/Orders/AdminOrderCard.razor
+Components/Admin/Orders/AdminOrderCard.razor.css
 Components/Admin/Products/AdminProductCard.razor
 Components/Admin/Products/AdminProductCard.razor.css
 Components/Admin/Users/AdminPartnerCard.razor
@@ -110,6 +112,8 @@ Layout/Main/TopNavigation.razor
 Layout/Main/TopNavigation.razor.css
 Layout/ProductDetails/ProductDetailsLayout.razor
 Layout/ProductDetails/ProductDetailsLayout.razor.css
+Layout/Products/ProductDetailsLayout.razor
+Layout/Products/ProductDetailsLayout.razor.css
 Layout/Shop/ShopFilterPanel.razor
 Layout/Shop/ShopFilterPanel.razor.cs
 Layout/Shop/ShopFilterPanel.razor.css
@@ -164,6 +168,9 @@ Pages/Admin/ImageManagement.razor.css
 Pages/Admin/MiscManagement.razor
 Pages/Admin/MiscManagement.razor.cs
 Pages/Admin/MiscManagement.razor.css
+Pages/Admin/OrderManagement.razor
+Pages/Admin/OrderManagement.razor.cs
+Pages/Admin/OrderManagement.razor.css
 Pages/Admin/PartnerManagement.razor
 Pages/Admin/PartnerManagement.razor.cs
 Pages/Admin/PartnerManagement.razor.css
@@ -369,6 +376,7 @@ Directory Structure:
 ./Components
 ./  Admin
 ./    Images
+./    Orders
 ./    Products
 ./    Users
 ./  Shared
@@ -401,6 +409,7 @@ Directory Structure:
 ./  Checkout
 ./  Main
 ./  ProductDetails
+./  Products
 ./  Shop
 ./  User
 ./Models
@@ -459,11 +468,11 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 165 files
-.razor    : 77 files
+.cs       : 166 files
+.razor    : 80 files
 .csproj   : 1 files
 .sln      : 1 files
 .json     : 7 files
-.css      : 76 files
+.css      : 79 files
 .js       : 19 files
 .html     : 1 files

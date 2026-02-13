@@ -1,0 +1,197 @@
+@* Components/Admin/Orders/AdminOrderCard.razor *@
+@using SubashaVentures.Domain.Order
+
+<div class="admin-order-card @(IsSelected ? "selected" : "")" @onclick="HandleCardClick">
+    <!-- Selection Checkbox -->
+    <div class="card-selection" @onclick:stopPropagation="true">
+        <input type="checkbox" 
+               checked="@IsSelected"
+               @onchange="HandleSelectionChange" />
+    </div>
+
+    <!-- Card Header -->
+    <div class="card-header">
+        <div class="order-info">
+            <span class="order-number">@Order.OrderNumber</span>
+            @if (IsUrgent)
+            {
+                <span class="urgent-indicator">🔥 Urgent</span>
+            }
+        </div>
+        <span class="status-badge @Order.Status.ToString().ToLower()">
+            @Order.Status
+        </span>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="card-customer">
+        <div class="customer-avatar">
+            @GetInitials(Order.CustomerName)
+        </div>
+        <div class="customer-details">
+            <span class="customer-name">@Order.CustomerName</span>
+            <span class="customer-email">@Order.CustomerEmail</span>
+        </div>
+    </div>
+
+    <!-- Order Details -->
+    <div class="card-details">
+        <div class="detail-row">
+            <span class="detail-label">Items:</span>
+            <span class="detail-value">@Order.TotalItems</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Total:</span>
+            <span class="detail-value total">@Order.DisplayTotal</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Payment:</span>
+            <span class="payment-badge @Order.PaymentStatus.ToString().ToLower()">
+                @Order.PaymentStatus
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Date:</span>
+            <span class="detail-value">@Order.CreatedAt.ToString("MMM dd, yyyy")</span>
+        </div>
+    </div>
+
+    <!-- Delivery Status -->
+    @if (Order.Status == OrderStatus.Shipped || Order.Status == OrderStatus.Processing)
+    {
+        var timeLeft = GetTimeUntilDelivery();
+        <div class="card-delivery @(IsUrgent ? "urgent" : "")">
+            <div class="delivery-icon">📦</div>
+            <div class="delivery-info">
+                <span class="delivery-label">Estimated Delivery</span>
+                <span class="delivery-time">@FormatTimeLeft(timeLeft)</span>
+            </div>
+        </div>
+    }
+    else if (Order.Status == OrderStatus.Delivered)
+    {
+        <div class="card-delivery delivered">
+            <div class="delivery-icon">✅</div>
+            <div class="delivery-info">
+                <span class="delivery-label">Delivered</span>
+                <span class="delivery-time">@Order.DeliveredAt?.ToString("MMM dd, yyyy")</span>
+            </div>
+        </div>
+    }
+    else if (Order.Status == OrderStatus.Cancelled)
+    {
+        <div class="card-delivery cancelled">
+            <div class="delivery-icon">❌</div>
+            <div class="delivery-info">
+                <span class="delivery-label">Cancelled</span>
+                <span class="delivery-time">@Order.CancelledAt?.ToString("MMM dd, yyyy")</span>
+            </div>
+        </div>
+    }
+
+    <!-- Tracking Info -->
+    @if (!string.IsNullOrEmpty(Order.TrackingNumber))
+    {
+        <div class="card-tracking">
+            <span class="tracking-label">Tracking:</span>
+            <span class="tracking-number">@Order.TrackingNumber</span>
+        </div>
+    }
+
+    <!-- Card Actions -->
+    <div class="card-actions">
+        <button class="card-action-btn view" @onclick="HandleCardClick" title="View Details">
+            <span>View Details</span>
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public OrderViewModel Order { get; set; } = default!;
+    [Parameter] public DateTime ServerTime { get; set; } = DateTime.UtcNow;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public EventCallback<OrderViewModel> OnOrderClick { get; set; }
+    [Parameter] public EventCallback<(string orderId, bool isSelected)> OnSelectionChanged { get; set; }
+
+    private bool IsUrgent => GetTimeUntilDelivery().TotalHours < 24 && 
+                             GetTimeUntilDelivery().TotalHours > 0 &&
+                             (Order.Status == OrderStatus.Shipped || Order.Status == OrderStatus.Processing);
+
+    private void HandleCardClick()
+    {
+        if (OnOrderClick.HasDelegate)
+        {
+            OnOrderClick.InvokeAsync(Order);
+        }
+    }
+
+    private void HandleSelectionChange(ChangeEventArgs e)
+    {
+        if (OnSelectionChanged.HasDelegate)
+        {
+            OnSelectionChanged.InvokeAsync((Order.Id, (bool)e.Value));
+        }
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "??";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+    }
+
+    private TimeSpan GetTimeUntilDelivery()
+    {
+        // Extract city from shipping address
+        var city = ExtractCityFromAddress(Order.ShippingAddress);
+        
+        // Get delivery window based on location (from ServerTimeService logic)
+        var deliveryHours = GetDeliveryWindowHours(city);
+        
+        var estimatedDeliveryTime = Order.CreatedAt.AddHours(deliveryHours);
+        return estimatedDeliveryTime - ServerTime;
+    }
+
+    private string FormatTimeLeft(TimeSpan timeLeft)
+    {
+        if (timeLeft.TotalHours < 0)
+            return "⚠️ Overdue";
+        
+        if (timeLeft.TotalDays >= 1)
+            return $"{(int)timeLeft.TotalDays}d {timeLeft.Hours}h left";
+        
+        if (timeLeft.TotalHours >= 1)
+            return $"{(int)timeLeft.TotalHours}h {timeLeft.Minutes}m left";
+        
+        return $"{timeLeft.Minutes}m left";
+    }
+
+    private string ExtractCityFromAddress(string address)
+    {
+        var parts = address.Split(',');
+        if (parts.Length >= 2)
+        {
+            return parts[^2].Trim();
+        }
+        return "Abuja";
+    }
+
+    private int GetDeliveryWindowHours(string city)
+    {
+        // Simple delivery time calculation (should match ServerTimeService logic)
+        return city.ToLower() switch
+        {
+            "abuja" => 24,
+            "kaduna" => 48,
+            "lagos" => 72,
+            "kano" => 48,
+            _ => 72
+        };
+    }
+}

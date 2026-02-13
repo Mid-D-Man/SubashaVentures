@@ -1,8 +1,21 @@
 @page "/user"
 @layout UserLayout
-@using SubashaVentures.Components.Shared.Buttons
-@inject NavigationManager Navigation
 @using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Domain.Enums
+@using SubashaVentures.Services.Orders
+@using SubashaVentures.Services.Users
+@using SubashaVentures.Services.Cart
+@using SubashaVentures.Services.Wishlist
+@using SubashaVentures.Services.VisualElements
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject IOrderService OrderService
+@inject IUserService UserService
+@inject ICartService CartService
+@inject IWishlistService WishlistService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IVisualElementsService VisualElements
 
 <div class="user-dashboard">
     <div class="dashboard-header">
@@ -10,118 +23,335 @@
         <p>Manage your profile, orders, and preferences</p>
     </div>
 
-    <div class="dashboard-grid">
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/addresses"))">
-            <div class="card-icon">📍</div>
-            <h3>Addresses</h3>
-            <p>Manage delivery addresses</p>
-            <span class="card-arrow">→</span>
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <LoadingSpinner />
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-grid">
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/addresses"))">
+                <div class="card-icon">
+                    @((MarkupString)addressSvg)
+                </div>
+                <h3>Addresses</h3>
+                <p>Manage delivery addresses</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/orders"))">
+                <div class="card-icon">
+                    @((MarkupString)orderSvg)
+                </div>
+                <h3>Orders</h3>
+                <p>Track and view orders</p>
+                @if (TotalOrders > 0)
+                {
+                    <span class="card-badge">@TotalOrders</span>
+                }
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/wishlist-cart"))">
+                <div class="card-icon">
+                    @((MarkupString)cartSvg)
+                </div>
+                <h3>Wishlist/Cart</h3>
+                <p>Check Your Wishlists and Cart</p>
+                @if (CartCount > 0 || WishlistCount > 0)
+                {
+                    <span class="card-badge">@(CartCount + WishlistCount)</span>
+                }
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/messages"))">
+                <div class="card-icon">
+                    @((MarkupString)messagesSvg)
+                </div>
+                <h3>Messages</h3>
+                <p>Promotions and updates</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/reviews"))">
+                <div class="card-icon">
+                    @((MarkupString)starSvg)
+                </div>
+                <h3>Reviews</h3>
+                <p>Your product reviews</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/history"))">
+                <div class="card-icon">
+                    @((MarkupString)historySvg)
+                </div>
+                <h3>History</h3>
+                <p>Recently viewed items</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/payment"))">
+                <div class="card-icon">
+                    @((MarkupString)paymentSvg)
+                </div>
+                <h3>Payment</h3>
+                <p>Payment methods & credit</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/offers"))">
+                <div class="card-icon">
+                    @((MarkupString)offerSvg)
+                </div>
+                <h3>Offers & Deals</h3>
+                <p>Exclusive promotions</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/support"))">
+                <div class="card-icon">
+                    @((MarkupString)helpSvg)
+                </div>
+                <h3>Support</h3>
+                <p>Help & contact us</p>
+                <span class="card-arrow">→</span>
+            </div>
+
+            <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/settings"))">
+                <div class="card-icon">
+                    @((MarkupString)settingsSvg)
+                </div>
+                <h3>Settings</h3>
+                <p>Account preferences</p>
+                <span class="card-arrow">→</span>
+            </div>
         </div>
 
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/orders"))">
-            <div class="card-icon">📦</div>
-            <h3>Orders</h3>
-            <p>Track and view orders</p>
-            <span class="card-arrow">→</span>
+        <div class="quick-stats">
+            <div class="stat-card">
+                <div class="stat-icon">@((MarkupString)orderStatSvg)</div>
+                <div class="stat-value">@TotalOrders</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">@((MarkupString)moneyStatSvg)</div>
+                <div class="stat-value">@TotalSpent</div>
+                <div class="stat-label">Total Spent</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">@((MarkupString)pointsStatSvg)</div>
+                <div class="stat-value">@LoyaltyPoints</div>
+                <div class="stat-label">Loyalty Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">@((MarkupString)tierStatSvg)</div>
+                <div class="stat-value">@MembershipTier</div>
+                <div class="stat-label">Membership</div>
+            </div>
         </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/wishlist-cart"))">
-            <div class="card-icon">📦</div>
-            <h3>Wishlist/Cart</h3>
-            <p>Check Your Wishlists and Cart</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/messages"))">
-            <div class="card-icon">💬</div>
-            <h3>Messages</h3>
-            <p>Promotions and updates</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/reviews"))">
-            <div class="card-icon">⭐</div>
-            <h3>Reviews</h3>
-            <p>Your product reviews</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/history"))">
-            <div class="card-icon">🕐</div>
-            <h3>History</h3>
-            <p>Recently viewed items</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/payment"))">
-            <div class="card-icon">💳</div>
-            <h3>Payment</h3>
-            <p>Payment methods & credit</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/offers"))">
-            <div class="card-icon">🎁</div>
-            <h3>Offers & Deals</h3>
-            <p>Exclusive promotions</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/support"))">
-            <div class="card-icon">🆘</div>
-            <h3>Support</h3>
-            <p>Help & contact us</p>
-            <span class="card-arrow">→</span>
-        </div>
-
-        <div class="dashboard-card" @onclick="@(() => Navigation.NavigateTo("user/settings"))">
-            <div class="card-icon">⚙️</div>
-            <h3>Settings</h3>
-            <p>Account preferences</p>
-            <span class="card-arrow">→</span>
-        </div>
-    </div>
-
-    <div class="quick-stats">
-        <div class="stat-card">
-            <div class="stat-value">@TotalOrders</div>
-            <div class="stat-label">Total Orders</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value">@TotalSpent</div>
-            <div class="stat-label">Total Spent</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value">@LoyaltyPoints</div>
-            <div class="stat-label">Loyalty Points</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value">@MembershipTier</div>
-            <div class="stat-label">Membership</div>
-        </div>
-    </div>
+    }
 </div>
 
 @code {
+    private bool isLoading = true;
+    private string userId = string.Empty;
+    
+    // Stats
     private int TotalOrders = 0;
     private string TotalSpent = "₦0";
     private int LoyaltyPoints = 0;
     private string MembershipTier = "Bronze";
+    private int CartCount = 0;
+    private int WishlistCount = 0;
+    
+    // Dashboard card SVGs (40x40)
+    private string addressSvg = string.Empty;
+    private string orderSvg = string.Empty;
+    private string cartSvg = string.Empty;
+    private string messagesSvg = string.Empty;
+    private string starSvg = string.Empty;
+    private string historySvg = string.Empty;
+    private string paymentSvg = string.Empty;
+    private string offerSvg = string.Empty;
+    private string helpSvg = string.Empty;
+    private string settingsSvg = string.Empty;
+    
+    // Stats SVGs (32x32)
+    private string orderStatSvg = string.Empty;
+    private string moneyStatSvg = string.Empty;
+    private string pointsStatSvg = string.Empty;
+    private string tierStatSvg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        // Load user statistics
-        await LoadUserStats();
+        try
+        {
+            // Get current user
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                userId = user.FindFirst("sub")?.Value ?? user.FindFirst("id")?.Value ?? "";
+                
+                // Load SVGs and stats in parallel
+                await Task.WhenAll(
+                    LoadSvgsAsync(),
+                    LoadUserStatsAsync()
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user dashboard: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
-    private async Task LoadUserStats()
+    private async Task LoadSvgsAsync()
     {
-        // TODO: Implement actual data loading from service
-        await Task.Delay(100);
-        
-        TotalOrders = 5;
-        TotalSpent = "₦125,000";
-        LoyaltyPoints = 1250;
-        MembershipTier = "Silver";
+        try
+        {
+            // Dashboard card icons (40x40)
+            addressSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Address, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            orderSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Order, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            cartSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Cart, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            messagesSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Messages, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            starSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            historySvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.History, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            paymentSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Payment, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            offerSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Offer, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            helpSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.HelpCenter, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            settingsSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Settings, 
+                width: 40, 
+                height: 40, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            // Stats icons (32x32)
+            orderStatSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Order, 
+                width: 32, 
+                height: 32, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            // Create money/currency icon
+            moneyStatSvg = VisualElements.GenerateSvg(
+                "<path fill='var(--primary-color)' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z'/>",
+                32, 32, "0 0 24 24"
+            );
+            
+            // Create points/star icon
+            pointsStatSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star, 
+                width: 32, 
+                height: 32, 
+                fillColor: "var(--primary-color)"
+            );
+            
+            // Create tier/trophy icon
+            tierStatSvg = VisualElements.GenerateSvg(
+                "<path fill='var(--primary-color)' d='M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm7 6c-1.65 0-3-1.35-3-3V5h6v6c0 1.65-1.35 3-3 3zm7-6c0 1.3-.84 2.4-2 2.82V7h2v1z'/>",
+                32, 32, "0 0 24 24"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading SVGs: {ex.Message}");
+        }
+    }
+
+    private async Task LoadUserStatsAsync()
+    {
+        if (string.IsNullOrEmpty(userId))
+            return;
+
+        try
+        {
+            // Load user profile for stats
+            var userProfile = await UserService.GetUserByIdAsync(userId);
+            if (userProfile != null)
+            {
+                TotalOrders = userProfile.TotalOrders;
+                TotalSpent = $"₦{userProfile.TotalSpent:N0}";
+                LoyaltyPoints = userProfile.LoyaltyPoints;
+                MembershipTier = userProfile.MembershipTier.ToString();
+            }
+            
+            // Load cart count
+            CartCount = await CartService.GetCartItemCountAsync(userId);
+            
+            // Load wishlist count
+            WishlistCount = await WishlistService.GetWishlistCountAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user stats: {ex.Message}");
+            // Keep default values on error
+        }
     }
 }

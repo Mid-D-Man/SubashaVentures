@@ -1,6 +1,9 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 
+@using SubashaVentures.Domain.Enums
+
+
 <div class="filter-panel">
     @if (IsLoading)
     {
@@ -54,10 +57,18 @@
                     <button 
                         class="rating-btn @(MinRating == currentRating ? "active" : "")"
                         @onclick="@(() => SetMinRating(currentRating))">
-                        @for (int i = 0; i < 5; i++)
-                        {
-                            <span class="star @(i < currentRating ? "filled" : "")">★</span>
-                        }
+                        <div class="stars-row">
+                            @for (int i = 0; i < 5; i++)
+                            {
+                                int starIndex = i;
+                                <span class="star @(starIndex < currentRating ? "filled" : "")">
+                                    @if (!string.IsNullOrEmpty(StarSvg))
+                                    {
+                                        @((MarkupString)StarSvg)
+                                    }
+                                </span>
+                            }
+                        </div>
                         <span class="rating-text">& Up</span>
                     </button>
                 }
