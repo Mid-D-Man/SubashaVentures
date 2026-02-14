@@ -1,4 +1,4 @@
-// Program.cs - COMPLETE WITH SYNC LOCALSTORAGE
+// Program.cs - UPDATED SERVICES REGISTRATION WITH VISUAL ELEMENTS INITIALIZATION
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -51,7 +51,6 @@ builder.Logging.AddFilter("SubashaVentures", LogLevel.Debug);
 
 builder.Services.AddSingleton<IMid_Logger, Mid_Logger>();
 
-// ==================== BLAZORED LOCALSTORAGE (BOTH ASYNC AND SYNC) ====================
 builder.Services.AddBlazoredLocalStorage(config =>
 {
     config.JsonSerializerOptions.WriteIndented = false;
@@ -59,13 +58,7 @@ builder.Services.AddBlazoredLocalStorage(config =>
 });
 builder.Services.AddBlazoredToast();
 
-// ==================== CORE STORAGE SERVICES ====================
-builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
-
-// ==================== SUPABASE SESSION HANDLER ====================
-builder.Services.AddScoped<SupabaseSessionHandler>();
-
-// ==================== SUPABASE CLIENT WITH PERSISTENT SESSION ====================
+// ==================== SUPABASE CLIENT ====================
 builder.Services.AddScoped<Client>(sp =>
 {
     var config = builder.Configuration;
@@ -81,25 +74,14 @@ builder.Services.AddScoped<Client>(sp =>
     Console.WriteLine($"✓ Supabase URL: {url}");
     Console.WriteLine($"✓ Supabase Key (first 20 chars): {key.Substring(0, Math.Min(20, key.Length))}...");
     
-    // ✅ CRITICAL: Configure options for persistent sessions
     var options = new SupabaseOptions
     {
         AutoConnectRealtime = false,
-        AutoRefreshToken = true, // ✅ Enable automatic token refresh
+        AutoRefreshToken = true,
+        SessionHandler = new DefaultSupabaseSessionHandler()
     };
   
-    var client = new Client(url, key, options);
-    
-    // ✅ CRITICAL: Set custom persistent session handler
-    var sessionHandler = sp.GetRequiredService<SupabaseSessionHandler>();
-    client.Auth.SetPersistence(sessionHandler);
-    
-    // ✅ Load session immediately (synchronous call)
-    client.Auth.LoadSession();
-    
-    Console.WriteLine("✓ Supabase client configured with persistent session handler");
-    
-    return client;
+    return new Client(url, key, options);
 });
 
 // ==================== AUTHENTICATION ====================
@@ -114,8 +96,8 @@ builder.Services.AddAuthorizationCore(options =>
     options.AddPolicy("AnyRole", policy =>
         policy.RequireRole("superior_admin", "user"));
 });
-
 builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
+// Add SessionManager to DI container
 builder.Services.AddScoped<SessionManager>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<SupabaseAuthService>();
@@ -126,24 +108,24 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddSingleton<INavigationService, NavigationService>();
 builder.Services.AddScoped<ConnectivityService>();
 builder.Services.AddScoped<IServerTimeService, ServerTimeService>();
+builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
 
 // ==================== VISUAL ELEMENTS SERVICE ====================
+// IMPORTANT: Register as Scoped so it can be initialized once and reused
 builder.Services.AddScoped<IVisualElementsService, VisualElementsService>();
 
-// ==================== FIREBASE SERVICES ====================
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
-// ==================== SUPABASE SERVICES ====================
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 builder.Services.AddScoped<ISupabaseEdgeFunctionService, SupabaseEdgeFunctionService>();
 
-// ==================== SHOP SERVICES ====================
-builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
+// ==================== SHOP SERVICES - SIMPLIFIED ====================
+builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>(); // SINGLE SERVICE NOW
 
 // ==================== PRODUCT & CATALOG SERVICES ====================
 builder.Services.AddScoped<ICategoryService, CategoryService>();
@@ -177,47 +159,6 @@ var host = builder.Build();
 
 try
 {
-    Console.WriteLine("========================================");
-    Console.WriteLine("🚀 INITIALIZING SUBASHAVENTURES APP");
-    Console.WriteLine("========================================");
-    
-    // ==================== INITIALIZE SUPABASE AND RESTORE SESSION ====================
-    Console.WriteLine("🔐 Initializing Supabase client with session restoration...");
-    
-    var supabaseClient = host.Services.GetRequiredService<Client>();
-    
-    // ✅ Session already loaded synchronously during client creation
-    // ✅ Now attempt async restoration/refresh
-    try
-    {
-        var session = await supabaseClient.Auth.RetrieveSessionAsync();
-        
-        if (session != null)
-        {
-            Console.WriteLine("✅ Session restored successfully!");
-            Console.WriteLine($"   👤 User: {session.User?.Email ?? "unknown"}");
-            Console.WriteLine($"   🔑 User ID: {session.User?.Id ?? "unknown"}");
-            Console.WriteLine($"   ⏰ Expires: {session.ExpiresAt():yyyy-MM-dd HH:mm:ss UTC}");
-            
-            var timeUntilExpiry = session.ExpiresAt() - DateTime.UtcNow;
-            Console.WriteLine($"   ⏳ Time remaining: {timeUntilExpiry.TotalHours:F1} hours");
-            
-            // ✅ Ensure auto-refresh is working
-            Console.WriteLine($"   🔄 Auto-refresh: Enabled");
-        }
-        else
-        {
-            Console.WriteLine("ℹ️  No valid session found - user needs to sign in");
-        }
-    }
-    catch (Exception sessionEx)
-    {
-        Console.WriteLine($"⚠️  Session restoration failed: {sessionEx.Message}");
-        Console.WriteLine("   User will need to sign in again");
-    }
-    
-    Console.WriteLine("✓ Supabase client initialized");
-    
     // ==================== INITIALIZE VISUAL ELEMENTS SERVICE ====================
     Console.WriteLine("🎨 Initializing VisualElementsService...");
     var visualElementsService = host.Services.GetRequiredService<IVisualElementsService>();
@@ -228,13 +169,10 @@ try
     Console.WriteLine($"   📊 Preloaded: {iconsCached} icons, {svgsCached} SVGs ({totalCached} total assets)");
     
     // ==================== INITIALIZE PRODUCT INTERACTION SERVICE ====================
-    Console.WriteLine("📈 Starting product interaction tracking...");
     var interactionService = host.Services.GetRequiredService<IProductInteractionService>();
     interactionService.StartAutoFlush();
-    Console.WriteLine("✓ Product tracking enabled");
     
     // ==================== INITIALIZE LOGGING ====================
-    Console.WriteLine("📝 Initializing logging services...");
     var midLogger = host.Services.GetRequiredService<IMid_Logger>();
     var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
     
@@ -245,15 +183,13 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"❌ CRITICAL: Failed to initialize core services!");
-    Console.WriteLine($"   Error: {ex.Message}");
+    Console.WriteLine($"❌ Failed to initialize core services: {ex.Message}");
     Console.WriteLine($"   Stack trace: {ex.StackTrace}");
 }
 
 try
 {
     // ==================== INITIALIZE FIREBASE ====================
-    Console.WriteLine("🔥 Initializing Firebase...");
     var firebaseConfig = host.Services.GetRequiredService<IFirebaseConfigService>();
     await firebaseConfig.InitializeAsync();
     
@@ -265,15 +201,11 @@ catch (Exception ex)
 }
 
 Console.WriteLine("========================================");
-Console.WriteLine("✅ ALL SERVICES INITIALIZED SUCCESSFULLY");
-Console.WriteLine("========================================");
-Console.WriteLine("   ✓ Supabase: Session persistence enabled (indefinite)");
-Console.WriteLine("   ✓ VisualElements: SVGs preloaded");
-Console.WriteLine("   ✓ Product tracking: Active");
-Console.WriteLine("   ✓ Firebase: Connected");
-Console.WriteLine("   ✓ Authentication: Ready with auto-refresh");
-Console.WriteLine("========================================");
-Console.WriteLine("🎉 App ready to run!");
+Console.WriteLine("✓ All services initialized successfully");
+Console.WriteLine("   ✓ VisualElementsService: SVGs preloaded and ready");
+Console.WriteLine("   ✓ Product tracking enabled");
+Console.WriteLine("   ✓ Firebase connected");
+Console.WriteLine("   ✓ Supabase configured");
 Console.WriteLine("========================================");
 
 await host.RunAsync();
