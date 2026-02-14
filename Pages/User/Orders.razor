@@ -1,248 +1,210 @@
-using Microsoft.AspNetCore.Components;
-using SubashaVentures.Domain.Order;
-using SubashaVentures.Services.Orders;
-using SubashaVentures.Services.Authorization;
-using SubashaVentures.Utilities.HelperScripts;
-using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-using System.Linq; 
+@page "/user/orders"
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Domain.Order
 
-namespace SubashaVentures.Pages.User;
-
-public partial class Orders : ComponentBase
-{
-    [Inject] private IOrderService OrderService { get; set; } = default!;
-    [Inject] private IPermissionService PermissionService { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
-    [Inject] private ILogger<Orders> Logger { get; set; } = default!;
-
-    // State
-    private List<OrderViewModel> OrdersList = new();
-    private List<OrderViewModel> FilteredOrders = new();
-    private bool IsLoading = true;
-    private bool IsLoadingMore = false;
-    private bool HasMoreOrders = false;
-    private string FilterStatus = "All";
-    private string? CurrentUserId;
-    
-    // Pagination
-    private int PageSize = 10;
-    private int CurrentPage = 0;
-    
-    // Computed
-    private decimal TotalSpent => OrdersList.Sum(o => o.Total);
-
-    protected override async Task OnInitializedAsync()
+<div class="orders-page">
+    @if (IsLoading)
     {
-        try
-        {
-            // Ensure authenticated
-            if (!await PermissionService.EnsureAuthenticatedAsync("user/orders"))
+        <div class="orders-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                          Variant="LoadingSpinner.SpinnerVariant.Circle"
+                          Message="Loading your orders..." />
+        </div>
+    }
+    else if (!FilteredOrders.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <h2>No Orders Yet</h2>
+            <p>You haven't placed any orders yet. Start shopping to see your order history here.</p>
+            <button class="btn-start-shopping" @onclick="NavigateToShop">
+                Start Shopping
+            </button>
+        </div>
+    }
+    else
+    {
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="header-content">
+                <h1>My Orders</h1>
+                <p>Track and manage all your orders</p>
+            </div>
+            
+            <div class="header-stats">
+                <div class="stat-item">
+                    <div class="stat-value">@OrdersList.Count</div>
+                    <div class="stat-label">Total Orders</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">₦@TotalSpent.ToString("N0")</div>
+                    <div class="stat-label">Total Spent</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="orders-filters">
+            <button class="filter-btn @(FilterStatus == "All" ? "active" : "")" 
+                    @onclick='() => FilterOrders("All")'>
+                All Orders
+                <span class="filter-count">(@OrdersList.Count)</span>
+            </button>
+            <button class="filter-btn @(FilterStatus == "Pending" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Pending")'>
+                Pending
+                <span class="filter-count">(@GetStatusCount(OrderStatus.Pending))</span>
+            </button>
+            <button class="filter-btn @(FilterStatus == "Processing" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Processing")'>
+                Processing
+                <span class="filter-count">(@GetStatusCount(OrderStatus.Processing))</span>
+            </button>
+            <button class="filter-btn @(FilterStatus == "Shipped" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Shipped")'>
+                Shipped
+                <span class="filter-count">(@GetStatusCount(OrderStatus.Shipped))</span>
+            </button>
+            <button class="filter-btn @(FilterStatus == "Delivered" ? "active" : "")" 
+                    @onclick='() => FilterOrders("Delivered")'>
+                Delivered
+                <span class="filter-count">(@GetStatusCount(OrderStatus.Delivered))</span>
+            </button>
+        </div>
+
+        <!-- Orders List -->
+        <div class="orders-list">
+            @foreach (var order in FilteredOrders)
             {
-                Navigation.NavigateTo("signin", true);
-                return;
+                <div class="order-card">
+                    <!-- Order Header -->
+                    <div class="order-header">
+                        <div class="order-info">
+                            <h3 class="order-number">Order #@order.OrderNumber</h3>
+                            <div class="order-meta">
+                                <div class="order-date">
+                                    <span class="icon">📅</span>
+                                    <span>@order.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                </div>
+                                <div class="order-time">
+                                    <span class="icon">🕐</span>
+                                    <span>@order.CreatedAt.ToString("hh:mm tt")</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="order-status @GetStatusClass(order.Status)">
+                            <span>@GetStatusIcon(order.Status)</span>
+                            <span>@order.Status</span>
+                        </div>
+                    </div>
+
+                    <!-- Order Items (Show first 3) -->
+                    <div class="order-items">
+                        @foreach (var item in order.Items.Take(3))
+                        {
+                            <OrderItemCard OrderItem="item" CssClass="order-item-compact" />
+                        }
+                        @if (order.Items.Count > 3)
+                        {
+                            <div class="more-items-notice">
+                                + @(order.Items.Count - 3) more item@(order.Items.Count - 3 > 1 ? "s" : "")
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span class="summary-label">Subtotal</span>
+                            <span class="summary-value">₦@order.Subtotal.ToString("N0")</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Shipping</span>
+                            <span class="summary-value">₦@order.ShippingCost.ToString("N0")</span>
+                        </div>
+                        @if (order.Discount > 0)
+                        {
+                            <div class="summary-row discount">
+                                <span class="summary-label">Discount</span>
+                                <span class="summary-value">-₦@order.Discount.ToString("N0")</span>
+                            </div>
+                        }
+                        <div class="summary-row total">
+                            <span class="summary-label">Total</span>
+                            <span class="summary-value">₦@order.Total.ToString("N0")</span>
+                        </div>
+                    </div>
+
+                    <!-- Shipping Info -->
+                    <div class="shipping-info">
+                        <div class="shipping-header">
+                            <span class="icon">🚚</span>
+                            <span class="shipping-label">Shipping Information</span>
+                        </div>
+                        <p class="shipping-address">@order.ShippingAddress</p>
+                        <p class="shipping-method">
+                            <strong>Method:</strong> @order.ShippingMethod
+                        </p>
+                    </div>
+
+                    <!-- Order Footer -->
+                    <div class="order-footer">
+                        <div class="order-payment">
+                            <div class="payment-method">
+                                <span>@GetPaymentIcon(order.PaymentMethod)</span>
+                                <span>@order.PaymentMethod</span>
+                            </div>
+                            <div class="payment-status @GetPaymentStatusClass(order.PaymentStatus)">
+                                @order.PaymentStatus
+                            </div>
+                        </div>
+
+                        <div class="order-actions">
+                            @if (order.Status == OrderStatus.Shipped || order.Status == OrderStatus.Processing)
+                            {
+                                <button class="btn-track" @onclick='() => TrackOrder(order.Id)'>
+                                    <span class="icon">📍</span>
+                                    Track Order
+                                </button>
+                            }
+                            
+                            <button class="btn-view" @onclick='() => ViewOrder(order.Id)'>
+                                <span class="icon">👁️</span>
+                                View Details
+                            </button>
+
+                            @if (order.Status == OrderStatus.Pending || order.Status == OrderStatus.Processing)
+                            {
+                                <button class="btn-cancel" @onclick='() => CancelOrder(order.Id)'>
+                                    <span class="icon">❌</span>
+                                    Cancel
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
             }
+        </div>
 
-            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-
-            if (string.IsNullOrEmpty(CurrentUserId))
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ User ID not found",
-                    LogLevel.Error
-                );
-                Navigation.NavigateTo("signin", true);
-                return;
-            }
-
-            await LoadOrders();
-        }
-        catch (Exception ex)
+        <!-- Load More -->
+        @if (HasMoreOrders)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing orders page");
-            Logger.LogError(ex, "Failed to initialize orders page");
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    private async Task LoadOrders()
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"📦 Loading orders for user: {CurrentUserId}",
-                LogLevel.Info
-            );
-
-            var orders = await OrderService.GetUserOrdersAsync(
-                CurrentUserId!,
-                skip: CurrentPage * PageSize,
-                take: PageSize + 1
-            );
-
-            HasMoreOrders = orders.Count > PageSize;
-            var pageOrders = orders.Take(PageSize).ToList();
-
-            if (CurrentPage == 0)
-            {
-                OrdersList = pageOrders;
-            }
-            else
-            {
-                OrdersList.AddRange(pageOrders);
-            }
-
-            FilteredOrders = OrdersList;
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded {pageOrders.Count} orders (Page {CurrentPage + 1})",
-                LogLevel.Info
-            );
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading orders");
-            Logger.LogError(ex, "Failed to load orders");
-            OrdersList = new List<OrderViewModel>();
-            FilteredOrders = new List<OrderViewModel>();
+            <div class="load-more-container">
+                <button class="btn-load-more" 
+                        @onclick="LoadMoreOrders" 
+                        disabled="@IsLoadingMore">
+                    @if (IsLoadingMore)
+                    {
+                        <div class="spinner-small"></div>
+                        <span>Loading...</span>
+                    }
+                    else
+                    {
+                        <span>Load More Orders</span>
+                    }
+                </button>
+            </div>
         }
     }
-
-    private async Task LoadMoreOrders()
-    {
-        if (IsLoadingMore || !HasMoreOrders) return;
-
-        IsLoadingMore = true;
-        StateHasChanged();
-
-        try
-        {
-            CurrentPage++;
-            await LoadOrders();
-        }
-        finally
-        {
-            IsLoadingMore = false;
-            StateHasChanged();
-        }
-    }
-
-    private void FilterOrders(string status)
-    {
-        FilterStatus = status;
-        
-        FilteredOrders = status == "All"
-            ? OrdersList
-            : OrdersList.Where(o => o.Status.ToString() == status).ToList();
-
-        StateHasChanged();
-
-        MID_HelperFunctions.DebugMessageAsync(
-            $"🔍 Filtered orders by {status}: {FilteredOrders.Count} results",
-            LogLevel.Info
-        );
-    }
-
-    private int GetStatusCount(OrderStatus status)
-    {
-        return OrdersList.Count(o => o.Status == status);
-    }
-
-    private string GetStatusClass(OrderStatus status) => status switch
-    {
-        OrderStatus.Pending => "status-pending",
-        OrderStatus.Processing => "status-processing",
-        OrderStatus.Shipped => "status-shipped",
-        OrderStatus.Delivered => "status-delivered",
-        OrderStatus.Cancelled => "status-cancelled",
-        OrderStatus.Refunded => "status-refunded",
-        OrderStatus.Failed => "status-failed",
-        _ => ""
-    };
-
-    private string GetStatusIcon(OrderStatus status) => status switch
-    {
-        OrderStatus.Pending => "⏳",
-        OrderStatus.Processing => "⚙️",
-        OrderStatus.Shipped => "🚚",
-        OrderStatus.Delivered => "✅",
-        OrderStatus.Cancelled => "❌",
-        OrderStatus.Refunded => "💰",
-        OrderStatus.Failed => "⚠️",
-        _ => "📦"
-    };
-
-    private string GetPaymentStatusClass(PaymentStatus status) => status switch
-    {
-        PaymentStatus.Paid => "payment-paid",
-        PaymentStatus.Pending => "payment-pending",
-        PaymentStatus.Failed => "payment-failed",
-        PaymentStatus.Refunded => "payment-refunded",
-        PaymentStatus.PartiallyRefunded => "payment-partially-refunded",
-        _ => ""
-    };
-
-    private string GetPaymentIcon(PaymentMethod method) => method switch
-    {
-        PaymentMethod.Card => "💳",
-        PaymentMethod.BankTransfer => "🏦",
-        PaymentMethod.USSD => "📱",
-        PaymentMethod.PayOnDelivery => "💵",
-        PaymentMethod.Wallet => "👛",
-        _ => "💰"
-    };
-
-    private void TrackOrder(string orderId)
-    {
-        Navigation.NavigateTo($"user/orders/track/{orderId}");
-    }
-
-    // ✅ FIXED: Navigate to correct route
-    private void ViewOrder(string orderId)
-    {
-        Navigation.NavigateTo($"user/orders/details/{orderId}");
-    }
-
-    private async Task CancelOrder(string orderId)
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🚫 Cancelling order: {orderId}",
-                LogLevel.Info
-            );
-
-            var success = await OrderService.CancelOrderAsync(orderId, CurrentUserId!);
-
-            if (success)
-            {
-                CurrentPage = 0;
-                await LoadOrders();
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Order cancelled successfully",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Failed to cancel order",
-                    LogLevel.Error
-                );
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Cancelling order");
-            Logger.LogError(ex, "Failed to cancel order: {OrderId}", orderId);
-        }
-    }
-
-    private void NavigateToShop()
-    {
-        Navigation.NavigateTo("shop");
-    }
-}
+</div>
