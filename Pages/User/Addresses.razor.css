@@ -40,9 +40,16 @@
 }
 
 .empty-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
     opacity: 0.5;
+}
+
+.empty-icon svg {
+    width: 64px;
+    height: 64px;
 }
 
 .empty-state h2 {
@@ -99,6 +106,15 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.badge-icon svg {
+    width: 12px;
+    height: 12px;
+    filter: brightness(0) invert(1);
 }
 
 .address-checkbox {
@@ -126,24 +142,36 @@
     margin: 0 0 0.5rem;
 }
 
-.address-phone {
+.address-phone,
+.address-email,
+.address-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
     font-size: 0.94rem;
     color: var(--text-secondary);
-    margin: 0 0 0.25rem;
+    margin: 0 0 0.5rem;
+}
+
+.address-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-top: 0.125rem;
+}
+
+.address-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
 }
 
 .address-email {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    margin: 0 0 1rem;
     font-style: italic;
-}
-
-.address-text {
-    font-size: 0.94rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin: 0 0 1rem;
+    color: var(--text-muted);
 }
 
 .address-type {
@@ -175,13 +203,24 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 1rem;
+}
+
+.btn-icon svg {
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
 }
 
 .btn-icon:hover {
     background: var(--primary-color);
     border-color: var(--primary-color);
     transform: scale(1.1);
+}
+
+.btn-icon:hover svg {
+    color: white;
+    filter: brightness(0) invert(1);
 }
 
 /* ===== BULK ACTIONS ===== */
@@ -211,8 +250,18 @@
 }
 
 .notice-icon {
-    font-size: 1.5rem;
     flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notice-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--primary-color);
 }
 
 .form-notice p {
@@ -261,7 +310,17 @@
 }
 
 .btn-auto-fill .icon {
-    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+
+.btn-auto-fill .icon svg {
+    width: 20px;
+    height: 20px;
+    filter: brightness(0) invert(1);
     animation: pulse 2s ease-in-out infinite;
 }
 
@@ -292,6 +351,110 @@
     color: var(--text-secondary);
     text-align: center;
     margin: 0;
+}
+
+/* ===== PHONE INPUT ===== */
+.phone-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.input-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.required-mark {
+    color: var(--danger-color);
+    font-weight: 700;
+}
+
+.phone-input-container {
+    display: flex;
+    align-items: center;
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    transition: all 0.2s ease;
+}
+
+.phone-input-container:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
+}
+
+.phone-prefix {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-right: 1px solid var(--border-light);
+    background: rgba(150, 153, 74, 0.05);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.prefix-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+}
+
+.prefix-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--primary-color);
+}
+
+.phone-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: inherit;
+    outline: none;
+}
+
+.phone-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.helper-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.error-message {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--danger-color);
+    margin-top: 0.25rem;
+}
+
+.error-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+}
+
+.error-icon svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* ===== FORM ELEMENTS ===== */
@@ -332,12 +495,6 @@
 .form-select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
-}
-
-.error-message {
-    font-size: 0.8125rem;
-    color: var(--danger-color);
-    margin-top: 0.25rem;
 }
 
 .address-type-options {
@@ -385,6 +542,11 @@
     font-weight: 500;
 }
 
+/* ===== HIGH Z-INDEX FOR OVERLAYS ===== */
+:global(.high-z-index) {
+    z-index: 10001 !important;
+}
+
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .address-card {
     background: var(--bg-primary);
@@ -395,8 +557,14 @@
     background: linear-gradient(135deg, rgba(184, 187, 106, 0.05), transparent);
 }
 
-[data-theme="dark"] .form-select {
+[data-theme="dark"] .form-select,
+[data-theme="dark"] .phone-input-container {
     background: var(--bg-primary);
+}
+
+[data-theme="dark"] .phone-prefix {
+    background: rgba(184, 187, 106, 0.05);
+    border-right-color: var(--border-dark);
 }
 
 [data-theme="dark"] .auto-fill-section {
@@ -453,8 +621,9 @@
         padding: 1.25rem;
     }
 
-    .empty-icon {
-        font-size: 3rem;
+    .empty-icon svg {
+        width: 48px;
+        height: 48px;
     }
 
     .empty-state h2 {
@@ -466,11 +635,12 @@
         font-size: 0.875rem;
     }
 
-    .btn-auto-fill .icon {
-        font-size: 1.125rem;
+    .btn-auto-fill .icon svg {
+        width: 18px;
+        height: 18px;
     }
 
     .auto-fill-hint {
         font-size: 0.8125rem;
     }
-    }
+}
