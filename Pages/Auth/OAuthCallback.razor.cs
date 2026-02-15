@@ -136,10 +136,22 @@ public partial class OAuthCallback : ComponentBase
     /// Determine redirect destination based on user role
     /// </summary>
     private async Task<string> DetermineRedirectDestinationAsync()
+{
+    try
     {
+        await MID_HelperFunctions.DebugMessageAsync(
+            "🎯 Determining redirect destination...",
+            LogLevel.Info
+        );
+
+        // Check if there's a stored return URL
         try
         {
-            // Check if there's a stored return URL
+            await MID_HelperFunctions.DebugMessageAsync(
+                "🔍 Checking for stored return URL...",
+                LogLevel.Info
+            );
+
             var returnUrl = await LocalStorage.GetItemAsync<string>("oauth_return_url");
             await LocalStorage.RemoveItemAsync("oauth_return_url");
 
@@ -152,53 +164,85 @@ public partial class OAuthCallback : ComponentBase
                 return returnUrl;
             }
 
-            // Get current user to check role
-            var user = await AuthService.GetCurrentUserAsync();
-            if (user == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "⚠️ No current user found, redirecting to home",
-                    LogLevel.Warning
-                );
-                return "";
-            }
-
-            // Get user profile with roles
-            var userProfile = await UserService.GetUserByIdAsync(user.Id);
-            
-            if (userProfile == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "⚠️ User profile not found, redirecting to home",
-                    LogLevel.Warning
-                );
-                return "";
-            }
-
-            // Check if user is superior admin
-            if (userProfile.IsSuperiorAdmin)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"👑 Superior admin detected: {user.Email}, redirecting to admin panel",
-                    LogLevel.Info
-                );
-                return "admin";
-            }
-
-            // Regular user - go to home
             await MID_HelperFunctions.DebugMessageAsync(
-                $"👤 Regular user detected: {user.Email}, redirecting to home",
+                "ℹ️ No stored return URL found",
                 LogLevel.Info
             );
-            
-            return "";
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Checking return URL");
+        }
+
+        // Get current user to check role
+        await MID_HelperFunctions.DebugMessageAsync(
+            "👤 Getting current user...",
+            LogLevel.Info
+        );
+
+        var user = await AuthService.GetCurrentUserAsync();
+        
+        if (user == null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "⚠️ No current user found, redirecting to home",
+                LogLevel.Warning
+            );
             return "";
         }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✅ Current user: {user.Email}",
+            LogLevel.Info
+        );
+
+        // Get user profile with roles
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"🔍 Fetching user profile for: {user.Id}",
+            LogLevel.Info
+        );
+
+        var userProfile = await UserService.GetUserByIdAsync(user.Id);
+        
+        if (userProfile == null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "⚠️ User profile not found, redirecting to home",
+                LogLevel.Warning
+            );
+            return "";
+        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"✅ User profile found. Role: {userProfile.Role}, IsSuperiorAdmin: {userProfile.IsSuperiorAdmin}",
+            LogLevel.Info
+        );
+
+        // Check if user is superior admin
+        if (userProfile.IsSuperiorAdmin)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"👑 Superior admin detected: {user.Email}, redirecting to admin panel",
+                LogLevel.Info
+            );
+            return "admin";
+        }
+
+        // Regular user - go to home
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"👤 Regular user detected: {user.Email}, redirecting to home",
+            LogLevel.Info
+        );
+        
+        return "";
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
+        _logger.LogError(ex, "Error determining redirect destination");
+        return "";
+    }
+}
 
     /// <summary>
     /// Retry sign-in on error
