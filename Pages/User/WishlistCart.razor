@@ -22,11 +22,10 @@
         }
     </div>
 
-    <!-- Tab Navigation -->
     <div class="tab-navigation">
         <button class="tab-btn @(ActiveTab == TabType.Wishlist ? "active" : "")"
                 @onclick="() => SwitchTab(TabType.Wishlist)">
-            <span class="tab-icon">💝</span>
+            <span class="tab-icon">@((MarkupString)wishlistSvg)</span>
             <span class="tab-label">Wishlist</span>
             @if (WishlistCount > 0)
             {
@@ -35,7 +34,7 @@
         </button>
         <button class="tab-btn @(ActiveTab == TabType.Cart ? "active" : "")"
                 @onclick="() => SwitchTab(TabType.Cart)">
-            <span class="tab-icon">🛒</span>
+            <span class="tab-icon">@((MarkupString)cartSvg)</span>
             <span class="tab-label">Cart</span>
             @if (CartCount > 0)
             {
@@ -58,7 +57,7 @@
             @if (!WishlistItems.Any())
             {
                 <div class="empty-state">
-                    <div class="empty-icon">💝</div>
+                    <div class="empty-icon">@((MarkupString)wishlistSvg)</div>
                     <h2>Your Wishlist is Empty</h2>
                     <p>Save items you love for later</p>
                     <PrimaryButton OnClick="NavigateToShop" Size="PrimaryButton.ButtonSize.Large">
@@ -68,26 +67,25 @@
             }
             else
             {
-                <!-- Wishlist Actions -->
                 <div class="list-actions">
                     <div class="action-left">
                         <span class="item-count">@TotalWishlistItems items</span>
-                        @if (SelectedWishlistItems.Any())
+                        @if (SelectedWishlistItemsCount > 0)
                         {
-                            <span class="selected-count">@SelectedWishlistItems.Count selected</span>
+                            <span class="selected-count">@SelectedWishlistItemsCount selected</span>
                         }
                     </div>
                     <div class="action-right">
-                        @if (SelectedWishlistItems.Any())
+                        @if (SelectedWishlistItemsCount > 0)
                         {
                             <SecondaryButton OnClick="MoveSelectedToCart" 
                                            Size="SecondaryButton.ButtonSize.Small">
-                                Move to Cart (@SelectedWishlistItems.Count)
+                                Move to Cart (@SelectedWishlistItemsCount)
                             </SecondaryButton>
                             <SecondaryButton OnClick="RemoveSelectedFromWishlist" 
                                            Size="SecondaryButton.ButtonSize.Small"
                                            Variant="SecondaryButton.ButtonVariant.Outline">
-                                Remove (@SelectedWishlistItems.Count)
+                                Remove (@SelectedWishlistItemsCount)
                             </SecondaryButton>
                         }
                         <SecondaryButton OnClick="ClearWishlist" 
@@ -98,14 +96,14 @@
                     </div>
                 </div>
 
-                <!-- Wishlist Grid -->
                 <div class="items-grid">
                     @foreach (var item in PaginatedWishlistItems)
                     {
                         <div class="item-card wishlist-card">
                             <div class="card-checkbox">
                                 <input type="checkbox" 
-                                       @bind="SelectedWishlistItems[item.Id]" />
+                                       checked="@SelectedWishlistItems[item.Id]"
+                                       @onchange="(e) => { SelectedWishlistItems[item.Id] = (bool)(e.Value ?? false); StateHasChanged(); }" />
                             </div>
                             
                             @if (!string.IsNullOrEmpty(item.ImageUrl))
@@ -125,13 +123,16 @@
                                     <span class="current-price">@item.DisplayPrice</span>
                                     @if (item.OriginalPrice.HasValue && item.IsOnSale)
                                     {
-                                        <span class="original-price">₦@item.OriginalPrice.Value.ToString("N0")</span>
+                                        <span class="original-price">@($"₦{item.OriginalPrice.Value:N0}")</span>
                                     }
                                 </div>
                                 <div class="card-status">
                                     @if (item.IsInStock)
                                     {
-                                        <span class="in-stock">✓ In Stock</span>
+                                        <span class="in-stock">
+                                            <span class="status-icon">@((MarkupString)checkmarkSvg)</span>
+                                            <span>In Stock</span>
+                                        </span>
                                     }
                                     else
                                     {
@@ -145,30 +146,30 @@
                                 @if (item.IsInStock)
                                 {
                                     <PrimaryButton OnClick="() => MoveToCart(item.ProductId)" 
-                                                 Size="PrimaryButton.ButtonSize.Small"
-                                                 Icon="🛒">
-                                        Add to Cart
+                                                 Size="PrimaryButton.ButtonSize.Small">
+                                        <span class="btn-icon">@((MarkupString)addToCartSvg)</span>
+                                        <span>Add to Cart</span>
                                     </PrimaryButton>
                                 }
                                 <SecondaryButton OnClick="() => RemoveFromWishlist(item.ProductId)" 
                                                Size="SecondaryButton.ButtonSize.Small"
-                                               Variant="SecondaryButton.ButtonVariant.Outline"
-                                               Icon="🗑️">
-                                    Remove
+                                               Variant="SecondaryButton.ButtonVariant.Outline">
+                                    <span class="btn-icon">@((MarkupString)removeSvg)</span>
+                                    <span>Remove</span>
                                 </SecondaryButton>
                             </div>
                         </div>
                     }
                 </div>
 
-                <!-- Wishlist Pagination -->
                 @if (TotalWishlistPages > 1)
                 {
                     <div class="pagination">
                         <button class="pagination-btn" 
                                 @onclick="() => ChangeWishlistPage(CurrentWishlistPage - 1)"
                                 disabled="@(CurrentWishlistPage == 1)">
-                            ← Previous
+                            <span class="btn-icon">@((MarkupString)arrowLeftSvg)</span>
+                            <span>Previous</span>
                         </button>
                         <div class="pagination-info">
                             Page @CurrentWishlistPage of @TotalWishlistPages
@@ -176,7 +177,8 @@
                         <button class="pagination-btn" 
                                 @onclick="() => ChangeWishlistPage(CurrentWishlistPage + 1)"
                                 disabled="@(CurrentWishlistPage == TotalWishlistPages)">
-                            Next →
+                            <span>Next</span>
+                            <span class="btn-icon">@((MarkupString)arrowRightSvg)</span>
                         </button>
                     </div>
                 }
@@ -187,7 +189,7 @@
             @if (!CartItems.Any())
             {
                 <div class="empty-state">
-                    <div class="empty-icon">🛒</div>
+                    <div class="empty-icon">@((MarkupString)cartSvg)</div>
                     <h2>Your Cart is Empty</h2>
                     <p>Add items to your cart to start shopping</p>
                     <PrimaryButton OnClick="NavigateToShop" Size="PrimaryButton.ButtonSize.Large">
@@ -198,7 +200,6 @@
             else
             {
                 <div class="cart-layout">
-                    <!-- Cart Items -->
                     <div class="cart-items-section">
                         <div class="section-header">
                             <h3>Cart Items (@CartCount)</h3>
@@ -236,17 +237,23 @@
                                             <span class="current-price">@item.DisplayPrice</span>
                                             @if (item.OriginalPrice.HasValue)
                                             {
-                                                <span class="original-price">₦@item.OriginalPrice.Value.ToString("N0")</span>
+                                                <span class="original-price">@($"₦{item.OriginalPrice.Value:N0}")</span>
                                             }
                                         </div>
                                         <div class="item-stock">
                                             @if (item.IsInStock)
                                             {
-                                                <span class="in-stock">✓ In Stock (@item.Stock available)</span>
+                                                <span class="in-stock">
+                                                    <span class="status-icon">@((MarkupString)checkmarkSvg)</span>
+                                                    <span>In Stock (@item.Stock available)</span>
+                                                </span>
                                             }
                                             else
                                             {
-                                                <span class="out-of-stock">⚠️ Out of Stock</span>
+                                                <span class="out-of-stock">
+                                                    <span class="status-icon">@((MarkupString)removeSvg)</span>
+                                                    <span>Out of Stock</span>
+                                                </span>
                                             }
                                         </div>
                                     </div>
@@ -257,7 +264,7 @@
                                             <button class="qty-btn" 
                                                     @onclick="() => DecreaseQuantity(item.Id)"
                                                     disabled="@(!item.CanDecreaseQuantity)">
-                                                −
+                                                -
                                             </button>
                                             <input type="number" 
                                                    class="qty-input" 
@@ -283,26 +290,26 @@
                                         <button class="action-btn" 
                                                 @onclick="() => SaveForLater(item.ProductId)"
                                                 title="Save for later">
-                                            💝
+                                            <span class="btn-icon">@((MarkupString)wishlistSvg)</span>
                                         </button>
                                         <button class="action-btn danger" 
                                                 @onclick="() => RemoveFromCart(item.Id)"
                                                 title="Remove">
-                                            🗑️
+                                            <span class="btn-icon">@((MarkupString)removeSvg)</span>
                                         </button>
                                     </div>
                                 </div>
                             }
                         </div>
 
-                        <!-- Cart Pagination -->
                         @if (TotalCartPages > 1)
                         {
                             <div class="pagination">
                                 <button class="pagination-btn" 
                                         @onclick="() => ChangeCartPage(CurrentCartPage - 1)"
                                         disabled="@(CurrentCartPage == 1)">
-                                    ← Previous
+                                    <span class="btn-icon">@((MarkupString)arrowLeftSvg)</span>
+                                    <span>Previous</span>
                                 </button>
                                 <div class="pagination-info">
                                     Page @CurrentCartPage of @TotalCartPages
@@ -310,13 +317,13 @@
                                 <button class="pagination-btn" 
                                         @onclick="() => ChangeCartPage(CurrentCartPage + 1)"
                                         disabled="@(CurrentCartPage == TotalCartPages)">
-                                    Next →
+                                    <span>Next</span>
+                                    <span class="btn-icon">@((MarkupString)arrowRightSvg)</span>
                                 </button>
                             </div>
                         }
                     </div>
 
-                    <!-- Cart Summary -->
                     <div class="cart-summary-section">
                         <div class="summary-card">
                             <h3>Order Summary</h3>
@@ -365,33 +372,33 @@
                                         </div>
                                     </div>
                                     <p class="progress-text">
-                                        Add ₦@CartSummary.AmountToFreeShipping.ToString("N0") more for FREE shipping!
+                                        Add @($"₦{CartSummary.AmountToFreeShipping:N0}") more for FREE shipping
                                     </p>
                                 </div>
                             }
                             else if (CartSummary.HasFreeShipping)
                             {
                                 <div class="free-shipping-badge">
-                                    🎉 You qualify for FREE shipping!
+                                    <span class="badge-icon">@((MarkupString)checkmarkSvg)</span>
+                                    <span>You qualify for FREE shipping</span>
                                 </div>
                             }
 
                             <PrimaryButton OnClick="ProceedToCheckout" 
                                          Size="PrimaryButton.ButtonSize.Large"
                                          IsDisabled="!CanCheckout"
-                                         class="checkout-btn">
+                                         CssClass="checkout-btn">
                                 Proceed to Checkout
                             </PrimaryButton>
 
                             <SecondaryButton OnClick="NavigateToShop" 
                                            Size="SecondaryButton.ButtonSize.Medium"
                                            Variant="SecondaryButton.ButtonVariant.Outline"
-                                           class="continue-shopping-btn">
+                                           CssClass="continue-shopping-btn">
                                 Continue Shopping
                             </SecondaryButton>
                         </div>
 
-                        <!-- Promo Code Section -->
                         <div class="promo-card">
                             <h4>Have a promo code?</h4>
                             <div class="promo-input-group">
@@ -413,15 +420,17 @@
                             }
                         </div>
 
-                        <!-- Validation Issues -->
                         @if (ValidationResult != null && ValidationResult.ItemIssues.Any())
                         {
                             <div class="validation-card">
-                                <h4>⚠️ Cart Issues</h4>
+                                <h4>
+                                    <span class="warning-icon">@((MarkupString)removeSvg)</span>
+                                    <span>Cart Issues</span>
+                                </h4>
                                 @foreach (var issue in ValidationResult.ItemIssues)
                                 {
                                     <div class="validation-issue">
-                                        <span class="issue-icon">⚠️</span>
+                                        <span class="issue-icon">@((MarkupString)removeSvg)</span>
                                         <span class="issue-message">@issue.Message</span>
                                     </div>
                                 }
@@ -434,7 +443,6 @@
     }
 </div>
 
-<!-- Confirmation Modal -->
 <ConfirmationPopup @ref="ConfirmationPopup"
                    Title="@ConfirmationTitle"
                    Message="@ConfirmationMessage"
