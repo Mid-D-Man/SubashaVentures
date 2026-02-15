@@ -1,4 +1,4 @@
-// Services/Geolocation/GeolocationService.cs
+// Services/Geolocation/GeolocationService.cs - UPDATED WITH GPS PRIORITY
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -7,6 +7,7 @@ namespace SubashaVentures.Services.Geolocation;
 
 public interface IGeolocationService
 {
+    Task<AddressComponents?> GetLocationAsync();
     Task<AddressComponents?> GetLocationFromIPAsync();
     Task<GeolocationPosition?> GetPreciseLocationAsync();
 }
@@ -22,12 +23,65 @@ public class GeolocationService : IGeolocationService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Get location - tries GPS first, falls back to IP if GPS fails
+    /// </summary>
+    public async Task<AddressComponents?> GetLocationAsync()
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "🎯 Attempting to get location (GPS preferred)",
+                LogLevel.Info
+            );
+
+            // Try GPS first
+            var gpsPosition = await GetPreciseLocationAsync();
+            
+            if (gpsPosition != null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ GPS location obtained: {gpsPosition.Latitude}, {gpsPosition.Longitude}",
+                    LogLevel.Info
+                );
+
+                // For now, we can't reverse geocode without an API key
+                // So we'll just return basic info with coordinates
+                // In a production app, you'd use a reverse geocoding service here
+                return new AddressComponents
+                {
+                    Country = "Nigeria",
+                    CountryCode = "NG",
+                    Latitude = gpsPosition.Latitude,
+                    Longitude = gpsPosition.Longitude,
+                    FormattedAddress = $"Coordinates: {gpsPosition.Latitude:F4}, {gpsPosition.Longitude:F4}"
+                };
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "⚠️ GPS failed, falling back to IP-based location",
+                LogLevel.Warning
+            );
+
+            // Fall back to IP-based location
+            return await GetLocationFromIPAsync();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting location");
+            _logger.LogError(ex, "Failed to get location");
+            
+            // Last resort: try IP location
+            return await GetLocationFromIPAsync();
+        }
+    }
+
     public async Task<AddressComponents?> GetLocationFromIPAsync()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Getting location from IP address",
+                "🌍 Getting location from IP address",
                 LogLevel.Info
             );
 
@@ -38,7 +92,7 @@ public class GeolocationService : IGeolocationService
             if (result != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"IP location detected: {result.City}, {result.State}",
+                    $"✅ IP location detected: {result.City}, {result.State}",
                     LogLevel.Info
                 );
             }
@@ -58,7 +112,7 @@ public class GeolocationService : IGeolocationService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "Getting precise GPS location",
+                "📍 Requesting precise GPS location",
                 LogLevel.Info
             );
 
@@ -69,7 +123,7 @@ public class GeolocationService : IGeolocationService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Getting GPS location");
-            _logger.LogError(ex, "Failed to get GPS location");
+            _logger.LogError(ex, "Failed to get GPS location - user may have denied permission");
             return null;
         }
     }
