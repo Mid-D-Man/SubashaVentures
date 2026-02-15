@@ -1,0 +1,33 @@
+@namespace SubashaVentures.Components.Shared.Cards
+
+<div class="faq-item @(IsExpanded ? "expanded" : "") @(IsHighlighted ? "highlighted" : "")" 
+     @onclick="ToggleExpand">
+    <div class="faq-question">
+        <div class="question-content">
+            <div class="question-icon" @ref="questionIconRef"></div>
+            <h3 class="question-text">@Question</h3>
+        </div>
+        <div class="expand-icon" @ref="expandIconRef"></div>
+    </div>
+    
+    @if (IsExpanded)
+    {
+        <div class="faq-answer">
+            <p class="answer-text">@Answer</p>
+            @if (RelatedLinks != null && RelatedLinks.Any())
+            {
+                <div class="related-links">
+                    <h4 class="related-title">Related Resources:</h4>
+                    <ul class="links-list">
+                        @foreach (var link in RelatedLinks)
+                        {
+                            <li>
+                                <a href="@link.Url" class="related-link">@link.Text</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    }
+</div>
