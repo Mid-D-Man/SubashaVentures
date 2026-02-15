@@ -1,4 +1,4 @@
-// Services/Auth/SupabaseAuthStateProvider.cs - FIXED TO USE ROLE CLAIMS FROM DATABASE
+// Services/Auth/SupabaseAuthStateProvider.cs - UPDATED WITH JWT CLAIMS
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using SubashaVentures.Services.Auth;
@@ -41,13 +41,19 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
-            // ✅ CRITICAL FIX: Use CustomSupabaseClaimsFactory to get roles from database
+            // ✅ Use CustomSupabaseClaimsFactory to get roles from JWT claims
+            // No database queries happen here!
             var principal = await _claimsFactory.CreateUserPrincipalAsync(session.User);
 
             if (principal?.Identity?.IsAuthenticated == true)
             {
+                var rolesClaim = string.Join(", ", 
+                    principal.Claims
+                        .Where(c => c.Type == ClaimTypes.Role)
+                        .Select(c => c.Value));
+
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ User authenticated: {session.User.Email} with roles: {string.Join(", ", principal.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value))}",
+                    $"✅ User authenticated: {session.User.Email} with roles: {rolesClaim}",
                     LogLevel.Info
                 );
 
@@ -65,7 +71,7 @@ public class SupabaseAuthStateProvider : AuthenticationStateProvider
             if (claims == null || !claims.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "Token validation failed, attempting refresh",
+                    "Token validation failed, attempting session refresh",
                     LogLevel.Warning
                 );
 
