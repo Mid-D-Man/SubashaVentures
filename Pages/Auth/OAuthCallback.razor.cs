@@ -239,7 +239,7 @@ public partial class OAuthCallback : ComponentBase
     catch (Exception ex)
     {
         await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
-        _logger.LogError(ex, "Error determining redirect destination");
+        //_logger.LogError(ex, "Error determining redirect destination");
         return "";
     }
 }
