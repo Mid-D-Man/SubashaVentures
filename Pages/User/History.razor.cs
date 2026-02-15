@@ -1,21 +1,26 @@
-// Pages/User/History.razor.cs - FIXED WITH ProductViewTracker
-
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Services.Authorization;
+using SubashaVentures.Services.Orders;
+using SubashaVentures.Services.Products;
+using SubashaVentures.Services.Wishlist;
 using SubashaVentures.Domain.Order;
+using SubashaVentures.Domain.Product;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.Tracking;
+using SubashaVentures.Utilities.ObjectPooling;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.User;
 
-public partial class History : ComponentBase
+public partial class History : ComponentBase, IDisposable
 {
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
     [Inject] private ProductViewTracker ViewTracker { get; set; } = default!;
+    [Inject] private IOrderService OrderService { get; set; } = default!;
+    [Inject] private IWishlistService WishlistService { get; set; } = default!;
+    [Inject] private IProductService ProductService { get; set; } = default!;
     [Inject] private ILogger<History> Logger { get; set; } = default!;
 
     private ConfirmationPopup ClearConfirmation { get; set; } = default!;
@@ -27,17 +32,32 @@ public partial class History : ComponentBase
     private bool IsLoading = true;
     private bool IsAuthenticated = false;
     private string ActiveTab = "viewed";
+    private string CurrentUserId = string.Empty;
+
+    private static readonly MID_ComponentObjectPool<List<ViewedProduct>> ViewedProductsPool = 
+        new(() => new List<ViewedProduct>(50), list => list.Clear(), maxPoolSize: 10);
+    
+    private static readonly MID_ComponentObjectPool<List<OrderSummaryDto>> OrdersPool = 
+        new(() => new List<OrderSummaryDto>(20), list => list.Clear(), maxPoolSize: 5);
+    
+    private static readonly MID_ComponentObjectPool<List<WishlistHistoryItem>> WishlistPool = 
+        new(() => new List<WishlistHistoryItem>(30), list => list.Clear(), maxPoolSize: 5);
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "🔄 Initializing History page",
+                "Initializing History page",
                 LogLevel.Info
             );
 
             IsAuthenticated = await PermissionService.IsAuthenticatedAsync();
+
+            if (IsAuthenticated)
+            {
+                CurrentUserId = await PermissionService.GetCurrentUserIdAsync() ?? string.Empty;
+            }
 
             await LoadHistory();
         }
@@ -59,17 +79,18 @@ public partial class History : ComponentBase
             IsLoading = true;
             StateHasChanged();
 
-            // Load viewed products using ProductViewTracker
             await LoadViewedProducts();
 
-            if (IsAuthenticated)
+            if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
             {
-                await LoadRecentOrders();
-                await LoadRecentWishlist();
+                await Task.WhenAll(
+                    LoadRecentOrders(),
+                    LoadRecentWishlist()
+                );
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded history: {ViewedProducts.Count} viewed, {RecentOrders.Count} orders, {RecentWishlistItems.Count} wishlist",
+                $"Loaded history: {ViewedProducts.Count} viewed, {RecentOrders.Count} orders, {RecentWishlistItems.Count} wishlist",
                 LogLevel.Info
             );
         }
@@ -90,15 +111,14 @@ public partial class History : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "📥 Loading viewed products from ProductViewTracker",
+                "Loading viewed products from ProductViewTracker",
                 LogLevel.Info
             );
 
-            // Use ProductViewTracker to get viewed products
             ViewedProducts = await ViewTracker.GetViewedProductsAsync();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded {ViewedProducts.Count} viewed products",
+                $"Loaded {ViewedProducts.Count} viewed products",
                 LogLevel.Info
             );
         }
@@ -115,12 +135,23 @@ public partial class History : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "📦 Loading recent orders",
+                "Loading recent orders (last 7 days)",
                 LogLevel.Info
             );
 
-            // TODO: Implement when order service is ready
-            RecentOrders = new List<OrderSummaryDto>();
+            var allOrders = await OrderService.GetUserOrdersAsync(CurrentUserId);
+            
+            var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+            RecentOrders = allOrders
+                .Where(o => o.CreatedAt >= sevenDaysAgo)
+                .OrderByDescending(o => o.CreatedAt)
+                .Take(10)
+                .ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {RecentOrders.Count} recent orders",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
@@ -135,12 +166,61 @@ public partial class History : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "💝 Loading recent wishlist items",
+                "Loading recent wishlist items (last 7 days)",
                 LogLevel.Info
             );
 
-            // TODO: Implement when wishlist history is ready
-            RecentWishlistItems = new List<WishlistHistoryItem>();
+            var wishlistModels = await WishlistService.GetUserWishlistAsync(CurrentUserId);
+            
+            if (!wishlistModels.Any())
+            {
+                RecentWishlistItems = new List<WishlistHistoryItem>();
+                return;
+            }
+
+            var wishlist = wishlistModels.First();
+            var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+            
+            var recentItems = wishlist.Items
+                .Where(i => i.added_at >= sevenDaysAgo)
+                .OrderByDescending(i => i.added_at)
+                .Take(10)
+                .ToList();
+
+            var wishlistHistoryItems = new List<WishlistHistoryItem>();
+
+            foreach (var item in recentItems)
+            {
+                try
+                {
+                    var productId = int.Parse(item.product_id);
+                    var product = await ProductService.GetProductByIdAsync(productId);
+
+                    if (product != null)
+                    {
+                        wishlistHistoryItems.Add(new WishlistHistoryItem
+                        {
+                            ProductId = item.product_id,
+                            ProductName = product.Name,
+                            ImageUrl = product.Images?.FirstOrDefault() ?? string.Empty,
+                            Price = product.Price,
+                            IsInStock = product.IsInStock,
+                            AddedAt = item.added_at
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to load product {ProductId} for wishlist history", item.product_id);
+                }
+            }
+
+            RecentWishlistItems = wishlistHistoryItems;
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Loaded {RecentWishlistItems.Count} recent wishlist items",
+                LogLevel.Info
+            );
         }
         catch (Exception ex)
         {
@@ -150,18 +230,15 @@ public partial class History : ComponentBase
         }
     }
 
-    private async Task RemoveViewedProduct(string productId, MouseEventArgs e)
+    private async Task RemoveViewedProduct(string productId, Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
     {
         try
         {
-            // Remove from local list
             ViewedProducts.RemoveAll(p => p.ProductId == productId);
 
-            // Get all products, remove the one we want, then save back
             var allProducts = await ViewTracker.GetViewedProductsAsync();
             allProducts.RemoveAll(p => p.ProductId == productId);
             
-            // Save updated list back (need to clear and re-add)
             await ViewTracker.ClearViewedProductsAsync();
             foreach (var product in allProducts)
             {
@@ -176,7 +253,7 @@ public partial class History : ComponentBase
             StateHasChanged();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Removed product {productId} from viewed history",
+                $"Removed product {productId} from viewed history",
                 LogLevel.Info
             );
         }
@@ -188,7 +265,10 @@ public partial class History : ComponentBase
 
     private void ClearViewedProducts()
     {
-        ClearConfirmation.Open();
+        if (ClearConfirmation != null)
+        {
+            ClearConfirmation.Open();
+        }
     }
 
     private async Task ConfirmClearViewedProducts()
@@ -197,10 +277,16 @@ public partial class History : ComponentBase
         {
             await ViewTracker.ClearViewedProductsAsync();
             ViewedProducts.Clear();
+            
+            if (ClearConfirmation != null)
+            {
+                ClearConfirmation.Close();
+            }
+            
             StateHasChanged();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "🗑️ Cleared all viewed products",
+                "Cleared all viewed products",
                 LogLevel.Info
             );
         }
@@ -212,22 +298,29 @@ public partial class History : ComponentBase
 
     private void ViewProduct(string productId)
     {
-        Navigation.NavigateTo($"/product/{productId}");
+        Navigation.NavigateTo($"product/{productId}");
     }
 
     private void ViewOrder(string orderId)
     {
-        Navigation.NavigateTo($"/user/orders/{orderId}");
+        Navigation.NavigateTo($"user/orders/{orderId}");
     }
 
     private void NavigateToShop()
     {
-        Navigation.NavigateTo("/shop");
+        Navigation.NavigateTo("shop");
     }
 
     private void NavigateToWishlist()
     {
-        Navigation.NavigateTo("/user/wishlist");
+        Navigation.NavigateTo("user/wishlist-cart");
+    }
+
+    public void Dispose()
+    {
+        ViewedProducts?.Clear();
+        RecentOrders?.Clear();
+        RecentWishlistItems?.Clear();
     }
 
     public class WishlistHistoryItem
