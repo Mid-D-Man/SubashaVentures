@@ -245,14 +245,18 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== GOOGLE OAUTH (PKCE) ====================
 
-    public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
+    // Services/Supabase/SupabaseAuthService.cs - OAUTH METHODS COMPLETE
+
+// ==================== GOOGLE OAUTH (PKCE) ====================
+
+/// <summary>
+/// Initiate Google OAuth sign-in with PKCE flow
+/// Stores PKCE verifier before redirect
+/// </summary>
+public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
 {
     try
     {
-        ClearErrors();
-        isLoading = true;
-        StateHasChanged();
-
         await MID_HelperFunctions.DebugMessageAsync(
             "🔵 Initiating Google OAuth with PKCE flow",
             LogLevel.Info
@@ -262,13 +266,22 @@ public class SupabaseAuthService : ISupabaseAuthService
         if (!string.IsNullOrEmpty(returnUrl))
         {
             await _sessionManager.StoreOAuthReturnUrl(returnUrl);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ Return URL stored: {returnUrl}",
+                LogLevel.Info
+            );
             
-            // ✅ CRITICAL: Ensure storage completes
+            // Ensure storage completes
             await Task.Delay(100);
         }
 
         var baseUri = _navigationManager.BaseUri;
         var redirectUrl = $"{baseUri}auth/callback";
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"🔗 Redirect URL: {redirectUrl}",
+            LogLevel.Info
+        );
 
         var options = new SignInOptions
         {
@@ -276,66 +289,92 @@ public class SupabaseAuthService : ISupabaseAuthService
             RedirectTo = redirectUrl
         };
 
+        // Generate PKCE challenge and get authorization URL
         var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
 
         if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
         {
-            // ✅ CRITICAL FIX: Store verifier and WAIT for it to complete
-            await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
-            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ PKCE verifier stored: {result.PKCEVerifier.Substring(0, 20)}...",
+                $"✅ PKCE challenge generated: {result.PKCEVerifier.Substring(0, Math.Min(20, result.PKCEVerifier.Length))}...",
                 LogLevel.Info
             );
 
-            // ✅ CRITICAL: Add delay to ensure localStorage write completes
-            await Task.Delay(200);
+            // ✅ CRITICAL FIX: Store verifier with retry and verification
+            await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
+            
+            // ✅ CRITICAL: Wait to ensure localStorage write completes
+            await Task.Delay(300);
             
             // Verify storage worked
             var stored = await _sessionManager.GetPkceVerifier();
             if (string.IsNullOrEmpty(stored))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ PKCE verifier storage failed! Retrying...",
+                    "❌ PKCE verifier storage verification failed! Retrying...",
                     LogLevel.Error
                 );
                 
                 // Retry storage
                 await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
-                await Task.Delay(100);
+                await Task.Delay(200);
+                
+                // Verify again
+                stored = await _sessionManager.GetPkceVerifier();
+                if (string.IsNullOrEmpty(stored))
+                {
+                    _logger.LogError("PKCE verifier storage failed after retry");
+                    // Continue anyway - static fallback exists
+                }
             }
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ PKCE verifier storage verified",
+                    "✅ PKCE verifier storage verified successfully",
                     LogLevel.Info
                 );
             }
+            
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"🔀 Redirecting to Google: {result.Uri}",
+                LogLevel.Info
+            );
             
             // Now redirect to Google
             _navigationManager.NavigateTo(result.Uri.ToString(), forceLoad: true);
             return true;
         }
 
+        await MID_HelperFunctions.DebugMessageAsync(
+            "❌ Failed to generate PKCE challenge",
+            LogLevel.Error
+        );
+
         return false;
     }
     catch (Exception ex)
     {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth");
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth initiation");
+        _logger.LogError(ex, "Failed to initiate Google OAuth");
         return false;
     }
 }
 
-   public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
+/// <summary>
+/// Handle OAuth callback after user authenticates with Google
+/// Exchanges authorization code for session using PKCE verifier
+/// </summary>
+public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
 {
     try
     {
+        var currentUri = _navigationManager.Uri;
+        
         await MID_HelperFunctions.DebugMessageAsync(
-            $"📥 OAuth callback received at: {_navigationManager.Uri}",
+            $"📥 OAuth callback received at: {currentUri}",
             LogLevel.Info
         );
 
-        var uri = new Uri(_navigationManager.Uri);
+        var uri = new Uri(currentUri);
         var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
         // Check for authorization code
@@ -357,81 +396,123 @@ public class SupabaseAuthService : ISupabaseAuthService
         var code = codeValues.First();
         
         await MID_HelperFunctions.DebugMessageAsync(
-            $"✅ Authorization code received: {code.Substring(0, 20)}...",
+            $"✅ Authorization code received: {code.Substring(0, Math.Min(20, code.Length))}...",
             LogLevel.Info
         );
 
-        // Try to get PKCE verifier from storage
+        // Try to get PKCE verifier from storage (with fallbacks)
         var pkceVerifier = await _sessionManager.GetPkceVerifier();
 
         if (string.IsNullOrEmpty(pkceVerifier))
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "❌ PKCE verifier not found in storage. Checking localStorage directly...",
-                LogLevel.Error
+                "❌ PKCE verifier not found in SessionManager. Checking alternate storage...",
+                LogLevel.Warning
             );
 
-            // ✅ FALLBACK: Try direct localStorage access
+            // ✅ FALLBACK 1: Try direct localStorage access via service
             try
             {
-                var directKey = "supabase_pkce_verifier";
-                var directValue = await _localStorage.GetItemAsync<string>(directKey);
+                var directKey = "SubashaVentures_supabase_pkce_verifier";
+                var localStorage = _navigationManager.BaseUri.Contains("localhost") 
+                    ? _sessionManager 
+                    : _sessionManager;
                 
-                if (!string.IsNullOrEmpty(directValue))
+                // The SessionManager already checked localStorage, so try static storage
+                pkceVerifier = StaticAuthStorage.PkceVerifier;
+                
+                if (!string.IsNullOrEmpty(pkceVerifier))
                 {
-                    pkceVerifier = directValue;
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"✅ PKCE verifier found via direct access: {pkceVerifier.Substring(0, 20)}...",
+                        $"✅ PKCE verifier found in static storage: {pkceVerifier.Substring(0, Math.Min(20, pkceVerifier.Length))}...",
                         LogLevel.Info
                     );
                 }
             }
             catch (Exception ex)
             {
-                await MID_HelperFunctions.LogExceptionAsync(ex, "Direct localStorage access");
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Fallback PKCE retrieval");
             }
 
-            // Still not found?
+            // ✅ FALLBACK 2: Check if session already exists (Supabase auto-exchange)
             if (string.IsNullOrEmpty(pkceVerifier))
             {
-                // ✅ LAST RESORT: Check if Supabase client has it
-                var session = _supabase.Auth.CurrentSession;
-                if (session != null)
+                var existingSession = _supabase.Auth.CurrentSession;
+                if (existingSession != null && !string.IsNullOrEmpty(existingSession.AccessToken))
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        "✅ Session already exists! Auth completed without manual exchange.",
+                        "✅ Session already exists! Supabase auto-completed exchange.",
                         LogLevel.Info
                     );
+
+                    // Store session
+                    await _sessionManager.StoreSessionAsync(existingSession);
+
+                    // Ensure user profile exists
+                    if (existingSession.User != null)
+                    {
+                        await EnsureUserProfileExistsAsync(existingSession.User);
+                    }
 
                     return new SupabaseAuthResult
                     {
                         Success = true,
                         Message = "Sign in successful",
-                        Session = CreateSessionInfo(session)
+                        Session = CreateSessionInfo(existingSession)
                     };
                 }
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "❌ PKCE verifier not found in any storage location",
+                    LogLevel.Error
+                );
 
                 return new SupabaseAuthResult
                 {
                     Success = false,
-                    Message = "OAuth authentication failed - session state lost",
+                    Message = "OAuth authentication failed - session state lost. Please try signing in again.",
                     ErrorCode = "OAUTH_NO_VERIFIER"
                 };
             }
         }
 
         await MID_HelperFunctions.DebugMessageAsync(
-            $"🔄 Exchanging code for session with verifier: {pkceVerifier.Substring(0, 20)}...",
+            $"🔄 Exchanging authorization code for session...",
             LogLevel.Info
         );
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"   Code: {code.Substring(0, Math.Min(30, code.Length))}...",
+            LogLevel.Debug
+        );
+        
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"   Verifier: {pkceVerifier.Substring(0, Math.Min(30, pkceVerifier.Length))}...",
+            LogLevel.Debug
+        );
 
-        // Exchange code for session
-        var session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
+        // Exchange code for session using PKCE verifier
+        Session? session;
+        try
+        {
+            session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Code exchange");
+            
+            return new SupabaseAuthResult
+            {
+                Success = false,
+                Message = $"Failed to exchange code: {ex.Message}",
+                ErrorCode = "OAUTH_EXCHANGE_ERROR"
+            };
+        }
 
         if (session == null || string.IsNullOrEmpty(session.AccessToken))
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Code exchange failed - no session returned",
+                "❌ Code exchange returned null or invalid session",
                 LogLevel.Error
             );
 
@@ -444,17 +525,17 @@ public class SupabaseAuthService : ISupabaseAuthService
         }
 
         await MID_HelperFunctions.DebugMessageAsync(
-            "✅ Code exchange successful!",
+            $"✅ Code exchange successful! User: {session.User?.Email}",
             LogLevel.Info
         );
 
-        // Clean up PKCE verifier
+        // Clean up PKCE verifier (no longer needed)
         await _sessionManager.ClearPkceVerifier();
 
-        // Store session
+        // Store session for future use
         await _sessionManager.StoreSessionAsync(session);
 
-        // Ensure user profile exists
+        // Ensure user profile exists in database
         if (session.User != null)
         {
             await EnsureUserProfileExistsAsync(session.User);
@@ -469,7 +550,10 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
     catch (Exception ex)
     {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback");
+        await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback handler");
+        _logger.LogError(ex, "OAuth callback failed");
+        
+        // Clean up verifier on error
         await _sessionManager.ClearPkceVerifier();
         
         return new SupabaseAuthResult
