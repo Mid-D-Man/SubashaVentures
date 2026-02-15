@@ -9,7 +9,7 @@
     <div class="page-header">
         <div class="header-content">
             <button class="btn-back" @onclick="GoBack">
-                <span class="back-icon">←</span>
+                <span class="back-icon">@((MarkupString)BackArrowSvg)</span>
             </button>
             <div class="header-text">
                 <h1 class="page-title">Transaction History</h1>
@@ -34,7 +34,7 @@
     else if (!TransactionsList.Any())
     {
         <div class="empty-state">
-            <div class="empty-icon">📊</div>
+            <div class="empty-icon">@((MarkupString)EmptyTransactionsIconSvg)</div>
             <h3 class="empty-title">No Transactions Yet</h3>
             <p class="empty-description">
                 Your transaction history will appear here once you start using your wallet.
@@ -46,7 +46,6 @@
     }
     else
     {
-        <!-- Filter Section -->
         <div class="filter-section">
             <div class="filter-tabs">
                 <button class="filter-tab @(FilterType == "all" ? "active" : "")"
@@ -71,14 +70,13 @@
             </div>
         </div>
 
-        <!-- Transactions List -->
         <div class="transactions-container">
             @foreach (var transaction in FilteredTransactions)
             {
                 <div class="transaction-card @transaction.Type.ToLower()">
                     <div class="transaction-icon-wrapper @transaction.Type.ToLower()">
                         <span class="transaction-symbol">
-                            @(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")
+                            @GetTransactionSymbol(transaction.Type)
                         </span>
                     </div>
                     
@@ -87,7 +85,7 @@
                             <h4 class="transaction-title">@transaction.Description</h4>
                             <div class="transaction-amount @transaction.Type.ToLower()">
                                 <span class="amount-sign">
-                                    @(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")
+                                    @GetTransactionSymbol(transaction.Type)
                                 </span>
                                 <span class="amount-value">@transaction.FormattedAmount</span>
                             </div>
@@ -126,7 +124,7 @@
                                 <span class="balance-label">Balance:</span>
                                 <span class="balance-values">
                                     ₦@transaction.BalanceBefore.ToString("N0")
-                                    <span class="arrow">→</span>
+                                    <span class="arrow">@((MarkupString)ArrowRightSvg)</span>
                                     ₦@transaction.BalanceAfter.ToString("N0")
                                 </span>
                             </div>
@@ -136,7 +134,6 @@
             }
         </div>
 
-        <!-- Pagination -->
         @if (TotalPages > 1)
         {
             <div class="pagination">
@@ -159,7 +156,3 @@
         }
     }
 </div>
-
-@code {
-    // Component state - see Transactions.razor.cs
-}
