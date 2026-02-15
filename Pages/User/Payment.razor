@@ -15,10 +15,10 @@
         </div>
         <div class="header-actions">
             <PrimaryButton OnClick="OpenAddPaymentModal"
-                           Icon="+"
                            Size="PrimaryButton.ButtonSize.Medium"
                            CssClass="btn-add-payment">
-                Add Card
+                <span class="button-icon">@((MarkupString)AddIconSvg)</span>
+                <span>Add Card</span>
             </PrimaryButton>
         </div>
     </div>
@@ -32,12 +32,11 @@
     }
     else
     {
-        <!-- Wallet Balance Card -->
         <div class="wallet-section">
             <div class="wallet-card">
                 <div class="wallet-card-header">
                     <div class="wallet-icon-wrapper">
-                        <span class="wallet-icon">💳</span>
+                        <span class="wallet-icon">@((MarkupString)WalletIconSvg)</span>
                     </div>
                     <div class="wallet-info">
                         <span class="wallet-label">Available Balance</span>
@@ -61,7 +60,6 @@
             </div>
         </div>
 
-        <!-- Payment Methods Section -->
         <div class="payment-methods-section">
             <div class="section-header">
                 <h3 class="section-title">Saved Payment Methods</h3>
@@ -74,7 +72,7 @@
             @if (!PaymentMethods.Any())
             {
                 <div class="empty-state">
-                    <div class="empty-icon">💳</div>
+                    <div class="empty-icon">@((MarkupString)EmptyCardIconSvg)</div>
                     <h3 class="empty-title">No Payment Methods</h3>
                     <p class="empty-description">Add a payment method for faster and more secure checkout</p>
                     <PrimaryButton OnClick="OpenAddPaymentModal"
@@ -93,7 +91,7 @@
                             @if (method.IsDefault)
                             {
                                 <span class="default-badge">
-                                    <span class="badge-icon">⭐</span>
+                                    <span class="badge-icon">@((MarkupString)StarIconSvg)</span>
                                     <span class="badge-text">Default</span>
                                 </span>
                             }
@@ -101,14 +99,14 @@
                             @if (method.IsExpired)
                             {
                                 <span class="expired-badge">
-                                    <span class="badge-icon">⚠️</span>
+                                    <span class="badge-icon">@((MarkupString)WarningIconSvg)</span>
                                     <span class="badge-text">Expired</span>
                                 </span>
                             }
 
                             <div class="card-header">
                                 <div class="card-type-icon">
-                                    @method.CardIcon
+                                    @((MarkupString)CardIconSvg)
                                 </div>
                                 <span class="card-provider">@method.ProviderDisplay</span>
                             </div>
@@ -132,14 +130,14 @@
                                             @onclick="() => SetDefaultPayment(method.Id)"
                                             title="Set as default"
                                             aria-label="Set as default payment method">
-                                        ⭐
+                                        @((MarkupString)StarIconSvg)
                                     </button>
                                 }
                                 <button class="btn-icon btn-icon-danger"
                                         @onclick="() => ConfirmDeletePayment(method.Id)"
                                         title="Remove card"
                                         aria-label="Remove payment method">
-                                    🗑️
+                                    @((MarkupString)DeleteIconSvg)
                                 </button>
                             </div>
                         </div>
@@ -148,7 +146,6 @@
             }
         </div>
 
-        <!-- Recent Transactions Section -->
         <div class="transactions-section">
             <div class="section-header">
                 <h3 class="section-title">Recent Transactions</h3>
@@ -163,7 +160,7 @@
             @if (!Transactions.Any())
             {
                 <div class="empty-transactions">
-                    <div class="empty-icon-small">📊</div>
+                    <div class="empty-icon-small">@((MarkupString)EmptyTransactionsIconSvg)</div>
                     <p class="empty-text">No transactions yet</p>
                     <p class="empty-hint">Your transaction history will appear here</p>
                 </div>
@@ -175,7 +172,7 @@
                     {
                         <div class="transaction-item">
                             <div class="transaction-icon @transaction.Type.ToLower()">
-                                <span class="icon-symbol">@(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")</span>
+                                <span class="icon-symbol">@GetTransactionSymbol(transaction.Type)</span>
                             </div>
                             <div class="transaction-info">
                                 <h4 class="transaction-title">@transaction.Description</h4>
@@ -185,7 +182,7 @@
                                 </div>
                             </div>
                             <div class="transaction-amount @transaction.Type.ToLower()">
-                                <span class="amount-symbol">@(transaction.Type == "credit" || transaction.Type == "topup" || transaction.Type == "refund" ? "+" : "-")</span>
+                                <span class="amount-symbol">@GetTransactionSymbol(transaction.Type)</span>
                                 <span class="amount-value">@transaction.FormattedAmount</span>
                             </div>
                         </div>
@@ -196,7 +193,6 @@
     }
 </div>
 
-<!-- Add Payment Method Modal -->
 <DynamicModal @ref="AddPaymentModal"
               Title="Add Payment Method"
               Size="DynamicModal.ModalSize.Medium"
@@ -209,7 +205,7 @@
     <BodyContent>
         <div class="payment-form">
             <div class="form-notice">
-                <span class="notice-icon">🔒</span>
+                <span class="notice-icon">@((MarkupString)SecurityIconSvg)</span>
                 <div class="notice-content">
                     <p class="notice-title">Secure Card Storage</p>
                     <p class="notice-text">
@@ -223,7 +219,7 @@
             @if (!string.IsNullOrEmpty(ValidationErrors.GetValueOrDefault("General")))
             {
                 <div class="form-error">
-                    <span class="error-icon">⚠️</span>
+                    <span class="error-icon">@((MarkupString)ErrorIconSvg)</span>
                     <span class="error-text">@ValidationErrors["General"]</span>
                 </div>
             }
@@ -251,7 +247,6 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Top Up Modal -->
 <DynamicModal @ref="TopUpModal"
               Title="Top Up Wallet"
               Size="DynamicModal.ModalSize.Small"
@@ -325,7 +320,6 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Delete Confirmation -->
 <ConfirmationPopup @ref="DeleteConfirmPopup"
                    Title="Remove Payment Method"
                    Message="Are you sure you want to remove this payment method? This action cannot be undone."
@@ -333,7 +327,3 @@
                    ConfirmButtonText="Remove Card"
                    CancelButtonText="Keep Card"
                    OnConfirm="ConfirmDeletePaymentMethod" />
-
-@code {
-    // Component state - see Payment.razor.cs
-}
