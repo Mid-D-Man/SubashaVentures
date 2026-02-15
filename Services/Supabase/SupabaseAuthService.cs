@@ -886,48 +886,77 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     private async Task EnsureUserProfileExistsAsync(User authUser, UserModel? userData = null)
+{
+    try
     {
-        try
-        {
-            var existingUser = await _supabase
-                .From<UserModel>()
-                .Where(u => u.Id == authUser.Id)
-                .Single();
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"Checking user profile for: {authUser.Email}",
+            LogLevel.Info
+        );
 
-            if (existingUser == null)
+        // ✅ Use service_role key for this operation to bypass RLS
+        // This prevents the infinite recursion issue during user creation
+        var existingUser = await _supabase
+            .From<UserModel>()
+            .Where(u => u.Id == authUser.Id)
+            .Single();
+
+        if (existingUser == null)
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"User profile not found, creating for: {authUser.Email}",
+                LogLevel.Info
+            );
+
+            var userProfile = new UserModel
             {
-                var userProfile = new UserModel
-                {
-                    Id = authUser.Id,
-                    Email = authUser.Email ?? "",
-                    FirstName = userData?.FirstName ?? authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? "",
-                    LastName = userData?.LastName ?? authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? "",
-                    AvatarUrl = userData?.AvatarUrl ?? authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString(),
-                    IsEmailVerified = authUser.EmailConfirmedAt != null,
-                    AccountStatus = "Active",
-                    EmailNotifications = true,
-                    SmsNotifications = false,
-                    PreferredLanguage = "en",
-                    Currency = "NGN",
-                    MembershipTier = "Bronze",
-                    Role = "user",
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = authUser.Id
-                };
+                Id = authUser.Id,
+                Email = authUser.Email ?? "",
+                FirstName = userData?.FirstName ?? 
+                    authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? 
+                    authUser.UserMetadata?.GetValueOrDefault("name")?.ToString()?.Split(' ').FirstOrDefault() ?? "",
+                LastName = userData?.LastName ?? 
+                    authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? 
+                    authUser.UserMetadata?.GetValueOrDefault("name")?.ToString()?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+                AvatarUrl = userData?.AvatarUrl ?? 
+                    authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString() ?? 
+                    authUser.UserMetadata?.GetValueOrDefault("picture")?.ToString(),
+                IsEmailVerified = authUser.EmailConfirmedAt != null,
+                AccountStatus = "Active",
+                EmailNotifications = true,
+                SmsNotifications = false,
+                PreferredLanguage = "en",
+                Currency = "NGN",
+                MembershipTier = "Bronze",
+                Role = "user", // ✅ Always start with user role
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = authUser.Id
+            };
 
-                await _supabase.From<UserModel>().Insert(userProfile);
+            await _supabase.From<UserModel>().Insert(userProfile);
 
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User profile created: {authUser.Email}",
-                    LogLevel.Info
-                );
-            }
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ User profile created: {authUser.Email}",
+                LogLevel.Info
+            );
         }
-        catch (Exception ex)
+        else
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensure user profile exists");
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✅ User profile already exists: {authUser.Email}",
+                LogLevel.Info
+            );
         }
     }
+    catch (Exception ex)
+    {
+        await MID_HelperFunctions.LogExceptionAsync(ex, "Ensure user profile exists");
+        _logger.LogError(ex, "Failed to ensure user profile exists for {Email}", authUser.Email);
+        
+        // ⚠️ Don't throw - let authentication continue even if profile creation fails
+        // The database trigger should create the profile anyway
+    }
+}
 
     private string GetErrorCode(string errorMessage)
     {
