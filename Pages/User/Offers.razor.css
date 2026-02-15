@@ -1,504 +1,66 @@
-/* ===== OFFERS PAGE ===== */
+/* Pages/User/Offers.razor.css */
+
+/* Main page container */
 .offers-page {
     max-width: 1200px;
-}
-
-.section {
-    margin-bottom: 3rem;
-}
-
-.section-title {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 1.5rem;
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-.timer {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--danger-color);
-    padding: 0.5rem 1rem;
-    background: rgba(239, 68, 68, 0.1);
-    border-radius: 8px;
-}
-
-/* ===== PROMO CODES ===== */
-.promo-codes-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
-}
-
-.promo-card {
-    position: relative;
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    border-radius: 12px;
-    padding: 1.5rem;
-    color: white;
-    overflow: hidden;
-}
-
-.promo-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    animation: shimmer 3s infinite;
-}
-
-@keyframes shimmer {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(-20%, -20%); }
-}
-
-.promo-badge {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 0.875rem;
-}
-
-.promo-content h3 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin: 0 0 0.5rem;
-}
-
-.promo-content p {
-    font-size: 0.94rem;
-    opacity: 0.95;
-    margin: 0 0 1rem;
-}
-
-.promo-code-container {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.promo-code {
-    flex: 1;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 0.75rem;
-    border-radius: 6px;
-    font-family: 'Courier New', monospace;
-    font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-align: center;
-}
-
-.btn-copy {
-    width: 40px;
-    height: 40px;
+    margin: 0 auto;
+    padding: 0;
+    min-height: calc(100vh - 200px);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1.25rem;
+    animation: fadeInPage 0.6s ease-in-out;
 }
 
-.btn-copy:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
+/* Fade in animation for page load */
+@keyframes fadeInPage {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.promo-expiry {
-    font-size: 0.8125rem;
-    opacity: 0.85;
+/* Dark theme support */
+[data-theme="dark"] .offers-page {
+    background: transparent;
 }
 
-/* ===== FLASH DEALS ===== */
-.deals-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-}
-
-.deal-card {
-    background: var(--bg-primary);
-    border: 2px solid var(--border-light);
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.deal-card:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 8px 24px var(--shadow-medium);
-    transform: translateY(-4px);
-}
-
-.deal-image {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1/1;
-    overflow: hidden;
-}
-
-.deal-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.deal-discount {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: var(--danger-color);
-    color: white;
-    padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 1rem;
-}
-
-.deal-info {
-    padding: 1rem;
-}
-
-.deal-info h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 0.75rem;
-}
-
-.deal-prices {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.deal-price {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--primary-color);
-}
-
-.deal-original {
-    font-size: 1rem;
-    color: var(--text-tertiary);
-    text-decoration: line-through;
-}
-
-.deal-stock {
-    margin-top: 0.75rem;
-}
-
-.stock-bar {
-    width: 100%;
-    height: 6px;
-    background: var(--gray-200);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 0.5rem;
-}
-
-.stock-fill {
-    height: 100%;
-    background: var(--danger-color);
-    transition: width 0.3s ease;
-}
-
-.stock-text {
-    font-size: 0.8125rem;
-    color: var(--danger-color);
-    font-weight: 600;
-}
-
-/* ===== PERSONALIZED OFFERS ===== */
-.offers-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
-}
-
-.offer-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: var(--bg-primary);
-    border: 2px solid var(--border-light);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.offer-card:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 4px 16px var(--shadow-medium);
-    transform: translateY(-2px);
-}
-
-.offer-icon {
-    font-size: 3rem;
-    flex-shrink: 0;
-}
-
-.offer-content {
-    flex: 1;
-}
-
-.offer-content h3 {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 0.25rem;
-}
-
-.offer-content p {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin: 0 0 0.5rem;
-}
-
-.offer-value {
-    display: inline-block;
-    background: rgba(150, 153, 74, 0.1);
-    color: var(--primary-color);
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.8125rem;
-    font-weight: 700;
-}
-
-.offer-arrow {
-    font-size: 1.5rem;
-    color: var(--primary-color);
-    transition: transform 0.3s ease;
-}
-
-.offer-card:hover .offer-arrow {
-    transform: translateX(4px);
-}
-
-/* ===== LOYALTY CARD ===== */
-.loyalty-card {
-    background: linear-gradient(135deg, var(--secondary-color), var(--secondary-dark));
-    border-radius: 16px;
-    padding: 2rem;
-    color: white;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.loyalty-points {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
-
-.points-icon {
-    font-size: 4rem;
-}
-
-.points-info {
-    flex: 1;
-}
-
-.points-label {
-    font-size: 0.94rem;
-    opacity: 0.9;
-    display: block;
-    margin-bottom: 0.5rem;
-}
-
-.points-value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 3rem;
-    font-weight: 700;
-    margin: 0;
-}
-
-.loyalty-progress {
-    flex: 1;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 0.75rem;
-}
-
-.progress-fill {
-    height: 100%;
-    background: white;
-    transition: width 0.3s ease;
-}
-
-.progress-text {
-    font-size: 0.94rem;
-    opacity: 0.95;
-    margin: 0;
-}
-
-/* ===== REFERRAL CARD ===== */
-.referral-card {
-    background: var(--bg-primary);
-    border: 2px solid var(--primary-color);
-    border-radius: 12px;
-    padding: 2rem;
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 2rem;
-    align-items: center;
-}
-
-.referral-info h3 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 0.75rem;
-}
-
-.referral-info p {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    margin: 0 0 1.5rem;
-    line-height: 1.6;
-}
-
-.referral-code-container {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.referral-code {
-    flex: 1;
-    background: rgba(150, 153, 74, 0.1);
-    color: var(--primary-color);
-    padding: 1rem;
-    border-radius: 8px;
-    font-family: 'Courier New', monospace;
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-align: center;
-}
-
-.referral-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.stat {
-    text-align: center;
-}
-
-.stat-value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    display: block;
-    margin-bottom: 0.5rem;
-}
-
-.stat-label {
-    font-size: 0.94rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* ===== DARK THEME ===== */
-[data-theme="dark"] .deal-card,
-[data-theme="dark"] .offer-card,
-[data-theme="dark"] .referral-card {
-    background: var(--bg-primary);
-    border-color: var(--border-dark);
-}
-
-[data-theme="dark"] .deal-card:hover,
-[data-theme="dark"] .offer-card:hover {
-    border-color: var(--primary-color);
-}
-
-[data-theme="dark"] .stock-bar {
-    background: var(--gray-700);
-}
-
-/* ===== RESPONSIVE ===== */
+/* Responsive adjustments */
 @media (max-width: 768px) {
-    .section-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .promo-codes-grid,
-    .deals-grid,
-    .offers-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .loyalty-card {
-        padding: 1.5rem;
-    }
-
-    .points-value {
-        font-size: 2.5rem;
-    }
-
-    .referral-card {
-        grid-template-columns: 1fr;
+    .offers-page {
+        padding: 0;
+        min-height: calc(100vh - 150px);
     }
 }
 
 @media (max-width: 480px) {
-    .promo-card {
-        padding: 1.25rem;
+    .offers-page {
+        min-height: calc(100vh - 120px);
     }
+}
 
-    .loyalty-points {
-        flex-direction: column;
-        text-align: center;
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .offers-page {
+        animation: none;
     }
+}
 
-    .points-icon {
-        font-size: 3rem;
+/* High contrast mode */
+@media (prefers-contrast: more) {
+    .offers-page {
+        border: 2px solid var(--text-primary);
     }
+}
 
-    .points-value {
-        font-size: 2rem;
-    }
-
-    .stat-value {
-        font-size: 2rem;
+/* Print styles */
+@media print {
+    .offers-page {
+        animation: none;
+        min-height: auto;
     }
 }
