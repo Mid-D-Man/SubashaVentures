@@ -1,6 +1,7 @@
+@* Components/Shared/Modals/InfoPopup.razor - FIXED Z-INDEX *@
 @using SubashaVentures.Components.Shared.Buttons
 
-<div class="info-popup-overlay @(IsVisible ? "visible" : "")" @onclick="HandleOverlayClick">
+<div class="info-popup-overlay @(IsVisible ? "visible" : "") @CssClass" @onclick="HandleOverlayClick">
     <div class="info-popup @Size.ToString().ToLower() @(IsVisible ? "visible" : "")" @onclick:stopPropagation="true">
         <div class="info-popup-header">
             <div class="info-popup-icon @Icon.ToString().ToLower()">
@@ -71,11 +72,11 @@
     [Parameter] public string ConfirmButtonText { get; set; } = "OK";
     [Parameter] public string CancelButtonText { get; set; } = "Cancel";
     [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public string CssClass { get; set; } = "";  // NEW: Accept CSS class
     [Parameter] public EventCallback OnConfirm { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 
-    // Renamed enums to avoid conflicts
     public enum InfoPopupIcon
     {
         Info,
