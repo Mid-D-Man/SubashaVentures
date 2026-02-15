@@ -51,7 +51,8 @@ public partial class History : ComponentBase, IDisposable
                 "Initializing History page",
                 LogLevel.Info
             );
-
+  await base.OnInitializedAsync();
+        await LoadSvgIconsAsync();
             IsAuthenticated = await PermissionService.IsAuthenticatedAsync();
 
             if (IsAuthenticated)
