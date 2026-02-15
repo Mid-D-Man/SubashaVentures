@@ -6,6 +6,7 @@
 )
 
 
+
 @ENUMS(
   LicenseType { CODE_OPEN = 0, DATA_PROPRIETARY = 1, CREDENTIALS_RESTRICTED = 2 },
   ViolationSeverity { WARNING = 1, MINOR = 2, MAJOR = 3, CRITICAL = 4, LEGAL_ACTION = 5 }
