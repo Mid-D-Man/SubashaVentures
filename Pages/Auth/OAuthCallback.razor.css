@@ -129,6 +129,67 @@
     transform: scale(1.2);
 }
 
+
+/* Error state for spinner */
+.spinner.error {
+    border-color: rgba(239, 68, 68, 0.1);
+    border-top-color: #ef4444;
+}
+
+/* Error text color */
+.error-text {
+    color: #ef4444 !important;
+}
+
+[data-theme="dark"] .error-text {
+    color: #f87171 !important;
+}
+
+/* Error actions */
+.error-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 300px;
+}
+
+.retry-button {
+    padding: 0.875rem 2rem;
+    background: var(--primary-color, #96994A);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(150, 153, 74, 0.3);
+    font-family: 'Poppins', sans-serif;
+}
+
+.retry-button:hover {
+    background: var(--hover-primary, #7A7D3A);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(150, 153, 74, 0.4);
+}
+
+.retry-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(150, 153, 74, 0.3);
+}
+
+[data-theme="dark"] .retry-button {
+    background: var(--primary-color, #B8BB6A);
+    color: #0f172a;
+    box-shadow: 0 2px 8px rgba(184, 187, 106, 0.3);
+}
+
+[data-theme="dark"] .retry-button:hover {
+    background: var(--hover-primary, #C8CB7A);
+    box-shadow: 0 4px 12px rgba(184, 187, 106, 0.4);
+}
+
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .callback-container {
     background: var(--bg-surface, #1e293b);
@@ -461,7 +522,13 @@
         gap: 1.25rem;
         border-radius: 20px;
     }
-
+  .error-actions {
+        max-width: 100%;
+    }
+    
+    .retry-button {
+        width: 100%;
+    }
     .brand-section {
         gap: 0.625rem;
     }
