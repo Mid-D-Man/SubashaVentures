@@ -1,21 +1,22 @@
-// Pages/User/Transactions.razor.cs
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Payment;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Payment;
+using SubashaVentures.Services.VisualElements;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-using System.Linq;
+
 namespace SubashaVentures.Pages.User;
 
 public partial class Transactions
 {
     [Inject] private IWalletService WalletService { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<Transactions> Logger { get; set; } = default!;
 
-    // State - RENAMED to avoid collision with class name
     private List<WalletTransactionViewModel> TransactionsList = new();
     private List<WalletTransactionViewModel> FilteredTransactions = new();
     private bool IsLoading = true;
@@ -23,16 +24,18 @@ public partial class Transactions
     private string UserId = string.Empty;
     private string FilterType = "all";
     
-    // Pagination
     private int CurrentPage = 1;
     private int PageSize = 20;
     private int TotalPages = 1;
+
+    private string BackArrowSvg = string.Empty;
+    private string EmptyTransactionsIconSvg = string.Empty;
+    private string ArrowRightSvg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Check authentication
             if (!await PermissionService.EnsureAuthenticatedAsync())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -55,12 +58,44 @@ public partial class Transactions
                 return;
             }
 
+            await LoadSvgsAsync();
             await LoadData();
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Transactions page initialization");
             Logger.LogError(ex, "Failed to initialize transactions page");
+        }
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            BackArrowSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            EmptyTransactionsIconSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z'/>",
+                64, 64, "0 0 24 24"
+            );
+
+            ArrowRightSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z'/>",
+                20, 20, "0 0 24 24"
+            );
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "SVG icons loaded successfully for transactions page",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading SVG icons for transactions");
+            Logger.LogError(ex, "Failed to load SVG icons for transactions page");
         }
     }
 
@@ -76,23 +111,21 @@ public partial class Transactions
                 LogLevel.Info
             );
 
-            // Get wallet balance
             var wallet = await WalletService.GetWalletAsync(UserId);
             if (wallet != null)
             {
                 WalletBalance = wallet.FormattedBalance;
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Wallet balance: {WalletBalance}",
+                    $"Wallet balance: {WalletBalance}",
                     LogLevel.Info
                 );
             }
 
-            // Get all transactions (we'll paginate client-side for now)
             TransactionsList = await WalletService.GetTransactionHistoryAsync(UserId, 0, 100);
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {TransactionsList.Count} transactions",
+                $"Loaded {TransactionsList.Count} transactions",
                 LogLevel.Info
             );
 
@@ -120,7 +153,6 @@ public partial class Transactions
 
     private async void ApplyFilter()
     {
-        // Filter transactions based on selected type
         var filtered = FilterType switch
         {
             "credit" => TransactionsList.Where(t => t.Type.Equals("credit", StringComparison.OrdinalIgnoreCase)).ToList(),
@@ -131,12 +163,10 @@ public partial class Transactions
             _ => TransactionsList.ToList()
         };
 
-        // Calculate total pages
         TotalPages = filtered.Count > 0 
             ? (int)Math.Ceiling(filtered.Count / (double)PageSize) 
             : 1;
         
-        // Apply pagination
         FilteredTransactions = filtered
             .Skip((CurrentPage - 1) * PageSize)
             .Take(PageSize)
@@ -176,5 +206,11 @@ public partial class Transactions
     private void GoToPayment()
     {
         NavigationManager.NavigateTo("user/payment");
+    }
+
+    private string GetTransactionSymbol(string transactionType)
+    {
+        var type = transactionType.ToLower();
+        return type == "credit" || type == "topup" || type == "refund" ? "+" : "-";
     }
 }
