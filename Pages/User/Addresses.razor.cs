@@ -1,4 +1,4 @@
-// Pages/User/Addresses.razor.cs - UPDATED WITH GEOLOCATION AUTO-FILL
+// Pages/User/Addresses.razor.cs - UPDATED WITH GPS & PHONE VALIDATION
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Components.Shared.Modals;
@@ -153,7 +153,8 @@ public partial class Addresses
         CurrentAddress = new AddressViewModel
         {
             Country = "Nigeria",
-            Type = AddressType.Shipping
+            Type = AddressType.Shipping,
+            PhoneNumber = "+234"  // Start with Nigeria prefix
         };
         ValidationErrors.Clear();
         IsModalOpen = true;
@@ -167,7 +168,7 @@ public partial class Addresses
         {
             Id = address.Id,
             FullName = address.FullName,
-            PhoneNumber = address.PhoneNumber,
+            PhoneNumber = NormalizePhoneNumber(address.PhoneNumber),
             Email = address.Email,
             AddressLine1 = address.AddressLine1,
             AddressLine2 = address.AddressLine2,
@@ -183,6 +184,51 @@ public partial class Addresses
         StateHasChanged();
     }
 
+    // ==================== PHONE NUMBER HANDLING ====================
+
+    private string NormalizePhoneNumber(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            return "+234";
+
+        // Remove all non-digit characters except +
+        var cleaned = new string(phoneNumber.Where(c => char.IsDigit(c) || c == '+').ToArray());
+
+        // Ensure it starts with +234
+        if (!cleaned.StartsWith("+234"))
+        {
+            // If it starts with 234, add +
+            if (cleaned.StartsWith("234"))
+            {
+                cleaned = "+" + cleaned;
+            }
+            // If it starts with 0, replace with +234
+            else if (cleaned.StartsWith("0"))
+            {
+                cleaned = "+234" + cleaned.Substring(1);
+            }
+            // Otherwise, add +234 prefix
+            else
+            {
+                cleaned = "+234" + cleaned;
+            }
+        }
+
+        // Limit to +234 plus 10 digits (total 14 characters)
+        if (cleaned.Length > 14)
+        {
+            cleaned = cleaned.Substring(0, 14);
+        }
+
+        return cleaned;
+    }
+
+    private void HandlePhoneNumberChange(string value)
+    {
+        CurrentAddress.PhoneNumber = NormalizePhoneNumber(value);
+        StateHasChanged();
+    }
+
     // ==================== AUTO-FILL ADDRESS ====================
 
     private async Task AutoFillAddress()
@@ -193,12 +239,12 @@ public partial class Addresses
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "🌍 Starting auto-fill address process",
+                "🌍 Starting auto-fill address process (GPS preferred)",
                 LogLevel.Info
             );
 
-            // Step 1: Get location from IP
-            var locationData = await GeolocationService.GetLocationFromIPAsync();
+            // Get location (tries GPS first, falls back to IP)
+            var locationData = await GeolocationService.GetLocationAsync();
 
             if (locationData == null)
             {
@@ -213,7 +259,7 @@ public partial class Addresses
                 LogLevel.Info
             );
 
-            // Step 2: Get user information
+            // Get user information
             if (!string.IsNullOrEmpty(CurrentUserId))
             {
                 var user = await UserService.GetUserByIdAsync(CurrentUserId);
@@ -232,15 +278,17 @@ public partial class Addresses
                     }
 
                     // Auto-fill phone if not already set
-                    if (string.IsNullOrEmpty(CurrentAddress.PhoneNumber) && 
-                        !string.IsNullOrEmpty(user.PhoneNumber))
+                    if (string.IsNullOrEmpty(CurrentAddress.PhoneNumber) || CurrentAddress.PhoneNumber == "+234")
                     {
-                        CurrentAddress.PhoneNumber = user.PhoneNumber;
-                        
-                        await MID_HelperFunctions.DebugMessageAsync(
-                            $"✅ Phone filled: {CurrentAddress.PhoneNumber}",
-                            LogLevel.Info
-                        );
+                        if (!string.IsNullOrEmpty(user.PhoneNumber))
+                        {
+                            CurrentAddress.PhoneNumber = NormalizePhoneNumber(user.PhoneNumber);
+                            
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                $"✅ Phone filled: {CurrentAddress.PhoneNumber}",
+                                LogLevel.Info
+                            );
+                        }
                     }
 
                     // Auto-fill email if not already set
@@ -257,9 +305,17 @@ public partial class Addresses
                 }
             }
 
-            // Step 3: Fill location data
-            CurrentAddress.City = locationData.City;
-            CurrentAddress.State = locationData.State;
+            // Fill location data if available
+            if (!string.IsNullOrEmpty(locationData.City))
+            {
+                CurrentAddress.City = locationData.City;
+            }
+
+            if (!string.IsNullOrEmpty(locationData.State))
+            {
+                CurrentAddress.State = locationData.State;
+            }
+
             CurrentAddress.Country = locationData.Country;
             
             // Set address line 1 if we have city data
@@ -269,17 +325,16 @@ public partial class Addresses
                 CurrentAddress.AddressLine1 = locationData.AddressLine1;
             }
 
-            // Step 4: Try to set postal code based on state
+            // Try to set postal code
             if (string.IsNullOrEmpty(CurrentAddress.PostalCode))
             {
                 if (!string.IsNullOrEmpty(locationData.PostalCode))
                 {
-                    // Use postal code from geolocation if available
                     CurrentAddress.PostalCode = locationData.PostalCode;
                 }
-                else if (StatePostalCodes.TryGetValue(CurrentAddress.State, out var postalCode))
+                else if (!string.IsNullOrEmpty(CurrentAddress.State) && 
+                         StatePostalCodes.TryGetValue(CurrentAddress.State, out var postalCode))
                 {
-                    // Use default postal code for the state
                     CurrentAddress.PostalCode = postalCode;
                 }
             }
@@ -290,8 +345,12 @@ public partial class Addresses
             );
 
             // Show success message
+            var locationInfo = !string.IsNullOrEmpty(locationData.City) 
+                ? $"{locationData.City}, {locationData.State}" 
+                : locationData.FormattedAddress;
+
             await ShowAutoFillSuccess(
-                $"Address auto-filled based on your location: {locationData.City}, {locationData.State}. Please review and complete any missing details."
+                $"Address auto-filled based on your location: {locationInfo}. Please review and complete any missing details."
             );
 
             StateHasChanged();
