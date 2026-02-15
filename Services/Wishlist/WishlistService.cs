@@ -1,4 +1,4 @@
-// Services/Wishlist/WishlistService.cs - UPDATED FOR JSONB DESIGN
+// Services/Wishlist/WishlistService.cs - FIXED RLS HANDLING
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Client = Supabase.Client;
@@ -21,6 +21,65 @@ public class WishlistService : IWishlistService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Ensure wishlist row exists for user (create if missing)
+    /// Race-condition safe - handles duplicate key errors gracefully
+    /// </summary>
+    private async Task<bool> EnsureWishlistExistsAsync(string userId)
+    {
+        try
+        {
+            var response = await _supabaseClient
+                .From<WishlistModel>()
+                .Where(w => w.UserId == userId)
+                .Get();
+
+            if (response?.Models == null || !response.Models.Any())
+            {
+                try
+                {
+                    var newWishlist = new WishlistModel
+                    {
+                        UserId = userId,
+                        Items = new List<WishlistItem>(),
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _supabaseClient
+                        .From<WishlistModel>()
+                        .Insert(newWishlist);
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"Created new wishlist for user: {userId}",
+                        LogLevel.Info
+                    );
+                }
+                catch (Exception insertEx)
+                {
+                    if (insertEx.Message.Contains("23505") || 
+                        insertEx.Message.Contains("duplicate key") ||
+                        insertEx.Message.Contains("wishlist_pkey"))
+                    {
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"Wishlist already exists for user (created by another request): {userId}",
+                            LogLevel.Debug
+                        );
+                        return true;
+                    }
+                    
+                    throw;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensuring wishlist exists");
+            return false;
+        }
+    }
+
     public async Task<List<WishlistModel>> GetUserWishlistAsync(string userId)
     {
         try
@@ -32,29 +91,31 @@ public class WishlistService : IWishlistService
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"💝 Fetching wishlist for user: {userId}",
+                $"Fetching wishlist for user: {userId}",
                 LogLevel.Info
             );
 
-            var wishlist = await _supabaseClient
+            await EnsureWishlistExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<WishlistModel>()
                 .Where(w => w.UserId == userId)
-                .Single();
+                .Get();
 
-            if (wishlist == null)
+            if (response?.Models == null || !response.Models.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "No wishlist found, returning empty",
-                    LogLevel.Info
+                    "No wishlist found after creation attempt, returning empty",
+                    LogLevel.Warning
                 );
                 return new List<WishlistModel>();
             }
 
-            // Update cache
+            var wishlist = response.Models.First();
             _wishlistCache[userId] = wishlist.Items.Select(i => i.product_id).ToHashSet();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Retrieved wishlist with {wishlist.Items.Count} items",
+                $"Retrieved wishlist with {wishlist.Items.Count} items",
                 LogLevel.Info
             );
 
@@ -63,7 +124,7 @@ public class WishlistService : IWishlistService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Getting user wishlist");
-            _logger.LogError(ex, "❌ Failed to get wishlist for user: {UserId}", userId);
+            _logger.LogError(ex, "Failed to get wishlist for user: {UserId}", userId);
             return new List<WishlistModel>();
         }
     }
@@ -78,31 +139,31 @@ public class WishlistService : IWishlistService
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 Checking if product {productId} is in wishlist for user {userId}",
+                $"Checking if product {productId} is in wishlist for user {userId}",
                 LogLevel.Debug
             );
 
-            // Check cache first
             if (_wishlistCache.TryGetValue(userId, out var cachedIds))
             {
                 var inCache = cachedIds.Contains(productId);
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"📦 Cache hit: {inCache}",
+                    $"Cache hit: {inCache}",
                     LogLevel.Debug
                 );
                 return inCache;
             }
 
-            // Query database
-            var wishlist = await _supabaseClient
+            await EnsureWishlistExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<WishlistModel>()
                 .Where(w => w.UserId == userId)
-                .Single();
+                .Get();
 
-            var exists = wishlist?.Items.Any(i => i.product_id == productId) == true;
+            var exists = response?.Models?.FirstOrDefault()?.Items.Any(i => i.product_id == productId) == true;
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"💾 Database query result: {exists}",
+                $"Database query result: {exists}",
                 LogLevel.Debug
             );
 
@@ -121,34 +182,51 @@ public class WishlistService : IWishlistService
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(productId))
             {
-                _logger.LogWarning("❌ AddToWishlist called with empty userId or productId");
+                _logger.LogWarning("AddToWishlist called with empty userId or productId");
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"➕ Adding to wishlist: User={userId}, Product={productId}",
+                $"Adding to wishlist: User={userId}, Product={productId}",
                 LogLevel.Info
             );
 
-            // Call Postgres function to add to wishlist
-            var result = await _supabaseClient.Rpc<List<WishlistItem>>(
-                "add_to_wishlist",
-                new { p_product_id = productId }
-            );
+            await EnsureWishlistExistsAsync(userId);
 
-            if (result != null)
+            try
             {
-                // Update cache
-                if (!_wishlistCache.ContainsKey(userId))
-                    _wishlistCache[userId] = new HashSet<string>();
-                _wishlistCache[userId].Add(productId);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Successfully added to wishlist! Wishlist now has {result.Count} items",
-                    LogLevel.Info
+                var result = await _supabaseClient.Rpc<List<WishlistItem>>(
+                    "add_to_wishlist",
+                    new { p_product_id = productId }
                 );
 
-                return true;
+                if (result != null)
+                {
+                    if (!_wishlistCache.ContainsKey(userId))
+                        _wishlistCache[userId] = new HashSet<string>();
+                    _wishlistCache[userId].Add(productId);
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"Successfully added to wishlist via RPC! Wishlist now has {result.Count} items",
+                        LogLevel.Info
+                    );
+
+                    return true;
+                }
+            }
+            catch (Exception rpcEx)
+            {
+                if (rpcEx.Message.Contains("42501") || rpcEx.Message.Contains("row-level security"))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "RPC failed due to RLS, falling back to direct update",
+                        LogLevel.Warning
+                    );
+
+                    return await AddToWishlistDirectAsync(userId, productId);
+                }
+                
+                throw;
             }
 
             return false;
@@ -156,8 +234,62 @@ public class WishlistService : IWishlistService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Adding to wishlist");
-            _logger.LogError(ex, "❌ Failed to add to wishlist: User={UserId}, Product={ProductId}", 
+            _logger.LogError(ex, "Failed to add to wishlist: User={UserId}, Product={ProductId}", 
                 userId, productId);
+            return false;
+        }
+    }
+
+    private async Task<bool> AddToWishlistDirectAsync(string userId, string productId)
+    {
+        try
+        {
+            var response = await _supabaseClient
+                .From<WishlistModel>()
+                .Where(w => w.UserId == userId)
+                .Get();
+
+            if (response?.Models == null || !response.Models.Any())
+            {
+                _logger.LogWarning("Wishlist not found for direct add: {UserId}", userId);
+                return false;
+            }
+
+            var wishlist = response.Models.First();
+
+            if (wishlist.Items.Any(i => i.product_id == productId))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Product already in wishlist",
+                    LogLevel.Info
+                );
+                return true;
+            }
+
+            wishlist.Items.Add(new WishlistItem
+            {
+                product_id = productId,
+                added_at = DateTime.UtcNow
+            });
+            wishlist.UpdatedAt = DateTime.UtcNow;
+
+            await wishlist.Update<WishlistModel>();
+
+            if (!_wishlistCache.ContainsKey(userId))
+                _wishlistCache[userId] = new HashSet<string>();
+            _wishlistCache[userId].Add(productId);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Successfully added to wishlist via direct update! Wishlist now has {wishlist.Items.Count} items",
+                LogLevel.Info
+            );
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Direct wishlist add");
+            _logger.LogError(ex, "Failed direct wishlist add");
             return false;
         }
     }
@@ -168,35 +300,52 @@ public class WishlistService : IWishlistService
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(productId))
             {
-                _logger.LogWarning("❌ RemoveFromWishlist called with empty userId or productId");
+                _logger.LogWarning("RemoveFromWishlist called with empty userId or productId");
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"➖ Removing from wishlist: User={userId}, Product={productId}",
+                $"Removing from wishlist: User={userId}, Product={productId}",
                 LogLevel.Info
             );
 
-            // Call Postgres function to remove from wishlist
-            var result = await _supabaseClient.Rpc<List<WishlistItem>>(
-                "remove_from_wishlist",
-                new { p_product_id = productId }
-            );
+            await EnsureWishlistExistsAsync(userId);
 
-            if (result != null)
+            try
             {
-                // Update cache
-                if (_wishlistCache.ContainsKey(userId))
-                {
-                    _wishlistCache[userId].Remove(productId);
-                }
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Successfully removed from wishlist",
-                    LogLevel.Info
+                var result = await _supabaseClient.Rpc<List<WishlistItem>>(
+                    "remove_from_wishlist",
+                    new { p_product_id = productId }
                 );
 
-                return true;
+                if (result != null)
+                {
+                    if (_wishlistCache.ContainsKey(userId))
+                    {
+                        _wishlistCache[userId].Remove(productId);
+                    }
+
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "Successfully removed from wishlist via RPC",
+                        LogLevel.Info
+                    );
+
+                    return true;
+                }
+            }
+            catch (Exception rpcEx)
+            {
+                if (rpcEx.Message.Contains("42501") || rpcEx.Message.Contains("row-level security"))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "RPC failed due to RLS, falling back to direct update",
+                        LogLevel.Warning
+                    );
+
+                    return await RemoveFromWishlistDirectAsync(userId, productId);
+                }
+                
+                throw;
             }
 
             return false;
@@ -204,8 +353,49 @@ public class WishlistService : IWishlistService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Removing from wishlist");
-            _logger.LogError(ex, "❌ Failed to remove from wishlist: User={UserId}, Product={ProductId}", 
+            _logger.LogError(ex, "Failed to remove from wishlist: User={UserId}, Product={ProductId}", 
                 userId, productId);
+            return false;
+        }
+    }
+
+    private async Task<bool> RemoveFromWishlistDirectAsync(string userId, string productId)
+    {
+        try
+        {
+            var response = await _supabaseClient
+                .From<WishlistModel>()
+                .Where(w => w.UserId == userId)
+                .Get();
+
+            if (response?.Models == null || !response.Models.Any())
+            {
+                _logger.LogWarning("Wishlist not found for direct remove: {UserId}", userId);
+                return false;
+            }
+
+            var wishlist = response.Models.First();
+            wishlist.Items.RemoveAll(i => i.product_id == productId);
+            wishlist.UpdatedAt = DateTime.UtcNow;
+
+            await wishlist.Update<WishlistModel>();
+
+            if (_wishlistCache.ContainsKey(userId))
+            {
+                _wishlistCache[userId].Remove(productId);
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Successfully removed from wishlist via direct update! Wishlist now has {wishlist.Items.Count} items",
+                LogLevel.Info
+            );
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Direct wishlist remove");
+            _logger.LogError(ex, "Failed direct wishlist remove");
             return false;
         }
     }
@@ -215,21 +405,21 @@ public class WishlistService : IWishlistService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Toggling wishlist: User={userId}, Product={productId}",
+                $"Toggling wishlist: User={userId}, Product={productId}",
                 LogLevel.Info
             );
 
             var isInWishlist = await IsInWishlistAsync(userId, productId);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"📊 Current state: isInWishlist={isInWishlist}",
+                $"Current state: isInWishlist={isInWishlist}",
                 LogLevel.Info
             );
 
             if (isInWishlist)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "➖ Product is in wishlist, removing...",
+                    "Product is in wishlist, removing...",
                     LogLevel.Info
                 );
                 return await RemoveFromWishlistAsync(userId, productId);
@@ -237,7 +427,7 @@ public class WishlistService : IWishlistService
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "➕ Product not in wishlist, adding...",
+                    "Product not in wishlist, adding...",
                     LogLevel.Info
                 );
                 return await AddToWishlistAsync(userId, productId);
@@ -246,7 +436,7 @@ public class WishlistService : IWishlistService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling wishlist");
-            _logger.LogError(ex, "❌ Failed to toggle wishlist: User={UserId}, Product={ProductId}", 
+            _logger.LogError(ex, "Failed to toggle wishlist: User={UserId}, Product={ProductId}", 
                 userId, productId);
             return false;
         }
@@ -261,18 +451,19 @@ public class WishlistService : IWishlistService
                 return 0;
             }
 
-            // Check cache first
             if (_wishlistCache.TryGetValue(userId, out var cachedIds))
             {
                 return cachedIds.Count;
             }
 
-            var wishlist = await _supabaseClient
+            await EnsureWishlistExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<WishlistModel>()
                 .Where(w => w.UserId == userId)
-                .Single();
+                .Get();
 
-            return wishlist?.Items.Count ?? 0;
+            return response?.Models?.FirstOrDefault()?.Items.Count ?? 0;
         }
         catch (Exception ex)
         {
@@ -287,35 +478,37 @@ public class WishlistService : IWishlistService
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
-                _logger.LogWarning("❌ ClearWishlist called with empty userId");
+                _logger.LogWarning("ClearWishlist called with empty userId");
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🗑️ Clearing wishlist for user: {userId}",
+                $"Clearing wishlist for user: {userId}",
                 LogLevel.Warning
             );
 
-            var wishlist = await _supabaseClient
+            await EnsureWishlistExistsAsync(userId);
+
+            var response = await _supabaseClient
                 .From<WishlistModel>()
                 .Where(w => w.UserId == userId)
-                .Single();
+                .Get();
 
-            if (wishlist == null)
+            if (response?.Models == null || !response.Models.Any())
             {
-                return true; // Already empty
+                return true;
             }
 
+            var wishlist = response.Models.First();
             wishlist.Items = new List<WishlistItem>();
             wishlist.UpdatedAt = DateTime.UtcNow;
 
             await wishlist.Update<WishlistModel>();
 
-            // Clear cache
             _wishlistCache.Remove(userId);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "✅ Wishlist cleared",
+                "Wishlist cleared",
                 LogLevel.Info
             );
 
@@ -324,7 +517,7 @@ public class WishlistService : IWishlistService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Clearing wishlist");
-            _logger.LogError(ex, "❌ Failed to clear wishlist for user: {UserId}", userId);
+            _logger.LogError(ex, "Failed to clear wishlist for user: {UserId}", userId);
             return false;
         }
     }
@@ -338,7 +531,6 @@ public class WishlistService : IWishlistService
                 return new HashSet<string>();
             }
 
-            // Check cache first
             if (_wishlistCache.TryGetValue(userId, out var cachedIds))
             {
                 return cachedIds;
@@ -348,7 +540,6 @@ public class WishlistService : IWishlistService
             var productIds = wishlists.FirstOrDefault()?.Items.Select(i => i.product_id).ToHashSet() 
                 ?? new HashSet<string>();
 
-            // Update cache
             _wishlistCache[userId] = productIds;
 
             return productIds;
