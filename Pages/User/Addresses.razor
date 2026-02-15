@@ -5,7 +5,10 @@
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Domain.User
+@using SubashaVentures.Domain.Enums
+@using SubashaVentures.Services.VisualElements
 @inject NavigationManager Navigation
+@inject IVisualElementsService VisualElements
 
 <div class="addresses-page">
     <div class="page-header">
@@ -27,7 +30,9 @@
     else if (!AddressList.Any())
     {
         <div class="empty-state">
-            <div class="empty-icon">📍</div>
+            <div class="empty-icon">
+                @((MarkupString)addressIconLarge)
+            </div>
             <h2>No Addresses Yet</h2>
             <p>Add your first delivery address to make checkout faster</p>
             <PrimaryButton OnClick="OpenAddAddressModal" Size="PrimaryButton.ButtonSize.Large">
@@ -43,7 +48,10 @@
                 <div class="address-card @(address.IsDefault ? "default" : "")">
                     @if (address.IsDefault)
                     {
-                        <span class="default-badge">Default</span>
+                        <span class="default-badge">
+                            <span class="badge-icon">@((MarkupString)starIcon)</span>
+                            <span>Default</span>
+                        </span>
                     }
                     
                     <div class="address-checkbox">
@@ -54,31 +62,40 @@
 
                     <div class="address-content">
                         <h3>@address.FullName</h3>
-                        <p class="address-phone">@address.PhoneNumber</p>
+                        <p class="address-phone">
+                            <span class="address-icon">@((MarkupString)phoneIcon)</span>
+                            <span>@address.PhoneNumber</span>
+                        </p>
                         @if (!string.IsNullOrEmpty(address.Email))
                         {
-                            <p class="address-email">@address.Email</p>
+                            <p class="address-email">
+                                <span class="address-icon">@((MarkupString)mailIcon)</span>
+                                <span>@address.Email</span>
+                            </p>
                         }
                         <p class="address-text">
-                            @address.AddressLine1<br />
-                            @if (!string.IsNullOrEmpty(address.AddressLine2))
-                            {
-                                @address.AddressLine2<br />
-                            }
-                            @address.City, @address.State @address.PostalCode<br />
-                            @address.Country
+                            <span class="address-icon">@((MarkupString)addressIcon)</span>
+                            <span>
+                                @address.AddressLine1<br />
+                                @if (!string.IsNullOrEmpty(address.AddressLine2))
+                                {
+                                    @address.AddressLine2<br />
+                                }
+                                @address.City, @address.State @address.PostalCode<br />
+                                @address.Country
+                            </span>
                         </p>
                         <span class="address-type">@address.Type</span>
                     </div>
 
                     <div class="address-actions">
                         <button class="btn-icon" @onclick="() => EditAddress(address)" title="Edit">
-                            ✏️
+                            @((MarkupString)editIcon)
                         </button>
                         @if (!address.IsDefault)
                         {
                             <button class="btn-icon" @onclick="() => SetDefaultAddress(address.Id)" title="Set as default">
-                                ⭐
+                                @((MarkupString)starIcon)
                             </button>
                         }
                     </div>
@@ -110,7 +127,7 @@
     <BodyContent>
         <div class="address-form">
             <div class="form-notice">
-                <span class="notice-icon">🔒</span>
+                <span class="notice-icon">@((MarkupString)lockIcon)</span>
                 <p>Your address information is securely stored and used only for delivery purposes.</p>
             </div>
 
@@ -127,7 +144,7 @@
                     }
                     else
                     {
-                        <span class="icon">🌍</span>
+                        <span class="icon">@((MarkupString)globeIcon)</span>
                         <span>Auto-Fill from Location</span>
                     }
                 </button>
@@ -141,19 +158,37 @@
                        HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("name"))))"
                        ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("name"))" />
 
-            <InputField @bind-Value="CurrentAddress.PhoneNumber"
-                       Label="Phone Number"
-                       Placeholder="+234 801 234 5678"
-                       PrefixIcon="📱"
-                       IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("Phone"))))"
-                       ErrorMessage="@ValidationErrors.FirstOrDefault(e => e.Contains("Phone"))" />
+            <div class="phone-input-wrapper">
+                <label class="input-label">
+                    Phone Number <span class="required-mark">*</span>
+                </label>
+                <div class="phone-input-container">
+                    <span class="phone-prefix">
+                        <span class="prefix-icon">@((MarkupString)phoneIcon)</span>
+                        <span class="prefix-text">+234</span>
+                    </span>
+                    <input type="tel" 
+                           class="phone-input"
+                           placeholder="801 234 5678"
+                           value="@(CurrentAddress.PhoneNumber?.Replace("+234", ""))"
+                           @oninput="@(e => HandlePhoneNumberChange("+234" + e.Value?.ToString()))"
+                           maxlength="10"
+                           pattern="[0-9]*" />
+                </div>
+                @if (!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("Phone"))))
+                {
+                    <span class="error-message">
+                        <span class="error-icon">@((MarkupString)warningIcon)</span>
+                        @ValidationErrors.FirstOrDefault(e => e.Contains("Phone"))
+                    </span>
+                }
+                <span class="helper-text">Enter 10 digits after +234</span>
+            </div>
 
             <InputField @bind-Value="CurrentAddress.Email"
                        Label="Email (Optional)"
                        Type="email"
                        Placeholder="your.email@example.com"
-                       PrefixIcon="📧"
                        IsRequired="false" />
 
             <InputField @bind-Value="CurrentAddress.AddressLine1"
@@ -179,7 +214,10 @@
                     </select>
                     @if (!string.IsNullOrEmpty(ValidationErrors.FirstOrDefault(e => e.Contains("State"))))
                     {
-                        <span class="error-message">@ValidationErrors.FirstOrDefault(e => e.Contains("State"))</span>
+                        <span class="error-message">
+                            <span class="error-icon">@((MarkupString)warningIcon)</span>
+                            @ValidationErrors.FirstOrDefault(e => e.Contains("State"))
+                        </span>
                     }
                 </div>
 
@@ -240,15 +278,81 @@
                    ConfirmButtonText="Delete"
                    OnConfirm="ConfirmDeleteAddresses" />
 
-<!-- Auto-Fill Info Popup -->
+<!-- Auto-Fill Info Popup with higher z-index -->
 <InfoPopup @ref="AutoFillInfoPopup"
            Title="@AutoFillPopupTitle"
            Icon="@AutoFillPopupIcon"
            Message="@AutoFillPopupMessage"
            ShowCancelButton="false"
            ConfirmButtonText="OK"
-           OnConfirm="CloseAutoFillPopup" />
+           OnConfirm="CloseAutoFillPopup" 
+           CssClass="high-z-index" />
 
 @code {
-    // Component references and state variables will be in the .cs file
+    // SVG icons
+    private string addressIcon = string.Empty;
+    private string addressIconLarge = string.Empty;
+    private string phoneIcon = string.Empty;
+    private string mailIcon = string.Empty;
+    private string starIcon = string.Empty;
+    private string editIcon = string.Empty;
+    private string lockIcon = string.Empty;
+    private string globeIcon = string.Empty;
+    private string warningIcon = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSvgIcons();
+        await base.OnInitializedAsync();
+    }
+
+    private async Task LoadSvgIcons()
+    {
+        try
+        {
+            addressIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Address, width: 16, height: 16, fillColor: "currentColor"
+            );
+
+            addressIconLarge = await VisualElements.GetCustomSvgAsync(
+                SvgType.Address, width: 64, height: 64, fillColor: "var(--primary-color)"
+            );
+
+            phoneIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.28-.28.67-.36 1.02-.25 1.12.37 2.32.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/>",
+                16, 16, "0 0 24 24"
+            );
+
+            mailIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail, width: 16, height: 16, fillColor: "currentColor"
+            );
+
+            starIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star, width: 16, height: 16, fillColor: "currentColor"
+            );
+
+            editIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/>",
+                18, 18, "0 0 24 24"
+            );
+
+            lockIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z'/>",
+                20, 20, "0 0 24 24"
+            );
+
+            globeIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z'/>",
+                20, 20, "0 0 24 24"
+            );
+
+            warningIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading SVG icons: {ex.Message}");
+        }
+    }
 }
