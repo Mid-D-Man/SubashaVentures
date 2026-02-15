@@ -14,6 +14,11 @@
     padding: 1rem;
 }
 
+/* Higher z-index when used as overlay on top of other modals */
+.info-popup-overlay.high-z-index {
+    z-index: 10001 !important;
+}
+
 .info-popup-overlay.visible {
     opacity: 1;
     visibility: visible;
