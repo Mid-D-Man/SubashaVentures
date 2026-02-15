@@ -11,6 +11,7 @@ using SubashaVentures.Services.Wishlist;
 using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Domain.Enums;
+using SubashaVentures.Models.Supabase;
 using System.Security.Claims;
 
 namespace SubashaVentures.Pages.User;
@@ -42,11 +43,6 @@ public partial class WishlistCart : IDisposable
     private int CurrentCartPage = 1;
     private const int CartItemsPerPage = 10;
     private CartValidationResult? ValidationResult;
-
-    private string PromoCodeInput = "";
-    private string PromoMessage = "";
-    private string PromoMessageType = "";
-    private bool IsApplyingPromo = false;
 
     private ConfirmationPopup? ConfirmationPopup;
     private string ConfirmationTitle = "";
@@ -329,11 +325,31 @@ public partial class WishlistCart : IDisposable
                 return;
             }
 
-            var success = await CartService.AddToCartAsync(CurrentUserId!, productId, 1);
-            if (success)
+            var productModel = product.ToCloudModel();
+            
+            if (productModel.Variants.Any())
             {
-                Console.WriteLine($"Added to cart: {productId}");
-                await RemoveFromWishlist(productId);
+                var firstVariant = productModel.Variants.First();
+                var size = firstVariant.Value.Size;
+                var color = firstVariant.Value.Color;
+                
+                Console.WriteLine($"Product has variants, using first: Size={size}, Color={color}");
+                
+                var success = await CartService.AddToCartAsync(CurrentUserId!, productId, 1, size, color);
+                if (success)
+                {
+                    Console.WriteLine($"Added to cart with variants: {productId}");
+                    await RemoveFromWishlist(productId);
+                }
+            }
+            else
+            {
+                var success = await CartService.AddToCartAsync(CurrentUserId!, productId, 1);
+                if (success)
+                {
+                    Console.WriteLine($"Added to cart: {productId}");
+                    await RemoveFromWishlist(productId);
+                }
             }
         }
         catch (Exception ex)
@@ -394,6 +410,7 @@ public partial class WishlistCart : IDisposable
             {
                 SelectedWishlistItems[key] = false;
             }
+            ConfirmationPopup?.Close();
             StateHasChanged();
         };
         ConfirmationPopup?.Open();
@@ -415,6 +432,7 @@ public partial class WishlistCart : IDisposable
                     SelectedWishlistItems[key] = false;
                 }
                 Console.WriteLine("Wishlist cleared");
+                ConfirmationPopup?.Close();
                 StateHasChanged();
             }
         };
@@ -553,6 +571,7 @@ public partial class WishlistCart : IDisposable
                 CartItems.Clear();
                 CartSummary = new CartSummaryViewModel();
                 Console.WriteLine("Cart cleared");
+                ConfirmationPopup?.Close();
                 StateHasChanged();
             }
         };
@@ -564,40 +583,6 @@ public partial class WishlistCart : IDisposable
         if (page < 1 || page > TotalCartPages) return;
         CurrentCartPage = page;
         StateHasChanged();
-    }
-
-    private async Task ApplyPromoCode()
-    {
-        if (string.IsNullOrWhiteSpace(PromoCodeInput))
-        {
-            PromoMessage = "Please enter a promo code";
-            PromoMessageType = "error";
-            return;
-        }
-
-        IsApplyingPromo = true;
-        StateHasChanged();
-
-        try
-        {
-            await Task.Delay(500);
-            
-            PromoMessage = "Promo code applied successfully";
-            PromoMessageType = "success";
-            
-            Console.WriteLine($"Applied promo code: {PromoCodeInput}");
-        }
-        catch (Exception ex)
-        {
-            PromoMessage = "Invalid promo code";
-            PromoMessageType = "error";
-            Console.WriteLine($"Error applying promo: {ex.Message}");
-        }
-        finally
-        {
-            IsApplyingPromo = false;
-            StateHasChanged();
-        }
     }
 
     private void NavigateToProduct(string slug)
@@ -634,7 +619,7 @@ public partial class WishlistCart : IDisposable
     {
         if (PendingAction != null)
         {
-            PendingAction.Invoke();
+            await PendingAction.Invoke();
             PendingAction = null;
         }
     }
