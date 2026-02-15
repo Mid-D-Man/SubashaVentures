@@ -1,22 +1,19 @@
 @page "/user/support"
 @layout UserLayout
-@using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Components.Shared.Forms
-@using SubashaVentures.Components.Shared.Modals
-@using SubashaVentures.Components.Shared.Loading
-@using Microsoft.AspNetCore.Components.Forms
 @using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Forms
 
 <div class="support-page">
     <div class="page-header">
-        <div>
-            <h1>Help & Support</h1>
-            <p>We're here to help you</p>
+        <div class="header-content">
+            <div class="header-icon" @ref="headerIconRef"></div>
+            <div class="header-text">
+                <h1>Help & Support</h1>
+                <p>Find answers to common questions or get in touch with our team</p>
+            </div>
         </div>
-        <PrimaryButton OnClick="OpenContactModal" 
-                      Size="PrimaryButton.ButtonSize.Medium">
-            Contact Support
-        </PrimaryButton>
     </div>
 
     @if (IsLoading)
@@ -28,184 +25,135 @@
     }
     else
     {
-        <!-- Quick Actions -->
-        <div class="section">
-            <h2 class="section-title">Quick Actions</h2>
-            <div class="quick-actions">
-                <div class="action-card" @onclick="() => SelectCategory(SupportCategory.Orders)">
-                    <div class="action-icon">📦</div>
-                    <h3>Track Order</h3>
-                    <p>Check your order status</p>
-                </div>
-                <div class="action-card" @onclick="() => SelectCategory(SupportCategory.Returns)">
-                    <div class="action-icon">↩️</div>
-                    <h3>Returns</h3>
-                    <p>Start a return request</p>
-                </div>
-                <div class="action-card" @onclick="() => SelectCategory(SupportCategory.Delivery)">
-                    <div class="action-icon">🚚</div>
-                    <h3>Delivery Info</h3>
-                    <p>Shipping & delivery</p>
-                </div>
-                <div class="action-card" @onclick="OpenContactModal">
-                    <div class="action-icon">💬</div>
-                    <h3>Live Chat</h3>
-                    <p>Chat with support</p>
-                </div>
-            </div>
+        <div class="support-tabs">
+            <button class="tab-button @(ActiveTab == "faqs" ? "active" : "")" 
+                    @onclick='() => SwitchTab("faqs")'>
+                <div class="tab-icon" @ref="faqTabIconRef"></div>
+                <span>FAQs</span>
+            </button>
+            <button class="tab-button @(ActiveTab == "contact" ? "active" : "")" 
+                    @onclick='() => SwitchTab("contact")'>
+                <div class="tab-icon" @ref="contactTabIconRef"></div>
+                <span>Contact Us</span>
+            </button>
         </div>
 
-        <!-- FAQ Section -->
-        <div class="section">
-            <h2 class="section-title">Frequently Asked Questions</h2>
-            <div class="faq-categories">
-                @foreach (var category in Enum.GetValues<SupportCategory>())
-                {
-                    <button class="category-tab @(SelectedCategory == category ? "active" : "")"
-                            @onclick="() => SelectCategory(category)">
-                        @GetCategoryName(category)
-                    </button>
-                }
-            </div>
-            <div class="faq-list">
-                @foreach (var faq in FilteredFaqs)
-                {
-                    <div class="faq-item @(ExpandedFaqId == faq.Id ? "expanded" : "")"
-                         @onclick="() => ToggleFaq(faq.Id)">
-                        <div class="faq-question">
-                            <h3>@faq.Question</h3>
-                            <span class="faq-toggle">@(ExpandedFaqId == faq.Id ? "−" : "+")</span>
-                        </div>
-                        @if (ExpandedFaqId == faq.Id)
+        @if (ActiveTab == "faqs")
+        {
+            <div class="faq-section">
+                <div class="search-section">
+                    <div class="search-container">
+                        <div class="search-icon" @ref="searchIconRef"></div>
+                        <input type="text" 
+                               class="search-input" 
+                               placeholder="Search for answers..."
+                               @bind="SearchQuery"
+                               @bind:event="oninput"
+                               @onkeyup="HandleSearch" />
+                        @if (!string.IsNullOrEmpty(SearchQuery))
                         {
-                            <div class="faq-answer">
-                                <p>@faq.Answer</p>
-                            </div>
+                            <button class="clear-search" @onclick="ClearSearch">
+                                <div class="clear-icon" @ref="clearIconRef"></div>
+                            </button>
                         }
                     </div>
-                }
-            </div>
-        </div>
-
-        <!-- Contact Methods -->
-        <div class="section">
-            <h2 class="section-title">Get In Touch</h2>
-            <div class="contact-methods">
-                <div class="contact-card">
-                    <div class="contact-icon">📧</div>
-                    <h3>Email Support</h3>
-                    <p>support@subashaventures.com</p>
-                    <span class="response-time">Response in 24 hours</span>
-                </div>
-                <div class="contact-card">
-                    <div class="contact-icon">📞</div>
-                    <h3>Phone Support</h3>
-                    <p>+234 (0) 800 123 4567</p>
-                    <span class="response-time">Mon-Fri, 9AM-6PM WAT</span>
-                </div>
-                <div class="contact-card">
-                    <div class="contact-icon">💬</div>
-                    <h3>WhatsApp</h3>
-                    <p>+234 (0) 900 765 4321</p>
-                    <span class="response-time">Available 24/7</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Your Tickets -->
-        @if (SupportTickets.Any())
-        {
-            <div class="section">
-                <h2 class="section-title">Your Support Tickets</h2>
-                <div class="tickets-list">
-                    @foreach (var ticket in SupportTickets)
+                    @if (!string.IsNullOrEmpty(SearchQuery) && FilteredFaqs.Any())
                     {
-                        <div class="ticket-card" @onclick="() => ViewTicket(ticket.Id)">
-                            <div class="ticket-header">
-                                <div>
-                                    <h3>@ticket.Subject</h3>
-                                    <span class="ticket-id">Ticket #@ticket.Id</span>
-                                </div>
-                                <span class="ticket-status @ticket.Status.ToString().ToLower()">
-                                    @ticket.Status
-                                </span>
-                            </div>
-                            <p class="ticket-message">@ticket.LastMessage</p>
-                            <div class="ticket-footer">
-                                <span class="ticket-date">@ticket.CreatedDate.ToString("MMM dd, yyyy")</span>
-                                <span class="ticket-category">@GetCategoryName(ticket.Category)</span>
-                            </div>
+                        <p class="search-results-info">
+                            Found @FilteredFaqs.Count result@(FilteredFaqs.Count != 1 ? "s" : "") for "@SearchQuery"
+                        </p>
+                    }
+                    else if (!string.IsNullOrEmpty(SearchQuery) && !FilteredFaqs.Any())
+                    {
+                        <p class="search-results-info no-results">
+                            No results found for "@SearchQuery". Try different keywords or browse categories below.
+                        </p>
+                    }
+                </div>
+
+                <div class="category-filters">
+                    @foreach (var category in Enum.GetValues<SupportCategory>())
+                    {
+                        <button class="category-filter @(SelectedCategory == category ? "active" : "")"
+                                @onclick="() => SelectCategory(category)">
+                            <div class="category-icon" data-category="@category.ToString()"></div>
+                            <span>@GetCategoryName(category)</span>
+                            <span class="category-count">@GetCategoryCount(category)</span>
+                        </button>
+                    }
+                </div>
+
+                <div class="faq-list">
+                    @if (FilteredFaqs.Any())
+                    {
+                        @foreach (var faq in FilteredFaqs)
+                        {
+                            <FaqItem Question="@faq.Question"
+                                   Answer="@faq.Answer"
+                                   Category="@faq.Category"
+                                   IsExpanded="@(ExpandedFaqId == faq.Id)"
+                                   IsHighlighted="@(faq.IsHighlighted)"
+                                   RelatedLinks="@faq.RelatedLinks"
+                                   OnToggle="@((expanded) => HandleFaqToggle(faq.Id, expanded))" />
+                        }
+                    }
+                    else
+                    {
+                        <div class="no-faqs">
+                            <div class="no-faqs-icon" @ref="noResultsIconRef"></div>
+                            <h3>No FAQs found</h3>
+                            <p>Try adjusting your search or browse different categories</p>
                         </div>
                     }
                 </div>
             </div>
         }
+        else
+        {
+            <div class="contact-section">
+                <div class="contact-intro">
+                    <h2>Get in Touch</h2>
+                    <p>Need personalized assistance? Our support team is here to help you.</p>
+                </div>
 
-        <!-- Safety & Trust -->
-        <div class="section">
-            <h2 class="section-title">Safety & Trust</h2>
-            <div class="safety-card">
-                <div class="safety-icon">🛡️</div>
-                <div class="safety-content">
-                    <h3>Stay Safe While Shopping</h3>
-                    <ul class="safety-tips">
-                        <li>Never share your password or OTP with anyone</li>
-                        <li>Be cautious of too-good-to-be-true deals</li>
-                        <li>Only communicate through our official channels</li>
-                        <li>Report suspicious activity immediately</li>
-                        <li>Verify seller ratings and reviews before purchase</li>
-                    </ul>
-                    <PrimaryButton OnClick="ReportScam" 
-                                  Size="PrimaryButton.ButtonSize.Small"
-                                  Variant="PrimaryButton.ButtonVariant.Outline">
-                        Report Suspicious Activity
-                    </PrimaryButton>
+                <div class="contact-methods">
+                    <div class="contact-card whatsapp" @onclick="OpenWhatsApp">
+                        <div class="contact-card-icon" @ref="whatsappIconRef"></div>
+                        <div class="contact-card-content">
+                            <h3>WhatsApp Support</h3>
+                            <p class="contact-detail">+234 900 765 4321</p>
+                            <p class="contact-description">Chat with us instantly for quick assistance</p>
+                            <span class="availability">Available 24/7</span>
+                        </div>
+                        <div class="contact-arrow" @ref="whatsappArrowRef"></div>
+                    </div>
+
+                    <div class="contact-card email" @onclick="OpenEmail">
+                        <div class="contact-card-icon" @ref="emailIconRef"></div>
+                        <div class="contact-card-content">
+                            <h3>Email Support</h3>
+                            <p class="contact-detail">support@subashaventures.com</p>
+                            <p class="contact-description">Send us a detailed message and we'll respond soon</p>
+                            <span class="availability">Response within 24 hours</span>
+                        </div>
+                        <div class="contact-arrow" @ref="emailArrowRef"></div>
+                    </div>
+                </div>
+
+                <div class="safety-notice">
+                    <div class="safety-icon" @ref="safetyIconRef"></div>
+                    <div class="safety-content">
+                        <h3>Stay Safe While Shopping</h3>
+                        <ul class="safety-tips">
+                            <li>Never share your password or OTP with anyone, including our staff</li>
+                            <li>Be cautious of deals that seem too good to be true</li>
+                            <li>Only communicate through our official channels listed above</li>
+                            <li>Report suspicious activity immediately to our support team</li>
+                            <li>Verify seller ratings and reviews before making purchases</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
+        }
     }
 </div>
-
-<!-- Contact Support Modal -->
-<DynamicModal IsOpen="ShowContactModal" 
-             Title="Contact Support" 
-             OnClose="CloseContactModal"
-             OnConfirm="SubmitContactForm"
-             IsProcessing="IsSubmitting">
-    <BodyContent>
-        <div class="contact-form">
-            <InputField Label="Subject" 
-                       @bind-Value="ContactSubject" 
-                       Placeholder="Brief description of your issue"
-                       IsRequired="true" />
-            
-            <div class="form-group">
-                <label>Category</label>
-                <select class="form-select" @bind="ContactCategory">
-                    @foreach (var category in Enum.GetValues<SupportCategory>())
-                    {
-                        <option value="@category">@GetCategoryName(category)</option>
-                    }
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Message</label>
-                <textarea class="form-textarea" 
-                         @bind="ContactMessage" 
-                         placeholder="Describe your issue in detail..."
-                         rows="6"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label>Attach File (Optional)</label>
-                <InputFile OnChange="HandleFileUpload" class="file-input" />
-                <span class="file-hint">Max size: 5MB. Formats: jpg, png, pdf</span>
-            </div>
-        </div>
-    </BodyContent>
-</DynamicModal>
-
-@code {
-    // See Support.razor.cs for code
-}
