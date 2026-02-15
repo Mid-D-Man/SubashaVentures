@@ -66,8 +66,24 @@
 }
 
 .tab-icon {
-    font-size: 1.5rem;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+}
+
+.tab-btn.active .tab-icon {
+    color: var(--primary-color);
+}
+
+.tab-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .tab-label {
@@ -107,9 +123,20 @@
 }
 
 .empty-icon {
-    font-size: 5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
     margin-bottom: 1.5rem;
     opacity: 0.5;
+}
+
+.empty-icon svg {
+    width: 120px;
+    height: 120px;
+    stroke: var(--text-secondary);
+    fill: none;
 }
 
 .empty-state h2 {
@@ -291,16 +318,36 @@
     margin-bottom: 0.5rem;
 }
 
-.in-stock {
-    color: var(--success-color);
+.in-stock,
+.out-of-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: 0.875rem;
     font-weight: 600;
 }
 
+.in-stock {
+    color: var(--success-color);
+}
+
 .out-of-stock {
     color: var(--danger-color);
-    font-size: 0.875rem;
-    font-weight: 600;
+}
+
+.status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+
+.status-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .added-date {
@@ -316,6 +363,21 @@
     padding: 1.25rem;
     border-top: 1px solid var(--border-light);
     background: rgba(150, 153, 74, 0.02);
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+
+.btn-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 /* ==================== CART LAYOUT ==================== */
@@ -556,19 +618,27 @@
     border: 2px solid var(--border-light);
     border-radius: 8px;
     cursor: pointer;
-    font-size: 1.25rem;
     transition: all 0.2s ease;
+    color: var(--text-secondary);
 }
 
 .action-btn:hover {
     background: var(--primary-color);
     border-color: var(--primary-color);
+    color: white;
     transform: scale(1.1);
 }
 
 .action-btn.danger:hover {
     background: var(--danger-color);
     border-color: var(--danger-color);
+}
+
+.action-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 /* ==================== CART SUMMARY SECTION ==================== */
@@ -683,10 +753,28 @@
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
     border: 2px solid var(--success-color);
     border-radius: 8px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     color: var(--success-color);
     font-weight: 700;
     font-size: 0.94rem;
+}
+
+.badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+
+.badge-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .checkout-btn,
@@ -745,6 +833,24 @@
 /* ==================== VALIDATION ISSUES ==================== */
 .validation-card h4 {
     color: var(--danger-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.warning-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.warning-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .validation-issue {
@@ -763,8 +869,20 @@
 }
 
 .issue-icon {
-    font-size: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
+    color: var(--danger-color);
+}
+
+.issue-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .issue-message {
@@ -784,6 +902,9 @@
 }
 
 .pagination-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.75rem 1.5rem;
     background: var(--bg-primary);
     border: 2px solid var(--border-light);
@@ -840,6 +961,17 @@
 [data-theme="dark"] .card-image,
 [data-theme="dark"] .item-image {
     background: var(--gray-800);
+}
+
+[data-theme="dark"] .tab-icon svg,
+[data-theme="dark"] .empty-icon svg,
+[data-theme="dark"] .btn-icon svg,
+[data-theme="dark"] .status-icon svg,
+[data-theme="dark"] .action-btn svg,
+[data-theme="dark"] .badge-icon svg,
+[data-theme="dark"] .warning-icon svg,
+[data-theme="dark"] .issue-icon svg {
+    stroke: currentColor;
 }
 
 /* ==================== RESPONSIVE DESIGN ==================== */
@@ -999,7 +1131,13 @@
     }
 
     .tab-icon {
-        font-size: 1.25rem;
+        width: 20px;
+        height: 20px;
+    }
+
+    .tab-icon svg {
+        width: 20px;
+        height: 20px;
     }
 
     .tab-label {
@@ -1020,7 +1158,13 @@
     }
 
     .empty-icon {
-        font-size: 4rem;
+        width: 80px;
+        height: 80px;
+    }
+
+    .empty-icon svg {
+        width: 80px;
+        height: 80px;
     }
 
     .empty-state h2 {
@@ -1053,4 +1197,4 @@
     .promo-input-group button {
         width: 100%;
     }
-}
+    }
