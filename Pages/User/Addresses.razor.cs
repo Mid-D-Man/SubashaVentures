@@ -1,12 +1,14 @@
-// Pages/User/Addresses.razor.cs - UPDATED WITH GPS & PHONE VALIDATION
+// Pages/User/Addresses.razor.cs - COMPLETE WITH ALL LOGIC
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Domain.User;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Services.Addresses;
 using SubashaVentures.Services.Geolocation;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Utilities.HelperScripts;
 using System.Security.Claims;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -19,18 +21,22 @@ public partial class Addresses
     [Inject] private IGeolocationService GeolocationService { get; set; } = default!;
     [Inject] private IUserService UserService { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
     [Inject] private ILogger<Addresses> Logger { get; set; } = default!;
 
+    // Data
     private List<AddressViewModel> AddressList = new();
     private Dictionary<string, bool> SelectedAddresses = new();
     private AddressViewModel CurrentAddress = new();
     private List<string> ValidationErrors = new();
     
+    // Component references
     private DynamicModal? AddressModal;
     private ConfirmationPopup? DeleteConfirmPopup;
     private InfoPopup? AutoFillInfoPopup;
     
+    // State flags
     private bool IsLoading = true;
     private bool IsModalOpen = false;
     private bool IsSaving = false;
@@ -43,6 +49,18 @@ public partial class Addresses
     private string AutoFillPopupMessage = "";
     private InfoPopup.InfoPopupIcon AutoFillPopupIcon = InfoPopup.InfoPopupIcon.Info;
 
+    // SVG icons
+    private string addressIcon = string.Empty;
+    private string addressIconLarge = string.Empty;
+    private string phoneIcon = string.Empty;
+    private string mailIcon = string.Empty;
+    private string starIcon = string.Empty;
+    private string editIcon = string.Empty;
+    private string lockIcon = string.Empty;
+    private string globeIcon = string.Empty;
+    private string warningIcon = string.Empty;
+
+    // Nigerian states
     private readonly List<string> NigerianStates = new()
     {
         "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", 
@@ -77,10 +95,64 @@ public partial class Addresses
         { "Benue", "970001" }
     };
 
+    // ==================== INITIALIZATION ====================
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadSvgIcons();
         await GetCurrentUserId();
         await LoadAddresses();
+    }
+
+    private async Task LoadSvgIcons()
+    {
+        try
+        {
+            addressIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Address, width: 16, height: 16, fillColor: "currentColor"
+            );
+
+            addressIconLarge = await VisualElements.GetCustomSvgAsync(
+                SvgType.Address, width: 64, height: 64, fillColor: "var(--primary-color)"
+            );
+
+            phoneIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.28-.28.67-.36 1.02-.25 1.12.37 2.32.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z'/>",
+                16, 16, "0 0 24 24"
+            );
+
+            mailIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail, width: 16, height: 16, fillColor: "currentColor"
+            );
+
+            starIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star, width: 16, height: 16, fillColor: "currentColor"
+            );
+
+            editIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/>",
+                18, 18, "0 0 24 24"
+            );
+
+            lockIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z'/>",
+                20, 20, "0 0 24 24"
+            );
+
+            globeIcon = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z'/>",
+                20, 20, "0 0 24 24"
+            );
+
+            warningIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor"
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading SVG icons");
+            Logger.LogError(ex, "Error loading SVG icons");
+        }
     }
 
     private async Task GetCurrentUserId()
@@ -110,6 +182,8 @@ public partial class Addresses
             Logger.LogError(ex, "Error getting user ID");
         }
     }
+
+    // ==================== LOAD ADDRESSES ====================
 
     private async Task LoadAddresses()
     {
@@ -147,6 +221,8 @@ public partial class Addresses
         }
     }
 
+    // ==================== MODAL OPERATIONS ====================
+
     private void OpenAddAddressModal()
     {
         IsEditMode = false;
@@ -181,6 +257,14 @@ public partial class Addresses
         };
         ValidationErrors.Clear();
         IsModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        IsModalOpen = false;
+        CurrentAddress = new();
+        ValidationErrors.Clear();
         StateHasChanged();
     }
 
@@ -465,14 +549,6 @@ public partial class Addresses
             IsSaving = false;
             StateHasChanged();
         }
-    }
-
-    private void CloseModal()
-    {
-        IsModalOpen = false;
-        CurrentAddress = new();
-        ValidationErrors.Clear();
-        StateHasChanged();
     }
 
     // ==================== DELETE ADDRESSES ====================
