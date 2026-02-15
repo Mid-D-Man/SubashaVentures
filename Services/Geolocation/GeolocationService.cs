@@ -1,4 +1,4 @@
-// Services/Geolocation/GeolocationService.cs - UPDATED WITH GPS PRIORITY
+// Services/Geolocation/GeolocationService.cs - FIXED TO USE IP FOR ADDRESS
 using Microsoft.JSInterop;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -24,18 +24,18 @@ public class GeolocationService : IGeolocationService
     }
 
     /// <summary>
-    /// Get location - tries GPS first, falls back to IP if GPS fails
+    /// Get location - tries GPS first for coordinates, but uses IP for address details
     /// </summary>
     public async Task<AddressComponents?> GetLocationAsync()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "🎯 Attempting to get location (GPS preferred)",
+                "🎯 Attempting to get location (GPS for coordinates, IP for address)",
                 LogLevel.Info
             );
 
-            // Try GPS first
+            // Try GPS first for precise coordinates
             var gpsPosition = await GetPreciseLocationAsync();
             
             if (gpsPosition != null)
@@ -45,25 +45,31 @@ public class GeolocationService : IGeolocationService
                     LogLevel.Info
                 );
 
-                // For now, we can't reverse geocode without an API key
-                // So we'll just return basic info with coordinates
-                // In a production app, you'd use a reverse geocoding service here
-                return new AddressComponents
+                // We have GPS coordinates, but we need city/state names
+                // Since we don't have reverse geocoding API, use IP geolocation for address details
+                var ipLocation = await GetLocationFromIPAsync();
+                
+                if (ipLocation != null)
                 {
-                    Country = "Nigeria",
-                    CountryCode = "NG",
-                    Latitude = gpsPosition.Latitude,
-                    Longitude = gpsPosition.Longitude,
-                    FormattedAddress = $"Coordinates: {gpsPosition.Latitude:F4}, {gpsPosition.Longitude:F4}"
-                };
+                    // Combine GPS coordinates with IP address details
+                    ipLocation.Latitude = gpsPosition.Latitude;
+                    ipLocation.Longitude = gpsPosition.Longitude;
+                    
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ Combined GPS coordinates with IP address: {ipLocation.City}, {ipLocation.State}",
+                        LogLevel.Info
+                    );
+                    
+                    return ipLocation;
+                }
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                "⚠️ GPS failed, falling back to IP-based location",
+                "⚠️ GPS failed or permission denied, using IP-based location",
                 LogLevel.Warning
             );
 
-            // Fall back to IP-based location
+            // Fall back to IP-based location only
             return await GetLocationFromIPAsync();
         }
         catch (Exception ex)
