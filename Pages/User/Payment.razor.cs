@@ -1,11 +1,12 @@
-// Pages/User/Payment.razor.cs - UPDATED WITH VALIDATION
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Services.Payment;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Supabase;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Domain.Payment;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -18,6 +19,7 @@ public partial class Payment
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
     [Inject] private ISupabaseAuthService AuthService { get; set; } = default!;
     [Inject] private ISupabaseEdgeFunctionService EdgeFunctions { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<Payment> Logger { get; set; } = default!;
@@ -45,6 +47,17 @@ public partial class Payment
     private decimal CurrentBalance = 0;
     private bool SetAsDefault = false;
 
+    private string AddIconSvg = string.Empty;
+    private string WalletIconSvg = string.Empty;
+    private string EmptyCardIconSvg = string.Empty;
+    private string StarIconSvg = string.Empty;
+    private string WarningIconSvg = string.Empty;
+    private string CardIconSvg = string.Empty;
+    private string DeleteIconSvg = string.Empty;
+    private string EmptyTransactionsIconSvg = string.Empty;
+    private string SecurityIconSvg = string.Empty;
+    private string ErrorIconSvg = string.Empty;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -62,11 +75,10 @@ public partial class Payment
             UserId = await PermissionService.GetCurrentUserIdAsync() ?? string.Empty;
             UserEmail = await PermissionService.GetCurrentUserEmailAsync() ?? string.Empty;
             
-            // ✅ CRITICAL: Validate we have userId before proceeding
             if (string.IsNullOrEmpty(UserId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ User ID not found after authentication, redirecting to sign in",
+                    "User ID not found after authentication, redirecting to sign in",
                     LogLevel.Error
                 );
                 Logger.LogError("User ID is null or empty after successful authentication check");
@@ -75,16 +87,93 @@ public partial class Payment
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ User authenticated: ID={UserId}, Email={UserEmail}",
+                $"User authenticated: ID={UserId}, Email={UserEmail}",
                 LogLevel.Info
             );
 
+            await LoadSvgsAsync();
             await LoadPaymentData();
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Payment page initialization");
             Logger.LogError(ex, "Failed to initialize payment page for user: {UserId}", UserId);
+        }
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            AddIconSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            WalletIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Payment,
+                width: 48,
+                height: 48,
+                fillColor: "currentColor"
+            );
+
+            EmptyCardIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Payment,
+                width: 64,
+                height: 64,
+                fillColor: "currentColor"
+            );
+
+            StarIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Star,
+                width: 16,
+                height: 16,
+                fillColor: "currentColor"
+            );
+
+            WarningIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning,
+                width: 16,
+                height: 16,
+                fillColor: "currentColor"
+            );
+
+            CardIconSvg = VisualElements.GenerateSvg(
+                "<rect x='2' y='6' width='20' height='12' rx='2' stroke='currentColor' stroke-width='2' fill='none'/><path d='M2 10h20' stroke='currentColor' stroke-width='2'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            DeleteIconSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            EmptyTransactionsIconSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z'/>",
+                48, 48, "0 0 24 24"
+            );
+
+            SecurityIconSvg = VisualElements.GenerateSvg(
+                "<path fill='currentColor' d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            ErrorIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor"
+            );
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "SVG icons loaded successfully",
+                LogLevel.Info
+            );
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading SVG icons");
+            Logger.LogError(ex, "Failed to load SVG icons");
         }
     }
 
@@ -95,11 +184,10 @@ public partial class Payment
 
         try
         {
-            // ✅ DOUBLE-CHECK userId before making any calls
             if (string.IsNullOrEmpty(UserId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Cannot load payment data: UserId is null or empty",
+                    "Cannot load payment data: UserId is null or empty",
                     LogLevel.Error
                 );
                 IsLoading = false;
@@ -120,14 +208,14 @@ public partial class Payment
                 WalletBalance = wallet.FormattedBalance;
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Wallet loaded: {WalletBalance}",
+                    $"Wallet loaded: {WalletBalance}",
                     LogLevel.Info
                 );
             }
             else
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "⚠️ Failed to ensure wallet exists",
+                    "Failed to ensure wallet exists",
                     LogLevel.Warning
                 );
                 
@@ -138,14 +226,14 @@ public partial class Payment
             PaymentMethods = await WalletService.GetSavedCardsAsync(UserId);
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {PaymentMethods.Count} saved payment methods",
+                $"Loaded {PaymentMethods.Count} saved payment methods",
                 LogLevel.Info
             );
 
             Transactions = await WalletService.GetTransactionHistoryAsync(UserId, 0, 10);
             
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {Transactions.Count} recent transactions",
+                $"Loaded {Transactions.Count} recent transactions",
                 LogLevel.Info
             );
         }
@@ -160,8 +248,6 @@ public partial class Payment
             StateHasChanged();
         }
     }
-
-    // ==================== PAYMENT METHOD MANAGEMENT ====================
 
     private void OpenAddPaymentModal()
     {
@@ -186,12 +272,11 @@ public partial class Payment
 
         try
         {
-            // ✅ VALIDATE userId before proceeding
             if (string.IsNullOrEmpty(UserId))
             {
                 ValidationErrors["General"] = "User session expired. Please sign in again.";
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Cannot save payment method: UserId is null or empty",
+                    "Cannot save payment method: UserId is null or empty",
                     LogLevel.Error
                 );
                 IsSaving = false;
@@ -227,7 +312,7 @@ public partial class Payment
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Card charged successfully: {tokenResult.Reference}",
+                $"Card charged successfully: {tokenResult.Reference}",
                 LogLevel.Info
             );
 
@@ -245,7 +330,7 @@ public partial class Payment
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Authorization code retrieved: {authCode}",
+                $"Authorization code retrieved: {authCode}",
                 LogLevel.Info
             );
 
@@ -260,7 +345,7 @@ public partial class Payment
             if (savedCard != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Payment method saved successfully",
+                    "Payment method saved successfully",
                     LogLevel.Info
                 );
 
@@ -308,18 +393,17 @@ public partial class Payment
     {
         try
         {
-            // ✅ VALIDATE userId
             if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(UserEmail))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Cannot get authorization code: UserId or UserEmail is null",
+                    "Cannot get authorization code: UserId or UserEmail is null",
                     LogLevel.Error
                 );
                 return null;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Getting authorization code for reference: {reference}",
+                $"Getting authorization code for reference: {reference}",
                 LogLevel.Info
             );
 
@@ -328,7 +412,7 @@ public partial class Payment
             if (result.Success && result.Data != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Authorization code retrieved successfully",
+                    "Authorization code retrieved successfully",
                     LogLevel.Info
                 );
                 return result.Data.AuthorizationCode;
@@ -352,17 +436,15 @@ public partial class Payment
     {
         try
         {
-            // ✅ VALIDATE userId BEFORE calling service - THIS IS THE CRITICAL FIX!
             if (string.IsNullOrEmpty(UserId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Cannot set default payment: User not authenticated",
+                    "Cannot set default payment: User not authenticated",
                     LogLevel.Error
                 );
                 
                 Logger.LogError("Cannot set default payment method: UserId is null or empty");
                 
-                // Show error to user
                 await JSRuntime.InvokeVoidAsync("alert", "Session expired. Please sign in again.");
                 NavigationManager.NavigateTo("signin", true);
                 return;
@@ -383,7 +465,7 @@ public partial class Payment
                 }
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Default payment method updated",
+                    "Default payment method updated",
                     LogLevel.Info
                 );
 
@@ -417,11 +499,10 @@ public partial class Payment
 
         try
         {
-            // ✅ VALIDATE userId
             if (string.IsNullOrEmpty(UserId))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ Cannot delete payment method: User not authenticated",
+                    "Cannot delete payment method: User not authenticated",
                     LogLevel.Error
                 );
                 return;
@@ -440,7 +521,7 @@ public partial class Payment
                 PaymentToDelete = null;
                 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "✓ Payment method deleted successfully",
+                    "Payment method deleted successfully",
                     LogLevel.Info
                 );
 
@@ -453,8 +534,6 @@ public partial class Payment
             Logger.LogError(ex, "Failed to delete payment method: {PaymentId}", PaymentToDelete);
         }
     }
-
-    // ==================== WALLET TOP-UP ====================
 
     private void ShowTopUpModal()
     {
@@ -483,11 +562,10 @@ public partial class Payment
             return;
         }
 
-        // ✅ VALIDATE userId
         if (string.IsNullOrEmpty(UserId) || string.IsNullOrEmpty(UserEmail))
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Cannot process top-up: User not authenticated",
+                "Cannot process top-up: User not authenticated",
                 LogLevel.Error
             );
             await JSRuntime.InvokeVoidAsync("alert", "Session expired. Please sign in again.");
@@ -529,7 +607,7 @@ public partial class Payment
             if (paymentResponse.Success)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Payment completed: {paymentResponse.Reference}",
+                    $"Payment completed: {paymentResponse.Reference}",
                     LogLevel.Info
                 );
 
@@ -548,7 +626,7 @@ public partial class Payment
                 if (verified)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        "✅ Wallet credited successfully!",
+                        "Wallet credited successfully",
                         LogLevel.Info
                     );
                     
@@ -557,7 +635,7 @@ public partial class Payment
                 else
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        "⚠️ Payment verification pending. Please check your wallet in a few moments.",
+                        "Payment verification pending. Please check your wallet in a few moments.",
                         LogLevel.Warning
                     );
                 }
@@ -582,8 +660,6 @@ public partial class Payment
         }
     }
 
-    // ==================== NAVIGATION ====================
-
     private void ShowTransactionHistory()
     {
         NavigationManager.NavigateTo("user/wallet/transactions");
@@ -594,7 +670,11 @@ public partial class Payment
         NavigationManager.NavigateTo("user/wallet/transactions");
     }
 
-    // ==================== VIEW MODELS ====================
+    private string GetTransactionSymbol(string transactionType)
+    {
+        var type = transactionType.ToLower();
+        return type == "credit" || type == "topup" || type == "refund" ? "+" : "-";
+    }
 
     private class PaystackTokenResult
     {
