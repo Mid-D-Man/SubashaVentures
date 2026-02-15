@@ -335,18 +335,8 @@
 
                             <div class="summary-row">
                                 <span>Shipping</span>
-                                <span class="@(CartSummary.HasFreeShipping ? "free-shipping" : "")">
-                                    @CartSummary.DisplayShipping
-                                </span>
+                                <span>@CartSummary.DisplayShipping</span>
                             </div>
-
-                            @if (CartSummary.PromoDiscount > 0)
-                            {
-                                <div class="summary-row discount">
-                                    <span>Discount (@CartSummary.PromoCode)</span>
-                                    <span>@CartSummary.DisplayDiscount</span>
-                                </div>
-                            }
 
                             @if (CartSummary.TaxAmount > 0)
                             {
@@ -363,61 +353,21 @@
                                 <span>@CartSummary.DisplayTotal</span>
                             </div>
 
-                            @if (!CartSummary.QualifiesForFreeShipping && CartSummary.AmountToFreeShipping > 0)
-                            {
-                                <div class="free-shipping-progress">
-                                    <div class="progress-bar">
-                                        <div class="progress-fill" 
-                                             style="width: @((CartSummary.Subtotal / CartSummary.FreeShippingThreshold * 100))%">
-                                        </div>
-                                    </div>
-                                    <p class="progress-text">
-                                        Add @($"₦{CartSummary.AmountToFreeShipping:N0}") more for FREE shipping
-                                    </p>
-                                </div>
-                            }
-                            else if (CartSummary.HasFreeShipping)
-                            {
-                                <div class="free-shipping-badge">
-                                    <span class="badge-icon">@((MarkupString)checkmarkSvg)</span>
-                                    <span>You qualify for FREE shipping</span>
-                                </div>
-                            }
+                            <div class="summary-actions">
+                                <PrimaryButton OnClick="ProceedToCheckout" 
+                                             Size="PrimaryButton.ButtonSize.Large"
+                                             IsDisabled="!CanCheckout"
+                                             CssClass="checkout-btn">
+                                    Proceed to Checkout
+                                </PrimaryButton>
 
-                            <PrimaryButton OnClick="ProceedToCheckout" 
-                                         Size="PrimaryButton.ButtonSize.Large"
-                                         IsDisabled="!CanCheckout"
-                                         CssClass="checkout-btn">
-                                Proceed to Checkout
-                            </PrimaryButton>
-
-                            <SecondaryButton OnClick="NavigateToShop" 
-                                           Size="SecondaryButton.ButtonSize.Medium"
-                                           Variant="SecondaryButton.ButtonVariant.Outline"
-                                           CssClass="continue-shopping-btn">
-                                Continue Shopping
-                            </SecondaryButton>
-                        </div>
-
-                        <div class="promo-card">
-                            <h4>Have a promo code?</h4>
-                            <div class="promo-input-group">
-                                <input type="text" 
-                                       class="promo-input" 
-                                       placeholder="Enter code"
-                                       @bind="PromoCodeInput" />
-                                <SecondaryButton OnClick="ApplyPromoCode" 
-                                               Size="SecondaryButton.ButtonSize.Small"
-                                               IsDisabled="@IsApplyingPromo">
-                                    Apply
+                                <SecondaryButton OnClick="NavigateToShop" 
+                                               Size="SecondaryButton.ButtonSize.Large"
+                                               Variant="SecondaryButton.ButtonVariant.Outline"
+                                               CssClass="continue-shopping-btn">
+                                    Continue Shopping
                                 </SecondaryButton>
                             </div>
-                            @if (!string.IsNullOrEmpty(PromoMessage))
-                            {
-                                <div class="promo-message @PromoMessageType">
-                                    @PromoMessage
-                                </div>
-                            }
                         </div>
 
                         @if (ValidationResult != null && ValidationResult.ItemIssues.Any())
