@@ -1,4 +1,4 @@
-// Services/Auth/CustomSupabaseClaimsFactory.cs - FIXED TO AVOID DATABASE QUERY DURING AUTH
+// Services/Auth/CustomSupabaseClaimsFactory.cs - UPDATED FOR JWT CLAIMS
 using System.Security.Claims;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
@@ -9,8 +9,8 @@ using Client = Supabase.Client;
 namespace SubashaVentures.Services.Auth;
 
 /// <summary>
-/// Custom claims factory - UPDATED to get role from JWT metadata, NOT database
-/// This prevents infinite recursion during authentication
+/// Custom claims factory - UPDATED to use JWT claims from Custom Access Token Hook
+/// NO database queries during authentication - prevents infinite recursion
 /// </summary>
 public class CustomSupabaseClaimsFactory
 {
@@ -26,8 +26,8 @@ public class CustomSupabaseClaimsFactory
     }
 
     /// <summary>
-    /// Create ClaimsPrincipal with user role from JWT metadata (NOT database)
-    /// CRITICAL: This method must NOT query the database to avoid infinite recursion
+    /// Create ClaimsPrincipal with user role from JWT claims (set by Custom Access Token Hook)
+    /// CRITICAL: This method does NOT query the database - all info comes from JWT
     /// </summary>
     public async Task<ClaimsPrincipal> CreateUserPrincipalAsync(User user)
     {
@@ -45,38 +45,45 @@ public class CustomSupabaseClaimsFactory
                 new Claim("sub", user.Id),
             };
 
-            // ✅ CRITICAL FIX: Get role from JWT metadata, NOT from database
-            // This prevents the infinite recursion issue
+            // ✅ PRIORITY 1: Get role from JWT custom claim (set by Custom Access Token Hook)
+            // This is stored in raw_app_meta_data by the hook
             string role = "user"; // Default role
 
             try
             {
-                // Try to get role from user metadata (set during signup/OAuth)
-                if (user.UserMetadata != null && user.UserMetadata.ContainsKey("role"))
+                // Try app_metadata first (set by Custom Access Token Hook)
+                if (user.AppMetadata != null && user.AppMetadata.ContainsKey("user_role"))
+                {
+                    role = user.AppMetadata["user_role"]?.ToString() ?? "user";
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ Role found in app_metadata (from hook): {role}",
+                        LogLevel.Info
+                    );
+                }
+                // Fallback to user_metadata for backwards compatibility
+                else if (user.UserMetadata != null && user.UserMetadata.ContainsKey("role"))
                 {
                     role = user.UserMetadata["role"]?.ToString() ?? "user";
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"✅ Role found in JWT metadata: {role}",
+                        $"✅ Role found in user_metadata (legacy): {role}",
                         LogLevel.Info
                     );
                 }
                 else
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        "⚠️ Role not found in JWT metadata, using default 'user'",
+                        "⚠️ Role not found in JWT, using default 'user'",
                         LogLevel.Warning
                     );
-                    
-                    // Schedule a background task to update metadata from database
-                    _ = Task.Run(async () => await UpdateUserMetadataFromDatabaseAsync(user.Id));
                 }
             }
             catch (Exception ex)
             {
-                await MID_HelperFunctions.LogExceptionAsync(ex, "Getting role from metadata");
-                _logger.LogWarning(ex, "Failed to get role from metadata, using default");
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Getting role from JWT metadata");
+                _logger.LogWarning(ex, "Failed to get role from JWT metadata, using default");
             }
             
+            // Add role claim
             claims.Add(new Claim(ClaimTypes.Role, role));
             
             await MID_HelperFunctions.DebugMessageAsync(
@@ -84,7 +91,7 @@ public class CustomSupabaseClaimsFactory
                 LogLevel.Info
             );
 
-            // Add metadata from user profile
+            // Add profile metadata from user profile
             if (user.UserMetadata != null)
             {
                 if (user.UserMetadata.TryGetValue("first_name", out var firstName))
@@ -95,6 +102,16 @@ public class CustomSupabaseClaimsFactory
                 
                 if (user.UserMetadata.TryGetValue("avatar_url", out var avatar))
                     claims.Add(new Claim("avatar_url", avatar?.ToString() ?? ""));
+            }
+
+            // Also check app_metadata for names (set by hook)
+            if (user.AppMetadata != null)
+            {
+                if (user.AppMetadata.TryGetValue("first_name", out var appFirstName))
+                    claims.Add(new Claim("app_first_name", appFirstName?.ToString() ?? ""));
+                
+                if (user.AppMetadata.TryGetValue("last_name", out var appLastName))
+                    claims.Add(new Claim("app_last_name", appLastName?.ToString() ?? ""));
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -112,66 +129,8 @@ public class CustomSupabaseClaimsFactory
             await MID_HelperFunctions.LogExceptionAsync(ex, "Creating claims principal");
             _logger.LogError(ex, "Failed to create claims principal for user: {UserId}", user.Id);
             
+            // Return empty principal on error
             return new ClaimsPrincipal(new ClaimsIdentity());
-        }
-    }
-
-    /// <summary>
-    /// Background task to update user metadata from database
-    /// This runs AFTER authentication is complete, so no recursion
-    /// </summary>
-    private async Task UpdateUserMetadataFromDatabaseAsync(string userId)
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Background: Syncing role from database for user: {userId}",
-                LogLevel.Info
-            );
-
-            // Wait a bit to ensure authentication is fully complete
-            await Task.Delay(2000);
-
-            var user = await _supabaseClient
-                .From<UserModel>()
-                .Where(u => u.Id == userId)
-                .Single();
-
-            if (user == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"⚠️ User not found in user_data table: {userId}",
-                    LogLevel.Warning
-                );
-                return;
-            }
-
-            // Update the user's metadata in Supabase Auth
-            var currentUser = _supabaseClient.Auth.CurrentUser;
-            if (currentUser != null && currentUser.Id == userId)
-            {
-                var updates = new Dictionary<string, object>
-                {
-                    { "role", user.Role }
-                };
-
-                var attributes = new UserAttributes
-                {
-                    Data = updates
-                };
-
-                await _supabaseClient.Auth.Update(attributes);
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Background: Updated JWT metadata with role: {user.Role}",
-                    LogLevel.Info
-                );
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Background role sync");
-            _logger.LogWarning(ex, "Failed to sync role from database (non-critical)");
         }
     }
 }
