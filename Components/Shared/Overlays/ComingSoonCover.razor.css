@@ -1,4 +1,4 @@
-/* ===== COMING SOON COVER ===== */
+/* Components/Shared/Overlays/ComingSoonCover.razor.css */
 .coming-soon-cover {
     position: absolute;
     inset: 0;
@@ -176,7 +176,8 @@
     margin: 0 0 2rem;
 }
 
-.coming-soon-notify-btn {
+.coming-soon-notify-btn,
+.coming-soon-back-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -192,13 +193,28 @@
     box-shadow: 0 4px 12px rgba(150, 153, 74, 0.3);
 }
 
-.coming-soon-notify-btn:hover {
+/* ✅ BACK BUTTON SPECIFIC STYLES */
+.coming-soon-back-btn {
+    background: rgba(150, 153, 74, 0.1);
+    color: var(--primary-color, #96994A);
+    border: 2px solid var(--primary-color, #96994A);
+    margin-top: 1rem;
+}
+
+.coming-soon-notify-btn:hover,
+.coming-soon-back-btn:hover {
     background: var(--hover-primary, #7A7D3A);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(150, 153, 74, 0.4);
 }
 
-.coming-soon-notify-btn:active {
+.coming-soon-back-btn:hover {
+    background: var(--primary-color, #96994A);
+    color: white;
+}
+
+.coming-soon-notify-btn:active,
+.coming-soon-back-btn:active {
     transform: translateY(0);
 }
 
@@ -231,15 +247,28 @@
     color: var(--text-secondary, #d1d5db);
 }
 
-[data-theme="dark"] .coming-soon-notify-btn {
+[data-theme="dark"] .coming-soon-notify-btn,
+[data-theme="dark"] .coming-soon-back-btn {
     background: var(--primary-color, #B8BB6A);
     color: var(--text-on-primary, #212529);
     box-shadow: 0 4px 12px rgba(184, 187, 106, 0.4);
 }
 
-[data-theme="dark"] .coming-soon-notify-btn:hover {
+[data-theme="dark"] .coming-soon-back-btn {
+    background: rgba(184, 187, 106, 0.15);
+    color: var(--primary-color, #B8BB6A);
+    border-color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .coming-soon-notify-btn:hover,
+[data-theme="dark"] .coming-soon-back-btn:hover {
     background: var(--hover-primary, #C8CB7A);
     box-shadow: 0 6px 20px rgba(184, 187, 106, 0.5);
+}
+
+[data-theme="dark"] .coming-soon-back-btn:hover {
+    background: var(--primary-color, #B8BB6A);
+    color: var(--text-on-primary, #212529);
 }
 
 /* Responsive */
@@ -262,7 +291,8 @@
         font-size: 1rem;
     }
 
-    .coming-soon-notify-btn {
+    .coming-soon-notify-btn,
+    .coming-soon-back-btn {
         padding: 0.75rem 1.5rem;
         font-size: 0.94rem;
     }
@@ -292,7 +322,8 @@
         margin-bottom: 1.5rem;
     }
 
-    .coming-soon-notify-btn {
+    .coming-soon-notify-btn,
+    .coming-soon-back-btn {
         width: 100%;
         justify-content: center;
     }
@@ -306,7 +337,8 @@
         animation: none;
     }
 
-    .coming-soon-notify-btn:hover {
+    .coming-soon-notify-btn:hover,
+    .coming-soon-back-btn:hover {
         transform: none;
     }
 }
