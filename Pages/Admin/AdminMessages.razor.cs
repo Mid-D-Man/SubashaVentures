@@ -91,86 +91,32 @@ public partial class AdminMessages : ComponentBase
     {
         try
         {
-            // Header button icons
+            // Get SVGs
             var messagesSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Messages,
-                width: 20,
-                height: 20,
-                fillColor: "currentColor"
+                SvgType.Messages, 32, 32, fillColor: "var(--primary-color)"
             );
 
             var mailSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Mail,
-                width: 20,
-                height: 20,
-                fillColor: "currentColor"
+                SvgType.Mail, 32, 32, fillColor: "var(--primary-color)"
             );
 
-            var settingsSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Settings,
-                width: 20,
-                height: 20,
-                fillColor: "currentColor"
+            var userSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.User, 32, 32, fillColor: "var(--primary-color)"
             );
 
-            // Stats card icons
-            var messagesStatSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Messages,
-                width: 32,
-                height: 32,
-                fillColor: "var(--primary-color)"
-            );
-
-            var mailStatSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Mail,
-                width: 32,
-                height: 32,
-                fillColor: "var(--primary-color)"
-            );
-
-            var userStatSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.User,
-                width: 32,
-                height: 32,
-                fillColor: "var(--primary-color)"
-            );
-
-            // Empty state icon
             var emptyMessagesSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Messages,
-                width: 64,
-                height: 64,
-                fillColor: "var(--text-muted)"
+                SvgType.Messages, 64, 64, fillColor: "var(--text-muted)"
             );
 
-            // Inject into DOM
+            // Inject stat icons
             await JSRuntime.InvokeVoidAsync("eval",
                 $@"(function() {{
-                    const newMsgBtn = document.querySelector('.header-right button:nth-child(1)');
-                    const bulkMsgBtn = document.querySelector('.header-right button:nth-child(2)');
-                    const refreshBtn = document.querySelector('.toolbar-actions button');
                     const statIcons = document.querySelectorAll('.stat-icon');
+                    if (statIcons[0]) statIcons[0].innerHTML = `{messagesSvg}`;
+                    if (statIcons[1]) statIcons[1].innerHTML = `{mailSvg}`;
+                    if (statIcons[2]) statIcons[2].innerHTML = `{userSvg}`;
+                    
                     const emptyIcon = document.querySelector('.empty-icon');
-                    
-                    if (newMsgBtn && !newMsgBtn.querySelector('svg')) {{
-                        const span = newMsgBtn.querySelector('span');
-                        newMsgBtn.innerHTML = `{messagesSvg}` + (span ? span.outerHTML : '');
-                    }}
-                    
-                    if (bulkMsgBtn && !bulkMsgBtn.querySelector('svg')) {{
-                        const span = bulkMsgBtn.querySelector('span');
-                        bulkMsgBtn.innerHTML = `{mailSvg}` + (span ? span.outerHTML : '');
-                    }}
-                    
-                    if (refreshBtn && !refreshBtn.querySelector('svg')) {{
-                        const span = refreshBtn.querySelector('span');
-                        refreshBtn.innerHTML = `{settingsSvg}` + (span ? span.outerHTML : '');
-                    }}
-                    
-                    if (statIcons[0]) statIcons[0].innerHTML = `{messagesStatSvg}`;
-                    if (statIcons[1]) statIcons[1].innerHTML = `{mailStatSvg}`;
-                    if (statIcons[2]) statIcons[2].innerHTML = `{userStatSvg}`;
-                    
                     if (emptyIcon) emptyIcon.innerHTML = `{emptyMessagesSvg}`;
                 }})();");
         }
