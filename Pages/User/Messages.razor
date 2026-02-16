@@ -1,115 +1,226 @@
 @page "/user/messages"
 @layout UserLayout
-@inject NavigationManager Navigation
 @using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Domain.Enums
+
 <div class="messages-page">
-    <div class="page-header">
-        <div>
+    <div class="messages-header">
+        <div class="header-content">
             <h1>Messages</h1>
-            <p>View promotions and order updates</p>
+            <p>View your conversations and notifications</p>
         </div>
-    </div>
-
-    <div class="messages-tabs">
-        <button class="tab-btn @(ActiveTab == "orders" ? "active" : "")" 
-                @onclick='() => SwitchTab("orders")'>
-            📦 Order Updates
-        </button>
-        <button class="tab-btn @(ActiveTab == "promotions" ? "active" : "")" 
-                @onclick='() => SwitchTab("promotions")'>
-            🎁 Promotions
-        </button>
-    </div>
-
-    <div class="messages-content">
-        @if (ActiveTab == "orders")
+        @if (UnreadCount > 0)
         {
-            <div class="messages-list">
-                @if (!OrderMessages.Any())
+            <div class="unread-badge">
+                <span class="badge-count">@UnreadCount</span>
+                <span class="badge-text">unread</span>
+            </div>
+        }
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="messages-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" Message="Loading messages..." />
+        </div>
+    }
+    else
+    {
+        <div class="messages-container">
+            <div class="conversations-sidebar @(IsMobileSidebarOpen ? "mobile-open" : "")">
+                <div class="sidebar-header">
+                    <div class="category-tabs">
+                        <button class="category-tab @(ActiveCategory == "all" ? "active" : "")" 
+                                @onclick='() => FilterByCategory("all")'>
+                            <span class="tab-icon">@((MarkupString)allIconSvg)</span>
+                            <span class="tab-text">All</span>
+                            @if (GetCategoryCount("all") > 0)
+                            {
+                                <span class="tab-count">@GetCategoryCount("all")</span>
+                            }
+                        </button>
+                        <button class="category-tab @(ActiveCategory == "system" ? "active" : "")" 
+                                @onclick='() => FilterByCategory("system")'>
+                            <span class="tab-icon">@((MarkupString)systemIconSvg)</span>
+                            <span class="tab-text">System</span>
+                            @if (GetCategoryCount("system") > 0)
+                            {
+                                <span class="tab-count">@GetCategoryCount("system")</span>
+                            }
+                        </button>
+                        <button class="category-tab @(ActiveCategory == "promotion" ? "active" : "")" 
+                                @onclick='() => FilterByCategory("promotion")'>
+                            <span class="tab-icon">@((MarkupString)promotionIconSvg)</span>
+                            <span class="tab-text">Offers</span>
+                            @if (GetCategoryCount("promotion") > 0)
+                            {
+                                <span class="tab-count">@GetCategoryCount("promotion")</span>
+                            }
+                        </button>
+                        <button class="category-tab @(ActiveCategory == "support" ? "active" : "")" 
+                                @onclick='() => FilterByCategory("support")'>
+                            <span class="tab-icon">@((MarkupString)supportIconSvg)</span>
+                            <span class="tab-text">Support</span>
+                            @if (GetCategoryCount("support") > 0)
+                            {
+                                <span class="tab-count">@GetCategoryCount("support")</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+                <div class="conversations-list">
+                    @if (!FilteredConversations.Any())
+                    {
+                        <div class="empty-conversations">
+                            <div class="empty-icon">@((MarkupString)emptyIconSvg)</div>
+                            <p class="empty-title">No messages yet</p>
+                            <p class="empty-text">Your @(ActiveCategory == "all" ? "" : ActiveCategory) messages will appear here</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var conversation in FilteredConversations)
+                        {
+                            <div class="conversation-item @(conversation.Id == SelectedConversationId ? "selected" : "") @(conversation.UnreadCount > 0 ? "unread" : "")"
+                                 @onclick="() => SelectConversation(conversation.Id)">
+                                <div class="conversation-icon">
+                                    <span class="category-icon">@((MarkupString)GetCategoryIcon(conversation.Category))</span>
+                                </div>
+                                <div class="conversation-content">
+                                    <div class="conversation-header">
+                                        <h3 class="conversation-subject">@conversation.Subject</h3>
+                                        <span class="conversation-time">@FormatTimeAgo(conversation.LastMessageAt)</span>
+                                    </div>
+                                    <div class="conversation-meta">
+                                        <span class="conversation-status status-@conversation.Status">@conversation.Status</span>
+                                        @if (conversation.Priority == "high")
+                                        {
+                                            <span class="priority-badge">
+                                                <span class="priority-icon">@((MarkupString)priorityIconSvg)</span>
+                                                High
+                                            </span>
+                                        }
+                                        @if (conversation.UnreadCount > 0)
+                                        {
+                                            <span class="unread-count">@conversation.UnreadCount new</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="messages-content">
+                <button class="mobile-back-button" @onclick="CloseMobileConversation">
+                    <span class="back-icon">@((MarkupString)backIconSvg)</span>
+                    <span class="back-text">Back</span>
+                </button>
+
+                @if (string.IsNullOrEmpty(SelectedConversationId))
                 {
-                    <div class="empty-messages">
-                        <p>No order updates yet</p>
+                    <div class="no-selection">
+                        <div class="no-selection-icon">@((MarkupString)selectMessageIconSvg)</div>
+                        <h2>Select a conversation</h2>
+                        <p>Choose a conversation from the sidebar to view messages</p>
+                    </div>
+                }
+                else if (IsLoadingMessages)
+                {
+                    <div class="messages-loading-inline">
+                        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium" Message="Loading messages..." />
                     </div>
                 }
                 else
                 {
-                    @foreach (var message in OrderMessages)
-                    {
-                        <div class="message-card @(message.IsRead ? "" : "unread")">
-                            <div class="message-icon">📦</div>
-                            <div class="message-content">
-                                <h3>@message.Title</h3>
-                                <p>@message.Message</p>
-                                <span class="message-time">@message.TimeAgo</span>
+                    <div class="conversation-view">
+                        <div class="conversation-header-bar">
+                            <div class="header-info">
+                                <div class="header-icon">
+                                    <span class="category-icon">@((MarkupString)GetCategoryIcon(SelectedConversation?.Category ?? "system"))</span>
+                                </div>
+                                <div class="header-details">
+                                    <h2 class="header-subject">@SelectedConversation?.Subject</h2>
+                                    <div class="header-meta">
+                                        <span class="meta-item">
+                                            <span class="meta-icon">@((MarkupString)categoryIconSvg)</span>
+                                            @SelectedConversation?.Category
+                                        </span>
+                                        <span class="meta-item">
+                                            <span class="meta-icon">@((MarkupString)statusIconSvg)</span>
+                                            @SelectedConversation?.Status
+                                        </span>
+                                        <span class="meta-item">
+                                            <span class="meta-icon">@((MarkupString)timeIconSvg)</span>
+                                            @FormatDate(SelectedConversation?.CreatedAt ?? DateTime.UtcNow)
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    }
-                }
-            </div>
-        }
-        else
-        {
-            <div class="messages-list">
-                @if (!PromotionMessages.Any())
-                {
-                    <div class="empty-messages">
-                        <p>No promotions available</p>
+
+                        <div class="messages-thread" @ref="MessagesThreadRef">
+                            @if (!CurrentMessages.Any())
+                            {
+                                <div class="no-messages">
+                                    <div class="no-messages-icon">@((MarkupString)emptyMessagesIconSvg)</div>
+                                    <p>No messages in this conversation yet</p>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var message in CurrentMessages)
+                                {
+                                    <div class="message-item @(message.SenderId == "admin" ? "message-admin" : "message-user") @(message.IsRead ? "" : "message-unread")">
+                                        <div class="message-avatar">
+                                            <span class="avatar-icon">@((MarkupString)(message.SenderId == "admin" ? adminAvatarSvg : userAvatarSvg))</span>
+                                        </div>
+                                        <div class="message-bubble">
+                                            <div class="message-header">
+                                                <span class="message-sender">@message.SenderName</span>
+                                                <span class="message-time">@FormatMessageTime(message.Timestamp)</span>
+                                            </div>
+                                            <div class="message-text">@message.Text</div>
+                                            @if (message.Attachments != null && message.Attachments.Any())
+                                            {
+                                                <div class="message-attachments">
+                                                    @foreach (var attachment in message.Attachments)
+                                                    {
+                                                        <div class="attachment-item">
+                                                            <span class="attachment-icon">@((MarkupString)attachmentIconSvg)</span>
+                                                            <span class="attachment-name">@attachment</span>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            @if (!message.IsRead && message.SenderId == "admin")
+                                            {
+                                                <div class="unread-indicator">
+                                                    <span class="indicator-dot"></span>
+                                                    <span class="indicator-text">Unread</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        <div class="read-only-notice">
+                            <span class="notice-icon">@((MarkupString)infoIconSvg)</span>
+                            <span class="notice-text">This is a read-only view. For support, contact us through the Help Center.</span>
+                        </div>
                     </div>
                 }
-                else
-                {
-                    @foreach (var promo in PromotionMessages)
-                    {
-                        <div class="message-card promo @(promo.IsRead ? "" : "unread")">
-                            <div class="message-icon">🎁</div>
-                            <div class="message-content">
-                                <h3>@promo.Title</h3>
-                                <p>@promo.Message</p>
-                                <span class="message-time">@promo.TimeAgo</span>
-                            </div>
-                        </div>
-                    }
-                }
             </div>
+        </div>
+
+        @if (IsMobileSidebarOpen)
+        {
+            <div class="mobile-overlay" @onclick="CloseMobileConversation"></div>
         }
-    </div>
+    }
 </div>
-
-@code {
-    private string ActiveTab = "orders";
-    private List<MessageItem> OrderMessages = new();
-    private List<MessageItem> PromotionMessages = new();
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadMessages();
-    }
-
-    private async Task LoadMessages()
-    {
-        await Task.Delay(100);
-
-        OrderMessages = new()
-        {
-            new() { Title = "Order Shipped", Message = "Your order #ORD-2024-001 has been shipped", TimeAgo = "2 hours ago", IsRead = false }
-        };
-
-        PromotionMessages = new()
-        {
-            new() { Title = "Weekend Sale - 50% Off!", Message = "Don't miss our biggest sale of the year", TimeAgo = "1 day ago", IsRead = true }
-        };
-    }
-
-    private void SwitchTab(string tab)
-    {
-        ActiveTab = tab;
-    }
-
-    private class MessageItem
-    {
-        public string Title { get; set; } = "";
-        public string Message { get; set; } = "";
-        public string TimeAgo { get; set; } = "";
-        public bool IsRead { get; set; }
-    }
-}
