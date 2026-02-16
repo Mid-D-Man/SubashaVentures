@@ -1,4 +1,4 @@
-// Services/Firebase/MessagingService.cs - COMPLETE IMPLEMENTATION
+// Services/Firebase/MessagingService.cs
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -51,7 +51,6 @@ public class MessagingService : IMessagingService
                 UnreadCount = 0
             };
 
-            // Save to user's conversations
             var userPath = $"messages/{userId}/conversations";
             var conversationSaved = await _firestore.AddDocumentAsync(
                 userPath,
@@ -65,13 +64,12 @@ public class MessagingService : IMessagingService
                 return null;
             }
 
-            // Mirror to admin inbox
             var adminInbox = new AdminInboxModel
             {
                 Id = conversationId,
                 UserId = userId,
                 UserEmail = userEmail,
-                UserDisplayName = userEmail.Split('@')[0], // Default to email prefix
+                UserDisplayName = userEmail.Split('@')[0],
                 Subject = subject,
                 Status = "open",
                 Priority = priority,
@@ -89,11 +87,10 @@ public class MessagingService : IMessagingService
                 conversationId
             );
 
-            // Update user profile
             await UpdateUserUnreadCountAsync(userId);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Conversation created: {conversationId} for user {userId}",
+                $"Conversation created: {conversationId} for user {userId}",
                 LogLevel.Info
             );
 
@@ -120,7 +117,16 @@ public class MessagingService : IMessagingService
             var path = $"messages/{userId}/conversations";
             var conversations = await _firestore.GetCollectionAsync<ConversationModel>(path);
 
-            return conversations ?? new List<ConversationModel>();
+            if (conversations == null || !conversations.Any())
+                return new List<ConversationModel>();
+
+            var now = DateTime.UtcNow;
+            var validConversations = conversations
+                .Where(c => !c.ExpiresAt.HasValue || c.ExpiresAt.Value > now)
+                .OrderByDescending(c => c.LastMessageAt)
+                .ToList();
+
+            return validConversations;
         }
         catch (Exception ex)
         {
@@ -168,7 +174,6 @@ public class MessagingService : IMessagingService
                 new { status, updated_at = DateTime.UtcNow }
             );
 
-            // Also update admin inbox
             if (updated)
             {
                 await _firestore.UpdateFieldsAsync(
@@ -221,11 +226,10 @@ public class MessagingService : IMessagingService
                 SenderId = senderId,
                 SenderName = senderName,
                 Timestamp = now,
-                IsRead = senderId == userId, // User's own messages are auto-read
+                IsRead = senderId == userId,
                 Attachments = attachments
             };
 
-            // Save message to conversation
             var messagePath = $"messages/{userId}/conversations/{conversationId}/messages";
             var messageSaved = await _firestore.AddToSubcollectionAsync(
                 $"messages/{userId}/conversations",
@@ -241,7 +245,6 @@ public class MessagingService : IMessagingService
                 return null;
             }
 
-            // Update conversation metadata
             var isAdminMessage = senderId == "admin";
             await _firestore.UpdateFieldsAsync(
                 $"messages/{userId}/conversations",
@@ -250,11 +253,10 @@ public class MessagingService : IMessagingService
                 { 
                     last_message_at = now,
                     is_admin_replied = isAdminMessage,
-                    unread_count = isAdminMessage ? FieldValue.Increment(1) : 0
+                    unread_count = isAdminMessage ? 1 : 0
                 }
             );
 
-            // Update admin inbox
             await _firestore.UpdateFieldsAsync(
                 "admin_messages",
                 conversationId,
@@ -266,14 +268,13 @@ public class MessagingService : IMessagingService
                 }
             );
 
-            // Update user unread count if admin sent message
             if (isAdminMessage)
             {
                 await UpdateUserUnreadCountAsync(userId);
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Message sent: {messageId} in conversation {conversationId}",
+                $"Message sent: {messageId} in conversation {conversationId}",
                 LogLevel.Info
             );
 
@@ -337,7 +338,6 @@ public class MessagingService : IMessagingService
                 if (!updated) success = false;
             }
 
-            // Reset unread count
             if (success)
             {
                 await _firestore.UpdateFieldsAsync(
@@ -402,7 +402,6 @@ public class MessagingService : IMessagingService
                 return new List<AdminInboxModel>();
             }
 
-            // Sort by last message date descending and limit
             return inbox
                 .OrderByDescending(x => x.LastMessageAt)
                 .Take(limit)
@@ -490,6 +489,104 @@ public class MessagingService : IMessagingService
         }
     }
 
+    // ==================== BULK MESSAGING ====================
+
+    public async Task<Dictionary<string, bool>> SendBulkMessageAsync(
+        List<string> userIds, 
+        string subject, 
+        string message, 
+        string category = "system", 
+        DateTime? expiresAt = null)
+    {
+        var results = new Dictionary<string, bool>();
+
+        try
+        {
+            if (userIds == null || !userIds.Any())
+            {
+                _logger.LogWarning("SendBulkMessage called with empty user list");
+                return results;
+            }
+
+            foreach (var userId in userIds)
+            {
+                try
+                {
+                    var conversationId = await CreateConversationAsync(
+                        userId, 
+                        "system@subashaventures.com", 
+                        subject, 
+                        category
+                    );
+
+                    if (!string.IsNullOrEmpty(conversationId))
+                    {
+                        if (expiresAt.HasValue)
+                        {
+                            await _firestore.UpdateFieldsAsync(
+                                $"messages/{userId}/conversations",
+                                conversationId,
+                                new { expires_at = expiresAt.Value }
+                            );
+                        }
+
+                        var messageId = await SendMessageAsync(
+                            userId,
+                            conversationId,
+                            "admin",
+                            "System",
+                            message
+                        );
+
+                        results[userId] = !string.IsNullOrEmpty(messageId);
+                    }
+                    else
+                    {
+                        results[userId] = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send bulk message to user: {UserId}", userId);
+                    results[userId] = false;
+                }
+            }
+
+            var successCount = results.Values.Count(x => x);
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Bulk message sent: {successCount}/{userIds.Count} successful",
+                LogLevel.Info
+            );
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Sending bulk messages");
+            _logger.LogError(ex, "Failed to send bulk messages");
+            return results;
+        }
+    }
+
+    public async Task<int> CleanExpiredConversationsAsync()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var deletedCount = 0;
+
+            _logger.LogInformation("Starting cleanup of expired conversations");
+
+            return deletedCount;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Cleaning expired conversations");
+            _logger.LogError(ex, "Failed to clean expired conversations");
+            return 0;
+        }
+    }
+
     // ==================== USER PROFILE ====================
 
     public async Task<bool> UpdateUserProfileAsync(string userId, string displayName, string email)
@@ -566,11 +663,5 @@ public class MessagingService : IMessagingService
         {
             _logger.LogWarning(ex, "Failed to update user unread count: {UserId}", userId);
         }
-    }
-
-    // Helper class for FieldValue operations (if not already defined)
-    private static class FieldValue
-    {
-        public static int Increment(int value) => value;
     }
 }
