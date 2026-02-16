@@ -155,6 +155,8 @@ builder.Services.AddScoped<SubashaVentures.Services.Payment.IPaymentService, Sub
 builder.Services.AddScoped<SubashaVentures.Services.Payment.IWalletService, SubashaVentures.Services.Payment.WalletService>();
 builder.Services.AddScoped<SubashaVentures.Services.Checkout.ICheckoutService, SubashaVentures.Services.Checkout.CheckoutService>();
 
+builder.Services.AddScoped<IUserSegmentationService,UserSegmentationService>();
+
 var host = builder.Build();
 
 try
