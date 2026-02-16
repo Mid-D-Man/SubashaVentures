@@ -1,4 +1,4 @@
-// Services/Firebase/IMessagingService.cs - NEW
+// Services/Firebase/IMessagingService.cs
 using SubashaVentures.Models.Firebase;
 
 namespace SubashaVentures.Services.Firebase;
@@ -78,6 +78,18 @@ public interface IMessagingService
     /// Mark conversation as read by admin
     /// </summary>
     Task<bool> MarkAdminReadAsync(string conversationId);
+    
+    // ==================== BULK MESSAGING ====================
+    
+    /// <summary>
+    /// Send message to multiple users
+    /// </summary>
+    Task<Dictionary<string, bool>> SendBulkMessageAsync(List<string> userIds, string subject, string message, string category = "system", DateTime? expiresAt = null);
+    
+    /// <summary>
+    /// Clean up expired conversations
+    /// </summary>
+    Task<int> CleanExpiredConversationsAsync();
     
     // ==================== USER PROFILE ====================
     
