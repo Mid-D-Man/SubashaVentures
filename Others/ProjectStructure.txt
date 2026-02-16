@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Feb 16 16:04:59 UTC 2026
+Generated: Mon Feb 16 16:05:26 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 11ec41dd8e78b7357cc7105e1c04cdc24abaf024
+Commit: 932e76a2cfd46e84b32a86d4d05f1aa4041e5bfc
 Branch: master
 ==================================
 
@@ -375,7 +375,6 @@ wwwroot/js/theme.js
 wwwroot/manifest.json
 wwwroot/service-worker.js
 wwwroot/service-worker.published.js
-wwwroot/wasm/package.json
 wwwroot/wasm/qr_code_generator.js
 
 Directory Structure:
@@ -486,7 +485,7 @@ File Count Summary:
 .razor    : 82 files
 .csproj   : 1 files
 .sln      : 1 files
-.json     : 8 files
+.json     : 7 files
 .css      : 81 files
 .js       : 20 files
 .html     : 1 files
