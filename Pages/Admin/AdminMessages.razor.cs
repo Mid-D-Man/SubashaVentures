@@ -1,14 +1,13 @@
-using Microsoft.AspNetCore.Components;
-using SubashaVentures.Services.Firebase;
-using SubashaVentures.Services.Users;
-using SubashaVentures.Services.Authorization;
-using SubashaVentures.Services.VisualElements;
-using SubashaVentures.Components.Shared.Modals;
-using SubashaVentures.Models.Firebase;
-using SubashaVentures.Domain.Enums;
+// Services/Users/UserService.cs - COMPLETE UPDATED IMPLEMENTATION
 using SubashaVentures.Domain.User;
+using SubashaVentures.Services.SupaBase;
+using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
+using Supabase.Postgrest;
+using System.Text;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
+using Client = Supabase.Client;
+using Gotrue = Supabase.Gotrue;
 
 namespace SubashaVentures.Pages.Admin;
 
@@ -50,6 +49,9 @@ public partial class AdminMessages : ComponentBase
     private NewMessageDto NewMessage { get; set; } = new();
     private BulkMessageDto BulkMessage { get; set; } = new();
 
+    // ✅ CACHE SVG STRINGS TO AVOID BLOCKING CALLS
+    private Dictionary<SvgType, string> _svgCache = new();
+
     private string SelectedConversationSubject => SelectedConversation?.Subject ?? "Conversation";
 
     protected override async Task OnInitializedAsync()
@@ -67,6 +69,9 @@ public partial class AdminMessages : ComponentBase
                 return;
             }
 
+            // ✅ PRELOAD ALL SVGS NEEDED BY THIS PAGE
+            await PreloadSvgsAsync();
+
             await LoadConversationsAsync();
             await LoadStatisticsAsync();
         }
@@ -75,6 +80,29 @@ public partial class AdminMessages : ComponentBase
             await MID_HelperFunctions.LogExceptionAsync(ex, "Initializing admin messages page");
             Logger.LogError(ex, "Failed to initialize admin messages page");
         }
+    }
+
+    // ✅ PRELOAD SVGs INTO CACHE
+    private async Task PreloadSvgsAsync()
+    {
+        var svgTypes = new[]
+        {
+            SvgType.Messages,
+            SvgType.Mail,
+            SvgType.User,
+            SvgType.Settings
+        };
+
+        foreach (var svgType in svgTypes)
+        {
+            _svgCache[svgType] = await VisualElements.GetSvgAsync(svgType);
+        }
+    }
+
+    // ✅ GET SVG FROM CACHE (NO BLOCKING)
+    private string GetSvgIcon(SvgType svgType)
+    {
+        return _svgCache.TryGetValue(svgType, out var svg) ? svg : string.Empty;
     }
 
     private async Task LoadConversationsAsync()
@@ -512,11 +540,6 @@ public partial class AdminMessages : ComponentBase
         if (span.TotalHours < 24)
             return timestamp.ToString("h:mm tt");
         return timestamp.ToString("MMM dd, h:mm tt");
-    }
-
-    private string GetSvgIcon(SvgType svgType)
-    {
-        return VisualElements.GetSvgAsync(svgType).Result;
     }
 
     private class NewMessageDto
