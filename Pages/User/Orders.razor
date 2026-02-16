@@ -103,7 +103,7 @@
                     <div class="order-items">
                         @foreach (var item in order.Items.Take(3))
                         {
-                            <OrderItemCard OrderItem="item" CssClass="order-item-compact" />
+                            <OrderItemCard Item="item" CssClass="order-item-compact" />
                         }
                         @if (order.Items.Count > 3)
                         {
