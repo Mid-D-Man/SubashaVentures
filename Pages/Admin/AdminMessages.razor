@@ -1,0 +1,440 @@
+@page "/admin/messages"
+@layout AdminLayout
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Domain.Enums
+
+<div class="admin-messages">
+    <div class="messages-header">
+        <div class="header-left">
+            <h1 class="messages-title">Message Management</h1>
+            <p class="messages-subtitle">Send and manage messages to users</p>
+        </div>
+        <div class="header-right">
+            <PrimaryButton OnClick="OpenNewMessageModal"
+                          Icon="@GetSvgIcon(SvgType.Messages)"
+                          Size="PrimaryButton.ButtonSize.Medium">
+                New Message
+            </PrimaryButton>
+            <PrimaryButton OnClick="OpenBulkMessageModal"
+                          Icon="@GetSvgIcon(SvgType.Mail)"
+                          Variant="PrimaryButton.ButtonVariant.Secondary"
+                          Size="PrimaryButton.ButtonSize.Medium">
+                Bulk Message
+            </PrimaryButton>
+        </div>
+    </div>
+
+    <div class="messages-stats">
+        <div class="stat-card">
+            <div class="stat-icon">@GetSvgIcon(SvgType.Messages)</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Conversations</span>
+                <span class="stat-value">@TotalConversations</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">@GetSvgIcon(SvgType.Mail)</div>
+            <div class="stat-info">
+                <span class="stat-label">Unread Messages</span>
+                <span class="stat-value">@UnreadCount</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">@GetSvgIcon(SvgType.User)</div>
+            <div class="stat-info">
+                <span class="stat-label">Active Users</span>
+                <span class="stat-value">@ActiveUsersCount</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="messages-toolbar">
+        <div class="toolbar-filters">
+            <select class="filter-select" @bind="SelectedStatus" @bind:after="FilterConversations">
+                <option value="">All Status</option>
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+            </select>
+            
+            <select class="filter-select" @bind="SelectedCategory" @bind:after="FilterConversations">
+                <option value="">All Categories</option>
+                <option value="system">System</option>
+                <option value="promotion">Promotion</option>
+                <option value="support">Support</option>
+            </select>
+
+            <InputField @bind-Value="SearchQuery"
+                       Placeholder="Search by user email or subject..."
+                       Type="text"
+                       ShowClearButton="true"
+                       CssClass="search-input" />
+        </div>
+
+        <div class="toolbar-actions">
+            <PrimaryButton OnClick="RefreshInbox"
+                          Icon="@GetSvgIcon(SvgType.Settings)"
+                          Variant="PrimaryButton.ButtonVariant.Ghost"
+                          Size="PrimaryButton.ButtonSize.Small">
+                Refresh
+            </PrimaryButton>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="messages-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                           Message="Loading conversations..." />
+        </div>
+    }
+    else if (!FilteredConversations.Any())
+    {
+        <div class="messages-empty">
+            <div class="empty-icon">@GetSvgIcon(SvgType.Messages)</div>
+            <h3>No conversations found</h3>
+            <p>Start by sending a message to users</p>
+            <PrimaryButton OnClick="OpenNewMessageModal"
+                          Size="PrimaryButton.ButtonSize.Medium">
+                Send New Message
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="messages-list">
+            @foreach (var conversation in FilteredConversations)
+            {
+                <div class="conversation-card @(conversation.UnreadByAdmin ? "unread" : "")"
+                     @onclick="() => OpenConversation(conversation.Id)">
+                    <div class="conversation-header">
+                        <div class="conversation-user">
+                            <div class="user-avatar">
+                                @GetUserInitials(conversation.UserDisplayName)
+                            </div>
+                            <div class="user-info">
+                                <h4 class="user-name">@conversation.UserDisplayName</h4>
+                                <span class="user-email">@conversation.UserEmail</span>
+                            </div>
+                        </div>
+                        <div class="conversation-meta">
+                            <span class="conversation-time">@FormatTimeAgo(conversation.LastMessageAt)</span>
+                            @if (conversation.UnreadByAdmin)
+                            {
+                                <span class="unread-badge">New</span>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="conversation-content">
+                        <h5 class="conversation-subject">@conversation.Subject</h5>
+                        <p class="conversation-preview">@conversation.LastMessage</p>
+                    </div>
+                    
+                    <div class="conversation-footer">
+                        <span class="conversation-category category-@conversation.Category.ToLower()">
+                            @conversation.Category
+                        </span>
+                        <span class="conversation-priority priority-@conversation.Priority.ToLower()">
+                            @conversation.Priority
+                        </span>
+                        <span class="conversation-status status-@conversation.Status.ToLower()">
+                            @conversation.Status
+                        </span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<DynamicModal @ref="NewMessageModal"
+             Title="Send New Message"
+             Size="DynamicModal.ModalSize.Large"
+             IsScrollable="true">
+    <BodyContent>
+        <div class="message-form">
+            <div class="form-section">
+                <h3 class="section-title">Recipient</h3>
+                <div class="form-group">
+                    <label class="form-label">User Email or ID</label>
+                    <InputField @bind-Value="NewMessage.RecipientIdentifier"
+                               Placeholder="Enter user email or ID"
+                               Type="text"
+                               IsRequired="true" />
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3 class="section-title">Message Details</h3>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <InputField @bind-Value="NewMessage.Subject"
+                               Placeholder="Message subject"
+                               Type="text"
+                               IsRequired="true"
+                               MaxLength="200" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="NewMessage.Category">
+                        <option value="system">System</option>
+                        <option value="promotion">Promotion</option>
+                        <option value="support">Support</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Priority</label>
+                    <select class="form-select" @bind="NewMessage.Priority">
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-textarea"
+                             @bind="NewMessage.MessageText"
+                             placeholder="Type your message here..."
+                             rows="8"
+                             maxlength="2000"></textarea>
+                    <span class="character-count">@NewMessage.MessageText.Length / 2000</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Expiry Date (Optional)</label>
+                    <input type="datetime-local"
+                           class="form-input"
+                           @bind="NewMessage.ExpiresAt" />
+                </div>
+            </div>
+        </div>
+    </BodyContent>
+    <FooterContent>
+        <div class="modal-actions">
+            <SecondaryButton OnClick="CloseNewMessageModal"
+                           Variant="SecondaryButton.ButtonVariant.Outline">
+                Cancel
+            </SecondaryButton>
+            <PrimaryButton OnClick="SendNewMessage"
+                          IsLoading="IsSendingMessage"
+                          IsDisabled="!IsNewMessageValid()">
+                Send Message
+            </PrimaryButton>
+        </div>
+    </FooterContent>
+</DynamicModal>
+
+<DynamicModal @ref="BulkMessageModal"
+             Title="Send Bulk Message"
+             Size="DynamicModal.ModalSize.Large"
+             IsScrollable="true">
+    <BodyContent>
+        <div class="bulk-message-form">
+            <div class="form-section">
+                <h3 class="section-title">Target Users</h3>
+                <div class="segmentation-options">
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.UseSpendingFilter" />
+                            Filter by Total Spent
+                        </label>
+                        @if (BulkMessage.UseSpendingFilter)
+                        {
+                            <div class="option-inputs">
+                                <InputField @bind-Value="BulkMessage.MinSpent"
+                                           Placeholder="Min amount"
+                                           Type="number" />
+                                <InputField @bind-Value="BulkMessage.MaxSpent"
+                                           Placeholder="Max amount"
+                                           Type="number" />
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.UseLoyaltyFilter" />
+                            Filter by Loyalty Points
+                        </label>
+                        @if (BulkMessage.UseLoyaltyFilter)
+                        {
+                            <div class="option-inputs">
+                                <InputField @bind-Value="BulkMessage.MinLoyaltyPoints"
+                                           Placeholder="Min points"
+                                           Type="number" />
+                                <InputField @bind-Value="BulkMessage.MaxLoyaltyPoints"
+                                           Placeholder="Max points"
+                                           Type="number" />
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.UseMembershipFilter" />
+                            Filter by Membership Tier
+                        </label>
+                        @if (BulkMessage.UseMembershipFilter)
+                        {
+                            <div class="option-checkboxes">
+                                <label><input type="checkbox" @bind="BulkMessage.IncludeBronze" /> Bronze</label>
+                                <label><input type="checkbox" @bind="BulkMessage.IncludeSilver" /> Silver</label>
+                                <label><input type="checkbox" @bind="BulkMessage.IncludeGold" /> Gold</label>
+                                <label><input type="checkbox" @bind="BulkMessage.IncludePlatinum" /> Platinum</label>
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.FilterCartUsers" />
+                            Only users with items in cart
+                        </label>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.FilterWishlistUsers" />
+                            Only users with items in wishlist
+                        </label>
+                    </div>
+                </div>
+                
+                @if (TargetUserCount > 0)
+                {
+                    <div class="target-count">
+                        <span class="count-badge">@TargetUserCount users will receive this message</span>
+                    </div>
+                }
+            </div>
+            
+            <div class="form-section">
+                <h3 class="section-title">Message Details</h3>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <InputField @bind-Value="BulkMessage.Subject"
+                               Placeholder="Message subject"
+                               Type="text"
+                               IsRequired="true"
+                               MaxLength="200" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="BulkMessage.Category">
+                        <option value="system">System</option>
+                        <option value="promotion">Promotion</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-textarea"
+                             @bind="BulkMessage.MessageText"
+                             placeholder="Type your message here..."
+                             rows="8"
+                             maxlength="2000"></textarea>
+                    <span class="character-count">@BulkMessage.MessageText.Length / 2000</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Expiry Date (Optional)</label>
+                    <input type="datetime-local"
+                           class="form-input"
+                           @bind="BulkMessage.ExpiresAt" />
+                </div>
+            </div>
+        </div>
+    </BodyContent>
+    <FooterContent>
+        <div class="modal-actions">
+            <SecondaryButton OnClick="CloseBulkMessageModal"
+                           Variant="SecondaryButton.ButtonVariant.Outline">
+                Cancel
+            </SecondaryButton>
+            <PrimaryButton OnClick="CalculateTargetUsers"
+                          Variant="PrimaryButton.ButtonVariant.Secondary"
+                          IsLoading="IsCalculating">
+                Calculate Recipients
+            </PrimaryButton>
+            <PrimaryButton OnClick="SendBulkMessage"
+                          IsLoading="IsSendingBulkMessage"
+                          IsDisabled="TargetUserCount == 0 || !IsBulkMessageValid()">
+                Send to @TargetUserCount Users
+            </PrimaryButton>
+        </div>
+    </FooterContent>
+</DynamicModal>
+
+<DynamicModal @ref="ConversationModal"
+             Title="@SelectedConversationSubject"
+             Size="DynamicModal.ModalSize.Large"
+             IsScrollable="true">
+    <BodyContent>
+        @if (SelectedConversation != null)
+        {
+            <div class="conversation-detail">
+                <div class="conversation-info">
+                    <div class="info-row">
+                        <span class="info-label">User:</span>
+                        <span class="info-value">@SelectedConversation.UserDisplayName (@SelectedConversation.UserEmail)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">
+                            <select class="status-select" @bind="SelectedConversation.Status" @bind:after="UpdateConversationStatus">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Created:</span>
+                        <span class="info-value">@SelectedConversation.CreatedAt.ToString("MMM dd, yyyy hh:mm tt")</span>
+                    </div>
+                </div>
+                
+                <div class="messages-thread">
+                    @if (ConversationMessages.Any())
+                    {
+                        @foreach (var message in ConversationMessages)
+                        {
+                            <div class="message-bubble @(message.SenderId == "admin" ? "admin-message" : "user-message")">
+                                <div class="message-header">
+                                    <span class="message-sender">@message.SenderName</span>
+                                    <span class="message-time">@FormatMessageTime(message.Timestamp)</span>
+                                </div>
+                                <div class="message-content">@message.Text</div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="no-messages">No messages in this conversation yet</div>
+                    }
+                </div>
+                
+                <div class="reply-section">
+                    <textarea class="reply-textarea"
+                             @bind="ReplyMessage"
+                             placeholder="Type your reply..."
+                             rows="4"
+                             maxlength="2000"></textarea>
+                    <div class="reply-actions">
+                        <span class="character-count">@ReplyMessage.Length / 2000</span>
+                        <PrimaryButton OnClick="SendReply"
+                                      IsLoading="IsSendingReply"
+                                      IsDisabled="string.IsNullOrWhiteSpace(ReplyMessage)">
+                            Send Reply
+                        </PrimaryButton>
+                    </div>
+                </div>
+            </div>
+        }
+    </BodyContent>
+</DynamicModal>
