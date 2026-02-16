@@ -52,15 +52,6 @@ public partial class AdminMessages : ComponentBase
     private NewMessageDto NewMessage { get; set; } = new();
     private BulkMessageDto BulkMessage { get; set; } = new();
 
-    // ✅ ELEMENT REFERENCES FOR SVG INJECTION
-    private ElementReference messagesStatIconRef;
-    private ElementReference mailStatIconRef;
-    private ElementReference userStatIconRef;
-    private ElementReference newMessageBtnIconRef;
-    private ElementReference bulkMessageBtnIconRef;
-    private ElementReference refreshBtnIconRef;
-    private ElementReference emptyMessagesIconRef;
-
     private string SelectedConversationSubject => SelectedConversation?.Subject ?? "Conversation";
 
     protected override async Task OnInitializedAsync()
@@ -96,7 +87,6 @@ public partial class AdminMessages : ComponentBase
         }
     }
 
-    // ✅ PROPER ICON LOADING WITH JSRUNTIME INJECTION
     private async Task LoadIconsAsync()
     {
         try
@@ -145,39 +135,44 @@ public partial class AdminMessages : ComponentBase
                 fillColor: "var(--primary-color)"
             );
 
+            // Empty state icon
+            var emptyMessagesSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Messages,
+                width: 64,
+                height: 64,
+                fillColor: "var(--text-muted)"
+            );
+
             // Inject into DOM
             await JSRuntime.InvokeVoidAsync("eval",
-                $"if(document.querySelector('.messages-header .header-right button:nth-child(1) svg')) {{}} else if(document.querySelector('.messages-header .header-right button:nth-child(1)')) {{ var btn = document.querySelector('.messages-header .header-right button:nth-child(1)'); var span = btn.querySelector('span'); btn.innerHTML = `{messagesSvg}` + (span ? span.outerHTML : ''); }}");
-
-            await JSRuntime.InvokeVoidAsync("eval",
-                $"if(document.querySelector('.messages-header .header-right button:nth-child(2) svg')) {{}} else if(document.querySelector('.messages-header .header-right button:nth-child(2)')) {{ var btn = document.querySelector('.messages-header .header-right button:nth-child(2)'); var span = btn.querySelector('span'); btn.innerHTML = `{mailSvg}` + (span ? span.outerHTML : ''); }}");
-
-            await JSRuntime.InvokeVoidAsync("eval",
-                $"if(document.querySelector('.toolbar-actions button svg')) {{}} else if(document.querySelector('.toolbar-actions button')) {{ var btn = document.querySelector('.toolbar-actions button'); var span = btn.querySelector('span'); btn.innerHTML = `{settingsSvg}` + (span ? span.outerHTML : ''); }}");
-
-            // Stats icons
-            await JSRuntime.InvokeVoidAsync("eval",
-                $"if(document.querySelectorAll('.stat-icon')[0]) document.querySelectorAll('.stat-icon')[0].innerHTML = `{messagesStatSvg}`;");
-
-            await JSRuntime.InvokeVoidAsync("eval",
-                $"if(document.querySelectorAll('.stat-icon')[1]) document.querySelectorAll('.stat-icon')[1].innerHTML = `{mailStatSvg}`;");
-
-            await JSRuntime.InvokeVoidAsync("eval",
-                $"if(document.querySelectorAll('.stat-icon')[2]) document.querySelectorAll('.stat-icon')[2].innerHTML = `{userStatSvg}`;");
-
-            // Empty state icon
-            if (!FilteredConversations.Any())
-            {
-                var emptyMessagesSvg = await VisualElements.GetCustomSvgAsync(
-                    SvgType.Messages,
-                    width: 64,
-                    height: 64,
-                    fillColor: "var(--text-muted)"
-                );
-
-                await JSRuntime.InvokeVoidAsync("eval",
-                    $"if(document.querySelector('.empty-icon')) document.querySelector('.empty-icon').innerHTML = `{emptyMessagesSvg}`;");
-            }
+                $@"(function() {{
+                    const newMsgBtn = document.querySelector('.header-right button:nth-child(1)');
+                    const bulkMsgBtn = document.querySelector('.header-right button:nth-child(2)');
+                    const refreshBtn = document.querySelector('.toolbar-actions button');
+                    const statIcons = document.querySelectorAll('.stat-icon');
+                    const emptyIcon = document.querySelector('.empty-icon');
+                    
+                    if (newMsgBtn && !newMsgBtn.querySelector('svg')) {{
+                        const span = newMsgBtn.querySelector('span');
+                        newMsgBtn.innerHTML = `{messagesSvg}` + (span ? span.outerHTML : '');
+                    }}
+                    
+                    if (bulkMsgBtn && !bulkMsgBtn.querySelector('svg')) {{
+                        const span = bulkMsgBtn.querySelector('span');
+                        bulkMsgBtn.innerHTML = `{mailSvg}` + (span ? span.outerHTML : '');
+                    }}
+                    
+                    if (refreshBtn && !refreshBtn.querySelector('svg')) {{
+                        const span = refreshBtn.querySelector('span');
+                        refreshBtn.innerHTML = `{settingsSvg}` + (span ? span.outerHTML : '');
+                    }}
+                    
+                    if (statIcons[0]) statIcons[0].innerHTML = `{messagesStatSvg}`;
+                    if (statIcons[1]) statIcons[1].innerHTML = `{mailStatSvg}`;
+                    if (statIcons[2]) statIcons[2].innerHTML = `{userStatSvg}`;
+                    
+                    if (emptyIcon) emptyIcon.innerHTML = `{emptyMessagesSvg}`;
+                }})();");
         }
         catch (Exception ex)
         {
