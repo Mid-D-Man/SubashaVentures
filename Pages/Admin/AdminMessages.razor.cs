@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Authorization;
@@ -20,6 +21,7 @@ public partial class AdminMessages : ComponentBase
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
     [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<AdminMessages> Logger { get; set; } = default!;
 
     private DynamicModal NewMessageModal { get; set; } = default!;
@@ -50,8 +52,14 @@ public partial class AdminMessages : ComponentBase
     private NewMessageDto NewMessage { get; set; } = new();
     private BulkMessageDto BulkMessage { get; set; } = new();
 
-    // ✅ CACHE SVG STRINGS TO AVOID BLOCKING CALLS
-    private Dictionary<SvgType, string> _svgCache = new();
+    // ✅ ELEMENT REFERENCES FOR SVG INJECTION
+    private ElementReference messagesStatIconRef;
+    private ElementReference mailStatIconRef;
+    private ElementReference userStatIconRef;
+    private ElementReference newMessageBtnIconRef;
+    private ElementReference bulkMessageBtnIconRef;
+    private ElementReference refreshBtnIconRef;
+    private ElementReference emptyMessagesIconRef;
 
     private string SelectedConversationSubject => SelectedConversation?.Subject ?? "Conversation";
 
@@ -70,9 +78,6 @@ public partial class AdminMessages : ComponentBase
                 return;
             }
 
-            // ✅ PRELOAD ALL SVGS NEEDED BY THIS PAGE
-            await PreloadSvgsAsync();
-
             await LoadConversationsAsync();
             await LoadStatisticsAsync();
         }
@@ -83,27 +88,102 @@ public partial class AdminMessages : ComponentBase
         }
     }
 
-    // ✅ PRELOAD SVGs INTO CACHE
-    private async Task PreloadSvgsAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var svgTypes = new[]
+        if (firstRender)
         {
-            SvgType.Messages,
-            SvgType.Mail,
-            SvgType.User,
-            SvgType.Settings
-        };
-
-        foreach (var svgType in svgTypes)
-        {
-            _svgCache[svgType] = await VisualElements.GetSvgAsync(svgType);
+            await LoadIconsAsync();
         }
     }
 
-    // ✅ GET SVG FROM CACHE (NO BLOCKING)
-    private string GetSvgIcon(SvgType svgType)
+    // ✅ PROPER ICON LOADING WITH JSRUNTIME INJECTION
+    private async Task LoadIconsAsync()
     {
-        return _svgCache.TryGetValue(svgType, out var svg) ? svg : string.Empty;
+        try
+        {
+            // Header button icons
+            var messagesSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Messages,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor"
+            );
+
+            var mailSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor"
+            );
+
+            var settingsSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Settings,
+                width: 20,
+                height: 20,
+                fillColor: "currentColor"
+            );
+
+            // Stats card icons
+            var messagesStatSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Messages,
+                width: 32,
+                height: 32,
+                fillColor: "var(--primary-color)"
+            );
+
+            var mailStatSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail,
+                width: 32,
+                height: 32,
+                fillColor: "var(--primary-color)"
+            );
+
+            var userStatSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.User,
+                width: 32,
+                height: 32,
+                fillColor: "var(--primary-color)"
+            );
+
+            // Inject into DOM
+            await JSRuntime.InvokeVoidAsync("eval",
+                $"if(document.querySelector('.messages-header .header-right button:nth-child(1) svg')) {{}} else if(document.querySelector('.messages-header .header-right button:nth-child(1)')) {{ var btn = document.querySelector('.messages-header .header-right button:nth-child(1)'); var span = btn.querySelector('span'); btn.innerHTML = `{messagesSvg}` + (span ? span.outerHTML : ''); }}");
+
+            await JSRuntime.InvokeVoidAsync("eval",
+                $"if(document.querySelector('.messages-header .header-right button:nth-child(2) svg')) {{}} else if(document.querySelector('.messages-header .header-right button:nth-child(2)')) {{ var btn = document.querySelector('.messages-header .header-right button:nth-child(2)'); var span = btn.querySelector('span'); btn.innerHTML = `{mailSvg}` + (span ? span.outerHTML : ''); }}");
+
+            await JSRuntime.InvokeVoidAsync("eval",
+                $"if(document.querySelector('.toolbar-actions button svg')) {{}} else if(document.querySelector('.toolbar-actions button')) {{ var btn = document.querySelector('.toolbar-actions button'); var span = btn.querySelector('span'); btn.innerHTML = `{settingsSvg}` + (span ? span.outerHTML : ''); }}");
+
+            // Stats icons
+            await JSRuntime.InvokeVoidAsync("eval",
+                $"if(document.querySelectorAll('.stat-icon')[0]) document.querySelectorAll('.stat-icon')[0].innerHTML = `{messagesStatSvg}`;");
+
+            await JSRuntime.InvokeVoidAsync("eval",
+                $"if(document.querySelectorAll('.stat-icon')[1]) document.querySelectorAll('.stat-icon')[1].innerHTML = `{mailStatSvg}`;");
+
+            await JSRuntime.InvokeVoidAsync("eval",
+                $"if(document.querySelectorAll('.stat-icon')[2]) document.querySelectorAll('.stat-icon')[2].innerHTML = `{userStatSvg}`;");
+
+            // Empty state icon
+            if (!FilteredConversations.Any())
+            {
+                var emptyMessagesSvg = await VisualElements.GetCustomSvgAsync(
+                    SvgType.Messages,
+                    width: 64,
+                    height: 64,
+                    fillColor: "var(--text-muted)"
+                );
+
+                await JSRuntime.InvokeVoidAsync("eval",
+                    $"if(document.querySelector('.empty-icon')) document.querySelector('.empty-icon').innerHTML = `{emptyMessagesSvg}`;");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading admin message icons");
+            Logger.LogError(ex, "Failed to load icons");
+        }
     }
 
     private async Task LoadConversationsAsync()
@@ -187,6 +267,8 @@ public partial class AdminMessages : ComponentBase
     {
         await LoadConversationsAsync();
         await LoadStatisticsAsync();
+        StateHasChanged();
+        await LoadIconsAsync();
     }
 
     private void OpenNewMessageModal()
