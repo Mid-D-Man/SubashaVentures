@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Feb 16 16:11:11 UTC 2026
+Generated: Mon Feb 16 16:11:40 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 67f8d6ba7551118e4d9844b5ba98ad03720d1374
+Commit: 97164c58e85dc4afa3e103840ba7aa26e005b38f
 Branch: master
 ==================================
 
@@ -69,6 +69,7 @@ Components/Shared/Popups/ImageSelectorPopup.razor
 Components/Shared/Popups/ImageSelectorPopup.razor.cs
 Components/Shared/Popups/ImageSelectorPopup.razor.css
 Components/Shared/QRCode/QRCodeComponent.razor
+Components/Shared/QRCode/QRCodeComponent.razor.cs
 Domain/Activity/NotificationViewModel.cs
 Domain/Cart/CartItemViewModel.cs
 Domain/Cart/CartSummaryViewModel.cs
@@ -490,7 +491,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 175 files
+.cs       : 176 files
 .razor    : 83 files
 .csproj   : 1 files
 .sln      : 1 files
