@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Mon Feb 16 11:39:18 UTC 2026
+Generated: Mon Feb 16 16:04:25 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: ddf6dd817e0750760b24b4ca0cde7d3d8790fd92
+Commit: d897f226f225946ba6b134bb383d069c7f4fd7bf
 Branch: master
 ==================================
 
@@ -375,6 +375,7 @@ wwwroot/js/theme.js
 wwwroot/manifest.json
 wwwroot/service-worker.js
 wwwroot/service-worker.published.js
+wwwroot/wasm/package.json
 
 Directory Structure:
 ===================
@@ -476,6 +477,7 @@ Directory Structure:
 ./  icons
 ./  js
 ./  svgs
+./  wasm
 
 File Count Summary:
 ==================
@@ -483,7 +485,7 @@ File Count Summary:
 .razor    : 82 files
 .csproj   : 1 files
 .sln      : 1 files
-.json     : 7 files
+.json     : 8 files
 .css      : 81 files
 .js       : 19 files
 .html     : 1 files
