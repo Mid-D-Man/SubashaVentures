@@ -1,4 +1,4 @@
-// Services/Firebase/FirestoreService.cs - FIXED: Better error handling and initialization
+// Services/Firebase/FirestoreService.cs - FIXED: Implemented subcollection methods
 
 using SubashaVentures.Services.Storage;
 using Microsoft.JSInterop;
@@ -35,24 +35,20 @@ namespace SubashaVentures.Services.Firebase
 
         private async Task<bool> EnsureInitializedAsync()
         {
-            // Fast path: already initialized
             if (_isInitialized)
             {
                 return true;
             }
 
-            // Prevent multiple simultaneous initialization attempts
             await _initLock.WaitAsync();
             
             try
             {
-                // Double-check after acquiring lock
                 if (_isInitialized)
                 {
                     return true;
                 }
 
-                // Don't initialize if already initializing
                 if (_isInitializing)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
@@ -60,7 +56,6 @@ namespace SubashaVentures.Services.Firebase
                         LogLevel.Info
                     );
                     
-                    // Wait a bit and check again
                     await Task.Delay(500);
                     return _isInitialized;
                 }
@@ -72,7 +67,6 @@ namespace SubashaVentures.Services.Firebase
                     LogLevel.Info
                 );
 
-                // Call JavaScript initialization
                 _isInitialized = await _jsRuntime.InvokeAsync<bool>("firestoreModule.initializeFirestore");
                 IsConfigured = _isInitialized;
                 
@@ -118,7 +112,6 @@ namespace SubashaVentures.Services.Firebase
                     LogLevel.Debug
                 );
 
-                // Ensure Firestore is initialized
                 var initialized = await EnsureInitializedAsync();
                 if (!initialized)
                 {
@@ -319,6 +312,349 @@ namespace SubashaVentures.Services.Firebase
             {
                 await MID_HelperFunctions.LogExceptionAsync(ex, $"Deleting document: {collection}/{id}");
                 return false;
+            }
+        }
+
+        // ==================== SUBCOLLECTION OPERATIONS ====================
+
+        public async Task<string> AddToSubcollectionAsync<T>(string collection, string docId, string subcollection, T data, string customId = null) where T : class
+        {
+            try
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"➕ C# AddToSubcollectionAsync: {collection}/{docId}/{subcollection}{(customId != null ? $"/{customId}" : "")}",
+                    LogLevel.Debug
+                );
+
+                var initialized = await EnsureInitializedAsync();
+                if (!initialized)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Cannot add to subcollection - Firestore not initialized",
+                        LogLevel.Error
+                    );
+                    return null;
+                }
+
+                var json = JsonSerializer.Serialize(data, _jsonOptions);
+                var subdocId = await _jsRuntime.InvokeAsync<string>(
+                    "firestoreModule.addToSubcollection",
+                    collection,
+                    docId,
+                    subcollection,
+                    json,
+                    customId
+                );
+
+                if (!string.IsNullOrEmpty(subdocId))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ Subcollection document added: {collection}/{docId}/{subcollection}/{subdocId}",
+                        LogLevel.Info
+                    );
+                }
+
+                return subdocId;
+            }
+            catch (JSException jsEx)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ JavaScript error adding to subcollection: {jsEx.Message}",
+                    LogLevel.Error
+                );
+                return null;
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, $"Adding to subcollection: {collection}/{docId}/{subcollection}");
+                return null;
+            }
+        }
+
+        public async Task<List<T>> GetSubcollectionAsync<T>(string collection, string docId, string subcollection) where T : class
+        {
+            try
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"📚 C# GetSubcollectionAsync: {collection}/{docId}/{subcollection}",
+                    LogLevel.Debug
+                );
+
+                var initialized = await EnsureInitializedAsync();
+                if (!initialized)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Cannot get subcollection - Firestore not initialized",
+                        LogLevel.Error
+                    );
+                    return new List<T>();
+                }
+
+                var jsonResult = await _jsRuntime.InvokeAsync<string>(
+                    "firestoreModule.getSubcollection",
+                    collection,
+                    docId,
+                    subcollection
+                );
+
+                if (string.IsNullOrEmpty(jsonResult))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"⚠️ Empty subcollection: {collection}/{docId}/{subcollection}",
+                        LogLevel.Warning
+                    );
+                    return new List<T>();
+                }
+
+                var result = JsonSerializer.Deserialize<List<T>>(jsonResult, _jsonOptions);
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Subcollection retrieved: {collection}/{docId}/{subcollection} ({result?.Count ?? 0} items)",
+                    LogLevel.Debug
+                );
+
+                return result ?? new List<T>();
+            }
+            catch (JSException jsEx)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ JavaScript error getting subcollection: {jsEx.Message}",
+                    LogLevel.Error
+                );
+                return new List<T>();
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting subcollection: {collection}/{docId}/{subcollection}");
+                return new List<T>();
+            }
+        }
+
+        public async Task<T> GetSubcollectionDocumentAsync<T>(string collection, string docId, string subcollection, string subdocId) where T : class
+        {
+            try
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"📖 C# GetSubcollectionDocumentAsync: {collection}/{docId}/{subcollection}/{subdocId}",
+                    LogLevel.Debug
+                );
+
+                var initialized = await EnsureInitializedAsync();
+                if (!initialized)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Cannot get subcollection document - Firestore not initialized",
+                        LogLevel.Error
+                    );
+                    return null;
+                }
+
+                var jsonResult = await _jsRuntime.InvokeAsync<string>(
+                    "firestoreModule.getSubcollectionDocument",
+                    collection,
+                    docId,
+                    subcollection,
+                    subdocId
+                );
+
+                if (string.IsNullOrEmpty(jsonResult))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"⚠️ Subcollection document not found",
+                        LogLevel.Warning
+                    );
+                    return null;
+                }
+
+                var result = JsonSerializer.Deserialize<T>(jsonResult, _jsonOptions);
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Subcollection document retrieved",
+                    LogLevel.Debug
+                );
+
+                return result;
+            }
+            catch (JSException jsEx)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ JavaScript error getting subcollection document: {jsEx.Message}",
+                    LogLevel.Error
+                );
+                return null;
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Getting subcollection document");
+                return null;
+            }
+        }
+
+        public async Task<bool> UpdateSubcollectionDocumentAsync<T>(string collection, string docId, string subcollection, string subdocId, T data) where T : class
+        {
+            try
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✏️ C# UpdateSubcollectionDocumentAsync: {collection}/{docId}/{subcollection}/{subdocId}",
+                    LogLevel.Debug
+                );
+
+                var initialized = await EnsureInitializedAsync();
+                if (!initialized)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Cannot update subcollection document - Firestore not initialized",
+                        LogLevel.Error
+                    );
+                    return false;
+                }
+
+                var json = JsonSerializer.Serialize(data, _jsonOptions);
+                var success = await _jsRuntime.InvokeAsync<bool>(
+                    "firestoreModule.updateSubcollectionDocument",
+                    collection,
+                    docId,
+                    subcollection,
+                    subdocId,
+                    json
+                );
+
+                if (success)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ Subcollection document updated",
+                        LogLevel.Info
+                    );
+                }
+
+                return success;
+            }
+            catch (JSException jsEx)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ JavaScript error updating subcollection document: {jsEx.Message}",
+                    LogLevel.Error
+                );
+                return false;
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Updating subcollection document");
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteSubcollectionDocumentAsync(string collection, string docId, string subcollection, string subdocId)
+        {
+            try
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"🗑️ C# DeleteSubcollectionDocumentAsync: {collection}/{docId}/{subcollection}/{subdocId}",
+                    LogLevel.Debug
+                );
+
+                var initialized = await EnsureInitializedAsync();
+                if (!initialized)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Cannot delete subcollection document - Firestore not initialized",
+                        LogLevel.Error
+                    );
+                    return false;
+                }
+
+                var success = await _jsRuntime.InvokeAsync<bool>(
+                    "firestoreModule.deleteSubcollectionDocument",
+                    collection,
+                    docId,
+                    subcollection,
+                    subdocId
+                );
+
+                if (success)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"✅ Subcollection document deleted",
+                        LogLevel.Info
+                    );
+                }
+
+                return success;
+            }
+            catch (JSException jsEx)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ JavaScript error deleting subcollection document: {jsEx.Message}",
+                    LogLevel.Error
+                );
+                return false;
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting subcollection document");
+                return false;
+            }
+        }
+
+        public async Task<List<T>> QuerySubcollectionAsync<T>(string collection, string docId, string subcollection, string field, object value) where T : class
+        {
+            try
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"🔍 C# QuerySubcollectionAsync: {collection}/{docId}/{subcollection} where {field} == {value}",
+                    LogLevel.Debug
+                );
+
+                var initialized = await EnsureInitializedAsync();
+                if (!initialized)
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        "❌ Cannot query subcollection - Firestore not initialized",
+                        LogLevel.Error
+                    );
+                    return new List<T>();
+                }
+
+                var jsonValue = JsonSerializer.Serialize(value, _jsonOptions);
+                var jsonResult = await _jsRuntime.InvokeAsync<string>(
+                    "firestoreModule.querySubcollection",
+                    collection,
+                    docId,
+                    subcollection,
+                    field,
+                    jsonValue
+                );
+
+                if (string.IsNullOrEmpty(jsonResult))
+                {
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"⚠️ Subcollection query returned no results",
+                        LogLevel.Warning
+                    );
+                    return new List<T>();
+                }
+
+                var result = JsonSerializer.Deserialize<List<T>>(jsonResult, _jsonOptions);
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✅ Subcollection query completed: ({result?.Count ?? 0} items)",
+                    LogLevel.Debug
+                );
+
+                return result ?? new List<T>();
+            }
+            catch (JSException jsEx)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ JavaScript error querying subcollection: {jsEx.Message}",
+                    LogLevel.Error
+                );
+                return new List<T>();
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Querying subcollection");
+                return new List<T>();
             }
         }
 
@@ -624,39 +960,6 @@ namespace SubashaVentures.Services.Firebase
                 await MID_HelperFunctions.LogExceptionAsync(ex, $"Adding batch to: {collection}");
                 return false;
             }
-        }
-
-        // ==================== SUBCOLLECTION OPERATIONS ====================
-        // Note: Removed subcollection methods since they're not in the JS module
-        
-        public Task<string> AddToSubcollectionAsync<T>(string collection, string docId, string subcollection, T data, string customId = null) where T : class
-        {
-            throw new NotImplementedException("Subcollections not implemented in current JS module");
-        }
-
-        public Task<List<T>> GetSubcollectionAsync<T>(string collection, string docId, string subcollection) where T : class
-        {
-            throw new NotImplementedException("Subcollections not implemented in current JS module");
-        }
-
-        public Task<T> GetSubcollectionDocumentAsync<T>(string collection, string docId, string subcollection, string subdocId) where T : class
-        {
-            throw new NotImplementedException("Subcollections not implemented in current JS module");
-        }
-
-        public Task<bool> UpdateSubcollectionDocumentAsync<T>(string collection, string docId, string subcollection, string subdocId, T data) where T : class
-        {
-            throw new NotImplementedException("Subcollections not implemented in current JS module");
-        }
-
-        public Task<bool> DeleteSubcollectionDocumentAsync(string collection, string docId, string subcollection, string subdocId)
-        {
-            throw new NotImplementedException("Subcollections not implemented in current JS module");
-        }
-
-        public Task<List<T>> QuerySubcollectionAsync<T>(string collection, string docId, string subcollection, string field, object value) where T : class
-        {
-            throw new NotImplementedException("Subcollections not implemented in current JS module");
         }
 
         // ==================== CONNECTION MANAGEMENT ====================
