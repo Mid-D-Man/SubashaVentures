@@ -1,0 +1,15 @@
+{
+  "name": "qr_code_generator",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "qr_code_generator_bg.wasm",
+    "qr_code_generator.js",
+    "qr_code_generator.d.ts"
+  ],
+  "main": "qr_code_generator.js",
+  "types": "qr_code_generator.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
