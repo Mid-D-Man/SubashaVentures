@@ -16,35 +16,33 @@
         <div class="header-right">
             <PrimaryButton OnClick="OpenNewMessageModal"
                           Size="PrimaryButton.ButtonSize.Medium">
-                <span class="btn-icon" @ref="newMessageBtnIconRef"></span>
-                <span>New Message</span>
+                New Message
             </PrimaryButton>
             <PrimaryButton OnClick="OpenBulkMessageModal"
                           Variant="PrimaryButton.ButtonVariant.Secondary"
                           Size="PrimaryButton.ButtonSize.Medium">
-                <span class="btn-icon" @ref="bulkMessageBtnIconRef"></span>
-                <span>Bulk Message</span>
+                Bulk Message
             </PrimaryButton>
         </div>
     </div>
 
     <div class="messages-stats">
         <div class="stat-card">
-            <div class="stat-icon" @ref="messagesStatIconRef"></div>
+            <div class="stat-icon"></div>
             <div class="stat-info">
                 <span class="stat-label">Total Conversations</span>
                 <span class="stat-value">@TotalConversations</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" @ref="mailStatIconRef"></div>
+            <div class="stat-icon"></div>
             <div class="stat-info">
                 <span class="stat-label">Unread Messages</span>
                 <span class="stat-value">@UnreadCount</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" @ref="userStatIconRef"></div>
+            <div class="stat-icon"></div>
             <div class="stat-info">
                 <span class="stat-label">Active Users</span>
                 <span class="stat-value">@ActiveUsersCount</span>
@@ -78,8 +76,7 @@
             <PrimaryButton OnClick="RefreshInbox"
                           Variant="PrimaryButton.ButtonVariant.Ghost"
                           Size="PrimaryButton.ButtonSize.Small">
-                <span class="btn-icon" @ref="refreshBtnIconRef"></span>
-                <span>Refresh</span>
+                Refresh
             </PrimaryButton>
         </div>
     </div>
@@ -94,7 +91,7 @@
     else if (!FilteredConversations.Any())
     {
         <div class="messages-empty">
-            <div class="empty-icon" @ref="emptyMessagesIconRef"></div>
+            <div class="empty-icon"></div>
             <h3>No conversations found</h3>
             <p>Start by sending a message to users</p>
             <PrimaryButton OnClick="OpenNewMessageModal"
