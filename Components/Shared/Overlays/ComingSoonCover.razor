@@ -30,6 +30,17 @@
             </button>
         }
 
+        @* ✅ ADD BACK BUTTON SUPPORT *@
+        @if (ShowBackButton && !string.IsNullOrEmpty(BackButtonUrl))
+        {
+            <button class="coming-soon-back-btn" @onclick="HandleBackClick">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M12 4L6 10L12 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>@BackButtonText</span>
+            </button>
+        }
+
         @if (ChildContent != null)
         {
             <div class="coming-soon-custom">
@@ -40,6 +51,8 @@
 </div>
 
 @code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public bool IsActive { get; set; } = true;
     [Parameter] public string Title { get; set; } = "Coming Soon";
@@ -50,7 +63,12 @@
     [Parameter] public string NotifyButtonText { get; set; } = "Notify Me";
     [Parameter] public EventCallback OnNotifyClick { get; set; }
 
-    // Renamed enums to avoid conflicts with other components
+    // ✅ NEW: BACK BUTTON PARAMETERS
+    [Parameter] public bool ShowBackButton { get; set; } = false;
+    [Parameter] public string BackButtonText { get; set; } = "Go Back";
+    [Parameter] public string BackButtonUrl { get; set; } = "";
+    [Parameter] public EventCallback OnBackClick { get; set; }
+
     public enum CoverPatternType
     {
         Diagonal,
@@ -72,6 +90,19 @@
         if (OnNotifyClick.HasDelegate)
         {
             await OnNotifyClick.InvokeAsync();
+        }
+    }
+
+    // ✅ NEW: HANDLE BACK BUTTON CLICK
+    private async Task HandleBackClick()
+    {
+        if (OnBackClick.HasDelegate)
+        {
+            await OnBackClick.InvokeAsync();
+        }
+        else if (!string.IsNullOrEmpty(BackButtonUrl))
+        {
+            Navigation.NavigateTo(BackButtonUrl);
         }
     }
 
