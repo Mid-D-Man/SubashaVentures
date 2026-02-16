@@ -1,4 +1,4 @@
-// wwwroot/js/firestoreModule.js 
+// wwwroot/js/firestoreModule.js - UPDATED WITH SUBCOLLECTION SUPPORT
 
 window.firestoreModule = (function () {
     let db = null;
@@ -33,13 +33,11 @@ window.firestoreModule = (function () {
     //#region ==================== INITIALIZATION ====================
 
     async function initializeFirestore() {
-        // Return existing promise if initialization is in progress
         if (initializationPromise) {
             console.log("⏳ Firestore initialization already in progress, waiting...");
             return initializationPromise;
         }
 
-        //  If already initialized, return immediately
         if (isInitialized && db) {
             console.log("✓ Firestore already initialized, reusing existing instance");
             return true;
@@ -50,13 +48,11 @@ window.firestoreModule = (function () {
                 console.log("🔄 Starting Firestore initialization...");
                 await waitForFirebase();
 
-                // Double-check after waiting for Firebase
                 if (isInitialized && db) {
                     console.log("✓ Firestore was initialized while waiting");
                     return true;
                 }
 
-                //  Get existing Firestore instance if it exists
                 try {
                     db = firebase.firestore();
                     console.log("✓ Retrieved existing Firestore instance");
@@ -65,14 +61,10 @@ window.firestoreModule = (function () {
                     throw error;
                 }
 
-                //  Only set settings if this is truly the first initialization
-                // Check if settings have already been applied by checking if we can get a collection
                 try {
-                    // Try a simple operation to see if Firestore is ready
                     const testRef = db.collection('_test_connection');
                     console.log("✓ Firestore instance is ready");
                 } catch (settingsError) {
-                    // If we get an error, it might be because settings weren't applied
                     console.log("⚙️ Applying Firestore settings...");
                     try {
                         db.settings({
@@ -81,12 +73,10 @@ window.firestoreModule = (function () {
                         });
                         console.log("✓ Firestore settings applied");
                     } catch (settingsApplyError) {
-                        // Settings might have already been applied, which is fine
                         console.log("ℹ️ Firestore settings already configured:", settingsApplyError.message);
                     }
                 }
 
-                // Connection monitoring
                 try {
                     firebase.database().ref(".info/connected").on("value", (snapshot) => {
                         if (!manuallyDisconnected) {
@@ -146,7 +136,6 @@ window.firestoreModule = (function () {
         try {
             console.log(`📖 Getting document: ${collection}/${id}`);
 
-            //  Always ensure initialization
             if (!isInitialized || !db) {
                 console.log("⚠️ Firestore not initialized, initializing now...");
                 const initialized = await initializeFirestore();
@@ -172,7 +161,7 @@ window.firestoreModule = (function () {
             }
         } catch (error) {
             console.error(`❌ Error getting document ${collection}/${id}:`, error);
-            throw error; // Re-throw to let caller handle it
+            throw error;
         }
     }
 
@@ -243,6 +232,204 @@ window.firestoreModule = (function () {
             console.error(`❌ Error deleting document ${collection}/${id}:`, error);
             if (isOffline) storeOfflineOperation({ collection, id, operation: 'delete', timestamp: Date.now() });
             return false;
+        }
+    }
+
+    //#endregion
+
+    //#region ==================== SUBCOLLECTION OPERATIONS ====================
+
+    async function addToSubcollection(collection, docId, subcollection, jsonData, customId = null) {
+        try {
+            console.log(`➕ Adding to subcollection: ${collection}/${docId}/${subcollection}${customId ? `/${customId}` : ''}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
+
+            let data = JSON.parse(jsonData);
+            data = JSON.parse(JSON.stringify(data));
+
+            const subcollectionRef = db.collection(collection).doc(docId).collection(subcollection);
+
+            let docRef;
+            if (customId) {
+                docRef = subcollectionRef.doc(customId);
+                await docRef.set(data);
+                console.log(`✓ Subcollection document created: ${collection}/${docId}/${subcollection}/${customId}`);
+                return customId;
+            } else {
+                docRef = await subcollectionRef.add(data);
+                console.log(`✓ Subcollection document created: ${collection}/${docId}/${subcollection}/${docRef.id}`);
+                return docRef.id;
+            }
+        } catch (error) {
+            console.error(`❌ Error adding to subcollection ${collection}/${docId}/${subcollection}:`, error);
+            if (isOffline) storeOfflineOperation({ 
+                collection, 
+                docId, 
+                subcollection, 
+                data: jsonData, 
+                customId,
+                operation: 'addToSubcollection', 
+                timestamp: Date.now() 
+            });
+            return null;
+        }
+    }
+
+    async function getSubcollection(collection, docId, subcollection) {
+        try {
+            console.log(`📚 Getting subcollection: ${collection}/${docId}/${subcollection}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
+
+            const querySnapshot = await db.collection(collection)
+                .doc(docId)
+                .collection(subcollection)
+                .get();
+
+            const data = [];
+            querySnapshot.forEach((doc) => {
+                const item = doc.data();
+                if (item && typeof item === 'object') {
+                    item.id = doc.id;
+                }
+                data.push(item);
+            });
+
+            console.log(`✓ Retrieved ${data.length} documents from ${collection}/${docId}/${subcollection}`);
+            return JSON.stringify(data);
+        } catch (error) {
+            console.error(`❌ Error getting subcollection ${collection}/${docId}/${subcollection}:`, error);
+            return JSON.stringify([]);
+        }
+    }
+
+    async function getSubcollectionDocument(collection, docId, subcollection, subdocId) {
+        try {
+            console.log(`📖 Getting subcollection document: ${collection}/${docId}/${subcollection}/${subdocId}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
+
+            const docRef = db.collection(collection)
+                .doc(docId)
+                .collection(subcollection)
+                .doc(subdocId);
+
+            const doc = await docRef.get();
+
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && typeof data === 'object') {
+                    data.id = doc.id;
+                }
+                console.log(`✓ Subcollection document found`);
+                return JSON.stringify(data);
+            } else {
+                console.log(`⚠️ Subcollection document not found`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`❌ Error getting subcollection document:`, error);
+            throw error;
+        }
+    }
+
+    async function updateSubcollectionDocument(collection, docId, subcollection, subdocId, jsonData) {
+        try {
+            console.log(`✏️ Updating subcollection document: ${collection}/${docId}/${subcollection}/${subdocId}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
+
+            let data = JSON.parse(jsonData);
+            data = removeUndefinedConservative(data);
+
+            await db.collection(collection)
+                .doc(docId)
+                .collection(subcollection)
+                .doc(subdocId)
+                .update(data);
+
+            console.log(`✓ Subcollection document updated`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error updating subcollection document:`, error);
+            return false;
+        }
+    }
+
+    async function deleteSubcollectionDocument(collection, docId, subcollection, subdocId) {
+        try {
+            console.log(`🗑️ Deleting subcollection document: ${collection}/${docId}/${subcollection}/${subdocId}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
+
+            await db.collection(collection)
+                .doc(docId)
+                .collection(subcollection)
+                .doc(subdocId)
+                .delete();
+
+            console.log(`✓ Subcollection document deleted`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error deleting subcollection document:`, error);
+            if (isOffline) storeOfflineOperation({ 
+                collection, 
+                docId, 
+                subcollection, 
+                subdocId,
+                operation: 'deleteSubcollectionDocument', 
+                timestamp: Date.now() 
+            });
+            return false;
+        }
+    }
+
+    async function querySubcollection(collection, docId, subcollection, field, jsonValue) {
+        try {
+            console.log(`🔍 Querying subcollection ${collection}/${docId}/${subcollection} where ${field} == ${jsonValue}`);
+
+            if (!isInitialized || !db) {
+                console.log("⚠️ Firestore not initialized, initializing now...");
+                await initializeFirestore();
+            }
+
+            let value = JSON.parse(jsonValue);
+            const querySnapshot = await db.collection(collection)
+                .doc(docId)
+                .collection(subcollection)
+                .where(field, "==", value)
+                .get();
+
+            const data = [];
+            querySnapshot.forEach((doc) => {
+                const item = doc.data();
+                if (item && typeof item === 'object') {
+                    item.id = doc.id;
+                }
+                data.push(item);
+            });
+
+            console.log(`✓ Subcollection query returned ${data.length} documents`);
+            return JSON.stringify(data);
+        } catch (error) {
+            console.error(`❌ Error querying subcollection:`, error);
+            return JSON.stringify([]);
         }
     }
 
@@ -541,6 +728,24 @@ window.firestoreModule = (function () {
                         case 'batch':
                             success = await addBatch(op.collection, op.data);
                             break;
+                        case 'addToSubcollection':
+                            const subAddResult = await addToSubcollection(
+                                op.collection, 
+                                op.docId, 
+                                op.subcollection, 
+                                op.data, 
+                                op.customId
+                            );
+                            success = !!subAddResult;
+                            break;
+                        case 'deleteSubcollectionDocument':
+                            success = await deleteSubcollectionDocument(
+                                op.collection, 
+                                op.docId, 
+                                op.subcollection, 
+                                op.subdocId
+                            );
+                            break;
                     }
 
                     if (success) {
@@ -616,6 +821,14 @@ window.firestoreModule = (function () {
         addDocument,
         updateDocument,
         deleteDocument,
+
+        // Subcollection operations
+        addToSubcollection,
+        getSubcollection,
+        getSubcollectionDocument,
+        updateSubcollectionDocument,
+        deleteSubcollectionDocument,
+        querySubcollection,
 
         // Field operations
         addOrUpdateField,
