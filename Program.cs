@@ -32,6 +32,7 @@ using SubashaVentures.Services.Shop;
 using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Utilities.Tracking;
+using SubashaVentures.Services.Cryptography;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -157,6 +158,8 @@ builder.Services.AddScoped<SubashaVentures.Services.Checkout.ICheckoutService, S
 
 builder.Services.AddScoped<IUserSegmentationService,UserSegmentationService>();
 builder.Services.AddScoped<IMessagingService,MessagingService>();
+// Add after other service registrations
+builder.Services.AddScoped<ICryptographyService, CryptographyService>();
 var host = builder.Build();
 
 try
