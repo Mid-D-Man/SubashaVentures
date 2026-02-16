@@ -1,0 +1,35 @@
+@namespace SubashaVentures.Components.Shared.QRCode
+
+<div class="qr-code-container @CssClass">
+    @if (IsLoading)
+    {
+        <div class="qr-loading">
+            <div class="qr-spinner"></div>
+            <p>Generating QR Code...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="qr-error">
+            <span class="error-icon">
+                @((MarkupString)ErrorIconSvg)
+            </span>
+            <p>@ErrorMessage</p>
+        </div>
+    }
+    else
+    {
+        <div class="qr-code-display" id="@ContainerId">
+        </div>
+        
+        @if (ShowDownloadButton)
+        {
+            <button class="qr-download-btn" @onclick="DownloadQRCode">
+                <span class="download-icon">
+                    @((MarkupString)DownloadIconSvg)
+                </span>
+                Download QR Code
+            </button>
+        }
+    }
+</div>
