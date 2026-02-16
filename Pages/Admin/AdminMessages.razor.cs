@@ -1,13 +1,14 @@
-// Services/Users/UserService.cs - COMPLETE UPDATED IMPLEMENTATION
+using Microsoft.AspNetCore.Components;
+using SubashaVentures.Services.Firebase;
+using SubashaVentures.Services.Users;
+using SubashaVentures.Services.Authorization;
+using SubashaVentures.Services.VisualElements;
+using SubashaVentures.Components.Shared.Modals;
+using SubashaVentures.Models.Firebase;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Domain.User;
-using SubashaVentures.Services.SupaBase;
-using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
-using Supabase.Postgrest;
-using System.Text;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-using Client = Supabase.Client;
-using Gotrue = Supabase.Gotrue;
 
 namespace SubashaVentures.Pages.Admin;
 
