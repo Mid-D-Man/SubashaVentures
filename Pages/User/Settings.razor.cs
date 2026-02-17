@@ -1,4 +1,4 @@
-// Pages/User/Settings.razor.cs - COMPLETE REFACTORED IMPLEMENTATION
+// Pages/User/Settings.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -59,7 +59,7 @@ public partial class Settings
     private bool IsProfileModalOpen = false;
     private bool IsSavingProfile = false;
     private bool IsUploadingAvatar = false;
-    
+
     private string TempFirstName = "";
     private string TempLastName = "";
     private string TempNickname = "";
@@ -77,7 +77,7 @@ public partial class Settings
     private DynamicModal? LanguageModal;
     private bool IsCurrencyModalOpen = false;
     private bool IsLanguageModalOpen = false;
-    
+
     private string SelectedCurrency = "NGN";
     private string SelectedLanguage = "English";
 
@@ -91,17 +91,14 @@ public partial class Settings
 
     private readonly List<string> AvailableLanguages = new()
     {
-        "English",
-        "Hausa",
-        "Yoruba",
-        "Igbo"
+        "English", "Hausa", "Yoruba", "Igbo"
     };
 
     // SECURITY
     private DynamicModal? SecurityModal;
     private bool IsSecurityModalOpen = false;
     private bool IsChangingPassword = false;
-    
+
     private string CurrentPassword = "";
     private string NewPassword = "";
     private string ConfirmPassword = "";
@@ -113,7 +110,7 @@ public partial class Settings
     private bool IsMfaEnabled = false;
     private bool IsProcessingMfa = false;
     private int MfaEnrollmentStep = 0;
-    
+
     private string MfaQrCodeUrl = "";
     private string MfaSecret = "";
     private string MfaVerificationCode = "";
@@ -129,6 +126,11 @@ public partial class Settings
     private bool ShowDeleteAccountPopup = false;
     private bool IsDeletingAccount = false;
 
+    // ─── Bucket used for avatar uploads ─────────────────────────────────────────
+    // FIX: was "avatars" which was not in the bucket dictionary.
+    // "users" maps to the real Supabase bucket "user-avatars".
+    private const string AvatarBucketName = "users";
+
     protected override async Task OnInitializedAsync()
     {
         await LoadSvgsAsync();
@@ -141,90 +143,75 @@ public partial class Settings
         {
             profileIconSvg = await VisualElements.GetCustomSvgAsync(
                 Domain.Enums.SvgType.User, width: 20, height: 20, fillColor: "var(--primary-color)");
-            
+
             notificationIconSvg = await VisualElements.GetCustomSvgAsync(
                 Domain.Enums.SvgType.Notification, width: 20, height: 20, fillColor: "var(--primary-color)");
-            
+
             emailIconSvg = await VisualElements.GetCustomSvgAsync(
                 Domain.Enums.SvgType.Mail, width: 18, height: 18, fillColor: "var(--text-secondary)");
-            
+
             smsIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-secondary)' d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             settingsIconSvg = await VisualElements.GetCustomSvgAsync(
                 Domain.Enums.SvgType.Settings, width: 20, height: 20, fillColor: "var(--primary-color)");
-            
+
             currencyIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-secondary)' d='M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             languageIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-secondary)' d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             securityIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--primary-color)' d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z'/>",
-                20, 20, "0 0 24 24"
-            );
-            
+                20, 20, "0 0 24 24");
+
             keyIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-secondary)' d='M12.65 10C11.7 7.31 8.9 5.5 5.77 6.12c-2.29.46-4.15 2.29-4.63 4.58C.32 14.57 3.26 18 7 18c2.61 0 4.83-1.67 5.65-4H17v2c0 1.1.9 2 2 2s2-.9 2-2v-2c1.1 0 2-.9 2-2s-.9-2-2-2h-8.35zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             mfaIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-secondary)' d='M17 8h-1V6c0-2.76-2.24-5-5-5S6 3.24 6 6v2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM8.9 6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2H8.9V6zM17 20H5V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             infoIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--primary-color)' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'/>",
-                20, 20, "0 0 24 24"
-            );
-            
+                20, 20, "0 0 24 24");
+
             downloadIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-secondary)' d='M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             deleteIconSvg = VisualElements.GenerateSvg(
                 "<path fill='#dc3545' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             logoutIconSvg = VisualElements.GenerateSvg(
                 "<path fill='#dc3545' d='M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z'/>",
-                18, 18, "0 0 24 24"
-            );
-            
+                18, 18, "0 0 24 24");
+
             arrowRightSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--text-tertiary)' d='M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z'/>",
-                16, 16, "0 0 24 24"
-            );
-            
+                16, 16, "0 0 24 24");
+
             checkIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--primary-color)' d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/>",
-                20, 20, "0 0 24 24"
-            );
-            
+                20, 20, "0 0 24 24");
+
             warningIconSvg = VisualElements.GenerateSvg(
                 "<path fill='#dc3545' d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/>",
-                20, 20, "0 0 24 24"
-            );
-            
+                20, 20, "0 0 24 24");
+
             cameraIconSvg = VisualElements.GenerateSvg(
                 "<path fill='currentColor' d='M12 15.2c1.77 0 3.2-1.43 3.2-3.2s-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2 1.43 3.2 3.2 3.2zm0-5.4c1.21 0 2.2.99 2.2 2.2s-.99 2.2-2.2 2.2-2.2-.99-2.2-2.2.99-2.2 2.2-2.2z'/><path fill='currentColor' d='M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm11 15H4V6h4.05l1.83-2h4.24l1.83 2H20v11z'/>",
-                20, 20, "0 0 24 24"
-            );
-            
+                20, 20, "0 0 24 24");
+
             shieldCheckIconSvg = VisualElements.GenerateSvg(
                 "<path fill='var(--primary-color)' d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'/>",
-                48, 48, "0 0 24 24"
-            );
+                48, 48, "0 0 24 24");
         }
         catch (Exception ex)
         {
@@ -240,25 +227,17 @@ public partial class Settings
         try
         {
             CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            
+
             if (string.IsNullOrEmpty(CurrentUserId))
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "User not authenticated - redirecting to sign in",
-                    LogLevel.Warning
-                );
                 Navigation.NavigateTo("signin");
                 return;
             }
 
             UserProfile = await UserService.GetUserByIdAsync(CurrentUserId);
-            
+
             if (UserProfile == null)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "User profile not found",
-                    LogLevel.Error
-                );
                 Navigation.NavigateTo("");
                 return;
             }
@@ -279,9 +258,7 @@ public partial class Settings
             await CheckMfaStatus();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Settings loaded for user: {UserProfile.Email}",
-                LogLevel.Info
-            );
+                $"Settings loaded for user: {UserProfile.Email}", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -300,19 +277,12 @@ public partial class Settings
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
-            
-            var providersClaim = user?.FindFirst("app_metadata.providers")?.Value 
+
+            var providersClaim = user?.FindFirst("app_metadata.providers")?.Value
                 ?? user?.FindFirst("providers")?.Value;
-            
+
             if (!string.IsNullOrEmpty(providersClaim))
-            {
                 CanChangePassword = !providersClaim.Contains("google");
-            }
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Password change capability: {CanChangePassword}",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
@@ -347,15 +317,7 @@ public partial class Settings
         try
         {
             var file = e.File;
-            
-            if (file == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "No file selected",
-                    LogLevel.Warning
-                );
-                return;
-            }
+            if (file == null) return;
 
             if (!file.ContentType.StartsWith("image/"))
             {
@@ -363,7 +325,7 @@ public partial class Settings
                 return;
             }
 
-            const long maxFileSize = 1 * 1024 * 1024;
+            const long maxFileSize = 1 * 1024 * 1024; // 1 MB
             if (file.Size > maxFileSize)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Image must be less than 1MB");
@@ -373,14 +335,18 @@ public partial class Settings
             IsUploadingAvatar = true;
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Uploading avatar: {file.Name} ({file.Size} bytes)",
-                LogLevel.Info
-            );
+            // FIX: Delete the old avatar from storage before uploading a new one
+            // to avoid accumulating orphaned files.
+            var existingAvatarUrl = UserProfile?.AvatarUrl;
+            if (!string.IsNullOrEmpty(existingAvatarUrl))
+            {
+                await DeleteExistingAvatarAsync(existingAvatarUrl);
+            }
 
+            // FIX: Use AvatarBucketName constant ("users") which maps to "user-avatars".
             var result = await StorageService.UploadImageAsync(
                 file,
-                bucketName: "avatars",
+                bucketName: AvatarBucketName,
                 folder: $"users/{CurrentUserId}",
                 enableCompression: true
             );
@@ -388,11 +354,8 @@ public partial class Settings
             if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
             {
                 TempAvatarUrl = result.PublicUrl;
-                
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Avatar uploaded successfully: {result.PublicUrl}",
-                    LogLevel.Info
-                );
+                    $"Avatar uploaded successfully: {result.PublicUrl}", LogLevel.Info);
             }
             else
             {
@@ -408,6 +371,38 @@ public partial class Settings
         {
             IsUploadingAvatar = false;
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Deletes a previously uploaded avatar from Supabase Storage.
+    /// Extracts the relative file path from the public URL and calls DeleteImageAsync.
+    /// Failures are logged but do not block the upload of the new avatar.
+    /// </summary>
+    private async Task DeleteExistingAvatarAsync(string publicUrl)
+    {
+        try
+        {
+            // Cast to the concrete type to access ExtractFilePathFromUrl
+            if (StorageService is SupabaseStorageService concreteStorage)
+            {
+                var filePath = concreteStorage.ExtractFilePathFromUrl(publicUrl, AvatarBucketName);
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    var deleted = await StorageService.DeleteImageAsync(filePath, AvatarBucketName);
+                    if (deleted)
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"Old avatar deleted: {filePath}", LogLevel.Info);
+                    else
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            $"Old avatar could not be deleted: {filePath}", LogLevel.Warning);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal — log and continue with the upload
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting old avatar");
         }
     }
 
@@ -465,22 +460,11 @@ public partial class Settings
         try
         {
             var enabled = (bool)(e.Value ?? false);
-            
-            var updateRequest = new UpdateUserRequest
-            {
-                EmailNotifications = enabled
-            };
-
-            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!,
+                new UpdateUserRequest { EmailNotifications = enabled });
 
             if (success)
-            {
                 EmailNotificationsEnabled = enabled;
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Email notifications {(enabled ? "enabled" : "disabled")}",
-                    LogLevel.Info
-                );
-            }
             else
             {
                 EmailNotificationsEnabled = !enabled;
@@ -499,22 +483,11 @@ public partial class Settings
         try
         {
             var enabled = (bool)(e.Value ?? false);
-            
-            var updateRequest = new UpdateUserRequest
-            {
-                SmsNotifications = enabled
-            };
-
-            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!,
+                new UpdateUserRequest { SmsNotifications = enabled });
 
             if (success)
-            {
                 SmsNotificationsEnabled = enabled;
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"SMS notifications {(enabled ? "enabled" : "disabled")}",
-                    LogLevel.Info
-                );
-            }
             else
             {
                 SmsNotificationsEnabled = !enabled;
@@ -528,61 +501,28 @@ public partial class Settings
         }
     }
 
-    private void OpenCurrencyModal()
-    {
-        IsCurrencyModalOpen = true;
-        StateHasChanged();
-    }
-
-    private void CloseCurrencyModal()
-    {
-        IsCurrencyModalOpen = false;
-        StateHasChanged();
-    }
+    private void OpenCurrencyModal() { IsCurrencyModalOpen = true; StateHasChanged(); }
+    private void CloseCurrencyModal() { IsCurrencyModalOpen = false; StateHasChanged(); }
 
     private async Task SelectCurrency(string currencyCode)
     {
         try
         {
-            var updateRequest = new UpdateUserRequest
-            {
-                Currency = currencyCode
-            };
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!,
+                new UpdateUserRequest { Currency = currencyCode });
 
-            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
-
-            if (success)
-            {
-                SelectedCurrency = currencyCode;
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Currency changed to: {currencyCode}",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                await JSRuntime.InvokeVoidAsync("alert", "Failed to update currency");
-            }
-
-            CloseCurrencyModal();
+            if (success) SelectedCurrency = currencyCode;
+            else await JSRuntime.InvokeVoidAsync("alert", "Failed to update currency");
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Selecting currency");
         }
+        finally { CloseCurrencyModal(); }
     }
 
-    private void OpenLanguageModal()
-    {
-        IsLanguageModalOpen = true;
-        StateHasChanged();
-    }
-
-    private void CloseLanguageModal()
-    {
-        IsLanguageModalOpen = false;
-        StateHasChanged();
-    }
+    private void OpenLanguageModal() { IsLanguageModalOpen = true; StateHasChanged(); }
+    private void CloseLanguageModal() { IsLanguageModalOpen = false; StateHasChanged(); }
 
     private async Task SelectLanguage(string language)
     {
@@ -597,54 +537,28 @@ public partial class Settings
                 _ => "en"
             };
 
-            var updateRequest = new UpdateUserRequest
-            {
-                PreferredLanguage = languageCode
-            };
+            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!,
+                new UpdateUserRequest { PreferredLanguage = languageCode });
 
-            var success = await UserService.UpdateUserProfileAsync(CurrentUserId!, updateRequest);
-
-            if (success)
-            {
-                SelectedLanguage = language;
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Language changed to: {language}",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                await JSRuntime.InvokeVoidAsync("alert", "Failed to update language");
-            }
-
-            CloseLanguageModal();
+            if (success) SelectedLanguage = language;
+            else await JSRuntime.InvokeVoidAsync("alert", "Failed to update language");
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Selecting language");
         }
+        finally { CloseLanguageModal(); }
     }
 
     private void OpenSecurityModal()
     {
-        if (!CanChangePassword)
-        {
-            return;
-        }
-
-        CurrentPassword = "";
-        NewPassword = "";
-        ConfirmPassword = "";
-        PasswordChangeError = "";
+        if (!CanChangePassword) return;
+        CurrentPassword = ""; NewPassword = ""; ConfirmPassword = ""; PasswordChangeError = "";
         IsSecurityModalOpen = true;
         StateHasChanged();
     }
 
-    private void CloseSecurityModal()
-    {
-        IsSecurityModalOpen = false;
-        StateHasChanged();
-    }
+    private void CloseSecurityModal() { IsSecurityModalOpen = false; StateHasChanged(); }
 
     private async Task ChangePassword()
     {
@@ -652,8 +566,8 @@ public partial class Settings
         {
             PasswordChangeError = "";
 
-            if (string.IsNullOrWhiteSpace(CurrentPassword) || 
-                string.IsNullOrWhiteSpace(NewPassword) || 
+            if (string.IsNullOrWhiteSpace(CurrentPassword) ||
+                string.IsNullOrWhiteSpace(NewPassword) ||
                 string.IsNullOrWhiteSpace(ConfirmPassword))
             {
                 PasswordChangeError = "All fields are required";
@@ -705,25 +619,19 @@ public partial class Settings
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
-
             var aalClaim = user?.FindFirst("aal")?.Value;
             IsMfaEnabled = aalClaim == "aal2";
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"MFA Status: {(IsMfaEnabled ? "Enabled (aal2)" : "Disabled (aal1)")}",
-                LogLevel.Info
-            );
+                $"MFA Status: {(IsMfaEnabled ? "Enabled (aal2)" : "Disabled (aal1)")}", LogLevel.Info);
 
             var factors = await AuthService.GetMfaFactorsAsync();
             if (factors != null && factors.Any())
             {
                 IsMfaEnabled = true;
                 MfaFactorId = factors.FirstOrDefault()?.Id;
-                
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Found {factors.Count} MFA factor(s) enrolled",
-                    LogLevel.Info
-                );
+                    $"Found {factors.Count} MFA factor(s) enrolled", LogLevel.Info);
             }
         }
         catch (Exception ex)
@@ -760,10 +668,7 @@ public partial class Settings
             MfaEnrollmentError = "";
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Starting MFA enrollment...",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync("Starting MFA enrollment...", LogLevel.Info);
 
             var enrollResult = await AuthService.EnrollMfaAsync("totp");
 
@@ -775,18 +680,11 @@ public partial class Settings
                 MfaEnrollmentStep = 1;
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"MFA enrollment initiated. Factor ID: {MfaFactorId}",
-                    LogLevel.Info
-                );
+                    $"MFA enrollment initiated. Factor ID: {MfaFactorId}", LogLevel.Info);
             }
             else
             {
                 MfaEnrollmentError = enrollResult.ErrorMessage ?? "Failed to start MFA enrollment";
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"MFA enrollment failed: {MfaEnrollmentError}",
-                    LogLevel.Error
-                );
             }
         }
         catch (Exception ex)
@@ -821,35 +719,18 @@ public partial class Settings
             MfaEnrollmentError = "";
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Verifying MFA code for factor: {MfaFactorId}",
-                LogLevel.Info
-            );
-
             var verifyResult = await AuthService.VerifyMfaAsync(MfaFactorId, MfaVerificationCode);
 
             if (verifyResult.Success)
             {
                 IsMfaEnabled = true;
-                
-                await JSRuntime.InvokeVoidAsync("alert", 
-                    "Two-Factor Authentication enabled successfully! Save your recovery codes in a safe place.");
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "MFA enabled successfully",
-                    LogLevel.Info
-                );
-
+                await JSRuntime.InvokeVoidAsync("alert",
+                    "Two-Factor Authentication enabled successfully!");
                 CloseMfaModal();
             }
             else
             {
                 MfaEnrollmentError = verifyResult.Message ?? "Invalid verification code";
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"MFA verification failed: {MfaEnrollmentError}",
-                    LogLevel.Warning
-                );
             }
         }
         catch (Exception ex)
@@ -878,45 +759,28 @@ public partial class Settings
     {
         try
         {
-            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
-                "Are you sure you want to disable Two-Factor Authentication? This will make your account less secure.");
-
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+                "Are you sure you want to disable Two-Factor Authentication?");
             if (!confirmed) return;
 
             IsProcessingMfa = true;
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Disabling MFA...",
-                LogLevel.Warning
-            );
-
             var factors = await AuthService.GetMfaFactorsAsync();
-            
             if (factors != null && factors.Any())
             {
                 foreach (var factor in factors)
                 {
                     var result = await AuthService.UnenrollMfaAsync(factor.Id);
-                    
                     if (!result.Success)
                     {
-                        await JSRuntime.InvokeVoidAsync("alert", 
-                            $"Failed to disable MFA: {result.Message}");
+                        await JSRuntime.InvokeVoidAsync("alert", $"Failed to disable MFA: {result.Message}");
                         return;
                     }
                 }
 
                 IsMfaEnabled = false;
-                
-                await JSRuntime.InvokeVoidAsync("alert", 
-                    "Two-Factor Authentication has been disabled.");
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "MFA disabled successfully",
-                    LogLevel.Warning
-                );
-
+                await JSRuntime.InvokeVoidAsync("alert", "Two-Factor Authentication has been disabled.");
                 CloseMfaModal();
             }
             else
@@ -940,14 +804,9 @@ public partial class Settings
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Exporting data for user: {CurrentUserId}",
-                LogLevel.Info
-            );
-
             if (UserProfile == null)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Unable to export data. Please try again.");
+                await JSRuntime.InvokeVoidAsync("alert", "Unable to export data.");
                 return;
             }
 
@@ -956,48 +815,33 @@ public partial class Settings
                 ExportDate = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
                 UserProfile = new
                 {
-                    UserProfile.Id,
-                    UserProfile.Email,
-                    UserProfile.FirstName,
-                    UserProfile.LastName,
-                    UserProfile.Nickname,
-                    UserProfile.PhoneNumber,
-                    UserProfile.DateOfBirth,
-                    UserProfile.Gender,
-                    UserProfile.AccountStatus,
-                    UserProfile.MemberSince,
+                    UserProfile.Id, UserProfile.Email,
+                    UserProfile.FirstName, UserProfile.LastName,
+                    UserProfile.Nickname, UserProfile.PhoneNumber,
+                    UserProfile.DateOfBirth, UserProfile.Gender,
+                    UserProfile.AccountStatus, UserProfile.MemberSince,
                     UserProfile.LastLoginAt
                 },
                 Statistics = new
                 {
-                    UserProfile.TotalOrders,
-                    UserProfile.TotalSpent,
-                    UserProfile.LoyaltyPoints,
-                    UserProfile.MembershipTier
+                    UserProfile.TotalOrders, UserProfile.TotalSpent,
+                    UserProfile.LoyaltyPoints, UserProfile.MembershipTier
                 },
                 Preferences = new
                 {
-                    UserProfile.EmailNotifications,
-                    UserProfile.SmsNotifications,
-                    UserProfile.PreferredLanguage,
-                    UserProfile.Currency
+                    UserProfile.EmailNotifications, UserProfile.SmsNotifications,
+                    UserProfile.PreferredLanguage, UserProfile.Currency
                 },
                 Security = new
                 {
-                    UserProfile.IsEmailVerified,
-                    UserProfile.IsPhoneVerified,
+                    UserProfile.IsEmailVerified, UserProfile.IsPhoneVerified,
                     MfaEnabled = IsMfaEnabled
                 }
             };
 
-            var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
-
+            var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
             var fileName = $"SubashaVentures_UserData_{DateTime.Now:yyyyMMdd_HHmmss}.json";
-            var bytes = Encoding.UTF8.GetBytes(json);
-            var base64 = Convert.ToBase64String(bytes);
+            var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
 
             await JSRuntime.InvokeVoidAsync("eval", $@"
                 const link = document.createElement('a');
@@ -1007,11 +851,6 @@ public partial class Settings
             ");
 
             await JSRuntime.InvokeVoidAsync("alert", "Your data has been exported successfully!");
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Data exported successfully",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
@@ -1020,17 +859,8 @@ public partial class Settings
         }
     }
 
-    private void ShowDeleteAccountConfirmation()
-    {
-        ShowDeleteAccountPopup = true;
-        StateHasChanged();
-    }
-
-    private void CancelDeleteAccount()
-    {
-        ShowDeleteAccountPopup = false;
-        StateHasChanged();
-    }
+    private void ShowDeleteAccountConfirmation() { ShowDeleteAccountPopup = true; StateHasChanged(); }
+    private void CancelDeleteAccount() { ShowDeleteAccountPopup = false; StateHasChanged(); }
 
     private async Task ConfirmDeleteAccount()
     {
@@ -1040,18 +870,11 @@ public partial class Settings
             IsDeletingAccount = true;
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Deleting account for user: {CurrentUserId}",
-                LogLevel.Warning
-            );
-
             var success = await UserService.DeleteUserAsync(CurrentUserId!);
-
             if (success)
             {
-                await JSRuntime.InvokeVoidAsync("alert", 
+                await JSRuntime.InvokeVoidAsync("alert",
                     "Your account has been deleted. You will now be logged out.");
-                
                 await AuthService.SignOutAsync();
                 Navigation.NavigateTo("", forceLoad: true);
             }
@@ -1072,17 +895,8 @@ public partial class Settings
         }
     }
 
-    private void ShowLogoutConfirmation()
-    {
-        ShowLogoutPopup = true;
-        StateHasChanged();
-    }
-
-    private void CancelLogout()
-    {
-        ShowLogoutPopup = false;
-        StateHasChanged();
-    }
+    private void ShowLogoutConfirmation() { ShowLogoutPopup = true; StateHasChanged(); }
+    private void CancelLogout() { ShowLogoutPopup = false; StateHasChanged(); }
 
     private async Task ConfirmLogout()
     {
@@ -1090,19 +904,7 @@ public partial class Settings
         {
             ShowLogoutPopup = false;
             StateHasChanged();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "User logging out...",
-                LogLevel.Info
-            );
-
             await AuthService.SignOutAsync();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "User logged out successfully",
-                LogLevel.Info
-            );
-
             Navigation.NavigateTo("", forceLoad: true);
         }
         catch (Exception ex)
@@ -1112,17 +914,14 @@ public partial class Settings
         }
     }
 
-    private string GetMembershipBadgeClass()
+    private string GetMembershipBadgeClass() => UserProfile?.MembershipTier switch
     {
-        return UserProfile?.MembershipTier switch
-        {
-            MembershipTier.Platinum => "platinum",
-            MembershipTier.Gold => "gold",
-            MembershipTier.Silver => "silver",
-            MembershipTier.Bronze => "bronze",
-            _ => "secondary"
-        };
-    }
+        MembershipTier.Platinum => "platinum",
+        MembershipTier.Gold => "gold",
+        MembershipTier.Silver => "silver",
+        MembershipTier.Bronze => "bronze",
+        _ => "secondary"
+    };
 }
 
 public class CurrencyOption
