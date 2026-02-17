@@ -1,14 +1,10 @@
-// Models/Supabase/UserModel.cs - UPDATED WITH NICKNAME + JsonIgnore on computed props
+// Models/Supabase/UserModel.cs
 using Newtonsoft.Json;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
 namespace SubashaVentures.Models.Supabase;
 
-/// <summary>
-/// Supabase user_data model - linked to auth.users
-/// UPDATED: Added nickname field + [JsonIgnore] on computed properties
-/// </summary>
 [Table("user_data")]
 public class UserModel : BaseModel
 {
@@ -55,7 +51,6 @@ public class UserModel : BaseModel
     [Column("suspension_reason")]
     public string? SuspensionReason { get; set; }
     
-    // Preferences
     [Column("email_notifications")]
     public bool EmailNotifications { get; set; } = true;
     
@@ -68,7 +63,6 @@ public class UserModel : BaseModel
     [Column("currency")]
     public string Currency { get; set; } = "NGN";
     
-    // Statistics
     [Column("total_orders")]
     public int TotalOrders { get; set; }
     
@@ -84,7 +78,6 @@ public class UserModel : BaseModel
     [Column("role")]
     public string Role { get; set; } = "user";
     
-    // ISecureEntity
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
     
@@ -108,27 +101,4 @@ public class UserModel : BaseModel
     
     [Column("last_login_at")]
     public DateTime? LastLoginAt { get; set; }
-    
-    // ──────────────────────────────────────────────────────────────────────────
-    // COMPUTED / HELPER PROPERTIES
-    // [JsonIgnore] prevents Postgrest from trying to PATCH these non-existent columns.
-    // ──────────────────────────────────────────────────────────────────────────
-
-   // [JsonIgnore]
-    public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
-    
-  //  [JsonIgnore]
-    public bool IsSuperiorAdmin => Role.Equals("superior_admin", StringComparison.OrdinalIgnoreCase);
-    
-  //  [JsonIgnore]
-    public bool IsRegularUser => Role.Equals("user", StringComparison.OrdinalIgnoreCase);
-    
-    /// <summary>
-    /// Display name with nickname support.
-    /// [JsonIgnore] — this is computed; there is no 'DisplayName' column in user_data.
-    /// </summary>
-   // [JsonIgnore]
-    public string DisplayName => !string.IsNullOrWhiteSpace(Nickname)
-        ? Nickname
-        : $"{FirstName} {LastName}".Trim();
 }
