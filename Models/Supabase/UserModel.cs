@@ -114,20 +114,20 @@ public class UserModel : BaseModel
     // [JsonIgnore] prevents Postgrest from trying to PATCH these non-existent columns.
     // ──────────────────────────────────────────────────────────────────────────
 
-    [JsonIgnore]
+   // [JsonIgnore]
     public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
     
-    [JsonIgnore]
+  //  [JsonIgnore]
     public bool IsSuperiorAdmin => Role.Equals("superior_admin", StringComparison.OrdinalIgnoreCase);
     
-    [JsonIgnore]
+  //  [JsonIgnore]
     public bool IsRegularUser => Role.Equals("user", StringComparison.OrdinalIgnoreCase);
     
     /// <summary>
     /// Display name with nickname support.
     /// [JsonIgnore] — this is computed; there is no 'DisplayName' column in user_data.
     /// </summary>
-    [JsonIgnore]
+   // [JsonIgnore]
     public string DisplayName => !string.IsNullOrWhiteSpace(Nickname)
         ? Nickname
         : $"{FirstName} {LastName}".Trim();
