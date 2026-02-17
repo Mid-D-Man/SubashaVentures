@@ -263,6 +263,7 @@
         </div>
     }
 
+    <!-- ═══ PROFILE MODAL ═══ -->
     <DynamicModal @ref="ProfileModal"
                   IsOpen="IsProfileModalOpen"
                   Title="Edit Profile"
@@ -313,6 +314,7 @@
                            MaxLength="50"
                            ShowCharacterCount="true" />
 
+                @* FIX: Phone capped at 20 chars, pattern enforced *@
                 <InputField Label="Phone Number"
                            @bind-Value="TempPhoneNumber"
                            Placeholder="+234 XXX XXX XXXX"
@@ -352,6 +354,7 @@
         </BodyContent>
     </DynamicModal>
 
+    <!-- ═══ CURRENCY MODAL ═══ -->
     <DynamicModal @ref="CurrencyModal"
                   IsOpen="IsCurrencyModalOpen"
                   Title="Select Currency"
@@ -378,6 +381,7 @@
         </BodyContent>
     </DynamicModal>
 
+    <!-- ═══ LANGUAGE MODAL ═══ -->
     <DynamicModal @ref="LanguageModal"
                   IsOpen="IsLanguageModalOpen"
                   Title="Select Language"
@@ -401,6 +405,7 @@
         </BodyContent>
     </DynamicModal>
 
+    <!-- ═══ SECURITY / CHANGE PASSWORD MODAL ═══ -->
     <DynamicModal @ref="SecurityModal"
                   IsOpen="IsSecurityModalOpen"
                   Title="Change Password"
@@ -452,6 +457,7 @@
         </BodyContent>
     </DynamicModal>
 
+    <!-- ═══ MFA MODAL ═══ -->
     <DynamicModal @ref="MfaModal"
                   IsOpen="IsMfaModalOpen"
                   Title="Two-Factor Authentication"
@@ -486,7 +492,7 @@
                             <div class="mfa-features">
                                 <div class="feature-item">
                                     <span class="feature-icon">@((MarkupString)checkIconSvg)</span>
-                                    <span>Works with any TOTP app</span>
+                                    <span>Works with Google Authenticator, Authy, etc.</span>
                                 </div>
                                 <div class="feature-item">
                                     <span class="feature-icon">@((MarkupString)checkIconSvg)</span>
@@ -499,8 +505,7 @@
                             </div>
                         </div>
 
-                        <PrimaryButton OnClick="StartMfaEnrollment"
-                                      IsLoading="IsProcessingMfa">
+                        <PrimaryButton OnClick="StartMfaEnrollment" IsLoading="IsProcessingMfa">
                             Enable Two-Factor Authentication
                         </PrimaryButton>
                     }
@@ -508,7 +513,7 @@
                     {
                         <div class="mfa-enrollment">
                             <h4>Step 1: Scan QR Code</h4>
-                            <p>Open your authenticator app and scan this QR code:</p>
+                            <p>Open your authenticator app (Google Authenticator, Authy, etc.) and scan this QR code:</p>
 
                             @if (!string.IsNullOrEmpty(MfaQrCodeUrl))
                             {
@@ -521,8 +526,20 @@
                             @if (!string.IsNullOrEmpty(MfaSecret))
                             {
                                 <div class="manual-entry">
-                                    <p>Or enter this code manually:</p>
-                                    <code class="secret-code">@MfaSecret</code>
+                                    <p>Or enter this code manually in your authenticator app:</p>
+                                    <div class="secret-code-row">
+                                        <code class="secret-code" id="mfa-secret-code">@MfaSecret</code>
+                                        <button class="copy-secret-btn" @onclick="CopySecretToClipboard" title="Copy to clipboard">
+                                            @if (SecretCopied)
+                                            {
+                                                <span>✓ Copied!</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Copy</span>
+                                            }
+                                        </button>
+                                    </div>
                                 </div>
                             }
 
