@@ -1,4 +1,4 @@
- /* Pages/User/Settings.razor.css - COMPLETE REFACTORED STYLES */
+/* Pages/User/Settings.razor.css - COMPLETE REFACTORED STYLES */
 
 .settings-container {
     max-width: 900px;
@@ -689,6 +689,15 @@
     margin-bottom: 0.75rem;
 }
 
+/* ===== SECRET CODE ROW (copy button) ===== */
+.secret-code-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
 .secret-code {
     display: inline-block;
     padding: 0.75rem 1.5rem;
@@ -701,6 +710,32 @@
     color: var(--text-primary);
     letter-spacing: 2px;
     user-select: all;
+}
+
+.copy-secret-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-width: 80px;
+}
+
+.copy-secret-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.copy-secret-btn:active {
+    transform: translateY(0);
 }
 
 /* ===== DARK THEME ===== */
@@ -776,6 +811,15 @@
 
     .current-picture .avatar-initials {
         font-size: 1.75rem;
+    }
+
+    .secret-code-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .copy-secret-btn {
+        width: 100%;
     }
 }
 
