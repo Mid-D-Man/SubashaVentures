@@ -1,4 +1,4 @@
-// Services/Supabase/SupabaseAuthService.cs - COMPLETE WITH SESSION MANAGER
+// Services/Supabase/SupabaseAuthService.cs - COMPLETE WITH SESSION MANAGER + MFA FIX
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
@@ -36,59 +36,33 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== INITIALIZATION & SESSION RESTORATION ====================
 
-    /// <summary>
-    /// Initialize auth service and restore session from storage
-    /// Called once on app startup
-    /// </summary>
     public async Task InitializeAsync()
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "🔐 Initializing SupabaseAuthService...",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync("🔐 Initializing SupabaseAuthService...", LogLevel.Info);
 
-            // Try to restore session from storage
             var storedSession = await _sessionManager.GetStoredSessionAsync();
             
             if (storedSession != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Found stored session (expires: {storedSession.ExpiresAt})",
-                    LogLevel.Info
-                );
+                    $"✓ Found stored session (expires: {storedSession.ExpiresAt})", LogLevel.Info);
 
-                // Check if session needs refresh
                 if (_sessionManager.ShouldRefresh(storedSession.ExpiresAt))
                 {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "🔄 Session near expiry, refreshing...",
-                        LogLevel.Info
-                    );
-
+                    await MID_HelperFunctions.DebugMessageAsync("🔄 Session near expiry, refreshing...", LogLevel.Info);
                     await RefreshSessionAsync();
                 }
                 else
                 {
-                    // Restore session to Supabase client
-                    await _supabase.Auth.SetSession(
-                        storedSession.AccessToken,
-                        storedSession.RefreshToken
-                    );
-
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "✓ Session restored successfully",
-                        LogLevel.Info
-                    );
+                    await _supabase.Auth.SetSession(storedSession.AccessToken, storedSession.RefreshToken);
+                    await MID_HelperFunctions.DebugMessageAsync("✓ Session restored successfully", LogLevel.Info);
                 }
             }
             else
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "ℹ️ No stored session found",
-                    LogLevel.Info
-                );
+                await MID_HelperFunctions.DebugMessageAsync("ℹ️ No stored session found", LogLevel.Info);
             }
         }
         catch (Exception ex)
@@ -104,10 +78,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔑 Attempting sign in for: {email}",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync($"🔑 Attempting sign in for: {email}", LogLevel.Info);
 
             var session = await _supabase.Auth.SignIn(email, password);
 
@@ -121,13 +92,9 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Store session using SessionManager
             await _sessionManager.StoreSessionAsync(session);
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ User signed in successfully: {email}",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync($"✅ User signed in successfully: {email}", LogLevel.Info);
 
             return new SupabaseAuthResult
             {
@@ -140,22 +107,14 @@ public class SupabaseAuthService : ISupabaseAuthService
         {
             var errorCode = GetErrorCode(ex.Message);
             var errorMessage = GetFriendlyErrorMessage(errorCode);
-            
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
             _logger.LogError(ex, "Sign in failed for {Email}", email);
-            
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = errorMessage,
-                ErrorCode = errorCode
-            };
+            return new SupabaseAuthResult { Success = false, Message = errorMessage, ErrorCode = errorCode };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign in");
             _logger.LogError(ex, "Unexpected error during sign in");
-            
             return new SupabaseAuthResult
             {
                 Success = false,
@@ -171,10 +130,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"📝 Attempting sign up for: {email}",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync($"📝 Attempting sign up for: {email}", LogLevel.Info);
 
             var signUpOptions = new SignUpOptions
             {
@@ -200,13 +156,9 @@ public class SupabaseAuthService : ISupabaseAuthService
                 };
             }
 
-            // Create user profile (done by database trigger, but we verify)
             await EnsureUserProfileExistsAsync(session.User, userData);
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ User signed up successfully: {email}",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.DebugMessageAsync($"✅ User signed up successfully: {email}", LogLevel.Info);
 
             return new SupabaseAuthResult
             {
@@ -218,22 +170,14 @@ public class SupabaseAuthService : ISupabaseAuthService
         {
             var errorCode = GetErrorCode(ex.Message);
             var errorMessage = GetFriendlyErrorMessage(errorCode);
-            
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
             _logger.LogError(ex, "Sign up failed for {Email}", email);
-            
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = errorMessage,
-                ErrorCode = errorCode
-            };
+            return new SupabaseAuthResult { Success = false, Message = errorMessage, ErrorCode = errorCode };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
             _logger.LogError(ex, "Unexpected error during sign up");
-            
             return new SupabaseAuthResult
             {
                 Success = false,
@@ -245,356 +189,175 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== GOOGLE OAUTH (PKCE) ====================
 
-    // Services/Supabase/SupabaseAuthService.cs - OAUTH METHODS COMPLETE
-
-// ==================== GOOGLE OAUTH (PKCE) ====================
-
-/// <summary>
-/// Initiate Google OAuth sign-in with PKCE flow
-/// Stores PKCE verifier before redirect
-/// </summary>
-public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
-{
-    try
+    public async Task<bool> SignInWithGoogleAsync(string? returnUrl = null)
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            "🔵 Initiating Google OAuth with PKCE flow",
-            LogLevel.Info
-        );
-
-        // Store return URL if provided
-        if (!string.IsNullOrEmpty(returnUrl))
+        try
         {
-            await _sessionManager.StoreOAuthReturnUrl(returnUrl);
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Return URL stored: {returnUrl}",
-                LogLevel.Info
-            );
-            
-            // Ensure storage completes
-            await Task.Delay(100);
-        }
+            await MID_HelperFunctions.DebugMessageAsync("🔵 Initiating Google OAuth with PKCE flow", LogLevel.Info);
 
-        var baseUri = _navigationManager.BaseUri;
-        var redirectUrl = $"{baseUri}auth/callback";
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"🔗 Redirect URL: {redirectUrl}",
-            LogLevel.Info
-        );
-
-        var options = new SignInOptions
-        {
-            FlowType = Constants.OAuthFlowType.PKCE,
-            RedirectTo = redirectUrl
-        };
-
-        // Generate PKCE challenge and get authorization URL
-        var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
-
-        if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ PKCE challenge generated: {result.PKCEVerifier.Substring(0, Math.Min(20, result.PKCEVerifier.Length))}...",
-                LogLevel.Info
-            );
-
-            // ✅ CRITICAL FIX: Store verifier with retry and verification
-            await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
-            
-            // ✅ CRITICAL: Wait to ensure localStorage write completes
-            await Task.Delay(300);
-            
-            // Verify storage worked
-            var stored = await _sessionManager.GetPkceVerifier();
-            if (string.IsNullOrEmpty(stored))
+            if (!string.IsNullOrEmpty(returnUrl))
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ PKCE verifier storage verification failed! Retrying...",
-                    LogLevel.Error
-                );
-                
-                // Retry storage
+                await _sessionManager.StoreOAuthReturnUrl(returnUrl);
+                await Task.Delay(100);
+            }
+
+            var baseUri = _navigationManager.BaseUri;
+            var redirectUrl = $"{baseUri}auth/callback";
+
+            var options = new SignInOptions
+            {
+                FlowType = Constants.OAuthFlowType.PKCE,
+                RedirectTo = redirectUrl
+            };
+
+            var result = await _supabase.Auth.SignIn(Constants.Provider.Google, options);
+
+            if (result?.Uri != null && !string.IsNullOrEmpty(result.PKCEVerifier))
+            {
                 await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
-                await Task.Delay(200);
-                
-                // Verify again
-                stored = await _sessionManager.GetPkceVerifier();
+                await Task.Delay(300);
+
+                var stored = await _sessionManager.GetPkceVerifier();
                 if (string.IsNullOrEmpty(stored))
                 {
-                    _logger.LogError("PKCE verifier storage failed after retry");
-                    // Continue anyway - static fallback exists
+                    await _sessionManager.StorePkceVerifier(result.PKCEVerifier);
+                    await Task.Delay(200);
                 }
+
+                _navigationManager.NavigateTo(result.Uri.ToString(), forceLoad: true);
+                return true;
             }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ PKCE verifier storage verified successfully",
-                    LogLevel.Info
-                );
-            }
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔀 Redirecting to Google: {result.Uri}",
-                LogLevel.Info
-            );
-            
-            // Now redirect to Google
-            _navigationManager.NavigateTo(result.Uri.ToString(), forceLoad: true);
-            return true;
+
+            return false;
         }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            "❌ Failed to generate PKCE challenge",
-            LogLevel.Error
-        );
-
-        return false;
-    }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth initiation");
-        _logger.LogError(ex, "Failed to initiate Google OAuth");
-        return false;
-    }
-}
-
-/// <summary>
-/// Handle OAuth callback after user authenticates with Google
-/// Exchanges authorization code for session using PKCE verifier
-/// </summary>
-public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
-{
-    try
-    {
-        var currentUri = _navigationManager.Uri;
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"📥 OAuth callback received at: {currentUri}",
-            LogLevel.Info
-        );
-
-        var uri = new Uri(currentUri);
-        var queryParams = QueryHelpers.ParseQuery(uri.Query);
-
-        // Check for authorization code
-        if (!queryParams.TryGetValue("code", out var codeValues) || codeValues.Count == 0)
+        catch (Exception ex)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "❌ No authorization code in callback URL",
-                LogLevel.Error
-            );
-
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "OAuth authentication failed - no authorization code",
-                ErrorCode = "OAUTH_NO_CODE"
-            };
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Google OAuth initiation");
+            _logger.LogError(ex, "Failed to initiate Google OAuth");
+            return false;
         }
+    }
 
-        var code = codeValues.First();
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✅ Authorization code received: {code.Substring(0, Math.Min(20, code.Length))}...",
-            LogLevel.Info
-        );
-
-        // Try to get PKCE verifier from storage (with fallbacks)
-        var pkceVerifier = await _sessionManager.GetPkceVerifier();
-
-        if (string.IsNullOrEmpty(pkceVerifier))
+    public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
+    {
+        try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "❌ PKCE verifier not found in SessionManager. Checking alternate storage...",
-                LogLevel.Warning
-            );
+            var currentUri = _navigationManager.Uri;
+            var uri = new Uri(currentUri);
+            var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-            // ✅ FALLBACK 1: Try direct localStorage access via service
-            try
+            if (!queryParams.TryGetValue("code", out var codeValues) || codeValues.Count == 0)
             {
-                var directKey = "SubashaVentures_supabase_pkce_verifier";
-                var localStorage = _navigationManager.BaseUri.Contains("localhost") 
-                    ? _sessionManager 
-                    : _sessionManager;
-                
-                // The SessionManager already checked localStorage, so try static storage
-                pkceVerifier = StaticAuthStorage.PkceVerifier;
-                
-                if (!string.IsNullOrEmpty(pkceVerifier))
+                return new SupabaseAuthResult
                 {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"✅ PKCE verifier found in static storage: {pkceVerifier.Substring(0, Math.Min(20, pkceVerifier.Length))}...",
-                        LogLevel.Info
-                    );
-                }
-            }
-            catch (Exception ex)
-            {
-                await MID_HelperFunctions.LogExceptionAsync(ex, "Fallback PKCE retrieval");
+                    Success = false,
+                    Message = "OAuth authentication failed - no authorization code",
+                    ErrorCode = "OAUTH_NO_CODE"
+                };
             }
 
-            // ✅ FALLBACK 2: Check if session already exists (Supabase auto-exchange)
+            var code = codeValues.First();
+            var pkceVerifier = await _sessionManager.GetPkceVerifier();
+
             if (string.IsNullOrEmpty(pkceVerifier))
             {
-                var existingSession = _supabase.Auth.CurrentSession;
-                if (existingSession != null && !string.IsNullOrEmpty(existingSession.AccessToken))
+                pkceVerifier = StaticAuthStorage.PkceVerifier;
+
+                if (string.IsNullOrEmpty(pkceVerifier))
                 {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "✅ Session already exists! Supabase auto-completed exchange.",
-                        LogLevel.Info
-                    );
-
-                    // Store session
-                    await _sessionManager.StoreSessionAsync(existingSession);
-
-                    // Ensure user profile exists
-                    if (existingSession.User != null)
+                    var existingSession = _supabase.Auth.CurrentSession;
+                    if (existingSession != null && !string.IsNullOrEmpty(existingSession.AccessToken))
                     {
-                        await EnsureUserProfileExistsAsync(existingSession.User);
+                        await _sessionManager.StoreSessionAsync(existingSession);
+                        if (existingSession.User != null)
+                            await EnsureUserProfileExistsAsync(existingSession.User);
+
+                        return new SupabaseAuthResult
+                        {
+                            Success = true,
+                            Message = "Sign in successful",
+                            Session = CreateSessionInfo(existingSession)
+                        };
                     }
 
                     return new SupabaseAuthResult
                     {
-                        Success = true,
-                        Message = "Sign in successful",
-                        Session = CreateSessionInfo(existingSession)
+                        Success = false,
+                        Message = "OAuth authentication failed - session state lost. Please try signing in again.",
+                        ErrorCode = "OAUTH_NO_VERIFIER"
                     };
                 }
+            }
 
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ PKCE verifier not found in any storage location",
-                    LogLevel.Error
-                );
-
+            Session? session;
+            try
+            {
+                session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
+            }
+            catch (Exception ex)
+            {
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Code exchange");
                 return new SupabaseAuthResult
                 {
                     Success = false,
-                    Message = "OAuth authentication failed - session state lost. Please try signing in again.",
-                    ErrorCode = "OAUTH_NO_VERIFIER"
+                    Message = $"Failed to exchange code: {ex.Message}",
+                    ErrorCode = "OAUTH_EXCHANGE_ERROR"
                 };
             }
-        }
 
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"🔄 Exchanging authorization code for session...",
-            LogLevel.Info
-        );
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"   Code: {code.Substring(0, Math.Min(30, code.Length))}...",
-            LogLevel.Debug
-        );
-        
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"   Verifier: {pkceVerifier.Substring(0, Math.Min(30, pkceVerifier.Length))}...",
-            LogLevel.Debug
-        );
+            if (session == null || string.IsNullOrEmpty(session.AccessToken))
+            {
+                return new SupabaseAuthResult
+                {
+                    Success = false,
+                    Message = "OAuth authentication failed - could not establish session",
+                    ErrorCode = "OAUTH_EXCHANGE_FAILED"
+                };
+            }
 
-        // Exchange code for session using PKCE verifier
-        Session? session;
-        try
-        {
-            session = await _supabase.Auth.ExchangeCodeForSession(pkceVerifier, code);
+            await _sessionManager.ClearPkceVerifier();
+            await _sessionManager.StoreSessionAsync(session);
+
+            if (session.User != null)
+                await EnsureUserProfileExistsAsync(session.User);
+
+            return new SupabaseAuthResult
+            {
+                Success = true,
+                Message = "Sign in successful",
+                Session = CreateSessionInfo(session)
+            };
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Code exchange");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback handler");
+            _logger.LogError(ex, "OAuth callback failed");
+            await _sessionManager.ClearPkceVerifier();
             return new SupabaseAuthResult
             {
                 Success = false,
-                Message = $"Failed to exchange code: {ex.Message}",
-                ErrorCode = "OAUTH_EXCHANGE_ERROR"
+                Message = $"Authentication failed: {ex.Message}",
+                ErrorCode = "OAUTH_CALLBACK_ERROR"
             };
         }
-
-        if (session == null || string.IsNullOrEmpty(session.AccessToken))
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Code exchange returned null or invalid session",
-                LogLevel.Error
-            );
-
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "OAuth authentication failed - could not establish session",
-                ErrorCode = "OAUTH_EXCHANGE_FAILED"
-            };
-        }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✅ Code exchange successful! User: {session.User?.Email}",
-            LogLevel.Info
-        );
-
-        // Clean up PKCE verifier (no longer needed)
-        await _sessionManager.ClearPkceVerifier();
-
-        // Store session for future use
-        await _sessionManager.StoreSessionAsync(session);
-
-        // Ensure user profile exists in database
-        if (session.User != null)
-        {
-            await EnsureUserProfileExistsAsync(session.User);
-        }
-
-        return new SupabaseAuthResult
-        {
-            Success = true,
-            Message = "Sign in successful",
-            Session = CreateSessionInfo(session)
-        };
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "OAuth callback handler");
-        _logger.LogError(ex, "OAuth callback failed");
-        
-        // Clean up verifier on error
-        await _sessionManager.ClearPkceVerifier();
-        
-        return new SupabaseAuthResult
-        {
-            Success = false,
-            Message = $"Authentication failed: {ex.Message}",
-            ErrorCode = "OAUTH_CALLBACK_ERROR"
-        };
-    }
-}
+
     // ==================== SIGN OUT ====================
 
     public async Task<bool> SignOutAsync()
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "🚪 Signing out user...",
-                LogLevel.Info
-            );
-
+            await MID_HelperFunctions.DebugMessageAsync("🚪 Signing out user...", LogLevel.Info);
             await _supabase.Auth.SignOut();
             await _sessionManager.ClearSessionAsync();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✅ User signed out successfully",
-                LogLevel.Info
-            );
-
+            await MID_HelperFunctions.DebugMessageAsync("✅ User signed out successfully", LogLevel.Info);
             return true;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Sign out");
-            
-            try
-            {
-                await _sessionManager.ClearSessionAsync();
-            }
-            catch { }
-            
+            try { await _sessionManager.ClearSessionAsync(); } catch { }
             return false;
         }
     }
@@ -606,20 +369,13 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
         try
         {
             var session = _supabase.Auth.CurrentSession;
-            if (session?.User != null)
-            {
-                return session.User;
-            }
+            if (session?.User != null) return session.User;
 
-            // Try to restore from storage
             var storedSession = await _sessionManager.GetStoredSessionAsync();
             if (storedSession != null)
             {
                 var restoredSession = await _supabase.Auth.SetSession(
-                    storedSession.AccessToken,
-                    storedSession.RefreshToken
-                );
-
+                    storedSession.AccessToken, storedSession.RefreshToken);
                 return restoredSession?.User;
             }
 
@@ -638,18 +394,13 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
         {
             var session = _supabase.Auth.CurrentSession;
             if (session != null && !string.IsNullOrEmpty(session.AccessToken))
-            {
                 return session;
-            }
 
-            // Try to restore from storage
             var storedSession = await _sessionManager.GetStoredSessionAsync();
             if (storedSession != null)
             {
                 return await _supabase.Auth.SetSession(
-                    storedSession.AccessToken,
-                    storedSession.RefreshToken
-                );
+                    storedSession.AccessToken, storedSession.RefreshToken);
             }
 
             return null;
@@ -669,18 +420,10 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
 
     public async Task<bool> RefreshSessionAsync()
     {
-        // Use SessionManager's refresh with lock to prevent concurrent refresh
         var refreshedSession = await _sessionManager.ExecuteRefreshWithLockAsync(async () =>
         {
-            try
-            {
-                return await _supabase.Auth.RefreshSession();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Refresh failed");
-                return null;
-            }
+            try { return await _supabase.Auth.RefreshSession(); }
+            catch (Exception ex) { _logger.LogError(ex, "Refresh failed"); return null; }
         });
 
         return refreshedSession != null;
@@ -710,30 +453,14 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
             var user = await _supabase.Auth.Update(attributes);
 
             if (user == null)
-            {
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = "Failed to update password",
-                    ErrorCode = "UPDATE_ERROR"
-                };
-            }
+                return new SupabaseAuthResult { Success = false, Message = "Failed to update password", ErrorCode = "UPDATE_ERROR" };
 
-            return new SupabaseAuthResult
-            {
-                Success = true,
-                Message = "Password updated successfully"
-            };
+            return new SupabaseAuthResult { Success = true, Message = "Password updated successfully" };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Update password");
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Failed to update password",
-                ErrorCode = "UPDATE_ERROR"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Failed to update password", ErrorCode = "UPDATE_ERROR" };
         }
     }
 
@@ -745,35 +472,19 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
         try
         {
             var session = await _supabase.Auth.VerifyOTP(token, token, Constants.EmailOtpType.Recovery);
-            
             if (session == null)
-            {
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = "Invalid or expired reset token",
-                    ErrorCode = "INVALID_TOKEN"
-                };
-            }
+                return new SupabaseAuthResult { Success = false, Message = "Invalid or expired reset token", ErrorCode = "INVALID_TOKEN" };
 
             var updateResult = await UpdatePasswordAsync(newPassword);
-            
             if (updateResult.Success)
-            {
                 await _sessionManager.StoreSessionAsync(session);
-            }
 
             return updateResult;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Reset password with token");
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Failed to reset password",
-                ErrorCode = "RESET_ERROR"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Failed to reset password", ErrorCode = "RESET_ERROR" };
         }
     }
 
@@ -784,13 +495,11 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
         try
         {
             var session = await _supabase.Auth.VerifyOTP(email, token, Constants.EmailOtpType.Email);
-            
             if (session != null)
             {
                 await _sessionManager.StoreSessionAsync(session);
                 return true;
             }
-
             return false;
         }
         catch (Exception ex)
@@ -832,20 +541,14 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     }
 
     // ==================== MFA ====================
-    
+
     public async Task<MfaEnrollmentResult> EnrollMfaAsync(string factorType)
     {
         try
         {
             var user = await GetCurrentUserAsync();
             if (user == null)
-            {
-                return new MfaEnrollmentResult
-                {
-                    Success = false,
-                    ErrorMessage = "User not authenticated"
-                };
-            }
+                return new MfaEnrollmentResult { Success = false, ErrorMessage = "User not authenticated" };
 
             var enrollResponse = await _supabase.Auth.Enroll(new MfaEnrollParams
             {
@@ -854,30 +557,33 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
             });
 
             if (enrollResponse == null)
-            {
-                return new MfaEnrollmentResult
-                {
-                    Success = false,
-                    ErrorMessage = "Failed to enroll MFA factor"
-                };
-            }
+                return new MfaEnrollmentResult { Success = false, ErrorMessage = "Failed to enroll MFA factor" };
+
+            // FIX: Use Totp.Uri (the short otpauth:// URI) as the QR data.
+            // Totp.QrCode is a base64-encoded SVG image — passing that to our
+            // QR generator tries to encode thousands of characters and always
+            // fails with "data too long".  The otpauth:// URI is ~100 chars and
+            // encodes perfectly at any error correction level.
+            var otpauthUri = enrollResponse.Totp?.Uri
+                ?? BuildOtpAuthUri(enrollResponse.Totp?.Secret ?? "", user.Email ?? "user");
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"MFA enroll: using otpauth URI (len={otpauthUri.Length}) for QR generation",
+                LogLevel.Info
+            );
 
             return new MfaEnrollmentResult
             {
                 Success = true,
                 FactorId = enrollResponse.Id,
-                QrCodeUrl = enrollResponse.Totp?.QrCode,
+                QrCodeUrl = otpauthUri,      // ← short otpauth:// URI, NOT the base64 SVG
                 Secret = enrollResponse.Totp?.Secret
             };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Enroll MFA");
-            return new MfaEnrollmentResult
-            {
-                Success = false,
-                ErrorMessage = "Failed to enroll MFA factor"
-            };
+            return new MfaEnrollmentResult { Success = false, ErrorMessage = "Failed to enroll MFA factor" };
         }
     }
 
@@ -885,20 +591,10 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     {
         try
         {
-            var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams
-            {
-                FactorId = factorId
-            });
+            var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams { FactorId = factorId });
 
             if (challengeResponse == null || string.IsNullOrEmpty(challengeResponse.Id))
-            {
-                return new SupabaseAuthResult
-                {
-                    Success = false,
-                    Message = "Failed to create MFA challenge",
-                    ErrorCode = "MFA_CHALLENGE_ERROR"
-                };
-            }
+                return new SupabaseAuthResult { Success = false, Message = "Failed to create MFA challenge", ErrorCode = "MFA_CHALLENGE_ERROR" };
 
             var verifyResponse = await _supabase.Auth.Verify(new MfaVerifyParams
             {
@@ -908,30 +604,14 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
             });
 
             if (verifyResponse?.User != null)
-            {
-                return new SupabaseAuthResult
-                {
-                    Success = true,
-                    Message = "MFA enabled successfully"
-                };
-            }
+                return new SupabaseAuthResult { Success = true, Message = "MFA enabled successfully" };
 
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Invalid verification code",
-                ErrorCode = "INVALID_MFA_CODE"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Invalid verification code", ErrorCode = "INVALID_MFA_CODE" };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Verify MFA");
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Failed to verify MFA code",
-                ErrorCode = "MFA_VERIFY_ERROR"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Failed to verify MFA code", ErrorCode = "MFA_VERIFY_ERROR" };
         }
     }
 
@@ -939,36 +619,33 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     {
         try
         {
-            var response = await _supabase.Auth.Unenroll(new MfaUnenrollParams
-            {
-                FactorId = factorId
-            });
+            var response = await _supabase.Auth.Unenroll(new MfaUnenrollParams { FactorId = factorId });
 
-            if (response != null)
+            if (response == null)
+                return new SupabaseAuthResult { Success = false, Message = "Failed to disable MFA", ErrorCode = "MFA_UNENROLL_ERROR" };
+
+            // FIX: Force a session refresh so the JWT AAL level drops from aal2 → aal1.
+            // Without this the old token still shows MFA as active until natural expiry.
+            try
             {
-                return new SupabaseAuthResult
-                {
-                    Success = true,
-                    Message = "MFA disabled successfully"
-                };
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "Refreshing session after MFA unenroll to update AAL claim...", LogLevel.Info);
+                await RefreshSessionAsync();
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✅ Session refreshed after MFA unenroll", LogLevel.Info);
+            }
+            catch (Exception refreshEx)
+            {
+                // Non-fatal – unenroll still succeeded
+                _logger.LogWarning(refreshEx, "Session refresh after MFA unenroll failed (non-fatal)");
             }
 
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Failed to disable MFA",
-                ErrorCode = "MFA_UNENROLL_ERROR"
-            };
+            return new SupabaseAuthResult { Success = true, Message = "MFA disabled successfully" };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Unenroll MFA");
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Failed to disable MFA",
-                ErrorCode = "MFA_UNENROLL_ERROR"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Failed to disable MFA", ErrorCode = "MFA_UNENROLL_ERROR" };
         }
     }
 
@@ -979,9 +656,7 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
             var factors = await _supabase.Auth.ListFactors();
 
             if (factors == null || !factors.All.Any())
-            {
                 return new List<MfaFactor>();
-            }
 
             return factors.All.Select(f => new MfaFactor
             {
@@ -1004,11 +679,7 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     {
         try
         {
-            var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams
-            {
-                FactorId = factorId
-            });
-
+            var challengeResponse = await _supabase.Auth.Challenge(new MfaChallengeParams { FactorId = factorId });
             return challengeResponse?.Id;
         }
         catch (Exception ex)
@@ -1042,33 +713,31 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
                     await _sessionManager.StoreSessionAsync(session);
                 }
 
-                return new SupabaseAuthResult
-                {
-                    Success = true,
-                    Message = "MFA verification successful"
-                };
+                return new SupabaseAuthResult { Success = true, Message = "MFA verification successful" };
             }
 
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Invalid verification code",
-                ErrorCode = "INVALID_MFA_CODE"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Invalid verification code", ErrorCode = "INVALID_MFA_CODE" };
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Verify MFA challenge");
-            return new SupabaseAuthResult
-            {
-                Success = false,
-                Message = "Failed to verify MFA code",
-                ErrorCode = "MFA_VERIFY_ERROR"
-            };
+            return new SupabaseAuthResult { Success = false, Message = "Failed to verify MFA code", ErrorCode = "MFA_VERIFY_ERROR" };
         }
     }
 
     // ==================== PRIVATE HELPER METHODS ====================
+
+    /// <summary>
+    /// Builds a standard otpauth:// TOTP URI when the SDK doesn't return one directly.
+    /// Format: otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}
+    /// This URI is ~100 characters and can be encoded by any QR generator.
+    /// </summary>
+    private static string BuildOtpAuthUri(string secret, string accountEmail)
+    {
+        const string issuer = "SubashaVentures";
+        var account = Uri.EscapeDataString(accountEmail);
+        return $"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30";
+    }
 
     private SupabaseSessionInfo CreateSessionInfo(Session session)
     {
@@ -1083,77 +752,61 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
     }
 
     private async Task EnsureUserProfileExistsAsync(User authUser, UserModel? userData = null)
-{
-    try
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"Checking user profile for: {authUser.Email}",
-            LogLevel.Info
-        );
-
-        // ✅ Use service_role key for this operation to bypass RLS
-        // This prevents the infinite recursion issue during user creation
-        var existingUser = await _supabase
-            .From<UserModel>()
-            .Where(u => u.Id == authUser.Id)
-            .Single();
-
-        if (existingUser == null)
+        try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"User profile not found, creating for: {authUser.Email}",
-                LogLevel.Info
-            );
+                $"Checking user profile for: {authUser.Email}", LogLevel.Info);
 
-            var userProfile = new UserModel
+            var existingUser = await _supabase
+                .From<UserModel>()
+                .Where(u => u.Id == authUser.Id)
+                .Single();
+
+            if (existingUser == null)
             {
-                Id = authUser.Id,
-                Email = authUser.Email ?? "",
-                FirstName = userData?.FirstName ?? 
-                    authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ?? 
-                    authUser.UserMetadata?.GetValueOrDefault("name")?.ToString()?.Split(' ').FirstOrDefault() ?? "",
-                LastName = userData?.LastName ?? 
-                    authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ?? 
-                    authUser.UserMetadata?.GetValueOrDefault("name")?.ToString()?.Split(' ').Skip(1).FirstOrDefault() ?? "",
-                AvatarUrl = userData?.AvatarUrl ?? 
-                    authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString() ?? 
-                    authUser.UserMetadata?.GetValueOrDefault("picture")?.ToString(),
-                IsEmailVerified = authUser.EmailConfirmedAt != null,
-                AccountStatus = "Active",
-                EmailNotifications = true,
-                SmsNotifications = false,
-                PreferredLanguage = "en",
-                Currency = "NGN",
-                MembershipTier = "Bronze",
-                Role = "user", // ✅ Always start with user role
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = authUser.Id
-            };
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"User profile not found, creating for: {authUser.Email}", LogLevel.Info);
 
-            await _supabase.From<UserModel>().Insert(userProfile);
+                var userProfile = new UserModel
+                {
+                    Id = authUser.Id,
+                    Email = authUser.Email ?? "",
+                    FirstName = userData?.FirstName ??
+                        authUser.UserMetadata?.GetValueOrDefault("first_name")?.ToString() ??
+                        authUser.UserMetadata?.GetValueOrDefault("name")?.ToString()?.Split(' ').FirstOrDefault() ?? "",
+                    LastName = userData?.LastName ??
+                        authUser.UserMetadata?.GetValueOrDefault("last_name")?.ToString() ??
+                        authUser.UserMetadata?.GetValueOrDefault("name")?.ToString()?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+                    AvatarUrl = userData?.AvatarUrl ??
+                        authUser.UserMetadata?.GetValueOrDefault("avatar_url")?.ToString() ??
+                        authUser.UserMetadata?.GetValueOrDefault("picture")?.ToString(),
+                    IsEmailVerified = authUser.EmailConfirmedAt != null,
+                    AccountStatus = "Active",
+                    EmailNotifications = true,
+                    SmsNotifications = false,
+                    PreferredLanguage = "en",
+                    Currency = "NGN",
+                    MembershipTier = "Bronze",
+                    Role = "user",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = authUser.Id
+                };
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ User profile created: {authUser.Email}",
-                LogLevel.Info
-            );
+                await _supabase.From<UserModel>().Insert(userProfile);
+                await MID_HelperFunctions.DebugMessageAsync($"✅ User profile created: {authUser.Email}", LogLevel.Info);
+            }
+            else
+            {
+                await MID_HelperFunctions.DebugMessageAsync($"✅ User profile already exists: {authUser.Email}", LogLevel.Info);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ User profile already exists: {authUser.Email}",
-                LogLevel.Info
-            );
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Ensure user profile exists");
+            _logger.LogError(ex, "Failed to ensure user profile exists for {Email}", authUser.Email);
         }
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, "Ensure user profile exists");
-        _logger.LogError(ex, "Failed to ensure user profile exists for {Email}", authUser.Email);
-        
-        // ⚠️ Don't throw - let authentication continue even if profile creation fails
-        // The database trigger should create the profile anyway
-    }
-}
 
     private string GetErrorCode(string errorMessage)
     {
@@ -1164,15 +817,10 @@ public async Task<SupabaseAuthResult> HandleOAuthCallbackAsync()
         }
         catch
         {
-            if (errorMessage.Contains("already registered"))
-                return "user_already_exists";
-            if (errorMessage.Contains("Invalid login credentials"))
-                return "invalid_credentials";
-            if (errorMessage.Contains("Email not confirmed"))
-                return "email_not_confirmed";
-            if (errorMessage.Contains("weak password"))
-                return "weak_password";
-            
+            if (errorMessage.Contains("already registered")) return "user_already_exists";
+            if (errorMessage.Contains("Invalid login credentials")) return "invalid_credentials";
+            if (errorMessage.Contains("Email not confirmed")) return "email_not_confirmed";
+            if (errorMessage.Contains("weak password")) return "weak_password";
             return "unknown_error";
         }
     }
