@@ -4,7 +4,7 @@ using SubashaVentures.Services.VisualElements;
 
 namespace SubashaVentures.Components.Shared.QRCode;
 
-public partial class QRCodeComponent : ComponentBase
+public partial class QRCodeComponent : ComponentBase, IAsyncDisposable
 {
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
@@ -34,6 +34,10 @@ public partial class QRCodeComponent : ComponentBase
     private string DownloadIconSvg = string.Empty;
     private IJSObjectReference? qrModule;
 
+    // FIX: hold generated SVG here; inject into DOM on the NEXT render pass
+    // (after StateHasChanged() has added the container div to the DOM)
+    private string? _pendingSvgContent;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -59,6 +63,24 @@ public partial class QRCodeComponent : ComponentBase
         if (firstRender)
         {
             await GenerateQRCode();
+            return;
+        }
+
+        // FIX: On subsequent renders the container div is guaranteed to be in the DOM.
+        // Inject the SVG now if one is waiting.
+        if (_pendingSvgContent != null && !IsLoading)
+        {
+            var svgToInject = _pendingSvgContent;
+            _pendingSvgContent = null;
+
+            try
+            {
+                await qrModule!.InvokeVoidAsync("setSvgContent", ContainerId, svgToInject);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to inject SVG into container {Id}", ContainerId);
+            }
         }
     }
 
@@ -84,6 +106,7 @@ public partial class QRCodeComponent : ComponentBase
         {
             IsLoading = true;
             ErrorMessage = string.Empty;
+            _pendingSvgContent = null;
             StateHasChanged();
 
             qrModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>(
@@ -105,7 +128,8 @@ public partial class QRCodeComponent : ComponentBase
                     logoBorderWidth = LogoBorderWidth,
                     logoBorderRadius = LogoBorderRadius,
                     logoSizeRatio = LogoSizeRatio,
-                    qrMargin = 0
+                    qrMargin = 0,
+                    errorLevel = "L"   // low error correction → max data capacity
                 };
 
                 svgContent = await qrModule.InvokeAsync<string>(
@@ -119,10 +143,12 @@ public partial class QRCodeComponent : ComponentBase
                     Data, Size, DarkColor, LightColor);
             }
 
-            await qrModule.InvokeVoidAsync("setSvgContent", ContainerId, svgContent);
-
+            // FIX: Do NOT call setSvgContent here — the container div doesn't exist yet
+            // because IsLoading is still true. Store it; OnAfterRenderAsync will inject it
+            // after the next render cycle exposes the container.
+            _pendingSvgContent = svgContent;
             IsLoading = false;
-            StateHasChanged();
+            StateHasChanged(); // triggers re-render → container div appears → OnAfterRenderAsync fires again
         }
         catch (Exception ex)
         {
