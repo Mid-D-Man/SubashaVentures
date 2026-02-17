@@ -89,10 +89,7 @@ public partial class Settings
         new CurrencyOption { Code = "EUR", Name = "Euro" }
     };
 
-    private readonly List<string> AvailableLanguages = new()
-    {
-        "English", "Hausa", "Yoruba", "Igbo"
-    };
+    private readonly List<string> AvailableLanguages = new() { "English", "Hausa", "Yoruba", "Igbo" };
 
     // SECURITY
     private DynamicModal? SecurityModal;
@@ -117,6 +114,9 @@ public partial class Settings
     private string MfaEnrollmentError = "";
     private string? MfaFactorId;
 
+    // FIX: Copy-to-clipboard state for the TOTP secret
+    private bool SecretCopied = false;
+
     // LOGOUT
     private ConfirmationPopup? LogoutPopup;
     private bool ShowLogoutPopup = false;
@@ -126,10 +126,10 @@ public partial class Settings
     private bool ShowDeleteAccountPopup = false;
     private bool IsDeletingAccount = false;
 
-    // ─── Bucket used for avatar uploads ─────────────────────────────────────────
-    // FIX: was "avatars" which was not in the bucket dictionary.
-    // "users" maps to the real Supabase bucket "user-avatars".
     private const string AvatarBucketName = "users";
+
+    // ─── Max phone length constant used in SaveProfile validation ───────────────
+    private const int MaxPhoneLength = 20;
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,9 +256,6 @@ public partial class Settings
 
             await CheckPasswordChangeCapability();
             await CheckMfaStatus();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Settings loaded for user: {UserProfile.Email}", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -325,7 +322,7 @@ public partial class Settings
                 return;
             }
 
-            const long maxFileSize = 1 * 1024 * 1024; // 1 MB
+            const long maxFileSize = 1 * 1024 * 1024;
             if (file.Size > maxFileSize)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Image must be less than 1MB");
@@ -335,15 +332,10 @@ public partial class Settings
             IsUploadingAvatar = true;
             StateHasChanged();
 
-            // FIX: Delete the old avatar from storage before uploading a new one
-            // to avoid accumulating orphaned files.
             var existingAvatarUrl = UserProfile?.AvatarUrl;
             if (!string.IsNullOrEmpty(existingAvatarUrl))
-            {
                 await DeleteExistingAvatarAsync(existingAvatarUrl);
-            }
 
-            // FIX: Use AvatarBucketName constant ("users") which maps to "user-avatars".
             var result = await StorageService.UploadImageAsync(
                 file,
                 bucketName: AvatarBucketName,
@@ -354,8 +346,6 @@ public partial class Settings
             if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
             {
                 TempAvatarUrl = result.PublicUrl;
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Avatar uploaded successfully: {result.PublicUrl}", LogLevel.Info);
             }
             else
             {
@@ -374,34 +364,19 @@ public partial class Settings
         }
     }
 
-    /// <summary>
-    /// Deletes a previously uploaded avatar from Supabase Storage.
-    /// Extracts the relative file path from the public URL and calls DeleteImageAsync.
-    /// Failures are logged but do not block the upload of the new avatar.
-    /// </summary>
     private async Task DeleteExistingAvatarAsync(string publicUrl)
     {
         try
         {
-            // Cast to the concrete type to access ExtractFilePathFromUrl
             if (StorageService is SupabaseStorageService concreteStorage)
             {
                 var filePath = concreteStorage.ExtractFilePathFromUrl(publicUrl, AvatarBucketName);
                 if (!string.IsNullOrEmpty(filePath))
-                {
-                    var deleted = await StorageService.DeleteImageAsync(filePath, AvatarBucketName);
-                    if (deleted)
-                        await MID_HelperFunctions.DebugMessageAsync(
-                            $"Old avatar deleted: {filePath}", LogLevel.Info);
-                    else
-                        await MID_HelperFunctions.DebugMessageAsync(
-                            $"Old avatar could not be deleted: {filePath}", LogLevel.Warning);
-                }
+                    await StorageService.DeleteImageAsync(filePath, AvatarBucketName);
             }
         }
         catch (Exception ex)
         {
-            // Non-fatal — log and continue with the upload
             await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting old avatar");
         }
     }
@@ -416,6 +391,13 @@ public partial class Settings
                 return;
             }
 
+            // FIX: Enforce phone number length on save as an extra safety net
+            if (!string.IsNullOrEmpty(TempPhoneNumber) && TempPhoneNumber.Length > MaxPhoneLength)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Phone number must be {MaxPhoneLength} characters or fewer");
+                return;
+            }
+
             IsSavingProfile = true;
             StateHasChanged();
 
@@ -424,7 +406,9 @@ public partial class Settings
                 FirstName = TempFirstName.Trim(),
                 LastName = TempLastName.Trim(),
                 Nickname = string.IsNullOrWhiteSpace(TempNickname) ? null : TempNickname.Trim(),
-                PhoneNumber = string.IsNullOrWhiteSpace(TempPhoneNumber) ? null : TempPhoneNumber.Trim(),
+                PhoneNumber = string.IsNullOrWhiteSpace(TempPhoneNumber)
+                    ? null
+                    : TempPhoneNumber.Trim()[..Math.Min(TempPhoneNumber.Trim().Length, MaxPhoneLength)],
                 AvatarUrl = string.IsNullOrWhiteSpace(TempAvatarUrl) ? null : TempAvatarUrl,
                 DateOfBirth = TempDateOfBirth,
                 Gender = string.IsNullOrWhiteSpace(TempGender) ? null : TempGender
@@ -530,11 +514,7 @@ public partial class Settings
         {
             var languageCode = language switch
             {
-                "English" => "en",
-                "Hausa" => "ha",
-                "Yoruba" => "yo",
-                "Igbo" => "ig",
-                _ => "en"
+                "English" => "en", "Hausa" => "ha", "Yoruba" => "yo", "Igbo" => "ig", _ => "en"
             };
 
             var success = await UserService.UpdateUserProfileAsync(CurrentUserId!,
@@ -617,21 +597,19 @@ public partial class Settings
     {
         try
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            var aalClaim = user?.FindFirst("aal")?.Value;
-            IsMfaEnabled = aalClaim == "aal2";
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"MFA Status: {(IsMfaEnabled ? "Enabled (aal2)" : "Disabled (aal1)")}", LogLevel.Info);
-
+            // Primary check: query actual enrolled factors
             var factors = await AuthService.GetMfaFactorsAsync();
             if (factors != null && factors.Any())
             {
                 IsMfaEnabled = true;
                 MfaFactorId = factors.FirstOrDefault()?.Id;
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Found {factors.Count} MFA factor(s) enrolled", LogLevel.Info);
+            }
+            else
+            {
+                // Fallback: AAL claim
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var aalClaim = authState.User?.FindFirst("aal")?.Value;
+                IsMfaEnabled = aalClaim == "aal2";
             }
         }
         catch (Exception ex)
@@ -645,6 +623,7 @@ public partial class Settings
         MfaEnrollmentStep = 0;
         MfaVerificationCode = "";
         MfaEnrollmentError = "";
+        SecretCopied = false;
         IsMfaModalOpen = true;
         StateHasChanged();
     }
@@ -657,6 +636,7 @@ public partial class Settings
         MfaSecret = "";
         MfaVerificationCode = "";
         MfaEnrollmentError = "";
+        SecretCopied = false;
         StateHasChanged();
     }
 
@@ -668,19 +648,14 @@ public partial class Settings
             MfaEnrollmentError = "";
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync("Starting MFA enrollment...", LogLevel.Info);
-
             var enrollResult = await AuthService.EnrollMfaAsync("totp");
 
             if (enrollResult.Success && enrollResult.QrCodeUrl != null && enrollResult.Secret != null)
             {
-                MfaQrCodeUrl = enrollResult.QrCodeUrl;
+                MfaQrCodeUrl = enrollResult.QrCodeUrl;   // this is now the short otpauth:// URI
                 MfaSecret = enrollResult.Secret;
                 MfaFactorId = enrollResult.FactorId;
                 MfaEnrollmentStep = 1;
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"MFA enrollment initiated. Factor ID: {MfaFactorId}", LogLevel.Info);
             }
             else
             {
@@ -724,8 +699,7 @@ public partial class Settings
             if (verifyResult.Success)
             {
                 IsMfaEnabled = true;
-                await JSRuntime.InvokeVoidAsync("alert",
-                    "Two-Factor Authentication enabled successfully!");
+                await JSRuntime.InvokeVoidAsync("alert", "Two-Factor Authentication enabled successfully!");
                 CloseMfaModal();
             }
             else
@@ -752,7 +726,33 @@ public partial class Settings
         MfaSecret = "";
         MfaVerificationCode = "";
         MfaEnrollmentError = "";
+        SecretCopied = false;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Copy the TOTP secret to the clipboard and briefly show a "Copied!" confirmation.
+    /// </summary>
+    private async Task CopySecretToClipboard()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", MfaSecret);
+            SecretCopied = true;
+            StateHasChanged();
+
+            // Reset the button text after 2 seconds
+            await Task.Delay(2000);
+            SecretCopied = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Copy secret to clipboard");
+            // Fallback: select-all via JS
+            await JSRuntime.InvokeVoidAsync("eval",
+                "var el = document.getElementById('mfa-secret-code'); if(el){var r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}");
+        }
     }
 
     private async Task DisableMfa()
@@ -769,23 +769,43 @@ public partial class Settings
             var factors = await AuthService.GetMfaFactorsAsync();
             if (factors != null && factors.Any())
             {
+                var allSucceeded = true;
                 foreach (var factor in factors)
                 {
                     var result = await AuthService.UnenrollMfaAsync(factor.Id);
                     if (!result.Success)
                     {
+                        allSucceeded = false;
                         await JSRuntime.InvokeVoidAsync("alert", $"Failed to disable MFA: {result.Message}");
-                        return;
+                        break;
                     }
                 }
 
-                IsMfaEnabled = false;
-                await JSRuntime.InvokeVoidAsync("alert", "Two-Factor Authentication has been disabled.");
-                CloseMfaModal();
+                if (allSucceeded)
+                {
+                    // FIX: Re-query factors after unenroll + session refresh (done inside UnenrollMfaAsync)
+                    // to get the definitive enabled/disabled state rather than assuming.
+                    var remainingFactors = await AuthService.GetMfaFactorsAsync();
+                    IsMfaEnabled = remainingFactors != null && remainingFactors.Any();
+
+                    if (!IsMfaEnabled)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert",
+                            "Two-Factor Authentication has been disabled.");
+                        CloseMfaModal();
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert",
+                            "Some factors could not be removed. Please try again.");
+                    }
+                }
             }
             else
             {
                 await JSRuntime.InvokeVoidAsync("alert", "No MFA factors found to disable.");
+                IsMfaEnabled = false;
+                CloseMfaModal();
             }
         }
         catch (Exception ex)
