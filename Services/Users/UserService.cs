@@ -136,7 +136,7 @@ public class UserService : IUserService
                 PreferredLanguage = "en",
                 Currency = "NGN",
                 MembershipTier = "Bronze",
-                Role = "user", // ✅ Default role
+                Role = "user",
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow
             };
@@ -357,12 +357,23 @@ public class UserService : IUserService
                 return false;
             }
 
+            // Apply all fields that were provided in the request
             if (request.FirstName != null) user.FirstName = request.FirstName;
             if (request.LastName != null) user.LastName = request.LastName;
-            if (request.PhoneNumber != null) user.PhoneNumber = request.PhoneNumber;
+
+            // FIX: Nickname was never applied — this was the root cause of the update failure
+            // because the serialized model included the computed DisplayName property.
+            // With [JsonIgnore] on DisplayName (see UserModel.cs) AND nickname now applied:
+            if (request.Nickname != null) user.Nickname = string.IsNullOrWhiteSpace(request.Nickname)
+                ? null
+                : request.Nickname.Trim();
+
+            if (request.PhoneNumber != null) user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
+                ? null
+                : request.PhoneNumber.Trim();
             if (request.DateOfBirth.HasValue) user.DateOfBirth = request.DateOfBirth;
-            if (request.Gender != null) user.Gender = request.Gender;
-            if (request.AvatarUrl != null) user.AvatarUrl = request.AvatarUrl;
+            if (request.Gender != null) user.Gender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender;
+            if (request.AvatarUrl != null) user.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl;
             if (request.EmailNotifications.HasValue) user.EmailNotifications = request.EmailNotifications.Value;
             if (request.SmsNotifications.HasValue) user.SmsNotifications = request.SmsNotifications.Value;
             if (request.PreferredLanguage != null) user.PreferredLanguage = request.PreferredLanguage;
@@ -834,9 +845,7 @@ public class UserService : IUserService
             foreach (var userId in userIds)
             {
                 if (await ToggleSuspendUserAsync(userId, true, reason))
-                {
                     successCount++;
-                }
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -868,9 +877,7 @@ public class UserService : IUserService
             foreach (var userId in userIds)
             {
                 if (await ToggleSuspendUserAsync(userId, false))
-                {
                     successCount++;
-                }
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
@@ -895,9 +902,7 @@ public class UserService : IUserService
             var users = await GetUsersAsync(0, 10000);
 
             if (userIds != null && userIds.Any())
-            {
                 users = users.Where(u => userIds.Contains(u.Id)).ToList();
-            }
 
             if (!users.Any())
             {
