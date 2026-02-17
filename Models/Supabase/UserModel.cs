@@ -1,4 +1,4 @@
-// Models/Supabase/UserModel.cs - UPDATED WITH NICKNAME
+// Models/Supabase/UserModel.cs - UPDATED WITH NICKNAME + JsonIgnore on computed props
 using Newtonsoft.Json;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
@@ -7,7 +7,7 @@ namespace SubashaVentures.Models.Supabase;
 
 /// <summary>
 /// Supabase user_data model - linked to auth.users
-/// UPDATED: Added nickname field
+/// UPDATED: Added nickname field + [JsonIgnore] on computed properties
 /// </summary>
 [Table("user_data")]
 public class UserModel : BaseModel
@@ -25,7 +25,6 @@ public class UserModel : BaseModel
     [Column("last_name")]
     public string LastName { get; set; } = string.Empty;
     
-    // ✅ NEW: Nickname field
     [Column("nickname")]
     public string? Nickname { get; set; }
     
@@ -110,13 +109,26 @@ public class UserModel : BaseModel
     [Column("last_login_at")]
     public DateTime? LastLoginAt { get; set; }
     
-    // Helper methods
+    // ──────────────────────────────────────────────────────────────────────────
+    // COMPUTED / HELPER PROPERTIES
+    // [JsonIgnore] prevents Postgrest from trying to PATCH these non-existent columns.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    [JsonIgnore]
     public bool HasRole(string role) => Role.Equals(role, StringComparison.OrdinalIgnoreCase);
-    public bool IsSuperiorAdmin => HasRole("superior_admin");
-    public bool IsRegularUser => HasRole("user");
     
-    // Display name with nickname support
-    public string DisplayName => !string.IsNullOrWhiteSpace(Nickname) 
-        ? Nickname 
+    [JsonIgnore]
+    public bool IsSuperiorAdmin => Role.Equals("superior_admin", StringComparison.OrdinalIgnoreCase);
+    
+    [JsonIgnore]
+    public bool IsRegularUser => Role.Equals("user", StringComparison.OrdinalIgnoreCase);
+    
+    /// <summary>
+    /// Display name with nickname support.
+    /// [JsonIgnore] — this is computed; there is no 'DisplayName' column in user_data.
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayName => !string.IsNullOrWhiteSpace(Nickname)
+        ? Nickname
         : $"{FirstName} {LastName}".Trim();
 }
