@@ -263,8 +263,8 @@
         </div>
     }
 
-    <DynamicModal @ref="ProfileModal" 
-                  IsOpen="IsProfileModalOpen" 
+    <DynamicModal @ref="ProfileModal"
+                  IsOpen="IsProfileModalOpen"
                   Title="Edit Profile"
                   Size="DynamicModal.ModalSize.Medium"
                   ShowFooter="false"
@@ -294,35 +294,35 @@
                     <small class="upload-hint">Max size: 1MB (JPG, PNG, WebP)</small>
                 </div>
 
-                <InputField Label="First Name" 
-                           @bind-Value="TempFirstName" 
+                <InputField Label="First Name"
+                           @bind-Value="TempFirstName"
                            Placeholder="Enter your first name"
                            IsRequired="true"
                            MaxLength="50" />
 
-                <InputField Label="Last Name" 
-                           @bind-Value="TempLastName" 
+                <InputField Label="Last Name"
+                           @bind-Value="TempLastName"
                            Placeholder="Enter your last name"
                            IsRequired="true"
                            MaxLength="50" />
 
-                <InputField Label="Nickname (Display Name)" 
-                           @bind-Value="TempNickname" 
+                <InputField Label="Nickname (Display Name)"
+                           @bind-Value="TempNickname"
                            Placeholder="Optional display name"
                            HelperText="This will be shown instead of your real name"
                            MaxLength="50"
                            ShowCharacterCount="true" />
 
-                <InputField Label="Phone Number" 
-                           @bind-Value="TempPhoneNumber" 
+                <InputField Label="Phone Number"
+                           @bind-Value="TempPhoneNumber"
                            Placeholder="+234 XXX XXX XXXX"
                            Type="tel"
                            MaxLength="20" />
 
                 <div class="input-field">
                     <label class="input-label">Date of Birth</label>
-                    <input type="date" 
-                           class="input-control" 
+                    <input type="date"
+                           class="input-control"
                            @bind="TempDateOfBirth"
                            max="@DateTime.Now.ToString("yyyy-MM-dd")" />
                 </div>
@@ -333,17 +333,16 @@
                         <option value="">Prefer not to say</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
-                        <option value="Other">Other</option>
                     </select>
                 </div>
 
                 <div class="modal-actions">
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
                                     OnClick="CloseProfileModal"
                                     IsDisabled="IsSavingProfile">
                         Cancel
                     </SecondaryButton>
-                    <PrimaryButton OnClick="SaveProfile" 
+                    <PrimaryButton OnClick="SaveProfile"
                                   IsLoading="IsSavingProfile"
                                   IsDisabled="IsSavingProfile">
                         Save Changes
@@ -353,8 +352,8 @@
         </BodyContent>
     </DynamicModal>
 
-    <DynamicModal @ref="CurrencyModal" 
-                  IsOpen="IsCurrencyModalOpen" 
+    <DynamicModal @ref="CurrencyModal"
+                  IsOpen="IsCurrencyModalOpen"
                   Title="Select Currency"
                   Size="DynamicModal.ModalSize.Small"
                   ShowFooter="false"
@@ -363,7 +362,7 @@
             <div class="modal-list">
                 @foreach (var currency in AvailableCurrencies)
                 {
-                    <div class="list-item @(currency.Code == SelectedCurrency ? "selected" : "")" 
+                    <div class="list-item @(currency.Code == SelectedCurrency ? "selected" : "")"
                          @onclick="() => SelectCurrency(currency.Code)">
                         <div class="currency-info">
                             <span class="currency-code">@currency.Code</span>
@@ -379,8 +378,8 @@
         </BodyContent>
     </DynamicModal>
 
-    <DynamicModal @ref="LanguageModal" 
-                  IsOpen="IsLanguageModalOpen" 
+    <DynamicModal @ref="LanguageModal"
+                  IsOpen="IsLanguageModalOpen"
                   Title="Select Language"
                   Size="DynamicModal.ModalSize.Small"
                   ShowFooter="false"
@@ -389,7 +388,7 @@
             <div class="modal-list">
                 @foreach (var language in AvailableLanguages)
                 {
-                    <div class="list-item @(language == SelectedLanguage ? "selected" : "")" 
+                    <div class="list-item @(language == SelectedLanguage ? "selected" : "")"
                          @onclick="() => SelectLanguage(language)">
                         <span>@language</span>
                         @if (language == SelectedLanguage)
@@ -402,29 +401,29 @@
         </BodyContent>
     </DynamicModal>
 
-    <DynamicModal @ref="SecurityModal" 
-                  IsOpen="IsSecurityModalOpen" 
+    <DynamicModal @ref="SecurityModal"
+                  IsOpen="IsSecurityModalOpen"
                   Title="Change Password"
                   Size="DynamicModal.ModalSize.Small"
                   ShowFooter="false"
                   OnClose="CloseSecurityModal">
         <BodyContent>
             <div class="modal-form">
-                <InputField Label="Current Password" 
-                           @bind-Value="CurrentPassword" 
+                <InputField Label="Current Password"
+                           @bind-Value="CurrentPassword"
                            Type="password"
                            Placeholder="Enter current password"
                            IsRequired="true" />
 
-                <InputField Label="New Password" 
-                           @bind-Value="NewPassword" 
+                <InputField Label="New Password"
+                           @bind-Value="NewPassword"
                            Type="password"
                            Placeholder="Enter new password"
                            IsRequired="true"
                            HelperText="Minimum 8 characters" />
 
-                <InputField Label="Confirm New Password" 
-                           @bind-Value="ConfirmPassword" 
+                <InputField Label="Confirm New Password"
+                           @bind-Value="ConfirmPassword"
                            Type="password"
                            Placeholder="Confirm new password"
                            IsRequired="true" />
@@ -438,12 +437,12 @@
                 }
 
                 <div class="modal-actions">
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
                                     OnClick="CloseSecurityModal"
                                     IsDisabled="IsChangingPassword">
                         Cancel
                     </SecondaryButton>
-                    <PrimaryButton OnClick="ChangePassword" 
+                    <PrimaryButton OnClick="ChangePassword"
                                   IsLoading="IsChangingPassword"
                                   IsDisabled="IsChangingPassword">
                         Change Password
@@ -453,8 +452,8 @@
         </BodyContent>
     </DynamicModal>
 
-    <DynamicModal @ref="MfaModal" 
-                  IsOpen="IsMfaModalOpen" 
+    <DynamicModal @ref="MfaModal"
+                  IsOpen="IsMfaModalOpen"
                   Title="Two-Factor Authentication"
                   Size="DynamicModal.ModalSize.Medium"
                   ShowFooter="false"
@@ -469,7 +468,7 @@
                         <p>Your account is protected with TOTP authentication.</p>
                     </div>
 
-                    <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline" 
+                    <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline"
                                   OnClick="DisableMfa"
                                   IsLoading="IsProcessingMfa">
                         Disable Two-Factor Authentication
@@ -483,7 +482,7 @@
                             <span class="info-icon-large">@((MarkupString)mfaIconSvg)</span>
                             <h3>Secure Your Account</h3>
                             <p>Add an extra layer of security by requiring a code from your authenticator app when signing in.</p>
-                            
+
                             <div class="mfa-features">
                                 <div class="feature-item">
                                     <span class="feature-icon">@((MarkupString)checkIconSvg)</span>
@@ -500,7 +499,7 @@
                             </div>
                         </div>
 
-                        <PrimaryButton OnClick="StartMfaEnrollment" 
+                        <PrimaryButton OnClick="StartMfaEnrollment"
                                       IsLoading="IsProcessingMfa">
                             Enable Two-Factor Authentication
                         </PrimaryButton>
@@ -510,7 +509,7 @@
                         <div class="mfa-enrollment">
                             <h4>Step 1: Scan QR Code</h4>
                             <p>Open your authenticator app and scan this QR code:</p>
-                            
+
                             @if (!string.IsNullOrEmpty(MfaQrCodeUrl))
                             {
                                 <QRCodeComponent Data="@MfaQrCodeUrl"
@@ -528,8 +527,8 @@
                             }
 
                             <h4>Step 2: Enter Verification Code</h4>
-                            <InputField Label="6-digit code from your app" 
-                                       @bind-Value="MfaVerificationCode" 
+                            <InputField Label="6-digit code from your app"
+                                       @bind-Value="MfaVerificationCode"
                                        Placeholder="000000"
                                        MaxLength="6"
                                        IsRequired="true" />
@@ -543,12 +542,12 @@
                             }
 
                             <div class="modal-actions">
-                                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" 
+                                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
                                                 OnClick="CancelMfaEnrollment"
                                                 IsDisabled="IsProcessingMfa">
                                     Cancel
                                 </SecondaryButton>
-                                <PrimaryButton OnClick="VerifyAndEnableMfa" 
+                                <PrimaryButton OnClick="VerifyAndEnableMfa"
                                               IsLoading="IsProcessingMfa"
                                               IsDisabled="IsProcessingMfa || string.IsNullOrEmpty(MfaVerificationCode)">
                                     Verify & Enable
