@@ -101,4 +101,9 @@ public class UserModel : BaseModel
     
     [Column("last_login_at")]
     public DateTime? LastLoginAt { get; set; }
+
+    // Prevent immutable fields from being serialized in updates
+    public bool ShouldSerializeId() => false;
+    public bool ShouldSerializeCreatedAt() => false;
+    public bool ShouldSerializeCreatedBy() => false;
 }
