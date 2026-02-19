@@ -1,4 +1,3 @@
-<!-- Pages/Checkout/Checkout.razor - UPDATED ADDRESS SECTION ONLY -->
 @page "/checkout/{slug}"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
@@ -21,7 +20,9 @@
     else if (CheckoutModel == null || !CheckoutModel.Items.Any())
     {
         <div class="empty-checkout">
-            <div class="empty-icon">🛒</div>
+            <div class="empty-icon svg-muted">
+                @((MarkupString)CartSvg)
+            </div>
             <h2>Your cart is empty</h2>
             <p>Add items to your cart before checking out</p>
             <PrimaryButton OnClick="NavigateToShop"
@@ -36,17 +37,44 @@
             <h1 class="checkout-title">Checkout</h1>
             <div class="checkout-steps">
                 <div class="step @(CurrentStep >= 1 ? "active" : "") @(CurrentStep > 1 ? "completed" : "")">
-                    <span class="step-number">1</span>
+                    <span class="step-number">
+                        @if (CurrentStep > 1)
+                        {
+                            @((MarkupString)StepCheckSvg)
+                        }
+                        else
+                        {
+                            <text>1</text>
+                        }
+                    </span>
                     <span class="step-label">Shipping</span>
                 </div>
                 <div class="step-divider"></div>
                 <div class="step @(CurrentStep >= 2 ? "active" : "") @(CurrentStep > 2 ? "completed" : "")">
-                    <span class="step-number">2</span>
+                    <span class="step-number">
+                        @if (CurrentStep > 2)
+                        {
+                            @((MarkupString)StepCheckSvg)
+                        }
+                        else
+                        {
+                            <text>2</text>
+                        }
+                    </span>
                     <span class="step-label">Delivery</span>
                 </div>
                 <div class="step-divider"></div>
                 <div class="step @(CurrentStep >= 3 ? "active" : "") @(CurrentStep > 3 ? "completed" : "")">
-                    <span class="step-number">3</span>
+                    <span class="step-number">
+                        @if (CurrentStep > 3)
+                        {
+                            @((MarkupString)StepCheckSvg)
+                        }
+                        else
+                        {
+                            <text>3</text>
+                        }
+                    </span>
                     <span class="step-label">Payment</span>
                 </div>
                 <div class="step-divider"></div>
@@ -58,14 +86,13 @@
         </div>
 
         <div class="checkout-container">
-            <!-- Left: Checkout Forms -->
             <div class="checkout-forms">
+
                 @if (CurrentStep == 1)
                 {
-                    <!-- STEP 1: Shipping Address - UPDATED WITH AUTO-FILL -->
                     <div class="checkout-section">
                         <h2 class="section-title">
-                            <span class="title-icon">📍</span>
+                            <span class="title-icon svg-primary">@((MarkupString)AddressSvg)</span>
                             Shipping Address
                         </h2>
 
@@ -73,14 +100,14 @@
                         {
                             <div class="saved-addresses">
                                 <p class="section-hint">Select a saved address or enter a new one</p>
-                                
+
                                 @foreach (var address in UserAddresses)
                                 {
                                     <div class="address-card @(SelectedAddressId == address.Id ? "selected" : "")"
                                          @onclick="() => SelectAddress(address)">
                                         <div class="address-header">
-                                            <input type="radio" 
-                                                   name="address" 
+                                            <input type="radio"
+                                                   name="address"
                                                    checked="@(SelectedAddressId == address.Id)"
                                                    @onclick:stopPropagation />
                                             <div class="address-info">
@@ -98,22 +125,28 @@
                                                 <p>@address.AddressLine2</p>
                                             }
                                             <p>@address.City, @address.State @address.PostalCode</p>
-                                            <p>📞 @address.PhoneNumber</p>
+                                            <p class="address-detail-item">
+                                                <span class="detail-icon svg-muted">@((MarkupString)PhoneSvg)</span>
+                                                @address.PhoneNumber
+                                            </p>
                                             @if (!string.IsNullOrEmpty(address.Email))
                                             {
-                                                <p>📧 @address.Email</p>
+                                                <p class="address-detail-item">
+                                                    <span class="detail-icon svg-muted">@((MarkupString)MailSvg)</span>
+                                                    @address.Email
+                                                </p>
                                             }
                                         </div>
                                     </div>
                                 }
-                                
+
                                 <button class="btn-add-address" @onclick="ShowNewAddressForm">
-                                    <span>➕</span>
+                                    <span class="btn-icon svg-primary">@((MarkupString)AddSvg)</span>
                                     <span>Add New Address</span>
                                 </button>
                             </div>
                         }
-                        
+
                         @if (!UserAddresses.Any() || ShowAddressForm)
                         {
                             <div class="new-address-form">
@@ -121,14 +154,15 @@
                                 {
                                     <div class="form-header">
                                         <h3>New Address</h3>
-                                        <button class="btn-cancel" @onclick="HideNewAddressForm">✕</button>
+                                        <button class="btn-cancel" @onclick="HideNewAddressForm" aria-label="Close">
+                                            <span class="svg-muted">@((MarkupString)CloseSvg)</span>
+                                        </button>
                                     </div>
                                 }
 
-                                <!-- Auto-Fill Button - Prominent Position -->
                                 <div class="checkout-auto-fill">
-                                    <button class="btn-auto-fill-checkout" 
-                                            @onclick="AutoFillCheckoutAddress" 
+                                    <button class="btn-auto-fill-checkout"
+                                            @onclick="AutoFillCheckoutAddress"
                                             disabled="@IsAutoFilling"
                                             type="button">
                                         @if (IsAutoFilling)
@@ -138,14 +172,13 @@
                                         }
                                         else
                                         {
-                                            <span class="icon">🌍</span>
+                                            <span class="auto-fill-icon">@((MarkupString)LocationSvg)</span>
                                             <span>Quick Fill My Address</span>
                                         }
                                     </button>
-                                    <p class="auto-fill-note">We'll detect your location and fill in the details</p>
+                                    <p class="auto-fill-note">We will detect your location and fill in the details</p>
                                 </div>
-                                
-                                <!-- Simplified Form - Only Essential Fields Visible -->
+
                                 <div class="form-grid">
                                     <InputField Label="Full name"
                                                 Type="text"
@@ -157,7 +190,6 @@
                                 <InputField Label="Phone Number"
                                             Type="tel"
                                             @bind-Value="NewAddress.PhoneNumber"
-                                            PrefixIcon="📞"
                                             IsRequired="true"
                                             Placeholder="0801 234 5678" />
 
@@ -170,17 +202,17 @@
                                 <div class="form-grid">
                                     <div class="form-field-inline">
                                         <label>City <span class="required">*</span></label>
-                                        <input type="text" 
+                                        <input type="text"
                                                class="form-input-inline"
                                                @bind="NewAddress.City"
                                                placeholder="Enter city"
                                                required />
                                     </div>
-                                    
+
                                     <div class="form-field-inline">
                                         <label>State <span class="required">*</span></label>
-                                        <select @bind="NewAddress.State" 
-                                                class="form-select-inline" 
+                                        <select @bind="NewAddress.State"
+                                                class="form-select-inline"
                                                 required>
                                             <option value="">Select</option>
                                             @foreach (var state in NigerianStates)
@@ -209,7 +241,7 @@
 
                         <div class="section-actions">
                             <button class="btn-back" @onclick="NavigateToProduct">
-                                <span>←</span>
+                                <span class="btn-icon svg-secondary">@((MarkupString)BackArrowSvg)</span>
                                 <span>Back to Product</span>
                             </button>
                             <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
@@ -220,16 +252,16 @@
                         </div>
                     </div>
                 }
+
                 else if (CurrentStep == 2)
                 {
-                    <!-- STEP 2: Delivery Method - NO CHANGES -->
                     <div class="checkout-section">
                         <div class="section-title-wrapper">
                             <h2 class="section-title">
-                                <span class="title-icon">🚚</span>
+                                <span class="title-icon svg-primary">@((MarkupString)DeliverySvg)</span>
                                 Delivery Method
                             </h2>
-                            <span class="test-badge">🧪 TEST ONLY</span>
+                            <span class="test-badge">TEST ONLY</span>
                         </div>
 
                         @if (IsLoadingShipping)
@@ -246,16 +278,21 @@
                                 {
                                     <label class="shipping-option @(SelectedShippingMethod == method.Id ? "selected" : "")"
                                            @onclick="() => SelectShippingMethod(method)">
-                                        <input type="radio" 
-                                               name="shipping" 
+                                        <input type="radio"
+                                               name="shipping"
                                                value="@method.Id"
                                                checked="@(SelectedShippingMethod == method.Id)" />
                                         <div class="shipping-content">
-                                            <span class="shipping-icon">@method.Icon</span>
+                                            <span class="shipping-icon svg-primary">
+                                                @((MarkupString)GetShippingMethodSvg(method.Name))
+                                            </span>
                                             <div class="shipping-details">
                                                 <span class="shipping-name">@method.Name</span>
                                                 <span class="shipping-desc">@method.Description</span>
-                                                <span class="shipping-eta">⏱️ @method.EstimatedDays</span>
+                                                <span class="shipping-eta">
+                                                    <span class="eta-icon svg-muted">@((MarkupString)TimeSvg)</span>
+                                                    @method.EstimatedDays
+                                                </span>
                                             </div>
                                             <div class="shipping-price">
                                                 <span class="price-label">@method.DisplayCost</span>
@@ -268,7 +305,7 @@
 
                         <div class="section-actions">
                             <button class="btn-back" @onclick="GoToShippingStep">
-                                <span>←</span>
+                                <span class="btn-icon svg-secondary">@((MarkupString)BackArrowSvg)</span>
                                 <span>Back to Shipping</span>
                             </button>
                             <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
@@ -279,21 +316,22 @@
                         </div>
                     </div>
                 }
+
                 else if (CurrentStep == 3)
                 {
-                    <!-- STEP 3: Payment Method - NO CHANGES -->
                     <div class="checkout-section">
                         <h2 class="section-title">
-                            <span class="title-icon">💳</span>
+                            <span class="title-icon svg-primary">@((MarkupString)PaymentSvg)</span>
                             Payment Method
                         </h2>
 
                         <div class="payment-methods">
                             <label class="payment-option @(SelectedPaymentMethod == "Card" ? "selected" : "")"
                                    @onclick='() => SelectPaymentMethod("Card")'>
-                                <input type="radio" name="payment" value="Card" checked="@(SelectedPaymentMethod == "Card")" />
+                                <input type="radio" name="payment" value="Card"
+                                       checked="@(SelectedPaymentMethod == "Card")" />
                                 <div class="payment-content">
-                                    <span class="payment-icon">💳</span>
+                                    <span class="payment-icon svg-primary">@((MarkupString)CardSvg)</span>
                                     <div class="payment-details">
                                         <span class="payment-name">Credit/Debit Card</span>
                                         <span class="payment-desc">Pay securely with Paystack or Flutterwave</span>
@@ -305,15 +343,19 @@
                             {
                                 <label class="payment-option @(SelectedPaymentMethod == "Wallet" ? "selected" : "")"
                                        @onclick='() => SelectPaymentMethod("Wallet")'>
-                                    <input type="radio" name="payment" value="Wallet" checked="@(SelectedPaymentMethod == "Wallet")" />
+                                    <input type="radio" name="payment" value="Wallet"
+                                           checked="@(SelectedPaymentMethod == "Wallet")" />
                                     <div class="payment-content">
-                                        <span class="payment-icon">👛</span>
+                                        <span class="payment-icon svg-primary">@((MarkupString)WalletSvg)</span>
                                         <div class="payment-details">
                                             <span class="payment-name">Wallet</span>
                                             <span class="payment-desc">Balance: @FormatCurrency(WalletBalance)</span>
                                             @if (WalletBalance < CheckoutModel.Total)
                                             {
-                                                <span class="payment-warning">⚠️ Insufficient balance</span>
+                                                <span class="payment-warning">
+                                                    <span class="warning-icon svg-warning">@((MarkupString)WarningSvg)</span>
+                                                    Insufficient balance
+                                                </span>
                                             }
                                         </div>
                                     </div>
@@ -322,9 +364,10 @@
 
                             <label class="payment-option @(SelectedPaymentMethod == "PayOnDelivery" ? "selected" : "")"
                                    @onclick='() => SelectPaymentMethod("PayOnDelivery")'>
-                                <input type="radio" name="payment" value="PayOnDelivery" checked="@(SelectedPaymentMethod == "PayOnDelivery")" />
+                                <input type="radio" name="payment" value="PayOnDelivery"
+                                       checked="@(SelectedPaymentMethod == "PayOnDelivery")" />
                                 <div class="payment-content">
-                                    <span class="payment-icon">💰</span>
+                                    <span class="payment-icon svg-primary">@((MarkupString)CashSvg)</span>
                                     <div class="payment-details">
                                         <span class="payment-name">Pay on Delivery</span>
                                         <span class="payment-desc">Pay when you receive your order</span>
@@ -335,7 +378,7 @@
 
                         <div class="section-actions">
                             <button class="btn-back" @onclick="GoToDeliveryStep">
-                                <span>←</span>
+                                <span class="btn-icon svg-secondary">@((MarkupString)BackArrowSvg)</span>
                                 <span>Back to Delivery</span>
                             </button>
                             <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
@@ -346,16 +389,15 @@
                         </div>
                     </div>
                 }
+
                 else if (CurrentStep == 4)
                 {
-                    <!-- STEP 4: Review Order - NO CHANGES -->
                     <div class="checkout-section">
                         <h2 class="section-title">
-                            <span class="title-icon">📋</span>
+                            <span class="title-icon svg-primary">@((MarkupString)ReviewSvg)</span>
                             Review Your Order
                         </h2>
 
-                        <!-- Shipping Address Review -->
                         <div class="review-card">
                             <div class="review-header">
                                 <h3>Shipping Address</h3>
@@ -371,16 +413,21 @@
                                         <p>@CheckoutModel.ShippingAddress.AddressLine2</p>
                                     }
                                     <p>@CheckoutModel.ShippingAddress.City, @CheckoutModel.ShippingAddress.State @CheckoutModel.ShippingAddress.PostalCode</p>
-                                    <p>📞 @CheckoutModel.ShippingAddress.PhoneNumber</p>
+                                    <p class="address-detail-item">
+                                        <span class="detail-icon svg-muted">@((MarkupString)PhoneSvg)</span>
+                                        @CheckoutModel.ShippingAddress.PhoneNumber
+                                    </p>
                                     @if (!string.IsNullOrEmpty(CheckoutModel.ShippingAddress.Email))
                                     {
-                                        <p>📧 @CheckoutModel.ShippingAddress.Email</p>
+                                        <p class="address-detail-item">
+                                            <span class="detail-icon svg-muted">@((MarkupString)MailSvg)</span>
+                                            @CheckoutModel.ShippingAddress.Email
+                                        </p>
                                     }
                                 }
                             </div>
                         </div>
 
-                        <!-- Delivery Method Review -->
                         <div class="review-card">
                             <div class="review-header">
                                 <h3>Delivery Method</h3>
@@ -391,13 +438,15 @@
                                 {
                                     <p><strong>@SelectedShippingMethodObj.Name</strong></p>
                                     <p>@SelectedShippingMethodObj.Description</p>
-                                    <p>⏱️ Estimated delivery: @SelectedShippingMethodObj.EstimatedDays</p>
-                                    <p>💰 Cost: @SelectedShippingMethodObj.DisplayCost</p>
+                                    <p class="address-detail-item">
+                                        <span class="detail-icon svg-muted">@((MarkupString)TimeSvg)</span>
+                                        Estimated delivery: @SelectedShippingMethodObj.EstimatedDays
+                                    </p>
+                                    <p>Cost: @SelectedShippingMethodObj.DisplayCost</p>
                                 }
                             </div>
                         </div>
 
-                        <!-- Payment Method Review -->
                         <div class="review-card">
                             <div class="review-header">
                                 <h3>Payment Method</h3>
@@ -408,7 +457,6 @@
                             </div>
                         </div>
 
-                        <!-- Order Items Review -->
                         <div class="review-card">
                             <div class="review-header">
                                 <h3>Order Items (@CheckoutModel.Items.Count)</h3>
@@ -445,7 +493,7 @@
 
                         <div class="section-actions">
                             <button class="btn-back" @onclick="GoToPaymentStep">
-                                <span>←</span>
+                                <span class="btn-icon svg-secondary">@((MarkupString)BackArrowSvg)</span>
                                 <span>Back to Payment</span>
                             </button>
                             <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
@@ -466,23 +514,22 @@
                 }
             </div>
 
-            <!-- Right: Order Summary Sidebar - NO CHANGES -->
             <div class="order-summary-sidebar">
                 <div class="summary-card">
                     <h3 class="summary-title">Order Summary</h3>
-                    
+
                     <div class="summary-items">
                         @foreach (var item in CheckoutModel.Items)
                         {
                             <div class="summary-item">
-                                <span class="item-name">@item.Name ×@item.Quantity</span>
+                                <span class="item-name">@item.Name x@item.Quantity</span>
                                 <span class="item-price">@FormatCurrency(item.Subtotal)</span>
                             </div>
                         }
                     </div>
 
                     <div class="summary-divider"></div>
-                    
+
                     <div class="summary-details">
                         <div class="summary-row">
                             <span>Subtotal</span>
@@ -507,7 +554,7 @@
                     </div>
 
                     <div class="secure-badge">
-                        <span class="secure-icon">🔒</span>
+                        <span class="secure-icon svg-success">@((MarkupString)LockSvg)</span>
                         <span class="secure-text">Secure Checkout</span>
                     </div>
                 </div>
@@ -516,9 +563,8 @@
     }
 </div>
 
-<!-- Success Modal -->
 <DynamicModal @ref="SuccessModal"
-              Title="Order Placed Successfully! 🎉"
+              Title="Order Placed Successfully"
               Size="DynamicModal.ModalSize.Medium"
               IsOpen="@ShowSuccessModal"
               OnConfirm="NavigateToOrders"
@@ -528,18 +574,19 @@
               ShowCancelButton="true">
     <BodyContent>
         <div class="success-content">
-            <div class="success-icon">✅</div>
+            <div class="success-icon svg-success">
+                @((MarkupString)SuccessSvg)
+            </div>
             <h3>Thank you for your order!</h3>
             <p class="order-number">Order Number: <strong>@OrderNumber</strong></p>
             <p class="success-message">
-                We've received your order and will send you a confirmation email shortly.
+                We have received your order and will send you a confirmation email shortly.
                 You can track your order status in your orders page.
             </p>
         </div>
     </BodyContent>
 </DynamicModal>
 
-<!-- Error Popup -->
 <InfoPopup @ref="ErrorPopup"
            IsVisible="@ShowErrorModal"
            Title="Order Failed"
