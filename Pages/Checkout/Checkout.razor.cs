@@ -1,4 +1,4 @@
-// Pages/Checkout/Checkout.razor.cs - UPDATED WITH STREAMLINED AUTO-FILL
+// Pages/Checkout/Checkout.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using SubashaVentures.Domain.Checkout;
@@ -13,10 +13,12 @@ using SubashaVentures.Services.Payment;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Geolocation;
 using SubashaVentures.Services.Users;
+using SubashaVentures.Services.VisualElements;
+using SubashaVentures.Services.Time;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Domain.Miscellaneous;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Utilities.HelperScripts;
-using System.Diagnostics;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Checkout;
@@ -24,7 +26,7 @@ namespace SubashaVentures.Pages.Checkout;
 public partial class Checkout : ComponentBase
 {
     [Parameter] public string Slug { get; set; } = string.Empty;
-    
+
     private string? ProductId { get; set; }
     private int? Quantity { get; set; }
     private string? Size { get; set; }
@@ -38,16 +40,19 @@ public partial class Checkout : ComponentBase
     [Inject] private IWalletService WalletService { get; set; } = default!;
     [Inject] private IPermissionService PermissionService { get; set; } = default!;
     [Inject] private IGeolocationService GeolocationService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
+    [Inject] private IServerTimeService ServerTimeService { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
     [Inject] private ILogger<Checkout> Logger { get; set; } = default!;
 
-    // State
+    // ==================== STATE ====================
+
     private CheckoutViewModel? CheckoutModel;
     private List<AddressViewModel> UserAddresses = new();
     private List<ShippingMethodViewModel> ShippingMethods = new();
     private ShippingMethodViewModel? SelectedShippingMethodObj;
-    
+
     private bool IsLoading = true;
     private bool IsLoadingShipping = false;
     private bool IsProcessing = false;
@@ -55,7 +60,7 @@ public partial class Checkout : ComponentBase
     private bool ShowSuccessModal = false;
     private bool ShowErrorModal = false;
     private bool IsAutoFilling = false;
-    
+
     private int CurrentStep = 1;
     private string? CurrentUserId;
     private string? SelectedAddressId;
@@ -65,44 +70,68 @@ public partial class Checkout : ComponentBase
     private decimal WalletBalance = 0;
     private string OrderNumber = "";
     private string ErrorMessage = "";
-    
+
     private AddressViewModel NewAddress = new();
-    
+
     private DynamicModal? SuccessModal;
     private InfoPopup? ErrorPopup;
-    
-    private bool HasValidAddress => 
-        !string.IsNullOrEmpty(SelectedAddressId) || 
+
+    // ==================== SVG PROPERTIES ====================
+
+    internal string CartSvg { get; private set; } = string.Empty;
+    internal string StepCheckSvg { get; private set; } = string.Empty;
+    internal string AddressSvg { get; private set; } = string.Empty;
+    internal string PhoneSvg { get; private set; } = string.Empty;
+    internal string MailSvg { get; private set; } = string.Empty;
+    internal string AddSvg { get; private set; } = string.Empty;
+    internal string CloseSvg { get; private set; } = string.Empty;
+    internal string LocationSvg { get; private set; } = string.Empty;
+    internal string BackArrowSvg { get; private set; } = string.Empty;
+    internal string DeliverySvg { get; private set; } = string.Empty;
+    internal string TimeSvg { get; private set; } = string.Empty;
+    internal string PaymentSvg { get; private set; } = string.Empty;
+    internal string CardSvg { get; private set; } = string.Empty;
+    internal string WalletSvg { get; private set; } = string.Empty;
+    internal string WarningSvg { get; private set; } = string.Empty;
+    internal string CashSvg { get; private set; } = string.Empty;
+    internal string ReviewSvg { get; private set; } = string.Empty;
+    internal string LockSvg { get; private set; } = string.Empty;
+    internal string SuccessSvg { get; private set; } = string.Empty;
+    internal string StandardShippingSvg { get; private set; } = string.Empty;
+    internal string ExpressShippingSvg { get; private set; } = string.Empty;
+
+    // ==================== COMPUTED ====================
+
+    internal bool HasValidAddress =>
+        !string.IsNullOrEmpty(SelectedAddressId) ||
         (!string.IsNullOrEmpty(NewAddress.FullName) &&
          !string.IsNullOrEmpty(NewAddress.PhoneNumber) &&
          !string.IsNullOrEmpty(NewAddress.AddressLine1) &&
          !string.IsNullOrEmpty(NewAddress.City) &&
          !string.IsNullOrEmpty(NewAddress.State) &&
          !string.IsNullOrEmpty(NewAddress.PostalCode));
-    
-    private bool IsPaymentMethodValid
+
+    internal bool IsPaymentMethodValid
     {
         get
         {
             if (SelectedPaymentMethod == "Wallet")
-            {
-                return WalletBalance >= CheckoutModel?.Total;
-            }
+                return WalletBalance >= (CheckoutModel?.Total ?? 0);
             return !string.IsNullOrEmpty(SelectedPaymentMethod);
         }
     }
 
-    // Nigerian states list
-    private readonly List<string> NigerianStates = new()
+    // ==================== DATA ====================
+
+    internal readonly List<string> NigerianStates = new()
     {
-        "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", 
-        "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", 
-        "FCT - Abuja", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", 
-        "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", 
+        "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
+        "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu",
+        "FCT - Abuja", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina",
+        "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo",
         "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
     };
 
-    // Postal code mapping for major Nigerian states
     private readonly Dictionary<string, string> StatePostalCodes = new()
     {
         { "Lagos", "100001" },
@@ -127,24 +156,15 @@ public partial class Checkout : ComponentBase
         { "Benue", "970001" }
     };
 
+    // ==================== LIFECYCLE ====================
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
             IsLoading = true;
 
-            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-            var queryParams = ParseQueryString(uri.Query);
-            
-            ProductId = queryParams.ContainsKey("productId") ? queryParams["productId"] : null;
-            Quantity = queryParams.ContainsKey("quantity") && int.TryParse(queryParams["quantity"], out var qty) ? qty : null;
-            Size = queryParams.ContainsKey("size") ? queryParams["size"] : null;
-            Color = queryParams.ContainsKey("color") ? queryParams["color"] : null;
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"🔍 CHECKOUT INIT - Slug: {Slug}, ProductId: {ProductId ?? "NULL"}, Quantity: {Quantity?.ToString() ?? "NULL"}",
-                LogLevel.Info
-            );
+            await LoadSvgsAsync();
 
             if (!await PermissionService.EnsureAuthenticatedAsync($"checkout/{Slug}"))
             {
@@ -152,20 +172,34 @@ public partial class Checkout : ComponentBase
                 return;
             }
 
-            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            
-            if (string.IsNullOrEmpty(CurrentUserId))
+            if (!await PermissionService.CanCheckoutAsync())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ User ID not found, redirecting to sign in",
-                    LogLevel.Error
+                    "User account is not eligible for checkout",
+                    LogLevel.Warning
                 );
                 Navigation.NavigateTo("signin", true);
                 return;
             }
 
+            CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
+
+            if (string.IsNullOrEmpty(CurrentUserId))
+            {
+                Navigation.NavigateTo("signin", true);
+                return;
+            }
+
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var queryParams = ParseQueryString(uri.Query);
+
+            ProductId = queryParams.ContainsKey("productId") ? queryParams["productId"] : null;
+            Quantity = queryParams.ContainsKey("quantity") && int.TryParse(queryParams["quantity"], out var qty) ? qty : null;
+            Size = queryParams.ContainsKey("size") ? queryParams["size"] : null;
+            Color = queryParams.ContainsKey("color") ? queryParams["color"] : null;
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ User authenticated: {CurrentUserId}",
+                $"Checkout init - Slug: {Slug}, ProductId: {ProductId ?? "NULL"}, Quantity: {Quantity?.ToString() ?? "NULL"}",
                 LogLevel.Info
             );
 
@@ -184,47 +218,117 @@ public partial class Checkout : ComponentBase
         }
     }
 
-    private Dictionary<string, string> ParseQueryString(string query)
+    // ==================== SVG LOADING ====================
+
+    private async Task LoadSvgsAsync()
     {
-        var result = new Dictionary<string, string>();
-        
-        if (string.IsNullOrEmpty(query))
-            return result;
-        
-        if (query.StartsWith("?"))
-            query = query.Substring(1);
-        
-        var pairs = query.Split('&');
-        foreach (var pair in pairs)
+        try
         {
-            var parts = pair.Split('=');
-            if (parts.Length == 2)
-            {
-                var key = Uri.UnescapeDataString(parts[0]);
-                var value = Uri.UnescapeDataString(parts[1]);
-                result[key] = value;
-            }
+            CartSvg = await VisualElements.GetSvgAsync(SvgType.Cart, 64, 64);
+
+            StepCheckSvg = VisualElements.GenerateSvg(
+                "<path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' fill='currentColor'/>",
+                16, 16, "0 0 24 24"
+            );
+
+            AddressSvg = await VisualElements.GetSvgAsync(SvgType.Address, 28, 28);
+
+            PhoneSvg = VisualElements.GenerateSvg(
+                "<path d='M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z' fill='currentColor'/>",
+                14, 14, "0 0 24 24"
+            );
+
+            MailSvg = await VisualElements.GetSvgAsync(SvgType.Mail, 14, 14);
+
+            AddSvg = VisualElements.GenerateSvg(
+                "<path d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z' fill='currentColor'/>",
+                18, 18, "0 0 24 24"
+            );
+
+            CloseSvg = await VisualElements.GetSvgAsync(SvgType.Close, 18, 18);
+
+            LocationSvg = VisualElements.GenerateSvg(
+                "<path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z' fill='currentColor'/>",
+                22, 22, "0 0 24 24"
+            );
+
+            BackArrowSvg = VisualElements.GenerateSvg(
+                "<path d='M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z' fill='currentColor'/>",
+                18, 18, "0 0 24 24"
+            );
+
+            DeliverySvg = await VisualElements.GetSvgAsync(SvgType.TrackOrders, 28, 28);
+
+            TimeSvg = VisualElements.GenerateSvg(
+                "<path d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z' fill='currentColor'/>",
+                14, 14, "0 0 24 24"
+            );
+
+            PaymentSvg = await VisualElements.GetSvgAsync(SvgType.Payment, 28, 28);
+
+            CardSvg = VisualElements.GenerateSvg(
+                "<path d='M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z' fill='currentColor'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            WalletSvg = VisualElements.GenerateSvg(
+                "<path d='M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z' fill='currentColor'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            WarningSvg = await VisualElements.GetSvgAsync(SvgType.Warning, 16, 16);
+
+            CashSvg = VisualElements.GenerateSvg(
+                "<path d='M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z' fill='currentColor'/>",
+                24, 24, "0 0 24 24"
+            );
+
+            ReviewSvg = await VisualElements.GetSvgAsync(SvgType.Records, 28, 28);
+
+            LockSvg = VisualElements.GenerateSvg(
+                "<path d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z' fill='currentColor'/>",
+                18, 18, "0 0 24 24"
+            );
+
+            SuccessSvg = await VisualElements.GetSvgAsync(SvgType.CheckMark, 64, 64);
+
+            StandardShippingSvg = VisualElements.GenerateSvg(
+                "<path d='M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z' fill='currentColor'/>",
+                32, 32, "0 0 24 24"
+            );
+
+            ExpressShippingSvg = VisualElements.GenerateSvg(
+                "<path d='M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z' fill='currentColor'/>",
+                32, 32, "0 0 24 24"
+            );
         }
-        
-        return result;
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading checkout SVGs");
+        }
     }
+
+    internal string GetShippingMethodSvg(string methodName)
+    {
+        var lower = methodName.ToLowerInvariant();
+        if (lower.Contains("express") || lower.Contains("fast") || lower.Contains("overnight"))
+            return ExpressShippingSvg;
+        return StandardShippingSvg;
+    }
+
+    // ==================== DATA LOADING ====================
 
     private async Task LoadCheckoutData()
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Loading checkout data for user: {CurrentUserId}",
+                $"Loading checkout data for user: {CurrentUserId}",
                 LogLevel.Info
             );
 
             if (!string.IsNullOrEmpty(ProductId))
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"📦 PRODUCT CHECKOUT - ProductId: {ProductId}, Qty: {Quantity}",
-                    LogLevel.Info
-                );
-                
                 CheckoutModel = await CheckoutService.InitializeFromProductAsync(
                     ProductId,
                     Quantity ?? 1,
@@ -234,18 +338,13 @@ public partial class Checkout : ComponentBase
             }
             else
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "🛒 CART CHECKOUT - Loading from user's cart",
-                    LogLevel.Info
-                );
-                
                 CheckoutModel = await CheckoutService.InitializeFromCartAsync(CurrentUserId!);
             }
 
             if (CheckoutModel == null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    "❌ CheckoutModel is null - initialization failed",
+                    "CheckoutModel is null - initialization failed",
                     LogLevel.Error
                 );
                 return;
@@ -257,7 +356,7 @@ public partial class Checkout : ComponentBase
             );
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Checkout loaded successfully: {CheckoutModel.Items.Count} items",
+                $"Checkout loaded: {CheckoutModel.Items.Count} items",
                 LogLevel.Info
             );
         }
@@ -273,16 +372,16 @@ public partial class Checkout : ComponentBase
         try
         {
             UserAddresses = await AddressService.GetUserAddressesAsync(CurrentUserId!);
-            
+
             var defaultAddress = UserAddresses.FirstOrDefault(a => a.IsDefault);
             if (defaultAddress != null)
             {
                 SelectedAddressId = defaultAddress.Id;
                 UpdateCheckoutAddress(defaultAddress);
             }
-            
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded {UserAddresses.Count} addresses",
+                $"Loaded {UserAddresses.Count} addresses",
                 LogLevel.Info
             );
         }
@@ -299,11 +398,6 @@ public partial class Checkout : ComponentBase
         {
             var wallet = await WalletService.GetWalletAsync(CurrentUserId!);
             WalletBalance = wallet?.Balance ?? 0;
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"💰 Wallet balance: ₦{WalletBalance:N0}",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
@@ -312,9 +406,9 @@ public partial class Checkout : ComponentBase
         }
     }
 
-    // ==================== AUTO-FILL ADDRESS FOR CHECKOUT ====================
+    // ==================== AUTO-FILL ADDRESS ====================
 
-    private async Task AutoFillCheckoutAddress()
+    internal async Task AutoFillCheckoutAddress()
     {
         IsAutoFilling = true;
         StateHasChanged();
@@ -322,11 +416,10 @@ public partial class Checkout : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "🌍 Auto-filling checkout address (streamlined)",
+                "Auto-filling checkout address from IP and user profile",
                 LogLevel.Info
             );
 
-            // Step 1: Get location from IP
             var locationData = await GeolocationService.GetLocationFromIPAsync();
 
             if (locationData == null)
@@ -336,128 +429,55 @@ public partial class Checkout : ComponentBase
                 return;
             }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Location detected: {locationData.City}, {locationData.State}",
-                LogLevel.Info
-            );
-
-            // Step 2: Fill location data first (always available)
             NewAddress.City = locationData.City;
             NewAddress.State = locationData.State;
             NewAddress.Country = locationData.Country;
-            
-            // Set address line 1 if we have city data
-            if (!string.IsNullOrEmpty(locationData.City) && 
-                string.IsNullOrEmpty(NewAddress.AddressLine1))
-            {
-                NewAddress.AddressLine1 = $"{locationData.City} Area";
-            }
 
-            // Step 3: Set postal code
+            if (!string.IsNullOrEmpty(locationData.City) && string.IsNullOrEmpty(NewAddress.AddressLine1))
+                NewAddress.AddressLine1 = $"{locationData.City} Area";
+
             if (string.IsNullOrEmpty(NewAddress.PostalCode))
             {
                 if (!string.IsNullOrEmpty(locationData.PostalCode))
-                {
                     NewAddress.PostalCode = locationData.PostalCode;
-                }
                 else if (StatePostalCodes.TryGetValue(NewAddress.State, out var postalCode))
-                {
                     NewAddress.PostalCode = postalCode;
-                }
             }
 
-            // Step 4: Try to get user information (may be incomplete)
             if (!string.IsNullOrEmpty(CurrentUserId))
             {
                 try
                 {
                     var user = await UserService.GetUserByIdAsync(CurrentUserId);
-                    
+
                     if (user != null)
                     {
-                        // Auto-fill email (always available from user account)
-                        if (string.IsNullOrEmpty(NewAddress.Email) && 
-                            !string.IsNullOrEmpty(user.Email))
-                        {
+                        if (string.IsNullOrEmpty(NewAddress.Email) && !string.IsNullOrEmpty(user.Email))
                             NewAddress.Email = user.Email;
-                            
-                            await MID_HelperFunctions.DebugMessageAsync(
-                                $"✅ Email filled: {NewAddress.Email}",
-                                LogLevel.Info
-                            );
-                        }
 
-                        // Try to auto-fill name (may not be available)
-                        if (string.IsNullOrEmpty(NewAddress.FullName))
-                        {
-                            var fullName = $"{user.FirstName} {user.LastName}".Trim();
-                            
-                            if (!string.IsNullOrEmpty(fullName))
-                            {
-                                NewAddress.FullName = fullName;
-                                
-                                await MID_HelperFunctions.DebugMessageAsync(
-                                    $"✅ Name filled: {NewAddress.FullName}",
-                                    LogLevel.Info
-                                );
-                            }
-                            else
-                            {
-                                await MID_HelperFunctions.DebugMessageAsync(
-                                    "⚠️ User name not available in profile",
-                                    LogLevel.Warning
-                                );
-                            }
-                        }
+                        var fullName = $"{user.FirstName} {user.LastName}".Trim();
+                        if (string.IsNullOrEmpty(NewAddress.FullName) && !string.IsNullOrEmpty(fullName))
+                            NewAddress.FullName = fullName;
 
-                        // Try to auto-fill phone (may not be available)
-                        if (string.IsNullOrEmpty(NewAddress.PhoneNumber) && 
-                            !string.IsNullOrEmpty(user.PhoneNumber))
-                        {
+                        if (string.IsNullOrEmpty(NewAddress.PhoneNumber) && !string.IsNullOrEmpty(user.PhoneNumber))
                             NewAddress.PhoneNumber = user.PhoneNumber;
-                            
-                            await MID_HelperFunctions.DebugMessageAsync(
-                                $"✅ Phone filled: {NewAddress.PhoneNumber}",
-                                LogLevel.Info
-                            );
-                        }
-                        else if (string.IsNullOrEmpty(NewAddress.PhoneNumber))
-                        {
-                            await MID_HelperFunctions.DebugMessageAsync(
-                                "⚠️ User phone not available in profile",
-                                LogLevel.Warning
-                            );
-                        }
                     }
                 }
                 catch (Exception userEx)
                 {
                     await MID_HelperFunctions.LogExceptionAsync(userEx, "Getting user profile for auto-fill");
-                    // Continue even if user data fetch fails - location is already filled
                 }
             }
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✅ Checkout address auto-fill completed",
-                LogLevel.Info
-            );
-
-            // Show user-friendly message about what was filled
             var missingFields = new List<string>();
             if (string.IsNullOrEmpty(NewAddress.FullName)) missingFields.Add("name");
             if (string.IsNullOrEmpty(NewAddress.PhoneNumber)) missingFields.Add("phone number");
 
-            if (missingFields.Any())
-            {
-                var message = $"Location detected: {locationData.City}, {locationData.State}. " +
-                             $"Please complete your {string.Join(" and ", missingFields)}.";
-                await JSRuntime.InvokeVoidAsync("alert", message);
-            }
-            else
-            {
-                var message = $"Address auto-filled! Please review: {locationData.City}, {locationData.State}";
-                await JSRuntime.InvokeVoidAsync("alert", message);
-            }
+            var message = missingFields.Any()
+                ? $"Location detected: {locationData.City}, {locationData.State}. Please complete your {string.Join(" and ", missingFields)}."
+                : $"Address filled from your location: {locationData.City}, {locationData.State}. Please review before continuing.";
+
+            await JSRuntime.InvokeVoidAsync("alert", message);
 
             StateHasChanged();
         }
@@ -465,7 +485,6 @@ public partial class Checkout : ComponentBase
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Auto-filling checkout address");
             Logger.LogError(ex, "Error during checkout address auto-fill");
-            
             await JSRuntime.InvokeVoidAsync("alert",
                 "Failed to detect location. Please enter your address manually.");
         }
@@ -478,12 +497,12 @@ public partial class Checkout : ComponentBase
 
     // ==================== STEP NAVIGATION ====================
 
-    private async Task GoToDeliveryStep()
+    internal async Task GoToDeliveryStep()
     {
         if (!HasValidAddress)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                "❌ Cannot proceed: Invalid address",
+                "Cannot proceed: invalid address",
                 LogLevel.Warning
             );
             return;
@@ -493,51 +512,36 @@ public partial class Checkout : ComponentBase
         {
             var selectedAddress = UserAddresses.FirstOrDefault(a => a.Id == SelectedAddressId);
             if (selectedAddress != null)
-            {
                 UpdateCheckoutAddress(selectedAddress);
-            }
         }
         else
         {
             var newAddress = await SaveNewAddressIfNeeded();
             if (newAddress != null)
-            {
                 UpdateCheckoutAddress(newAddress);
-            }
         }
 
         CurrentStep = 2;
         await LoadShippingMethods();
     }
 
-    private void GoToShippingStep()
+    internal void GoToShippingStep() => CurrentStep = 1;
+
+    internal void GoToPaymentStep()
     {
-        CurrentStep = 1;
+        if (!string.IsNullOrEmpty(SelectedShippingMethod))
+            CurrentStep = 3;
     }
 
-    private void GoToPaymentStep()
+    internal void GoToReviewStep()
     {
-        if (string.IsNullOrEmpty(SelectedShippingMethod))
-        {
-            return;
-        }
-
-        CurrentStep = 3;
-    }
-
-    private void GoToReviewStep()
-    {
-        if (!IsPaymentMethodValid)
-        {
-            return;
-        }
-
-        CurrentStep = 4;
+        if (IsPaymentMethodValid)
+            CurrentStep = 4;
     }
 
     // ==================== ADDRESS MANAGEMENT ====================
 
-    private void SelectAddress(AddressViewModel address)
+    internal void SelectAddress(AddressViewModel address)
     {
         SelectedAddressId = address.Id;
         UpdateCheckoutAddress(address);
@@ -547,16 +551,10 @@ public partial class Checkout : ComponentBase
     private void UpdateCheckoutAddress(AddressViewModel address)
     {
         if (CheckoutModel == null) return;
-
         CheckoutModel.ShippingAddress = address;
-        
-        MID_HelperFunctions.DebugMessageAsync(
-            $"📍 Shipping address selected: {address.City}, {address.State}",
-            LogLevel.Info
-        );
     }
 
-    private void ShowNewAddressForm()
+    internal void ShowNewAddressForm()
     {
         ShowAddressForm = true;
         NewAddress = new AddressViewModel
@@ -566,7 +564,7 @@ public partial class Checkout : ComponentBase
         };
     }
 
-    private void HideNewAddressForm()
+    internal void HideNewAddressForm()
     {
         ShowAddressForm = false;
         NewAddress = new();
@@ -579,24 +577,18 @@ public partial class Checkout : ComponentBase
         try
         {
             var success = await AddressService.AddAddressAsync(CurrentUserId!, NewAddress);
-            
+
             if (success)
             {
                 await LoadUserAddresses();
-                
-                var savedAddress = UserAddresses.FirstOrDefault(a => 
-                    a.FullName == NewAddress.FullName && 
+
+                var savedAddress = UserAddresses.FirstOrDefault(a =>
+                    a.FullName == NewAddress.FullName &&
                     a.PhoneNumber == NewAddress.PhoneNumber);
-                
+
                 if (savedAddress != null)
                 {
                     SelectedAddressId = savedAddress.Id;
-                    
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        "✅ New address saved successfully",
-                        LogLevel.Info
-                    );
-                    
                     return savedAddress;
                 }
             }
@@ -609,7 +601,7 @@ public partial class Checkout : ComponentBase
         return NewAddress;
     }
 
-    // ==================== SHIPPING METHODS ====================
+    // ==================== SHIPPING ====================
 
     private async Task LoadShippingMethods()
     {
@@ -632,25 +624,13 @@ public partial class Checkout : ComponentBase
                 Sku = i.Sku
             }).ToList();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"📦 Loading shipping methods for {checkoutItems.Count} items",
-                LogLevel.Info
-            );
-
             ShippingMethods = await CheckoutService.GetShippingMethodsAsync(
                 CurrentUserId!,
                 checkoutItems
             );
 
             if (ShippingMethods.Any())
-            {
                 SelectShippingMethod(ShippingMethods.First());
-            }
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded {ShippingMethods.Count} shipping methods",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
@@ -664,11 +644,11 @@ public partial class Checkout : ComponentBase
         }
     }
 
-    private void SelectShippingMethod(ShippingMethodViewModel method)
+    internal void SelectShippingMethod(ShippingMethodViewModel method)
     {
         SelectedShippingMethod = method.Id;
         SelectedShippingMethodObj = method;
-        
+
         if (CheckoutModel != null)
         {
             CheckoutModel.ShippingMethod = method.Name;
@@ -677,19 +657,14 @@ public partial class Checkout : ComponentBase
         }
 
         StateHasChanged();
-        
-        MID_HelperFunctions.DebugMessageAsync(
-            $"🚚 Shipping method selected: {method.Name} (₦{method.Cost:N0})",
-            LogLevel.Info
-        );
     }
 
     // ==================== PAYMENT ====================
 
-    private void SelectPaymentMethod(string method)
+    internal void SelectPaymentMethod(string method)
     {
         SelectedPaymentMethod = method;
-        
+
         if (CheckoutModel != null)
         {
             CheckoutModel.PaymentMethod = method switch
@@ -704,7 +679,7 @@ public partial class Checkout : ComponentBase
         StateHasChanged();
     }
 
-    private string GetPaymentMethodDisplay(string method)
+    internal string GetPaymentMethodDisplay(string method)
     {
         return method switch
         {
@@ -717,7 +692,7 @@ public partial class Checkout : ComponentBase
 
     // ==================== ORDER PLACEMENT ====================
 
-    private async Task PlaceOrder()
+    internal async Task PlaceOrder()
     {
         if (CheckoutModel == null || IsProcessing) return;
 
@@ -727,9 +702,32 @@ public partial class Checkout : ComponentBase
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"📦 PLACING ORDER - Items: {CheckoutModel.Items.Count}, Total: ₦{CheckoutModel.Total:N0}",
+                $"Placing order - Items: {CheckoutModel.Items.Count}, Total: {FormatCurrency(CheckoutModel.Total)}",
                 LogLevel.Info
             );
+
+            var isAuthenticated = await PermissionService.IsAuthenticatedAsync();
+            if (!isAuthenticated)
+            {
+                Navigation.NavigateTo("signin", true);
+                return;
+            }
+
+            var isAccountActive = await PermissionService.IsAccountActiveAsync();
+            if (!isAccountActive)
+            {
+                ErrorMessage = "Your account is not active. Please contact support.";
+                ShowErrorModal = true;
+                return;
+            }
+
+            var serverTime = await ServerTimeService.GetCurrentServerTimeAsync();
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Server time at order placement: {serverTime:yyyy-MM-dd HH:mm:ss UTC}",
+                LogLevel.Info
+            );
+
+            await ServerTimeService.ForceSyncAsync();
 
             var validation = await CheckoutService.ValidateCheckoutAsync(CheckoutModel);
             if (!validation.IsValid)
@@ -742,28 +740,20 @@ public partial class Checkout : ComponentBase
             OrderPlacementResult? result = null;
 
             if (SelectedPaymentMethod == "Card")
-            {
                 result = await ProcessCardPayment();
-            }
             else if (SelectedPaymentMethod == "Wallet")
-            {
                 result = await ProcessWalletPayment();
-            }
             else if (SelectedPaymentMethod == "PayOnDelivery")
-            {
                 result = await CheckoutService.PlaceOrderAsync(CheckoutModel, CurrentUserId!);
-            }
 
             if (result != null && result.Success)
             {
                 OrderNumber = result.OrderNumber ?? "";
-                
                 await ClearCartAfterOrder();
-                
                 ShowSuccessModal = true;
-                
+
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ ORDER PLACED SUCCESSFULLY: {OrderNumber}",
+                    $"Order placed successfully: {OrderNumber}",
                     LogLevel.Info
                 );
             }
@@ -773,7 +763,7 @@ public partial class Checkout : ComponentBase
                 ShowErrorModal = true;
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ ORDER FAILED: {ErrorMessage}",
+                    $"Order failed: {ErrorMessage}",
                     LogLevel.Error
                 );
             }
@@ -799,7 +789,7 @@ public partial class Checkout : ComponentBase
             var user = await UserService.GetUserByIdAsync(CurrentUserId!);
             var paymentRequest = new PaymentRequest
             {
-                Email = user.Email,
+                Email = user?.Email ?? string.Empty,
                 CustomerName = CheckoutModel!.ShippingAddress!.FullName,
                 PhoneNumber = CheckoutModel.ShippingAddress.PhoneNumber,
                 Amount = CheckoutModel.Total,
@@ -870,14 +860,7 @@ public partial class Checkout : ComponentBase
         try
         {
             if (string.IsNullOrEmpty(ProductId))
-            {
                 await CartService.ClearCartAsync(CurrentUserId!);
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "🗑️ Cart cleared after successful order",
-                    LogLevel.Info
-                );
-            }
         }
         catch (Exception ex)
         {
@@ -887,29 +870,19 @@ public partial class Checkout : ComponentBase
 
     // ==================== NAVIGATION ====================
 
-    private void NavigateToShop()
-    {
-        Navigation.NavigateTo("shop");
-    }
+    internal void NavigateToShop() => Navigation.NavigateTo("shop");
 
-    private void NavigateToProduct()
+    internal void NavigateToProduct()
     {
         if (!string.IsNullOrEmpty(Slug))
-        {
             Navigation.NavigateTo($"product/{Slug}");
-        }
         else
-        {
             Navigation.NavigateTo("shop");
-        }
     }
 
-    private void NavigateToOrders()
-    {
-        Navigation.NavigateTo("user/orders");
-    }
+    internal void NavigateToOrders() => Navigation.NavigateTo("user/orders");
 
-    private void CloseErrorModal()
+    internal void CloseErrorModal()
     {
         ShowErrorModal = false;
         ErrorMessage = "";
@@ -917,8 +890,30 @@ public partial class Checkout : ComponentBase
 
     // ==================== UTILITIES ====================
 
-    private string FormatCurrency(decimal amount)
+    internal string FormatCurrency(decimal amount) => $"₦{amount:N0}";
+
+    private Dictionary<string, string> ParseQueryString(string query)
     {
-        return $"₦{amount:N0}";
+        var result = new Dictionary<string, string>();
+
+        if (string.IsNullOrEmpty(query))
+            return result;
+
+        if (query.StartsWith("?"))
+            query = query.Substring(1);
+
+        var pairs = query.Split('&');
+        foreach (var pair in pairs)
+        {
+            var parts = pair.Split('=');
+            if (parts.Length == 2)
+            {
+                var key = Uri.UnescapeDataString(parts[0]);
+                var value = Uri.UnescapeDataString(parts[1]);
+                result[key] = value;
+            }
+        }
+
+        return result;
     }
 }
