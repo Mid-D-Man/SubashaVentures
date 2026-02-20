@@ -1,38 +1,114 @@
+@* Layout/Main/TopNavigation.razor *@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Burgers
 @inject INavigationService NavService
-@implements IDisposable
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="top-navigation">
-    <!-- Left: Brand Logo  -->
+    <!-- Left: Brand Logo -->
     <div class="nav-left">
         <BrandLogo />
-    </div>  
+    </div>
 
-    <!-- Middle: Filler Space -->
+    <!-- Middle: Filler -->
     <div class="nav-middle"></div>
 
-    <!-- Right: Burger Menu Only -->
+    <!-- Right: Install Button (Chromium only) + Burger Menu -->
     <div class="nav-right">
+
+        @if (_showInstallButton)
+        {
+            <button class="nav-install-btn" @onclick="HandleInstallClick" title="Install SubashaVentures app">
+                <svg class="nav-install-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span class="nav-install-label">Install App</span>
+            </button>
+        }
+
         <div class="nav-burger">
-            <BurgerMenu IsOpen="@isSidePanelOpen" 
-                       IsOpenChanged="@HandleBurgerToggle" />
-        </div>  
+            <BurgerMenu IsOpen="@_isSidePanelOpen"
+                        IsOpenChanged="@HandleBurgerToggle" />
+        </div>
     </div>
 </div>
 
 @code {
-    private bool isSidePanelOpen = false;
+    private bool _isSidePanelOpen = false;
+    private bool _showInstallButton = false;
+    private bool _isInstalling = false;
+    private DotNetObjectReference<TopNavigation>? _dotNetRef;
 
     protected override void OnInitialized()
     {
         NavService.SidePanelStateChanged += OnSidePanelStateChanged;
-        isSidePanelOpen = NavService.IsSidePanelOpen;
+        _isSidePanelOpen = NavService.IsSidePanelOpen;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            // Register this component with the PWA manager so it can call back into Blazor
+            await JS.InvokeVoidAsync("SubashaPWA.register", _dotNetRef);
+
+            // Check if already installed — if so, never show the button
+            var installed = await JS.InvokeAsync<bool>("SubashaPWA.isInstalled");
+            if (installed)
+            {
+                _showInstallButton = false;
+            }
+        }
+    }
+
+    // Called by pwaManager.js when beforeinstallprompt fires
+    [JSInvokable]
+    public void OnInstallAvailable(bool available)
+    {
+        _showInstallButton = available;
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Called by pwaManager.js when app is successfully installed
+    [JSInvokable]
+    public void OnAppInstalled()
+    {
+        _showInstallButton = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleInstallClick()
+    {
+        if (_isInstalling) return;
+        _isInstalling = true;
+
+        try
+        {
+            var accepted = await JS.InvokeAsync<bool>("SubashaPWA.promptInstall");
+            if (accepted)
+            {
+                _showInstallButton = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PWA] Install error: {ex.Message}");
+        }
+        finally
+        {
+            _isInstalling = false;
+            StateHasChanged();
+        }
     }
 
     private void OnSidePanelStateChanged(object? sender, bool isOpen)
     {
-        isSidePanelOpen = isOpen;
+        _isSidePanelOpen = isOpen;
         StateHasChanged();
     }
 
@@ -42,8 +118,14 @@
         await Task.CompletedTask;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
+        try
+        {
+            await JS.InvokeVoidAsync("SubashaPWA.unregister");
+        }
+        catch { /* Ignore disposal errors */ }
+        _dotNetRef?.Dispose();
     }
 }
