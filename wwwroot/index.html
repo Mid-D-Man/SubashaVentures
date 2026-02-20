@@ -11,8 +11,12 @@
     <link href="css/responsive.css" rel="stylesheet" />
     <link href="SubashaVentures.styles.css" rel="stylesheet" />
     <link href="manifest.json" rel="manifest" />
-    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icons/SBV_ICON_512.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/SBV_ICON_512.png" />
+    <meta name="theme-color" content="#96994A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="SubashaVentures" />
     <meta http-equiv="Permissions-Policy" content="interest-cohort=()">
 
     <!-- Firebase SDKs -->
@@ -29,15 +33,13 @@
 </head>
 <body>
 <div id="app">
-    <!-- OPTIMIZED LOADING SCREEN -->
+    <!-- LOADING SCREEN -->
     <div id="loading-screen">
         <div class="loader-container">
-            <!-- Diamond with SV Inside -->
             <div class="diamond-loader-wrapper">
                 <span class="loader"></span>
                 <div class="brand-text">SV</div>
             </div>
-            <!-- Percentage Below -->
             <div class="percentage-text" id="loading-percentage">0%</div>
         </div>
     </div>
@@ -60,21 +62,28 @@
 <script src="js/charts.js"></script>
 <script src="js/imageCacheHelper.js"></script>
 <script src="js/supabaseOAuth.js"></script>
-<!-- Add before the closing </body> tag -->
 <script src="js/cryptographyHandler.js"></script>
 <script src="js/qrCodeModule.js" type="module"></script>
+<script src="js/geolocation.js"></script>
+
+<!-- PWA Manager — must load before Blazor so the beforeinstallprompt is never missed -->
+<script src="js/pwaManager.js"></script>
+
 <!-- Payment Providers -->
 <script src="https://js.paystack.co/v2/inline.js"></script>
 <script src="https://checkout.flutterwave.com/v3.js"></script>
 <script src="js/paymentHandler.js"></script>
-<script src="js/geolocation.js"></script>
 
 <!-- Blazor -->
 <script src="_framework/blazor.webassembly.js"></script>
 
-<!-- Service Worker -->
+<!-- Service Worker — Blazor's default registration handles dev vs published automatically -->
 <script>
-    navigator.serviceWorker.register('service-worker.js');
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js', { scope: '/' })
+            .then(reg => console.log('[SW] Registered, scope:', reg.scope))
+            .catch(err => console.error('[SW] Registration failed:', err));
+    }
 </script>
 </body>
-</html>
+                </html>
