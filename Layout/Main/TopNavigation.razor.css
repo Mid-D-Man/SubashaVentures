@@ -40,10 +40,11 @@
     z-index: 1;
 }
 
-/* ===== INSTALL BUTTON ===== */
+/* ===== INSTALL BUTTON — BASE (desktop) ===== */
 .nav-install-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
     padding: 0.45rem 0.9rem;
     background: var(--primary-color, #96994A);
@@ -56,9 +57,10 @@
     cursor: pointer;
     white-space: nowrap;
     letter-spacing: 0.3px;
+    flex-shrink: 0;
+    line-height: 1;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 8px rgba(150, 153, 74, 0.35);
-    /* Slide in from right */
     animation: installBtnSlideIn 0.4s ease-out;
 }
 
@@ -93,6 +95,7 @@
     flex-shrink: 0;
     width: 16px;
     height: 16px;
+    display: block;
 }
 
 .nav-install-label {
@@ -150,7 +153,7 @@
     outline-color: var(--primary-color, #B8BB6A);
 }
 
-/* ===== RESPONSIVE ===== */
+/* ===== TABLET (max 768px) ===== */
 @media (max-width: 768px) {
     .top-navigation {
         padding: 0 0.75rem;
@@ -163,6 +166,7 @@
     .nav-install-btn {
         padding: 0.4rem 0.7rem;
         font-size: 0.78rem;
+        border-radius: 8px;
     }
 
     .nav-install-icon {
@@ -185,6 +189,7 @@
     }
 }
 
+/* ===== MOBILE (max 480px) — icon-only perfect circle ===== */
 @media (max-width: 480px) {
     .top-navigation {
         padding: 0 0.5rem;
@@ -194,22 +199,35 @@
         gap: 0.4rem;
     }
 
-    /* On very small screens, hide the label and show icon only */
+    /* Hide text label — icon only */
     .nav-install-label {
         display: none;
     }
 
+    /* Force a perfect circle — the key fixes:
+       1. Explicit equal width + height
+       2. aspect-ratio enforces the square shape
+       3. padding: 0 prevents any asymmetric spacing
+       4. min-width/min-height stops flex from squishing it */
     .nav-install-btn {
-        padding: 0.5rem;
-        border-radius: 50%;
         width: 36px;
         height: 36px;
-        justify-content: center;
+        min-width: 36px;
+        min-height: 36px;
+        max-width: 36px;
+        max-height: 36px;
+        aspect-ratio: 1 / 1;
+        padding: 0;
+        border-radius: 50%;
+        gap: 0;
+        flex-shrink: 0;
+        box-sizing: border-box;
     }
 
     .nav-install-icon {
         width: 17px;
         height: 17px;
+        flex-shrink: 0;
     }
 
     .nav-burger {
@@ -227,7 +245,7 @@
     }
 }
 
-/* ===== ACCESSIBILITY ===== */
+/* ===== TOUCH DEVICES ===== */
 @media (hover: none) and (pointer: coarse) {
     .nav-burger {
         width: 48px;
@@ -244,12 +262,20 @@
         background: rgba(184, 187, 106, 0.2);
     }
 
+    /* On touch, keep the install button tappable but still circular */
     .nav-install-btn {
         min-height: 44px;
-        padding: 0.5rem 1rem;
+    }
+
+    /* But override min-height back to 36px on small screens where it's a circle */
+    @media (max-width: 480px) {
+        .nav-install-btn {
+            min-height: 36px;
+        }
     }
 }
 
+/* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
     .top-navigation,
     .nav-install-btn {
@@ -262,8 +288,9 @@
     }
 }
 
+/* ===== HIGH CONTRAST ===== */
 @media (prefers-contrast: more) {
     .nav-install-btn {
         border: 2px solid currentColor;
     }
-}
+    }
