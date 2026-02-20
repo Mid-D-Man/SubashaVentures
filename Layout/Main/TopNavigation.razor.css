@@ -1,3 +1,5 @@
+/* Layout/Main/TopNavigation.razor.css */
+
 .top-navigation {
     width: 100%;
     height: 100%;
@@ -6,19 +8,16 @@
     position: relative;
     padding: 0 1rem;
 
-    /* Glassmorphism background */
     background: var(--nav-bg, rgba(255, 255, 255, 0.95));
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border-bottom: 1px solid var(--nav-border, rgba(150, 153, 74, 0.2));
     transition: all 0.3s ease;
-    
-    /* Ensure proper stacking context */
     z-index: 100;
     isolation: isolate;
 }
 
-/* ===== LEFT: BRAND SECTION ===== */
+/* ===== LEFT: BRAND ===== */
 .nav-left {
     flex: 0 0 auto;
     display: flex;
@@ -26,208 +25,151 @@
     z-index: 1;
 }
 
-/* ===== MIDDLE: FILLER SPACE ===== */
+/* ===== MIDDLE: SPACER ===== */
 .nav-middle {
     flex: 1 1 auto;
     min-width: 1rem;
 }
 
-/* ===== RIGHT: SEARCH + BURGER SECTION ===== */
+/* ===== RIGHT: INSTALL + BURGER ===== */
 .nav-right {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 1.5rem; /* Increased gap between search and burger */
+    gap: 0.75rem;
     z-index: 1;
 }
 
-/* Search Bar - Desktop Only */
-.nav-search {
+/* ===== INSTALL BUTTON ===== */
+.nav-install-btn {
     display: flex;
     align-items: center;
-}
-
-.search-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 240px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid var(--border-light, rgba(150, 153, 74, 0.3));
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    background: var(--primary-color, #96994A);
+    color: #ffffff;
+    border: none;
     border-radius: 8px;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-}
-
-.search-container:focus-within {
-    border-color: var(--theme-primary, #96994A);
-    box-shadow: 0 0 10px rgba(150, 153, 74, 0.2);
-    background: rgba(255, 255, 255, 0.95);
-}
-
-.search-icon {
-    position: absolute;
-    left: 10px;
-    font-size: 0.85rem;
-    color: var(--text-muted, #999);
-    pointer-events: none;
-    z-index: 1;
-}
-
-.search-input {
-    flex: 1;
-    height: 100%;
-    padding: 0 35px 0 30px;
-    border: none;
-    background: transparent;
-    color: var(--text-primary, #333);
-    font-size: 0.85rem;
-    outline: none;
-    font-family: inherit;
-}
-
-.search-input::placeholder {
-    color: var(--text-muted, #999);
-}
-
-.search-clear {
-    position: absolute;
-    right: 6px;
-    width: 20px;
-    height: 20px;
-    border: none;
-    background: rgba(150, 153, 74, 0.1);
-    color: var(--text-muted, #666);
-    border-radius: 50%;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
     cursor: pointer;
-    font-size: 0.7rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(150, 153, 74, 0.35);
+    /* Slide in from right */
+    animation: installBtnSlideIn 0.4s ease-out;
 }
 
-.search-clear:hover {
-    background: var(--theme-primary, #96994A);
-    color: white;
+@keyframes installBtnSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
-.search-clear.hidden {
-    display: none;
+.nav-install-btn:hover {
+    background: var(--hover-primary, #7A7D3A);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(150, 153, 74, 0.5);
 }
 
-/* Burger Menu Container - Fixed Sizing */
+.nav-install-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(150, 153, 74, 0.3);
+}
+
+.nav-install-btn:focus-visible {
+    outline: 2px solid var(--primary-color, #96994A);
+    outline-offset: 2px;
+}
+
+.nav-install-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+}
+
+.nav-install-label {
+    line-height: 1;
+}
+
+/* ===== BURGER ===== */
 .nav-burger {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    
-    /* Fixed container size for consistent burger positioning */
     width: 44px;
     height: 44px;
-    
-    /* Ensure burger is centered */
     padding: 0;
     margin: 0;
 }
 
-/* Override burger component margins to prevent layout issues */
 .nav-burger ::deep .burger-toggle {
     margin: 0 !important;
     margin-top: 0 !important;
-    
-    /* Ensure burger fits properly in container */
     width: 32px;
     height: 24px;
-    
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
 }
 
-/* Fix burger bar sizing for mobile */
 .nav-burger ::deep .bar {
     width: 100%;
     height: 3px;
     margin: 0;
 }
 
-/* ===== RESPONSIVE HIDE/SHOW ===== */
-.desktop-only {
-    display: block;
-}
-
-.mobile-only {
-    display: none;
-}
-
 /* ===== DARK THEME ===== */
-.dark-mode .top-navigation {
-    background: var(--nav-bg, rgba(33, 37, 41, 0.95));
+.dark-mode .top-navigation,
+[data-theme="dark"] .top-navigation {
+    background: var(--nav-bg, rgba(15, 23, 42, 0.95));
     border-bottom-color: rgba(184, 187, 106, 0.2);
 }
 
-.dark-mode .search-container {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(184, 187, 106, 0.3);
+[data-theme="dark"] .nav-install-btn {
+    background: var(--primary-color, #B8BB6A);
+    color: #0f172a;
+    box-shadow: 0 2px 8px rgba(184, 187, 106, 0.4);
 }
 
-.dark-mode .search-container:focus-within {
-    border-color: var(--theme-primary, #B8BB6A);
-    background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 0 15px rgba(184, 187, 106, 0.4);
+[data-theme="dark"] .nav-install-btn:hover {
+    background: var(--hover-primary, #C8CB7A);
+    box-shadow: 0 4px 14px rgba(184, 187, 106, 0.6);
 }
 
-.dark-mode .search-input {
-    color: var(--text-primary, #f8f9fa);
+[data-theme="dark"] .nav-install-btn:focus-visible {
+    outline-color: var(--primary-color, #B8BB6A);
 }
 
-.dark-mode .search-clear {
-    background: rgba(184, 187, 106, 0.2);
-    color: var(--text-primary, #f8f9fa);
-}
-
-.dark-mode .search-clear:hover {
-    background: var(--theme-primary, #B8BB6A);
-    color: var(--text-on-primary, #212529);
-}
-
-/* ===== RESPONSIVE DESIGN ===== */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .top-navigation {
         padding: 0 0.75rem;
     }
 
     .nav-right {
-        gap: 1rem; /* Slightly smaller gap on tablet */
+        gap: 0.5rem;
     }
 
-    .search-container {
-        width: 180px;
-        height: 32px;
+    .nav-install-btn {
+        padding: 0.4rem 0.7rem;
+        font-size: 0.78rem;
     }
 
-    .search-input {
-        font-size: 0.8rem;
-        padding: 0 30px 0 26px;
+    .nav-install-icon {
+        width: 15px;
+        height: 15px;
     }
 
-    .search-icon {
-        left: 8px;
-        font-size: 0.8rem;
-    }
-
-    .search-clear {
-        right: 5px;
-        width: 18px;
-        height: 18px;
-    }
-
-    /* Adjust burger container for tablet */
     .nav-burger {
         width: 40px;
         height: 40px;
@@ -243,31 +185,33 @@
     }
 }
 
-@media (max-width: 640px) {
-    /* Hide desktop search on smaller screens */
-    .desktop-only {
-        display: none;
-    }
-
-    .mobile-only {
-        display: block;
-    }
-
-    .nav-right {
-        gap: 0.75rem;
-    }
-}
-
 @media (max-width: 480px) {
     .top-navigation {
         padding: 0 0.5rem;
     }
 
     .nav-right {
-        gap: 0.5rem;
+        gap: 0.4rem;
     }
 
-    /* Mobile burger sizing */
+    /* On very small screens, hide the label and show icon only */
+    .nav-install-label {
+        display: none;
+    }
+
+    .nav-install-btn {
+        padding: 0.5rem;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        justify-content: center;
+    }
+
+    .nav-install-icon {
+        width: 17px;
+        height: 17px;
+    }
+
     .nav-burger {
         width: 36px;
         height: 36px;
@@ -283,26 +227,11 @@
     }
 }
 
-/* ===== ACCESSIBILITY & INTERACTION ===== */
-@media (hover: hover) and (pointer: fine) {
-    .nav-burger:hover {
-        background: rgba(150, 153, 74, 0.1);
-        border-radius: 50%;
-        transition: background 0.3s ease;
-    }
-
-    .dark-mode .nav-burger:hover {
-        background: rgba(184, 187, 106, 0.1);
-    }
-}
-
-/* Touch-friendly sizing for mobile */
+/* ===== ACCESSIBILITY ===== */
 @media (hover: none) and (pointer: coarse) {
     .nav-burger {
         width: 48px;
         height: 48px;
-        
-        /* Add visual feedback for touch */
         border-radius: 50%;
         transition: background 0.2s ease;
     }
@@ -311,28 +240,30 @@
         background: rgba(150, 153, 74, 0.2);
     }
 
-    .dark-mode .nav-burger:active {
+    [data-theme="dark"] .nav-burger:active {
         background: rgba(184, 187, 106, 0.2);
     }
-}
 
-/* High contrast mode support */
-@media (prefers-contrast: more) {
-    .search-container {
-        border-width: 2px;
-    }
-    
-    .nav-burger ::deep .bar {
-        height: 4px;
+    .nav-install-btn {
+        min-height: 44px;
+        padding: 0.5rem 1rem;
     }
 }
 
-/* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
     .top-navigation,
-    .search-container,
-    .search-clear,
-    .nav-burger {
+    .nav-install-btn {
         transition: none;
+        animation: none;
+    }
+
+    .nav-install-btn:hover {
+        transform: none;
+    }
+}
+
+@media (prefers-contrast: more) {
+    .nav-install-btn {
+        border: 2px solid currentColor;
     }
 }
