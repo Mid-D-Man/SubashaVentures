@@ -16,6 +16,7 @@ using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.Wishlist;
 using SubashaVentures.Services.Cart;
+using SubashaVentures.Services.Email;
 using SubashaVentures.Services.Authorization;
 using Blazored.LocalStorage;
 using Blazored.Toast;
@@ -160,6 +161,10 @@ builder.Services.AddScoped<IUserSegmentationService,UserSegmentationService>();
 builder.Services.AddScoped<IMessagingService,MessagingService>();
 // Add after other service registrations
 builder.Services.AddScoped<ICryptographyService, CryptographyService>();
+
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+
 var host = builder.Build();
 
 try
