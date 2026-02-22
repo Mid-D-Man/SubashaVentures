@@ -31,7 +31,7 @@
     min-width: 1rem;
 }
 
-/* ===== RIGHT: INSTALL + BURGER ===== */
+/* ===== RIGHT: INSTALL + BELL + BURGER ===== */
 .nav-right {
     flex: 0 0 auto;
     display: flex;
@@ -40,7 +40,7 @@
     z-index: 1;
 }
 
-/* ===== INSTALL BUTTON — BASE (desktop) ===== */
+/* ===== INSTALL BUTTON ===== */
 .nav-install-btn {
     display: flex;
     align-items: center;
@@ -65,14 +65,8 @@
 }
 
 @keyframes installBtnSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(12px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
 }
 
 .nav-install-btn:hover {
@@ -100,6 +94,155 @@
 
 .nav-install-label {
     line-height: 1;
+}
+
+/* ===== NOTIFICATION BELL ===== */
+.nav-notification-wrapper {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-notification-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: rgba(150, 153, 74, 0.08);
+    border-radius: 50%;
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.nav-notification-btn:hover {
+    background: rgba(150, 153, 74, 0.15);
+    color: var(--primary-color, #96994A);
+    transform: scale(1.05);
+}
+
+.nav-notification-btn:active {
+    transform: scale(0.95);
+}
+
+.nav-notification-btn.has-unread {
+    color: var(--primary-color, #96994A);
+    background: rgba(150, 153, 74, 0.12);
+}
+
+.nav-notification-btn:focus-visible {
+    outline: 2px solid var(--primary-color, #96994A);
+    outline-offset: 2px;
+}
+
+/* Badge */
+.notification-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    background: var(--danger-color, #ef4444);
+    color: #ffffff;
+    font-size: 0.625rem;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--nav-bg, rgba(255, 255, 255, 0.95));
+    line-height: 1;
+    animation: badgePop 0.25s ease-out;
+}
+
+@keyframes badgePop {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+}
+
+/* ===== NOTIFICATION DROPDOWN ===== */
+.notification-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: transparent;
+    cursor: default;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 280px;
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-light, #e5e7eb);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 200;
+    overflow: hidden;
+    animation: dropdownFadeIn 0.18s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem 0.75rem;
+    border-bottom: 1px solid var(--border-light, #e5e7eb);
+}
+
+.dropdown-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.dropdown-body {
+    padding: 0.875rem 1rem;
+}
+
+.unread-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #374151);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.unread-text strong {
+    color: var(--primary-color, #96994A);
+    font-weight: 700;
+}
+
+.no-messages-text {
+    font-size: 0.875rem;
+    color: var(--text-muted, #9ca3af);
+    margin: 0;
+}
+
+.dropdown-footer {
+    padding: 0.75rem 1rem 0.875rem;
+    border-top: 1px solid var(--border-light, #e5e7eb);
+}
+
+.view-messages-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.875rem !important;
+    padding: 0.625rem 1rem !important;
 }
 
 /* ===== BURGER ===== */
@@ -153,6 +296,47 @@
     outline-color: var(--primary-color, #B8BB6A);
 }
 
+[data-theme="dark"] .nav-notification-btn {
+    background: rgba(184, 187, 106, 0.1);
+    color: var(--text-secondary, #d1d5db);
+}
+
+[data-theme="dark"] .nav-notification-btn:hover {
+    background: rgba(184, 187, 106, 0.18);
+    color: var(--primary-color, #B8BB6A);
+}
+
+[data-theme="dark"] .nav-notification-btn.has-unread {
+    color: var(--primary-color, #B8BB6A);
+    background: rgba(184, 187, 106, 0.15);
+}
+
+[data-theme="dark"] .notification-badge {
+    border-color: var(--nav-bg, rgba(15, 23, 42, 0.95));
+}
+
+[data-theme="dark"] .notification-dropdown {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-color, #334155);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .dropdown-header {
+    border-color: var(--border-color, #334155);
+}
+
+[data-theme="dark"] .dropdown-title {
+    color: var(--text-primary, #f8fafc);
+}
+
+[data-theme="dark"] .dropdown-footer {
+    border-color: var(--border-color, #334155);
+}
+
+[data-theme="dark"] .nav-notification-btn:focus-visible {
+    outline-color: var(--primary-color, #B8BB6A);
+}
+
 /* ===== TABLET (max 768px) ===== */
 @media (max-width: 768px) {
     .top-navigation {
@@ -174,6 +358,11 @@
         height: 15px;
     }
 
+    .nav-notification-btn {
+        width: 38px;
+        height: 38px;
+    }
+
     .nav-burger {
         width: 40px;
         height: 40px;
@@ -187,9 +376,14 @@
     .nav-burger ::deep .bar {
         height: 2.5px;
     }
+
+    .notification-dropdown {
+        width: 260px;
+        right: -8px;
+    }
 }
 
-/* ===== MOBILE (max 480px) — icon-only perfect circle ===== */
+/* ===== MOBILE (max 480px) ===== */
 @media (max-width: 480px) {
     .top-navigation {
         padding: 0 0.5rem;
@@ -199,16 +393,11 @@
         gap: 0.4rem;
     }
 
-    /* Hide text label — icon only */
+    /* Install button: icon-only circle */
     .nav-install-label {
         display: none;
     }
 
-    /* Force a perfect circle — the key fixes:
-       1. Explicit equal width + height
-       2. aspect-ratio enforces the square shape
-       3. padding: 0 prevents any asymmetric spacing
-       4. min-width/min-height stops flex from squishing it */
     .nav-install-btn {
         width: 36px;
         height: 36px;
@@ -230,6 +419,11 @@
         flex-shrink: 0;
     }
 
+    .nav-notification-btn {
+        width: 36px;
+        height: 36px;
+    }
+
     .nav-burger {
         width: 36px;
         height: 36px;
@@ -242,6 +436,11 @@
 
     .nav-burger ::deep .bar {
         height: 2px;
+    }
+
+    .notification-dropdown {
+        width: calc(100vw - 1rem);
+        right: -0.5rem;
     }
 }
 
@@ -262,15 +461,23 @@
         background: rgba(184, 187, 106, 0.2);
     }
 
-    /* On touch, keep the install button tappable but still circular */
+    .nav-notification-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
     .nav-install-btn {
         min-height: 44px;
     }
 
-    /* But override min-height back to 36px on small screens where it's a circle */
     @media (max-width: 480px) {
         .nav-install-btn {
             min-height: 36px;
+        }
+
+        .nav-notification-btn {
+            min-height: 36px;
+            min-width: 36px;
         }
     }
 }
@@ -278,13 +485,23 @@
 /* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
     .top-navigation,
-    .nav-install-btn {
+    .nav-install-btn,
+    .nav-notification-btn {
         transition: none;
         animation: none;
     }
 
-    .nav-install-btn:hover {
+    .nav-install-btn:hover,
+    .nav-notification-btn:hover {
         transform: none;
+    }
+
+    .notification-dropdown {
+        animation: none;
+    }
+
+    .notification-badge {
+        animation: none;
     }
 }
 
@@ -292,5 +509,13 @@
 @media (prefers-contrast: more) {
     .nav-install-btn {
         border: 2px solid currentColor;
+    }
+
+    .nav-notification-btn {
+        border: 1px solid currentColor;
+    }
+
+    .notification-dropdown {
+        border-width: 2px;
     }
     }
