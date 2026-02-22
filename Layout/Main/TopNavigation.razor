@@ -1,22 +1,30 @@
 @* Layout/Main/TopNavigation.razor *@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Burgers
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using SubashaVentures.Services.Notifications
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
 @inject INavigationService NavService
 @inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@inject INotificationService NotificationService
+@inject IVisualElementsService VisualElements
+@inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 
 <div class="top-navigation">
-    <!-- Left: Brand Logo -->
+
     <div class="nav-left">
         <BrandLogo />
     </div>
 
-    <!-- Middle: Filler -->
     <div class="nav-middle"></div>
 
-    <!-- Right: Install Button (Chromium only) + Burger Menu -->
     <div class="nav-right">
 
+        @* Install button — Chromium only *@
         @if (_showInstallButton)
         {
             <button class="nav-install-btn" @onclick="HandleInstallClick" title="Install SubashaVentures app">
@@ -30,6 +38,61 @@
             </button>
         }
 
+        @* Notification bell — authenticated users only *@
+        @if (_isAuthenticated)
+        {
+            <div class="nav-notification-wrapper">
+                <button class="nav-notification-btn @(NotificationService.UnreadMessageCount > 0 ? "has-unread" : "")"
+                        @onclick="ToggleNotificationDropdown"
+                        title="Messages">
+                    @if (!string.IsNullOrEmpty(_bellIcon))
+                    {
+                        @((MarkupString)_bellIcon)
+                    }
+                    @if (NotificationService.UnreadMessageCount > 0)
+                    {
+                        <span class="notification-badge">
+                            @(NotificationService.UnreadMessageCount > 9 ? "9+" : NotificationService.UnreadMessageCount.ToString())
+                        </span>
+                    }
+                </button>
+
+                @if (_showNotificationDropdown)
+                {
+                    <div class="notification-backdrop" @onclick="CloseNotificationDropdown"></div>
+                    <div class="notification-dropdown">
+                        <div class="dropdown-header">
+                            @if (!string.IsNullOrEmpty(_bellIconColored))
+                            {
+                                @((MarkupString)_bellIconColored)
+                            }
+                            <span class="dropdown-title">Messages</span>
+                        </div>
+                        <div class="dropdown-body">
+                            @if (NotificationService.UnreadMessageCount > 0)
+                            {
+                                <p class="unread-text">
+                                    You have
+                                    <strong>@NotificationService.UnreadMessageCount</strong>
+                                    unread message@(NotificationService.UnreadMessageCount == 1 ? "" : "s")
+                                </p>
+                            }
+                            else
+                            {
+                                <p class="no-messages-text">No unread messages</p>
+                            }
+                        </div>
+                        <div class="dropdown-footer">
+                            <PrimaryButton OnClick="NavigateToMessages"
+                                           CssClass="view-messages-btn">
+                                View Messages
+                            </PrimaryButton>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
         <div class="nav-burger">
             <BurgerMenu IsOpen="@_isSidePanelOpen"
                         IsOpenChanged="@HandleBurgerToggle" />
@@ -38,15 +101,32 @@
 </div>
 
 @code {
+    // ── Existing state ────────────────────────────────────────────────────────
     private bool _isSidePanelOpen = false;
     private bool _showInstallButton = false;
     private bool _isInstalling = false;
     private DotNetObjectReference<TopNavigation>? _dotNetRef;
 
-    protected override void OnInitialized()
+    // ── Notification state ────────────────────────────────────────────────────
+    private bool _isAuthenticated;
+    private string _userId = string.Empty;
+    private bool _showNotificationDropdown;
+    private string _bellIcon = string.Empty;
+    private string _bellIconColored = string.Empty;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
     {
         NavService.SidePanelStateChanged += OnSidePanelStateChanged;
         _isSidePanelOpen = NavService.IsSidePanelOpen;
+
+        NavigationManager.LocationChanged += OnLocationChanged;
+        NotificationService.OnChange += OnNotificationCountChanged;
+
+        await LoadAuthState();
+        await LoadBellIcons();
+        await RefreshNotificationsAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -54,19 +134,101 @@
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            // Register this component with the PWA manager so it can call back into Blazor
             await JS.InvokeVoidAsync("SubashaPWA.register", _dotNetRef);
 
-            // Check if already installed — if so, never show the button
             var installed = await JS.InvokeAsync<bool>("SubashaPWA.isInstalled");
             if (installed)
             {
                 _showInstallButton = false;
+                StateHasChanged();
             }
         }
     }
 
-    // Called by pwaManager.js when beforeinstallprompt fires
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
+    private async Task LoadAuthState()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            _isAuthenticated = state.User?.Identity?.IsAuthenticated ?? false;
+            _userId = _isAuthenticated
+                ? state.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty
+                : string.Empty;
+        }
+        catch
+        {
+            _isAuthenticated = false;
+            _userId = string.Empty;
+        }
+    }
+
+    // ── Icons ─────────────────────────────────────────────────────────────────
+
+    private async Task LoadBellIcons()
+    {
+        try
+        {
+            // currentColor lets CSS control the color via the button's color property
+            _bellIcon = await VisualElements.GetSvgWithColorAsync(
+                SvgType.Notification, 22, 22, "currentColor");
+
+            _bellIconColored = await VisualElements.GetSvgWithColorAsync(
+                SvgType.Notification, 20, 20, "var(--primary-color)");
+        }
+        catch
+        {
+            // Silent — bell renders without icon rather than crashing the nav
+        }
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+
+    private async Task RefreshNotificationsAsync()
+    {
+        if (!_isAuthenticated || string.IsNullOrEmpty(_userId)) return;
+        await NotificationService.RefreshAsync(_userId);
+    }
+
+    private void OnNotificationCountChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleNotificationDropdown()
+    {
+        _showNotificationDropdown = !_showNotificationDropdown;
+    }
+
+    private void CloseNotificationDropdown()
+    {
+        _showNotificationDropdown = false;
+    }
+
+    private void NavigateToMessages()
+    {
+        _showNotificationDropdown = false;
+        NavigationManager.NavigateTo("user/messages");
+    }
+
+    // ── Location changed ──────────────────────────────────────────────────────
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _showNotificationDropdown = false;
+        _ = ReloadOnNavigationAsync();
+    }
+
+    private async Task ReloadOnNavigationAsync()
+    {
+        await LoadAuthState();
+        await RefreshNotificationsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ── PWA (unchanged from original) ─────────────────────────────────────────
+
     [JSInvokable]
     public void OnInstallAvailable(bool available)
     {
@@ -74,7 +236,6 @@
         InvokeAsync(StateHasChanged);
     }
 
-    // Called by pwaManager.js when app is successfully installed
     [JSInvokable]
     public void OnAppInstalled()
     {
@@ -118,14 +279,20 @@
         await Task.CompletedTask;
     }
 
+    // ── Disposal ──────────────────────────────────────────────────────────────
+
     public async ValueTask DisposeAsync()
     {
         NavService.SidePanelStateChanged -= OnSidePanelStateChanged;
+        NavigationManager.LocationChanged -= OnLocationChanged;
+        NotificationService.OnChange -= OnNotificationCountChanged;
+
         try
         {
             await JS.InvokeVoidAsync("SubashaPWA.unregister");
         }
         catch { /* Ignore disposal errors */ }
+
         _dotNetRef?.Dispose();
     }
 }
