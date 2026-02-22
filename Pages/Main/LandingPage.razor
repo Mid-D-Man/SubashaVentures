@@ -1,3 +1,4 @@
+@* Pages/Main/LandingPage.razor *@
 @page "/"
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Cards
@@ -9,6 +10,7 @@
 @layout LandingPageLayout
 
 <div class="landing-page">
+
     <!-- Hero Section -->
     <section class="hero-section">
         <div class="hero-content">
@@ -26,7 +28,7 @@
                     </div>
                 </h1>
                 <p class="hero-description">
-                    Discover premium clothing and home goods that reflect your unique personality. 
+                    Discover premium clothing and home goods that reflect your unique personality.
                     From trendy fashion to cozy home essentials - find everything you love at Subasha.
                 </p>
                 <div class="hero-actions">
@@ -64,13 +66,13 @@
                 <div class="hero-image-container">
                     @if (isLoadingPOTD)
                     {
-                        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
-                                      Variant="LoadingSpinner.SpinnerVariant.Circle"
-                                      Message="Loading Product of the Day..." />
+                        <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                                        Variant="LoadingSpinner.SpinnerVariant.Circle"
+                                        Message="Loading Product of the Day..." />
                     }
                     else if (productOfTheDay != null)
                     {
-                        <ProductOfTheDayCard 
+                        <ProductOfTheDayCard
                             Product="@productOfTheDay"
                             OnClick="@HandlePOTDClick"
                             OnAddToCart="@HandleAddToCart"
@@ -80,7 +82,11 @@
                     else
                     {
                         <div class="hero-image-placeholder">
-                            👗 Fashion Hub
+                            @if (!string.IsNullOrEmpty(dressIcon))
+                            {
+                                @((MarkupString)dressIcon)
+                            }
+                            <span>Fashion Hub</span>
                         </div>
                     }
                 </div>
@@ -115,7 +121,7 @@
                     @foreach (var product in featuredProducts)
                     {
                         <div class="product-card-wrapper">
-                            <FeaturedProductCard 
+                            <FeaturedProductCard
                                 Product="@product"
                                 OnClick="@(() => HandleProductClick(product))"
                                 OnViewDetails="@(() => HandleViewDetails(product))" />
@@ -125,7 +131,7 @@
                     @foreach (var product in featuredProducts)
                     {
                         <div class="product-card-wrapper">
-                            <FeaturedProductCard 
+                            <FeaturedProductCard
                                 Product="@product"
                                 OnClick="@(() => HandleProductClick(product))"
                                 OnViewDetails="@(() => HandleViewDetails(product))" />
@@ -147,7 +153,12 @@
         else
         {
             <div class="empty-state">
-                <div class="empty-icon">📦</div>
+                <div class="empty-icon">
+                    @if (!string.IsNullOrEmpty(allProductsIcon))
+                    {
+                        @((MarkupString)allProductsIcon)
+                    }
+                </div>
                 <h3 class="empty-title">No Products Available</h3>
                 <p class="empty-text">Check back soon for amazing deals!</p>
             </div>
@@ -161,26 +172,60 @@
                 <h2 class="newsletter-title">Your Style Story Starts Here</h2>
                 <p class="newsletter-description">
                     Be the first to shop new arrivals and get insider style tips.
-                    Discover fresh looks that speak your language and the stories behind our most unique pieces.
+                    Discover fresh looks that speak your language and the stories
+                    behind our most unique pieces.
                 </p>
             </div>
             <div class="newsletter-form">
-                <div class="form-group">
-                    <input type="email" 
-                           placeholder="Enter your email address" 
-                           class="newsletter-input"
-                           @bind="newsletterEmail"
-                           @onkeydown="HandleNewsletterKeyPress" />
-                    <PrimaryButton 
-                        CssClass="newsletter-submit"
-                        OnClick="HandleNewsletterSubmit"
-                        IsDisabled="@string.IsNullOrWhiteSpace(newsletterEmail)">
-                        Unlock Your Story
-                    </PrimaryButton>
-                </div>
-                <p class="newsletter-privacy">
-                    We respect your inbox. Unsubscribe anytime.
-                </p>
+
+                @* Success state *@
+                @if (newsletterSubscribed)
+                {
+                    <div class="newsletter-success">
+                        @if (!string.IsNullOrEmpty(checkIcon))
+                        {
+                            <span class="nl-success-icon">@((MarkupString)checkIcon)</span>
+                        }
+                        <div class="nl-success-text">
+                            <strong>You're in!</strong>
+                            <span>We'll keep you updated with the latest arrivals and style tips.</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <input type="email"
+                               placeholder="Enter your email address"
+                               class="newsletter-input @(newsletterHasError ? "input-error" : "")"
+                               @bind="newsletterEmail"
+                               @bind:event="oninput"
+                               @onkeydown="HandleNewsletterKeyPress"
+                               disabled="@isSubscribing" />
+                        <PrimaryButton
+                            CssClass="newsletter-submit"
+                            OnClick="HandleNewsletterSubmit"
+                            IsDisabled="@(string.IsNullOrWhiteSpace(newsletterEmail) || isSubscribing)"
+                            IsLoading="@isSubscribing">
+                            Unlock Your Story
+                        </PrimaryButton>
+                    </div>
+
+                    @if (newsletterHasError && !string.IsNullOrEmpty(newsletterErrorMessage))
+                    {
+                        <p class="newsletter-error">
+                            @if (!string.IsNullOrEmpty(warningIcon))
+                            {
+                                <span class="nl-error-icon">@((MarkupString)warningIcon)</span>
+                            }
+                            @newsletterErrorMessage
+                        </p>
+                    }
+
+                    <p class="newsletter-privacy">
+                        We respect your inbox. Unsubscribe anytime.
+                    </p>
+                }
             </div>
         </div>
     </section>
@@ -196,7 +241,7 @@
             <div class="testimonials-scroll-content">
                 @foreach (var review in sampleReviews)
                 {
-                    <CustomerReviewCard 
+                    <CustomerReviewCard
                         Review="@review"
                         IsHelpful="@false"
                         OnHelpfulClick="@HandleHelpfulClick"
@@ -205,7 +250,7 @@
                 @* DUPLICATE for seamless loop *@
                 @foreach (var review in sampleReviews)
                 {
-                    <CustomerReviewCard 
+                    <CustomerReviewCard
                         Review="@review"
                         IsHelpful="@false"
                         OnHelpfulClick="@HandleHelpfulClick"
