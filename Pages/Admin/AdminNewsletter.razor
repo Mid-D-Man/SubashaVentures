@@ -1,0 +1,399 @@
+@* Pages/Admin/AdminNewsletter.razor *@
+@page "/admin/newsletter"
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Services.Newsletter
+@using SubashaVentures.Services.Email
+@using SubashaVentures.Services.Users
+@using SubashaVentures.Services.Authorization
+@using SubashaVentures.Domain.User
+@using SubashaVentures.Domain.Enums
+@using SubashaVentures.Services.VisualElements
+@layout AdminLayout
+
+<div class="admin-newsletter">
+
+    @* ── Page Header ── *@
+    <div class="newsletter-header">
+        <div class="header-left">
+            <h1 class="newsletter-title">Newsletter & Email</h1>
+            <p class="newsletter-subtitle">Send newsletters and targeted emails to your audience</p>
+        </div>
+        <div class="header-right">
+            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline"
+                           OnClick="OpenSubscribersModal"
+                           CssClass="header-btn-secondary">
+                @if (!string.IsNullOrEmpty(_subscribersIcon))
+                {
+                    <span class="btn-svg">@((MarkupString)_subscribersIcon)</span>
+                }
+                Subscribers
+                @if (_subscriberCount > 0)
+                {
+                    <span class="count-badge">@_subscriberCount</span>
+                }
+            </PrimaryButton>
+            <PrimaryButton OnClick="OpenComposeModal"
+                           CssClass="header-btn-primary">
+                @if (!string.IsNullOrEmpty(_composeIcon))
+                {
+                    <span class="btn-svg">@((MarkupString)_composeIcon)</span>
+                }
+                Compose Email
+            </PrimaryButton>
+        </div>
+    </div>
+
+    @* ── Stats Row ── *@
+    <div class="newsletter-stats">
+        <div class="stat-card">
+            <div class="stat-icon">
+                @if (!string.IsNullOrEmpty(_mailIcon))
+                {
+                    @((MarkupString)_mailIcon)
+                }
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Newsletter Subscribers</span>
+                <span class="stat-value">@_subscriberCount</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                @if (!string.IsNullOrEmpty(_userIcon))
+                {
+                    @((MarkupString)_userIcon)
+                }
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Users with Email On</span>
+                <span class="stat-value">@_usersWithEmailCount</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                @if (!string.IsNullOrEmpty(_statsIcon))
+                {
+                    @((MarkupString)_statsIcon)
+                }
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Total Combined Reach</span>
+                <span class="stat-value">@_totalReach</span>
+            </div>
+        </div>
+    </div>
+
+    @* ── Send History ── *@
+    <div class="newsletter-panel">
+        <div class="panel-header">
+            <h2 class="panel-title">Send History</h2>
+        </div>
+        <div class="history-empty">
+            @if (!string.IsNullOrEmpty(_historyIcon))
+            {
+                <div class="empty-icon">@((MarkupString)_historyIcon)</div>
+            }
+            <p class="empty-text">Email send history will appear here after your first send.</p>
+        </div>
+    </div>
+
+</div>
+
+@* ── Compose Modal ── *@
+<DynamicModal @ref="_composeModal"
+              Title="Compose Email"
+              ShowFooter="false"
+              Size="DynamicModal.ModalSize.Large"
+              CloseOnOverlayClick="false">
+    <BodyContent>
+        <div class="compose-form">
+
+            @* Email Type Tabs *@
+            <div class="type-tabs">
+                <button class="type-tab @(_emailType == EmailType.Newsletter ? "active" : "")"
+                        @onclick="() => SetEmailType(EmailType.Newsletter)">
+                    Newsletter (All)
+                </button>
+                <button class="type-tab @(_emailType == EmailType.Segmented ? "active" : "")"
+                        @onclick="() => SetEmailType(EmailType.Segmented)">
+                    Segmented Send
+                </button>
+                <button class="type-tab @(_emailType == EmailType.Direct ? "active" : "")"
+                        @onclick="() => SetEmailType(EmailType.Direct)">
+                    Direct to User
+                </button>
+            </div>
+
+            @* Segmentation Panel *@
+            @if (_emailType == EmailType.Segmented)
+            {
+                <div class="segmentation-panel">
+                    <h3 class="segment-heading">Target Audience</h3>
+                    <div class="segment-grid">
+                        <div class="segment-group">
+                            <label class="segment-label">Membership Tiers</label>
+                            <div class="tier-checkboxes">
+                                @foreach (var tier in Enum.GetValues<MembershipTier>())
+                                {
+                                    <label class="checkbox-label">
+                                        <input type="checkbox"
+                                               checked="@_selectedTiers.Contains(tier)"
+                                               @onchange="e => ToggleTier(tier, (bool)(e.Value ?? false))" />
+                                        @tier.ToString()
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                        <div class="segment-group">
+                            <label class="segment-label">Spending Range (₦)</label>
+                            <div class="range-inputs">
+                                <InputField Label="Min Spent"
+                                            Type="number"
+                                            Value="@_minSpent"
+                                            ValueChanged="v => _minSpent = v"
+                                            Placeholder="0" />
+                                <InputField Label="Max Spent"
+                                            Type="number"
+                                            Value="@_maxSpent"
+                                            ValueChanged="v => _maxSpent = v"
+                                            Placeholder="Any" />
+                            </div>
+                        </div>
+                        <div class="segment-group">
+                            <label class="segment-label">Order Count</label>
+                            <div class="range-inputs">
+                                <InputField Label="Min Orders"
+                                            Type="number"
+                                            Value="@_minOrders"
+                                            ValueChanged="v => _minOrders = v"
+                                            Placeholder="0" />
+                                <InputField Label="Max Orders"
+                                            Type="number"
+                                            Value="@_maxOrders"
+                                            ValueChanged="v => _maxOrders = v"
+                                            Placeholder="Any" />
+                            </div>
+                        </div>
+                        <div class="segment-group">
+                            <label class="segment-label">Account Filters</label>
+                            <div class="filter-checkboxes">
+                                <label class="checkbox-label">
+                                    <input type="checkbox"
+                                           @bind="_filterEmailVerified" />
+                                    Email verified only
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox"
+                                           @bind="_filterHasOrders" />
+                                    Has placed orders
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="segment-preview">
+                        <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline"
+                                       OnClick="PreviewSegment"
+                                       IsLoading="_isCalculatingSegment"
+                                       CssClass="preview-btn">
+                            Calculate Audience Size
+                        </PrimaryButton>
+                        @if (_segmentSize >= 0)
+                        {
+                            <span class="segment-size-badge">
+                                @_segmentSize targeted user@(_segmentSize == 1 ? "" : "s")
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* Direct User Panel *@
+            @if (_emailType == EmailType.Direct)
+            {
+                <div class="direct-panel">
+                    <InputField Label="Recipient Email"
+                                Type="email"
+                                Value="@_directEmail"
+                                ValueChanged="v => _directEmail = v"
+                                Placeholder="user@example.com"
+                                IsRequired="true"
+                                PrefixIcon="@_mailSmallIcon" />
+                </div>
+            }
+
+            @* Subject *@
+            <div class="form-row">
+                <InputField Label="Subject"
+                            Value="@_subject"
+                            ValueChanged="v => _subject = v"
+                            Placeholder="Your email subject..."
+                            IsRequired="true"
+                            MaxLength="200"
+                            ShowCharacterCount="true" />
+            </div>
+
+            @* CTA Fields *@
+            <div class="cta-row">
+                <InputField Label="CTA Button Text (optional)"
+                            Value="@_ctaText"
+                            ValueChanged="v => _ctaText = v"
+                            Placeholder="Shop Now" />
+                <InputField Label="CTA URL (optional)"
+                            Value="@_ctaUrl"
+                            ValueChanged="v => _ctaUrl = v"
+                            Placeholder="https://..." />
+            </div>
+
+            @* Body *@
+            <div class="form-row">
+                <label class="field-label">
+                    Email Body <span class="required-mark">*</span>
+                </label>
+                <textarea class="body-textarea"
+                          placeholder="Write your email content here. HTML is supported."
+                          @bind="_body"
+                          rows="10"></textarea>
+                <span class="char-count">@(_body.Length) characters</span>
+            </div>
+
+            @* Error Message *@
+            @if (!string.IsNullOrEmpty(_sendError))
+            {
+                <div class="send-error">
+                    @if (!string.IsNullOrEmpty(_warningIcon))
+                    {
+                        @((MarkupString)_warningIcon)
+                    }
+                    @_sendError
+                </div>
+            }
+
+            @* Success Message *@
+            @if (!string.IsNullOrEmpty(_sendSuccess))
+            {
+                <div class="send-success">
+                    @if (!string.IsNullOrEmpty(_checkIcon))
+                    {
+                        @((MarkupString)_checkIcon)
+                    }
+                    @_sendSuccess
+                </div>
+            }
+
+            @* Footer Actions *@
+            <div class="compose-footer">
+                <div class="footer-left">
+                    @if (_emailType == EmailType.Newsletter)
+                    {
+                        <span class="recipient-note">
+                            Sends to @_totalReach combined recipients
+                        </span>
+                    }
+                    else if (_emailType == EmailType.Segmented && _segmentSize > 0)
+                    {
+                        <span class="recipient-note">
+                            Sends to @_segmentSize segmented users
+                        </span>
+                    }
+                </div>
+                <div class="footer-actions">
+                    <SecondaryButton OnClick="CloseComposeModal"
+                                     IsDisabled="_isSending">
+                        Cancel
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="SendEmail"
+                                   IsLoading="_isSending"
+                                   IsDisabled="@(!CanSend)">
+                        @if (!string.IsNullOrEmpty(_sendIcon))
+                        {
+                            <span class="btn-svg">@((MarkupString)_sendIcon)</span>
+                        }
+                        Send Email
+                    </PrimaryButton>
+                </div>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+@* ── Subscribers Modal ── *@
+<DynamicModal @ref="_subscribersModal"
+              Title="Newsletter Subscribers"
+              ShowFooter="false"
+              Size="DynamicModal.ModalSize.Large">
+    <BodyContent>
+        <div class="subscribers-view">
+            @if (_isLoadingSubscribers)
+            {
+                <LoadingSpinner Message="Loading subscribers..." />
+            }
+            else if (_subscribers.Any())
+            {
+                <div class="subscribers-toolbar">
+                    <span class="sub-count">@_subscribers.Count subscriber@(_subscribers.Count == 1 ? "" : "s")</span>
+                </div>
+                <div class="subscribers-table-wrap">
+                    <table class="subscribers-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Source</th>
+                                <th>Subscribed</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sub in _subscribers)
+                            {
+                                <tr>
+                                    <td class="email-cell">@sub.Email</td>
+                                    <td>
+                                        <span class="status-pill @(sub.IsActive ? "active" : "inactive")">
+                                            @sub.StatusLabel
+                                        </span>
+                                    </td>
+                                    <td class="source-cell">@sub.Source</td>
+                                    <td>@sub.DisplayDate</td>
+                                    <td>
+                                        @if (sub.IsActive)
+                                        {
+                                            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost"
+                                                           CssClass="table-btn danger-btn"
+                                                           OnClick="() => UnsubscribeGuest(sub.Email)">
+                                                Remove
+                                            </PrimaryButton>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="empty-subscribers">
+                    @if (!string.IsNullOrEmpty(_mailIcon))
+                    {
+                        <div class="empty-icon">@((MarkupString)_mailIcon)</div>
+                    }
+                    <p>No newsletter subscribers yet.</p>
+                </div>
+            }
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+@* ── Confirm Send Modal ── *@
+<ConfirmationPopup @ref="_confirmSendPopup"
+                   Title="Confirm Send"
+                   Variant="ConfirmationPopup.ConfirmationVariant.Info"
+                   ConfirmButtonText="Send Now"
+                   OnConfirm="ExecuteSend"
+                   IsProcessing="_isSending">
+</ConfirmationPopup>
