@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Feb 22 10:30:55 UTC 2026
+Generated: Sun Feb 22 10:32:02 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 95e6ca1f8682069e331517f748ec180c735c8fde
+Commit: 5005664bf3e55d1bfe86893fa87549b099b157fc
 Branch: master
 ==================================
 
@@ -382,6 +382,7 @@ wwwroot/js/geolocation.js
 wwwroot/js/imageCacheHelper.js
 wwwroot/js/imageCompressor.js
 wwwroot/js/loading.js
+wwwroot/js/messageHelper.js
 wwwroot/js/paymentHandler.js
 wwwroot/js/pwaManager.js
 wwwroot/js/qrCodeModule.js
@@ -509,5 +510,5 @@ File Count Summary:
 .sln      : 1 files
 .json     : 8 files
 .css      : 82 files
-.js       : 24 files
+.js       : 25 files
 .html     : 1 files
