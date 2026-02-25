@@ -27,6 +27,7 @@ public partial class AdminNewsletter : ComponentBase
     private DynamicModal? _composeModal;
     private DynamicModal? _subscribersModal;
     private ConfirmationPopup? _confirmSendPopup;
+    private ConfirmationPopup? _confirmRemovePopup;
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     private int _subscriberCount;
@@ -57,11 +58,13 @@ public partial class AdminNewsletter : ComponentBase
 
     // ── Subscribers list ──────────────────────────────────────────────────────
     private List<NewsletterSubscriberViewModel> _subscribers = new();
+    private List<NewsletterSubscriberViewModel> _filteredSubscribers = new();
     private bool _isLoadingSubscribers;
+    private string _subscriberSearchQuery = string.Empty;
+    private string? _subscriberToRemove = null;
 
     // ── SVGs ──────────────────────────────────────────────────────────────────
     private string _mailIcon = string.Empty;
-    private string _mailSmallIcon = string.Empty;
     private string _userIcon = string.Empty;
     private string _statsIcon = string.Empty;
     private string _composeIcon = string.Empty;
@@ -70,6 +73,7 @@ public partial class AdminNewsletter : ComponentBase
     private string _warningIcon = string.Empty;
     private string _checkIcon = string.Empty;
     private string _historyIcon = string.Empty;
+    private string _searchIcon = string.Empty;
 
     // ── Can send validation ───────────────────────────────────────────────────
     private bool CanSend =>
@@ -99,10 +103,8 @@ public partial class AdminNewsletter : ComponentBase
         try
         {
             var primary = "var(--primary-color)";
-            var muted = "var(--text-secondary)";
 
             _mailIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Mail, 32, 32, primary);
-            _mailSmallIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Mail, 16, 16, muted);
             _userIcon = await VisualElements.GetSvgWithColorAsync(SvgType.User, 32, 32, primary);
             _statsIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Stats, 32, 32, primary);
             _composeIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Mail, 18, 18, "white");
@@ -111,6 +113,7 @@ public partial class AdminNewsletter : ComponentBase
             _warningIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Warning, 16, 16, "var(--danger-color)");
             _checkIcon = await VisualElements.GetSvgWithColorAsync(SvgType.CheckMark, 16, 16, "var(--success-color)");
             _historyIcon = await VisualElements.GetSvgWithColorAsync(SvgType.History, 48, 48, "var(--text-muted)");
+            _searchIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Search, 18, 18, "var(--text-secondary)");
         }
         catch (Exception ex)
         {
@@ -126,9 +129,11 @@ public partial class AdminNewsletter : ComponentBase
         {
             _subscriberCount = await NewsletterService.GetSubscriberCountAsync();
 
+            // FIX: Use proper filter syntax for Supabase boolean columns
             var users = await Supabase
                 .From<SubashaVentures.Models.Supabase.UserModel>()
-                .Where(u => u.EmailNotifications && !u.IsDeleted)
+                .Filter("email_notifications", Supabase.Postgrest.Constants.Operator.Equals, true)
+                .Filter("is_deleted", Supabase.Postgrest.Constants.Operator.Equals, false)
                 .Get();
 
             _usersWithEmailCount = users?.Models?.Count ?? 0;
@@ -155,6 +160,7 @@ public partial class AdminNewsletter : ComponentBase
     private void CloseComposeModal()
     {
         _composeModal?.Close();
+        ResetComposeForm();
     }
 
     private async Task OpenSubscribersModal()
@@ -170,7 +176,8 @@ public partial class AdminNewsletter : ComponentBase
 
         try
         {
-            _subscribers = await NewsletterService.GetSubscribersAsync(0, 200);
+            _subscribers = await NewsletterService.GetSubscribersAsync(0, 500);
+            _filteredSubscribers = _subscribers;
         }
         catch (Exception ex)
         {
@@ -181,6 +188,30 @@ public partial class AdminNewsletter : ComponentBase
             _isLoadingSubscribers = false;
             StateHasChanged();
         }
+    }
+
+    private void SearchSubscribers()
+    {
+        if (string.IsNullOrWhiteSpace(_subscriberSearchQuery))
+        {
+            _filteredSubscribers = _subscribers;
+        }
+        else
+        {
+            var query = _subscriberSearchQuery.ToLowerInvariant();
+            _filteredSubscribers = _subscribers
+                .Where(s => s.Email.ToLowerInvariant().Contains(query) ||
+                           s.Source.ToLowerInvariant().Contains(query))
+                .ToList();
+        }
+        StateHasChanged();
+    }
+
+    private void ClearSubscriberSearch()
+    {
+        _subscriberSearchQuery = string.Empty;
+        _filteredSubscribers = _subscribers;
+        StateHasChanged();
     }
 
     // ── Compose form helpers ──────────────────────────────────────────────────
@@ -280,6 +311,7 @@ public partial class AdminNewsletter : ComponentBase
     {
         _isSending = true;
         _sendError = string.Empty;
+        _confirmSendPopup?.Close(); // FIX: Close confirmation popup
         StateHasChanged();
 
         try
@@ -300,9 +332,9 @@ public partial class AdminNewsletter : ComponentBase
 
                 case EmailType.Segmented:
                     var criteria = BuildSegmentationCriteria();
-                    var userIds = await SegmentationService.GetUserIdsByCriteriaAsync(criteria);
+                    var users = await SegmentationService.GetUsersByMultipleCriteriaAsync(criteria);
 
-                    if (!userIds.Any())
+                    if (!users.Any())
                     {
                         _sendError = "No users match the selected criteria.";
                         _isSending = false;
@@ -310,10 +342,7 @@ public partial class AdminNewsletter : ComponentBase
                         return;
                     }
 
-                    // Send to each matched user via transactional
-                    var users = await SegmentationService.GetUsersByMultipleCriteriaAsync(criteria);
                     var errors = 0;
-
                     foreach (var user in users)
                     {
                         var r = await EmailService.SendTransactionalAsync(new SendTransactionalRequest
@@ -362,9 +391,11 @@ public partial class AdminNewsletter : ComponentBase
                 _sendSuccess = $"Email sent successfully to {result.Sent} recipient(s).";
                 Logger.LogInformation("Newsletter sent: {Sent} success, {Failed} failed",
                     result.Sent, result.Failed);
-
-                // Reload stats after successful send
                 await LoadStats();
+                
+                // Clear form after successful send
+                await Task.Delay(2000);
+                CloseComposeModal();
             }
             else
             {
@@ -387,14 +418,32 @@ public partial class AdminNewsletter : ComponentBase
 
     // ── Subscriber management ─────────────────────────────────────────────────
 
-    private async Task UnsubscribeGuest(string email)
+    private void ShowRemoveConfirmation(string email)
     {
-        var ok = await NewsletterService.UnsubscribeAsync(email);
+        _subscriberToRemove = email;
+        _confirmRemovePopup?.Open();
+    }
+
+    private async Task ConfirmRemoveSubscriber()
+    {
+        if (string.IsNullOrEmpty(_subscriberToRemove))
+            return;
+
+        var ok = await NewsletterService.UnsubscribeAsync(_subscriberToRemove);
         if (ok)
         {
             await LoadSubscribers();
             await LoadStats();
         }
+
+        _subscriberToRemove = null;
+        _confirmRemovePopup?.Close();
+    }
+
+    private void CancelRemoveSubscriber()
+    {
+        _subscriberToRemove = null;
+        _confirmRemovePopup?.Close();
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
