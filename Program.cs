@@ -34,6 +34,8 @@ using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Utilities.Tracking;
 using SubashaVentures.Services.Cryptography;
+using SubashaVentures.Services.Newsletter;
+using SubashaVentures.Services.Notifications;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -164,6 +166,13 @@ builder.Services.AddScoped<ICryptographyService, CryptographyService>();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// ==================== NEWSLETTER ====================
+builder.Services.AddScoped<SubashaVentures.Services.Newsletter.INewsletterService,
+                            SubashaVentures.Services.Newsletter.NewsletterService>();
+
+// ==================== NOTIFICATIONS (simplified) ====================
+builder.Services.AddScoped<SubashaVentures.Services.Notifications.INotificationService,
+                            SubashaVentures.Services.Notifications.NotificationService>();
 
 var host = builder.Build();
 
