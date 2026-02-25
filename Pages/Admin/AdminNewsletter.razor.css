@@ -409,12 +409,73 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .sub-count {
     font-size: 0.875rem;
     color: var(--text-secondary);
     font-weight: 500;
+}
+
+.search-box {
+    flex: 0 0 auto;
+    min-width: 300px;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon-left {
+    position: absolute;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.625rem 2.5rem 0.625rem 2.75rem;
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(150, 153, 74, 0.1);
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.clear-search-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
 }
 
 .subscribers-table-wrap {
@@ -540,13 +601,15 @@
     border-color: var(--border-color);
 }
 
-[data-theme="dark"] .body-textarea {
+[data-theme="dark"] .body-textarea,
+[data-theme="dark"] .search-input {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--border-color);
     color: var(--text-primary);
 }
 
-[data-theme="dark"] .body-textarea:focus {
+[data-theme="dark"] .body-textarea:focus,
+[data-theme="dark"] .search-input:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(184, 187, 106, 0.15);
 }
@@ -571,6 +634,10 @@
 [data-theme="dark"] .count-badge {
     background: var(--primary-color);
     color: var(--bg-primary);
+}
+
+[data-theme="dark"] .clear-search-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
@@ -626,6 +693,16 @@
     .footer-actions {
         justify-content: flex-end;
     }
+
+    .subscribers-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-box {
+        min-width: unset;
+        width: 100%;
+    }
 }
 
 @media (max-width: 480px) {
@@ -654,11 +731,12 @@
 @media (prefers-reduced-motion: reduce) {
     .stat-card,
     .type-tab,
-    .body-textarea {
+    .body-textarea,
+    .search-input {
         transition: none;
     }
 
     .stat-card:hover {
         transform: none;
     }
-  }
+}
