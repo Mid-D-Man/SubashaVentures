@@ -80,7 +80,7 @@
   
   // UNAUTHORIZED ACCESS
   legal.unauthorized_access: severity<enum> = ViolationSeverity.LEGAL_ACTION,
-  legal.unauthorized_access.description<string> = "Unauthorized access to proprietary databases, credentials, or protected resources constitutes a serious violation",
+  description<string> = "Unauthorized access to proprietary databases, credentials, or protected resources constitutes a serious violation",
   legal.unauthorized_access::
     "Immediate cease and desist notice",
     "Civil litigation for actual and statutory damages",
@@ -175,20 +175,22 @@
   // DISCLAIMER
   // ============================================================
   
-  disclaimer.warranty<string> = "THIS SOFTWARE IS PROVIDED 'AS IS' WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.",
+  disclaimer:
+  warranty<string> = "THIS SOFTWARE IS PROVIDED 'AS IS' WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.",
   
-  disclaimer.liability<string> = "IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+  liability<string> = "IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
   
-  disclaimer.data_protection<string> = "All databases, user data, API credentials, and proprietary information remain the exclusive property of SubashaVentures. Unauthorized access violates GDPR, CCPA, NDPR, and applicable international data protection and computer fraud laws.",
+  data_protection<string> = "All databases, user data, API credentials, and proprietary information remain the exclusive property of SubashaVentures. Unauthorized access violates GDPR, CCPA, NDPR, and applicable international data protection and computer fraud laws.",
   
-  disclaimer.jurisdiction<string> = "This agreement shall be governed by the laws of Nigeria. Any disputes shall be resolved in Nigerian courts with jurisdiction over Abuja, FCT.",
+  jurisdiction<string> = "This agreement shall be governed by the laws of Nigeria. Any disputes shall be resolved in Nigerian courts with jurisdiction over Abuja, FCT.",
   
   // ============================================================
   // METADATA
   // ============================================================
   
-  meta.last_updated<timestamp> = 2026-01-01T00:00:00Z,
-  meta.review_frequency<string> = "Quarterly",
-  meta.version<string> = "1.0.0",
-  meta.enforcement_active<bool> = true
+  meta:
+  last_updated<timestamp> = 2026-01-01T00:00:00Z,
+  review_frequency<string> = "Quarterly",
+  version<string> = "1.0.0",
+  enforcement_active<bool> = true
 )

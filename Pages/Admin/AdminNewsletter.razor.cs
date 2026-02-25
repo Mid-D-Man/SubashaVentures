@@ -9,7 +9,7 @@ using SubashaVentures.Services.Newsletter;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.VisualElements;
 using Client = Supabase.Client;
-
+using Constants = Supabase.Postgrest.Constants;
 namespace SubashaVentures.Pages.Admin;
 
 public partial class AdminNewsletter : ComponentBase
@@ -132,8 +132,8 @@ public partial class AdminNewsletter : ComponentBase
             // FIX: Use proper filter syntax for Supabase boolean columns
             var users = await Supabase
                 .From<SubashaVentures.Models.Supabase.UserModel>()
-                .Filter("email_notifications", Supabase.Postgrest.Constants.Operator.Equals, true)
-                .Filter("is_deleted", Supabase.Postgrest.Constants.Operator.Equals, false)
+                .Filter("email_notifications", Constants.Operator.Equals, true)
+                .Filter("is_deleted", Constants.Operator.Equals, false)
                 .Get();
 
             _usersWithEmailCount = users?.Models?.Count ?? 0;
