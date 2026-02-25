@@ -221,8 +221,7 @@
                                 Value="@_directEmail"
                                 ValueChanged="v => _directEmail = v"
                                 Placeholder="user@example.com"
-                                IsRequired="true"
-                                PrefixIcon="@_mailSmallIcon" />
+                                IsRequired="true" />
                 </div>
             }
 
@@ -249,7 +248,7 @@
                             Placeholder="https://..." />
             </div>
 
-            @* Body *@
+            @* Body - FIX: Use @bind for character count *@
             <div class="form-row">
                 <label class="field-label">
                     Email Body <span class="required-mark">*</span>
@@ -257,8 +256,9 @@
                 <textarea class="body-textarea"
                           placeholder="Write your email content here. HTML is supported."
                           @bind="_body"
+                          @bind:event="oninput"
                           rows="10"></textarea>
-                <span class="char-count">@(_body.Length) characters</span>
+                <span class="char-count">@(_body?.Length ?? 0) characters</span>
             </div>
 
             @* Error Message *@
@@ -335,7 +335,24 @@
             else if (_subscribers.Any())
             {
                 <div class="subscribers-toolbar">
-                    <span class="sub-count">@_subscribers.Count subscriber@(_subscribers.Count == 1 ? "" : "s")</span>
+                    <span class="sub-count">@_filteredSubscribers.Count of @_subscribers.Count subscriber@(_subscribers.Count == 1 ? "" : "s")</span>
+                    <div class="search-box">
+                        <div class="search-input-wrapper">
+                            @if (!string.IsNullOrEmpty(_searchIcon))
+                            {
+                                <span class="search-icon-left">@((MarkupString)_searchIcon)</span>
+                            }
+                            <input type="text"
+                                   class="search-input"
+                                   placeholder="Search by email or source..."
+                                   value="@_subscriberSearchQuery"
+                                   @oninput="e => { _subscriberSearchQuery = e.Value?.ToString() ?? string.Empty; SearchSubscribers(); }" />
+                            @if (!string.IsNullOrWhiteSpace(_subscriberSearchQuery))
+                            {
+                                <button class="clear-search-btn" @onclick="ClearSubscriberSearch">✕</button>
+                            }
+                        </div>
+                    </div>
                 </div>
                 <div class="subscribers-table-wrap">
                     <table class="subscribers-table">
@@ -349,7 +366,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var sub in _subscribers)
+                            @foreach (var sub in _filteredSubscribers)
                             {
                                 <tr>
                                     <td class="email-cell">@sub.Email</td>
@@ -365,7 +382,7 @@
                                         {
                                             <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost"
                                                            CssClass="table-btn danger-btn"
-                                                           OnClick="() => UnsubscribeGuest(sub.Email)">
+                                                           OnClick="() => ShowRemoveConfirmation(sub.Email)">
                                                 Remove
                                             </PrimaryButton>
                                         }
@@ -393,8 +410,31 @@
 @* ── Confirm Send Modal ── *@
 <ConfirmationPopup @ref="_confirmSendPopup"
                    Title="Confirm Send"
+                   Message="@GetConfirmSendMessage()"
                    Variant="ConfirmationPopup.ConfirmationVariant.Info"
                    ConfirmButtonText="Send Now"
                    OnConfirm="ExecuteSend"
-                   IsProcessing="_isSending">
-</ConfirmationPopup>
+                   IsProcessing="_isSending" />
+
+@* ── Confirm Remove Subscriber Modal ── *@
+<ConfirmationPopup @ref="_confirmRemovePopup"
+                   Title="Remove Subscriber"
+                   Message="@($"Are you sure you want to remove {_subscriberToRemove} from the newsletter?")"
+                   Variant="ConfirmationPopup.ConfirmationVariant.Warning"
+                   ConfirmButtonText="Remove"
+                   CancelButtonText="Cancel"
+                   OnConfirm="ConfirmRemoveSubscriber"
+                   OnCancel="CancelRemoveSubscriber" />
+
+@code {
+    private string GetConfirmSendMessage()
+    {
+        return _emailType switch
+        {
+            EmailType.Newsletter => $"Send newsletter to {_totalReach} combined recipients?",
+            EmailType.Segmented => $"Send email to {_segmentSize} segmented users?",
+            EmailType.Direct => $"Send email to {_directEmail}?",
+            _ => "Send this email?"
+        };
+    }
+}
