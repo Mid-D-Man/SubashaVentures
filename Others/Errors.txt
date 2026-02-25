@@ -1,0 +1,67 @@
+ fail: SubashaVentures.Pages.Admin.AdminNewsletter[0]
+      Failed to load newsletter stats
+Supabase.Postgrest.Exceptions.PostgrestException: Unknown criterion type, is it of type `string`, `int`, `long`, `float`, `List`, `DateTime`, `DateTimeOffset`, `Dictionary<string, object>`, `FullTextSearchConfig`, or `Range`?
+   at Supabase.Postgrest.Table`1[[SubashaVentures.Models.Supabase.UserModel, SubashaVentures, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]].Filter[Boolean](String columnName, Operator op, Boolean criterion)
+   at SubashaVentures.Pages.Admin.AdminNewsletter.LoadStats() _bound_js_globalThis_console_error:7:5
+19:04:34.670 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:04:34.668] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":6,"total":6} _bound_js_globalThis_console_debug:7:5
+19:04:34.674 [2026-02-25 18:04:34.668] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":6,"total":6} blazor.webassembly.js:1:3337
+19:04:34.695 info: SubashaVentures.Pages.Admin.AdminNewsletter[0]
+      Newsletter sent: 0 success, 6 failed _bound_js_globalThis_console_info:7:5
+19:04:34.701 fail: SubashaVentures.Pages.Admin.AdminNewsletter[0]
+      Failed to load newsletter stats
+Supabase.Postgrest.Exceptions.PostgrestException: Unknown criterion type, is it of type `string`, `int`, `long`, `float`, `List`, `DateTime`, `DateTimeOffset`, `Dictionary<string, object>`, `FullTextSearchConfig`, or `Range`?
+   at Supabase.Postgrest.Table`1[[SubashaVentures.Models.Supabase.UserModel, SubashaVentures, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]].Filter[Boolean](String columnName, Operator op, Boolean criterion)
+   at SubashaVentures.Pages.Admin.AdminNewsletter.LoadStats() _bound_js_globalThis_console_error:7:5
+19:05:03.861 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.833] [Info] Creating claims principal for user: subashaventures.dev@gmail.com _bound_js_globalThis_console_info:7:5
+19:05:03.863 [2026-02-25 18:05:03.833] [Info] Creating claims principal for user: subashaventures.dev@gmail.com blazor.webassembly.js:1:3337
+19:05:03.865 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.864] [Info] 🔍 Getting role from JWT token... _bound_js_globalThis_console_info:7:5
+19:05:03.866 [2026-02-25 18:05:03.864] [Info] 🔍 Getting role from JWT token... blazor.webassembly.js:1:3337
+19:05:03.873 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.872] [Info] ✅ Role found in JWT custom claim (from hook): superior_admin _bound_js_globalThis_console_info:7:5
+19:05:03.873 [2026-02-25 18:05:03.872] [Info] ✅ Role found in JWT custom claim (from hook): superior_admin blazor.webassembly.js:1:3337
+19:05:03.875 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.875] [Info] ➕ Added role claim: superior_admin _bound_js_globalThis_console_info:7:5
+19:05:03.876 [2026-02-25 18:05:03.875] [Info] ➕ Added role claim: superior_admin blazor.webassembly.js:1:3337
+19:05:03.885 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.877] [Info] ✅ Claims principal created for subashaventures.dev@gmail.com with role: superior_admin _bound_js_globalThis_console_info:7:5
+19:05:03.886 [2026-02-25 18:05:03.877] [Info] ✅ Claims principal created for subashaventures.dev@gmail.com with role: superior_admin blazor.webassembly.js:1:3337
+19:05:03.888 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.888] [Info] ✅ User authenticated: subashaventures.dev@gmail.com with roles: superior_admin _bound_js_globalThis_console_info:7:5
+19:05:03.890 [2026-02-25 18:05:03.888] [Info] ✅ User authenticated: subashaventures.dev@gmail.com with roles: superior_admin blazor.webassembly.js:1:3337
+19:05:03.891 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.891] [Info] 🔍 Role check 'superior_admin': ✅ HAS ROLE | User role: superior_admin _bound_js_globalThis_console_info:7:5
+19:05:03.892 [2026-02-25 18:05:03.891] [Info] 🔍 Role check 'superior_admin': ✅ HAS ROLE | User role: superior_admin blazor.webassembly.js:1:3337
+19:05:03.895 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:03.894] [Info] Segmenting users with multiple criteria _bound_js_globalThis_console_info:7:5
+19:05:03.897 [2026-02-25 18:05:03.894] [Info] Segmenting users with multiple criteria blazor.webassembly.js:1:3337
+19:05:04.886 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:04.880] [Info] Segmentation complete: 6 users matched _bound_js_globalThis_console_info:7:5
+19:05:04.889 [2026-02-25 18:05:04.880] [Info] Segmentation complete: 6 users matched blazor.webassembly.js:1:3337
+19:05:05.738 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:05.738] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
+19:05:05.740 [2026-02-25 18:05:05.738] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
+19:05:06.229 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:06.229] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
+19:05:06.230 [2026-02-25 18:05:06.229] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
+19:05:06.826 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:06.826] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
+19:05:06.827 [2026-02-25 18:05:06.826] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
+19:05:07.437 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:07.436] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
+19:05:07.438 [2026-02-25 18:05:07.436] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
+19:05:08.052 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:08.050] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
+19:05:08.053 [2026-02-25 18:05:08.050] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
+19:05:08.676 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
+      [2026-02-25 18:05:08.676] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
+19:05:08.677 [2026-02-25 18:05:08.676] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
+19:05:08.678 info: SubashaVentures.Pages.Admin.AdminNewsletter[0]
+      Newsletter sent: 6 success, 0 failed _bound_js_globalThis_console_info:7:5
+19:05:08.684 fail: SubashaVentures.Pages.Admin.AdminNewsletter[0]
+      Failed to load newsletter stats
+Supabase.Postgrest.Exceptions.PostgrestException: Unknown criterion type, is it of type `string`, `int`, `long`, `float`, `List`, `DateTime`, `DateTimeOffset`, `Dictionary<string, object>`, `FullTextSearchConfig`, or `Range`?
+   at Supabase.Postgrest.Table`1[[SubashaVentures.Models.Supabase.UserModel, SubashaVentures, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]].Filter[Boolean](String columnName, Operator op, Boolean criterion)
+   at SubashaVentures.Pages.Admin.AdminNewsletter.LoadStats()
