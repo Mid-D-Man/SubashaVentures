@@ -1,7 +1,8 @@
-// Services/Supabase/SupabaseAuthService.cs - COMPLETE WITH SESSION MANAGER + MFA FIX
+// Services/Supabase/SupabaseAuthService.cs
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
+using SubashaVentures.Services.Newsletter;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Exceptions;
 using Microsoft.AspNetCore.Components;
@@ -18,6 +19,7 @@ public class SupabaseAuthService : ISupabaseAuthService
     private readonly Client _supabase;
     private readonly SessionManager _sessionManager;
     private readonly NavigationManager _navigationManager;
+    private readonly INewsletterService _newsletterService;
     private readonly ILogger<SupabaseAuthService> _logger;
 
     private const string PkceVerifierKey = "supabase_pkce_verifier";
@@ -26,11 +28,13 @@ public class SupabaseAuthService : ISupabaseAuthService
         Client supabase,
         SessionManager sessionManager,
         NavigationManager navigationManager,
+        INewsletterService newsletterService,
         ILogger<SupabaseAuthService> logger)
     {
         _supabase = supabase;
         _sessionManager = sessionManager;
         _navigationManager = navigationManager;
+        _newsletterService = newsletterService;
         _logger = logger;
     }
 
@@ -157,6 +161,21 @@ public class SupabaseAuthService : ISupabaseAuthService
             }
 
             await EnsureUserProfileExistsAsync(session.User, userData);
+
+            // ✅ NEW: Remove user from newsletter subscribers since they now have a full account
+            try
+            {
+                await _newsletterService.RemoveOnUserSignUpAsync(email);
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Removed {email} from newsletter_subscribers (converted to user account)",
+                    LogLevel.Info
+                );
+            }
+            catch (Exception ex)
+            {
+                // Non-fatal - log and continue
+                _logger.LogWarning(ex, "Failed to remove user from newsletter on signup: {Email}", email);
+            }
 
             await MID_HelperFunctions.DebugMessageAsync($"✅ User signed up successfully: {email}", LogLevel.Info);
 
@@ -319,7 +338,19 @@ public class SupabaseAuthService : ISupabaseAuthService
             await _sessionManager.StoreSessionAsync(session);
 
             if (session.User != null)
+            {
                 await EnsureUserProfileExistsAsync(session.User);
+                
+                // ✅ NEW: Remove from newsletter on OAuth signup too
+                try
+                {
+                    await _newsletterService.RemoveOnUserSignUpAsync(session.User.Email ?? "");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to remove OAuth user from newsletter");
+                }
+            }
 
             return new SupabaseAuthResult
             {
@@ -559,11 +590,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (enrollResponse == null)
                 return new MfaEnrollmentResult { Success = false, ErrorMessage = "Failed to enroll MFA factor" };
 
-            // FIX: Use Totp.Uri (the short otpauth:// URI) as the QR data.
-            // Totp.QrCode is a base64-encoded SVG image — passing that to our
-            // QR generator tries to encode thousands of characters and always
-            // fails with "data too long".  The otpauth:// URI is ~100 chars and
-            // encodes perfectly at any error correction level.
             var otpauthUri = enrollResponse.Totp?.Uri
                 ?? BuildOtpAuthUri(enrollResponse.Totp?.Secret ?? "", user.Email ?? "user");
 
@@ -576,7 +602,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             {
                 Success = true,
                 FactorId = enrollResponse.Id,
-                QrCodeUrl = otpauthUri,      // ← short otpauth:// URI, NOT the base64 SVG
+                QrCodeUrl = otpauthUri,
                 Secret = enrollResponse.Totp?.Secret
             };
         }
@@ -624,8 +650,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             if (response == null)
                 return new SupabaseAuthResult { Success = false, Message = "Failed to disable MFA", ErrorCode = "MFA_UNENROLL_ERROR" };
 
-            // FIX: Force a session refresh so the JWT AAL level drops from aal2 → aal1.
-            // Without this the old token still shows MFA as active until natural expiry.
             try
             {
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -636,7 +660,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             }
             catch (Exception refreshEx)
             {
-                // Non-fatal – unenroll still succeeded
                 _logger.LogWarning(refreshEx, "Session refresh after MFA unenroll failed (non-fatal)");
             }
 
@@ -727,11 +750,6 @@ public class SupabaseAuthService : ISupabaseAuthService
 
     // ==================== PRIVATE HELPER METHODS ====================
 
-    /// <summary>
-    /// Builds a standard otpauth:// TOTP URI when the SDK doesn't return one directly.
-    /// Format: otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}
-    /// This URI is ~100 characters and can be encoded by any QR generator.
-    /// </summary>
     private static string BuildOtpAuthUri(string secret, string accountEmail)
     {
         const string issuer = "SubashaVentures";
