@@ -5,7 +5,7 @@ using Client = Supabase.Client;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 using Supabase.Postgrest.Exceptions;
 using Supabase.Postgrest.Models;
-using static Supabase.Postgrest.Constants;
+using Constants = Supabase.Postgrest.Constants;
 namespace SubashaVentures.Services.Newsletter;
 
 public class NewsletterService : INewsletterService
