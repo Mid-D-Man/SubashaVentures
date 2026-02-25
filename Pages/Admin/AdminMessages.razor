@@ -1,440 +1,438 @@
-@* Pages/Admin/AdminNewsletter.razor *@
-@page "/admin/newsletter"
+@page "/admin/messages"
+@using SubashaVentures.Layout.Admin
+@layout AdminLayout
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Loading
-@using SubashaVentures.Services.Newsletter
-@using SubashaVentures.Services.Email
-@using SubashaVentures.Services.Users
-@using SubashaVentures.Services.Authorization
-@using SubashaVentures.Domain.User
 @using SubashaVentures.Domain.Enums
-@using SubashaVentures.Layout.Admin
-@using SubashaVentures.Services.VisualElements
-@layout AdminLayout
 
-<div class="admin-newsletter">
-
-    @* ── Page Header ── *@
-    <div class="newsletter-header">
+<div class="admin-messages">
+    <div class="messages-header">
         <div class="header-left">
-            <h1 class="newsletter-title">Newsletter & Email</h1>
-            <p class="newsletter-subtitle">Send newsletters and targeted emails to your audience</p>
+            <h1 class="messages-title">Message Management</h1>
+            <p class="messages-subtitle">Send and manage messages to users</p>
         </div>
         <div class="header-right">
-            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline"
-                           OnClick="OpenSubscribersModal"
-                           CssClass="header-btn-secondary">
-                @if (!string.IsNullOrEmpty(_subscribersIcon))
-                {
-                    <span class="btn-svg">@((MarkupString)_subscribersIcon)</span>
-                }
-                Subscribers
-                @if (_subscriberCount > 0)
-                {
-                    <span class="count-badge">@_subscriberCount</span>
-                }
+            <PrimaryButton OnClick="OpenNewMessageModal"
+                          Size="PrimaryButton.ButtonSize.Medium">
+                New Message
             </PrimaryButton>
-            <PrimaryButton OnClick="OpenComposeModal"
-                           CssClass="header-btn-primary">
-                @if (!string.IsNullOrEmpty(_composeIcon))
-                {
-                    <span class="btn-svg">@((MarkupString)_composeIcon)</span>
-                }
-                Compose Email
+            <PrimaryButton OnClick="OpenBulkMessageModal"
+                          Variant="PrimaryButton.ButtonVariant.Secondary"
+                          Size="PrimaryButton.ButtonSize.Medium">
+                Bulk Message
             </PrimaryButton>
         </div>
     </div>
 
-    @* ── Stats Row ── *@
-    <div class="newsletter-stats">
+    <div class="messages-stats">
         <div class="stat-card">
-            <div class="stat-icon">
-                @if (!string.IsNullOrEmpty(_mailIcon))
-                {
-                    @((MarkupString)_mailIcon)
-                }
-            </div>
+            <div class="stat-icon"></div>
             <div class="stat-info">
-                <span class="stat-label">Newsletter Subscribers</span>
-                <span class="stat-value">@_subscriberCount</span>
+                <span class="stat-label">Total Conversations</span>
+                <span class="stat-value">@TotalConversations</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">
-                @if (!string.IsNullOrEmpty(_userIcon))
-                {
-                    @((MarkupString)_userIcon)
-                }
-            </div>
+            <div class="stat-icon"></div>
             <div class="stat-info">
-                <span class="stat-label">Users with Email On</span>
-                <span class="stat-value">@_usersWithEmailCount</span>
+                <span class="stat-label">Unread Messages</span>
+                <span class="stat-value">@UnreadCount</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">
-                @if (!string.IsNullOrEmpty(_statsIcon))
-                {
-                    @((MarkupString)_statsIcon)
-                }
-            </div>
+            <div class="stat-icon"></div>
             <div class="stat-info">
-                <span class="stat-label">Total Combined Reach</span>
-                <span class="stat-value">@_totalReach</span>
+                <span class="stat-label">Active Users</span>
+                <span class="stat-value">@ActiveUsersCount</span>
             </div>
         </div>
     </div>
 
-    @* ── Send History ── *@
-    <div class="newsletter-panel">
-        <div class="panel-header">
-            <h2 class="panel-title">Send History</h2>
+    <div class="messages-toolbar">
+        <div class="toolbar-filters">
+            <select class="filter-select" @bind="SelectedStatus" @bind:after="FilterConversations">
+                <option value="">All Status</option>
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+            </select>
+            
+            <select class="filter-select" @bind="SelectedCategory" @bind:after="FilterConversations">
+                <option value="">All Categories</option>
+                <option value="system">System</option>
+                <option value="promotion">Promotion</option>
+                <option value="support">Support</option>
+            </select>
+
+            <InputField @bind-Value="SearchQuery"
+                       Placeholder="Search by user email or subject..."
+                       Type="text"
+                       ShowClearButton="true"
+                       CssClass="search-input" />
         </div>
-        <div class="history-empty">
-            @if (!string.IsNullOrEmpty(_historyIcon))
+
+        <div class="toolbar-actions">
+            <PrimaryButton OnClick="RefreshInbox"
+                          Variant="PrimaryButton.ButtonVariant.Ghost"
+                          Size="PrimaryButton.ButtonSize.Small">
+                Refresh
+            </PrimaryButton>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="messages-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                           Message="Loading conversations..." />
+        </div>
+    }
+    else if (!FilteredConversations.Any())
+    {
+        <div class="messages-empty">
+            <div class="empty-icon"></div>
+            <h3>No conversations found</h3>
+            <p>Start by sending a message to users</p>
+            <PrimaryButton OnClick="OpenNewMessageModal"
+                          Size="PrimaryButton.ButtonSize.Medium">
+                Send New Message
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="messages-list">
+            @foreach (var conversation in FilteredConversations)
             {
-                <div class="empty-icon">@((MarkupString)_historyIcon)</div>
+                <div class="conversation-card @(conversation.UnreadByAdmin ? "unread" : "")"
+                     @onclick="() => OpenConversation(conversation.Id)">
+                    <div class="conversation-header">
+                        <div class="conversation-user">
+                            <div class="user-avatar">
+                                @GetUserInitials(conversation.UserDisplayName)
+                            </div>
+                            <div class="user-info">
+                                <h4 class="user-name">@conversation.UserDisplayName</h4>
+                                <span class="user-email">@conversation.UserEmail</span>
+                            </div>
+                        </div>
+                        <div class="conversation-meta">
+                            <span class="conversation-time">@FormatTimeAgo(conversation.LastMessageAt)</span>
+                            @if (conversation.UnreadByAdmin)
+                            {
+                                <span class="unread-badge">New</span>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="conversation-content">
+                        <h5 class="conversation-subject">@conversation.Subject</h5>
+                        <p class="conversation-preview">@conversation.LastMessage</p>
+                    </div>
+                    
+                    <div class="conversation-footer">
+                        <span class="conversation-category category-@conversation.Category.ToLower()">
+                            @conversation.Category
+                        </span>
+                        <span class="conversation-priority priority-@conversation.Priority.ToLower()">
+                            @conversation.Priority
+                        </span>
+                        <span class="conversation-status status-@conversation.Status.ToLower()">
+                            @conversation.Status
+                        </span>
+                    </div>
+                </div>
             }
-            <p class="empty-text">Email send history will appear here after your first send.</p>
         </div>
-    </div>
-
+    }
 </div>
 
-@* ── Compose Modal ── *@
-<DynamicModal @ref="_composeModal"
-              Title="Compose Email"
-              ShowFooter="false"
-              Size="DynamicModal.ModalSize.Large"
-              CloseOnOverlayClick="false">
+<DynamicModal @ref="NewMessageModal"
+             Title="Send New Message"
+             Size="DynamicModal.ModalSize.Large"
+             IsScrollable="true">
     <BodyContent>
-        <div class="compose-form">
-
-            @* Email Type Tabs *@
-            <div class="type-tabs">
-                <button class="type-tab @(_emailType == EmailType.Newsletter ? "active" : "")"
-                        @onclick="() => SetEmailType(EmailType.Newsletter)">
-                    Newsletter (All)
-                </button>
-                <button class="type-tab @(_emailType == EmailType.Segmented ? "active" : "")"
-                        @onclick="() => SetEmailType(EmailType.Segmented)">
-                    Segmented Send
-                </button>
-                <button class="type-tab @(_emailType == EmailType.Direct ? "active" : "")"
-                        @onclick="() => SetEmailType(EmailType.Direct)">
-                    Direct to User
-                </button>
+        <div class="message-form">
+            <div class="form-section">
+                <h3 class="section-title">Recipient</h3>
+                <div class="form-group">
+                    <label class="form-label">User Email or ID</label>
+                    <InputField @bind-Value="NewMessage.RecipientIdentifier"
+                               Placeholder="Enter user email or ID"
+                               Type="text"
+                               IsRequired="true" />
+                </div>
             </div>
-
-            @* Segmentation Panel *@
-            @if (_emailType == EmailType.Segmented)
-            {
-                <div class="segmentation-panel">
-                    <h3 class="segment-heading">Target Audience</h3>
-                    <div class="segment-grid">
-                        <div class="segment-group">
-                            <label class="segment-label">Membership Tiers</label>
-                            <div class="tier-checkboxes">
-                                @foreach (var tier in Enum.GetValues<MembershipTier>())
-                                {
-                                    <label class="checkbox-label">
-                                        <input type="checkbox"
-                                               checked="@_selectedTiers.Contains(tier)"
-                                               @onchange="e => ToggleTier(tier, (bool)(e.Value ?? false))" />
-                                        @tier.ToString()
-                                    </label>
-                                }
-                            </div>
-                        </div>
-                        <div class="segment-group">
-                            <label class="segment-label">Spending Range (₦)</label>
-                            <div class="range-inputs">
-                                <InputField Label="Min Spent"
-                                            Type="number"
-                                            Value="@_minSpent"
-                                            ValueChanged="v => _minSpent = v"
-                                            Placeholder="0" />
-                                <InputField Label="Max Spent"
-                                            Type="number"
-                                            Value="@_maxSpent"
-                                            ValueChanged="v => _maxSpent = v"
-                                            Placeholder="Any" />
-                            </div>
-                        </div>
-                        <div class="segment-group">
-                            <label class="segment-label">Order Count</label>
-                            <div class="range-inputs">
-                                <InputField Label="Min Orders"
-                                            Type="number"
-                                            Value="@_minOrders"
-                                            ValueChanged="v => _minOrders = v"
-                                            Placeholder="0" />
-                                <InputField Label="Max Orders"
-                                            Type="number"
-                                            Value="@_maxOrders"
-                                            ValueChanged="v => _maxOrders = v"
-                                            Placeholder="Any" />
-                            </div>
-                        </div>
-                        <div class="segment-group">
-                            <label class="segment-label">Account Filters</label>
-                            <div class="filter-checkboxes">
-                                <label class="checkbox-label">
-                                    <input type="checkbox"
-                                           @bind="_filterEmailVerified" />
-                                    Email verified only
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox"
-                                           @bind="_filterHasOrders" />
-                                    Has placed orders
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="segment-preview">
-                        <PrimaryButton Variant="PrimaryButton.ButtonVariant.Outline"
-                                       OnClick="PreviewSegment"
-                                       IsLoading="_isCalculatingSegment"
-                                       CssClass="preview-btn">
-                            Calculate Audience Size
-                        </PrimaryButton>
-                        @if (_segmentSize >= 0)
-                        {
-                            <span class="segment-size-badge">
-                                @_segmentSize targeted user@(_segmentSize == 1 ? "" : "s")
-                            </span>
-                        }
-                    </div>
+            
+            <div class="form-section">
+                <h3 class="section-title">Message Details</h3>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <InputField @bind-Value="NewMessage.Subject"
+                               Placeholder="Message subject"
+                               Type="text"
+                               IsRequired="true"
+                               MaxLength="200" />
                 </div>
-            }
-
-            @* Direct User Panel *@
-            @if (_emailType == EmailType.Direct)
-            {
-                <div class="direct-panel">
-                    <InputField Label="Recipient Email"
-                                Type="email"
-                                Value="@_directEmail"
-                                ValueChanged="v => _directEmail = v"
-                                Placeholder="user@example.com"
-                                IsRequired="true" />
+                
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="NewMessage.Category">
+                        <option value="system">System</option>
+                        <option value="promotion">Promotion</option>
+                        <option value="support">Support</option>
+                    </select>
                 </div>
-            }
-
-            @* Subject *@
-            <div class="form-row">
-                <InputField Label="Subject"
-                            Value="@_subject"
-                            ValueChanged="v => _subject = v"
-                            Placeholder="Your email subject..."
-                            IsRequired="true"
-                            MaxLength="200"
-                            ShowCharacterCount="true" />
-            </div>
-
-            @* CTA Fields *@
-            <div class="cta-row">
-                <InputField Label="CTA Button Text (optional)"
-                            Value="@_ctaText"
-                            ValueChanged="v => _ctaText = v"
-                            Placeholder="Shop Now" />
-                <InputField Label="CTA URL (optional)"
-                            Value="@_ctaUrl"
-                            ValueChanged="v => _ctaUrl = v"
-                            Placeholder="https://..." />
-            </div>
-
-            @* Body - FIX: Use @bind for character count *@
-            <div class="form-row">
-                <label class="field-label">
-                    Email Body <span class="required-mark">*</span>
-                </label>
-                <textarea class="body-textarea"
-                          placeholder="Write your email content here. HTML is supported."
-                          @bind="_body"
-                          @bind:event="oninput"
-                          rows="10"></textarea>
-                <span class="char-count">@(_body?.Length ?? 0) characters</span>
-            </div>
-
-            @* Error Message *@
-            @if (!string.IsNullOrEmpty(_sendError))
-            {
-                <div class="send-error">
-                    @if (!string.IsNullOrEmpty(_warningIcon))
-                    {
-                        @((MarkupString)_warningIcon)
-                    }
-                    @_sendError
+                
+                <div class="form-group">
+                    <label class="form-label">Priority</label>
+                    <select class="form-select" @bind="NewMessage.Priority">
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                    </select>
                 </div>
-            }
-
-            @* Success Message *@
-            @if (!string.IsNullOrEmpty(_sendSuccess))
-            {
-                <div class="send-success">
-                    @if (!string.IsNullOrEmpty(_checkIcon))
-                    {
-                        @((MarkupString)_checkIcon)
-                    }
-                    @_sendSuccess
+                
+                <div class="form-group">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-textarea"
+                             @bind="NewMessage.MessageText"
+                             placeholder="Type your message here..."
+                             rows="8"
+                             maxlength="2000"></textarea>
+                    <span class="character-count">@NewMessage.MessageText.Length / 2000</span>
                 </div>
-            }
-
-            @* Footer Actions *@
-            <div class="compose-footer">
-                <div class="footer-left">
-                    @if (_emailType == EmailType.Newsletter)
-                    {
-                        <span class="recipient-note">
-                            Sends to @_totalReach combined recipients
-                        </span>
-                    }
-                    else if (_emailType == EmailType.Segmented && _segmentSize > 0)
-                    {
-                        <span class="recipient-note">
-                            Sends to @_segmentSize segmented users
-                        </span>
-                    }
-                </div>
-                <div class="footer-actions">
-                    <SecondaryButton OnClick="CloseComposeModal"
-                                     IsDisabled="_isSending">
-                        Cancel
-                    </SecondaryButton>
-                    <PrimaryButton OnClick="SendEmail"
-                                   IsLoading="_isSending"
-                                   IsDisabled="@(!CanSend)">
-                        @if (!string.IsNullOrEmpty(_sendIcon))
-                        {
-                            <span class="btn-svg">@((MarkupString)_sendIcon)</span>
-                        }
-                        Send Email
-                    </PrimaryButton>
+                
+                <div class="form-group">
+                    <label class="form-label">Expiry Date (Optional)</label>
+                    <input type="datetime-local"
+                           class="form-input"
+                           @bind="NewMessage.ExpiresAt" />
                 </div>
             </div>
         </div>
     </BodyContent>
+    <FooterContent>
+        <div class="modal-actions">
+            <SecondaryButton OnClick="CloseNewMessageModal"
+                           Variant="SecondaryButton.ButtonVariant.Outline">
+                Cancel
+            </SecondaryButton>
+            <PrimaryButton OnClick="SendNewMessage"
+                          IsLoading="IsSendingMessage"
+                          IsDisabled="!IsNewMessageValid()">
+                Send Message
+            </PrimaryButton>
+        </div>
+    </FooterContent>
 </DynamicModal>
 
-@* ── Subscribers Modal ── *@
-<DynamicModal @ref="_subscribersModal"
-              Title="Newsletter Subscribers"
-              ShowFooter="false"
-              Size="DynamicModal.ModalSize.Large">
+<DynamicModal @ref="BulkMessageModal"
+             Title="Send Bulk Message"
+             Size="DynamicModal.ModalSize.Large"
+             IsScrollable="true">
     <BodyContent>
-        <div class="subscribers-view">
-            @if (_isLoadingSubscribers)
-            {
-                <LoadingSpinner Message="Loading subscribers..." />
-            }
-            else if (_subscribers.Any())
-            {
-                <div class="subscribers-toolbar">
-                    <span class="sub-count">@_filteredSubscribers.Count of @_subscribers.Count subscriber@(_subscribers.Count == 1 ? "" : "s")</span>
-                    <div class="search-box">
-                        <div class="search-input-wrapper">
-                            @if (!string.IsNullOrEmpty(_searchIcon))
-                            {
-                                <span class="search-icon-left">@((MarkupString)_searchIcon)</span>
-                            }
-                            <input type="text"
-                                   class="search-input"
-                                   placeholder="Search by email or source..."
-                                   value="@_subscriberSearchQuery"
-                                   @oninput="e => { _subscriberSearchQuery = e.Value?.ToString() ?? string.Empty; SearchSubscribers(); }" />
-                            @if (!string.IsNullOrWhiteSpace(_subscriberSearchQuery))
-                            {
-                                <button class="clear-search-btn" @onclick="ClearSubscriberSearch">✕</button>
-                            }
-                        </div>
+        <div class="bulk-message-form">
+            <div class="form-section">
+                <h3 class="section-title">Target Users</h3>
+                <div class="segmentation-options">
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.UseSpendingFilter" />
+                            Filter by Total Spent
+                        </label>
+                        @if (BulkMessage.UseSpendingFilter)
+                        {
+                            <div class="option-inputs">
+                                <InputField @bind-Value="BulkMessage.MinSpent"
+                                           Placeholder="Min amount"
+                                           Type="number" />
+                                <InputField @bind-Value="BulkMessage.MaxSpent"
+                                           Placeholder="Max amount"
+                                           Type="number" />
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.UseLoyaltyFilter" />
+                            Filter by Loyalty Points
+                        </label>
+                        @if (BulkMessage.UseLoyaltyFilter)
+                        {
+                            <div class="option-inputs">
+                                <InputField @bind-Value="BulkMessage.MinLoyaltyPoints"
+                                           Placeholder="Min points"
+                                           Type="number" />
+                                <InputField @bind-Value="BulkMessage.MaxLoyaltyPoints"
+                                           Placeholder="Max points"
+                                           Type="number" />
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.UseMembershipFilter" />
+                            Filter by Membership Tier
+                        </label>
+                        @if (BulkMessage.UseMembershipFilter)
+                        {
+                            <div class="option-checkboxes">
+                                <label><input type="checkbox" @bind="BulkMessage.IncludeBronze" /> Bronze</label>
+                                <label><input type="checkbox" @bind="BulkMessage.IncludeSilver" /> Silver</label>
+                                <label><input type="checkbox" @bind="BulkMessage.IncludeGold" /> Gold</label>
+                                <label><input type="checkbox" @bind="BulkMessage.IncludePlatinum" /> Platinum</label>
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.FilterCartUsers" />
+                            Only users with items in cart
+                        </label>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label class="option-label">
+                            <input type="checkbox" @bind="BulkMessage.FilterWishlistUsers" />
+                            Only users with items in wishlist
+                        </label>
                     </div>
                 </div>
-                <div class="subscribers-table-wrap">
-                    <table class="subscribers-table">
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Status</th>
-                                <th>Source</th>
-                                <th>Subscribed</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var sub in _filteredSubscribers)
-                            {
-                                <tr>
-                                    <td class="email-cell">@sub.Email</td>
-                                    <td>
-                                        <span class="status-pill @(sub.IsActive ? "active" : "inactive")">
-                                            @sub.StatusLabel
-                                        </span>
-                                    </td>
-                                    <td class="source-cell">@sub.Source</td>
-                                    <td>@sub.DisplayDate</td>
-                                    <td>
-                                        @if (sub.IsActive)
-                                        {
-                                            <PrimaryButton Variant="PrimaryButton.ButtonVariant.Ghost"
-                                                           CssClass="table-btn danger-btn"
-                                                           OnClick="() => ShowRemoveConfirmation(sub.Email)">
-                                                Remove
-                                            </PrimaryButton>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                
+                @if (TargetUserCount > 0)
+                {
+                    <div class="target-count">
+                        <span class="count-badge">@TargetUserCount users will receive this message</span>
+                    </div>
+                }
+            </div>
+            
+            <div class="form-section">
+                <h3 class="section-title">Message Details</h3>
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <InputField @bind-Value="BulkMessage.Subject"
+                               Placeholder="Message subject"
+                               Type="text"
+                               IsRequired="true"
+                               MaxLength="200" />
                 </div>
-            }
-            else
-            {
-                <div class="empty-subscribers">
-                    @if (!string.IsNullOrEmpty(_mailIcon))
-                    {
-                        <div class="empty-icon">@((MarkupString)_mailIcon)</div>
-                    }
-                    <p>No newsletter subscribers yet.</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="BulkMessage.Category">
+                        <option value="system">System</option>
+                        <option value="promotion">Promotion</option>
+                    </select>
                 </div>
-            }
+                
+                <div class="form-group">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-textarea"
+                             @bind="BulkMessage.MessageText"
+                             placeholder="Type your message here..."
+                             rows="8"
+                             maxlength="2000"></textarea>
+                    <span class="character-count">@BulkMessage.MessageText.Length / 2000</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Expiry Date (Optional)</label>
+                    <input type="datetime-local"
+                           class="form-input"
+                           @bind="BulkMessage.ExpiresAt" />
+                </div>
+            </div>
         </div>
     </BodyContent>
+    <FooterContent>
+        <div class="modal-actions">
+            <SecondaryButton OnClick="CloseBulkMessageModal"
+                           Variant="SecondaryButton.ButtonVariant.Outline">
+                Cancel
+            </SecondaryButton>
+            <PrimaryButton OnClick="CalculateTargetUsers"
+                          Variant="PrimaryButton.ButtonVariant.Secondary"
+                          IsLoading="IsCalculating">
+                Calculate Recipients
+            </PrimaryButton>
+            <PrimaryButton OnClick="SendBulkMessage"
+                          IsLoading="IsSendingBulkMessage"
+                          IsDisabled="TargetUserCount == 0 || !IsBulkMessageValid()">
+                Send to @TargetUserCount Users
+            </PrimaryButton>
+        </div>
+    </FooterContent>
 </DynamicModal>
 
-@* ── Confirm Send Modal ── *@
-<ConfirmationPopup @ref="_confirmSendPopup"
-                   Title="Confirm Send"
-                   Message="@GetConfirmSendMessage()"
-                   Variant="ConfirmationPopup.ConfirmationVariant.Info"
-                   ConfirmButtonText="Send Now"
-                   OnConfirm="ExecuteSend"
-                   IsProcessing="_isSending" />
-
-@* ── Confirm Remove Subscriber Modal ── *@
-<ConfirmationPopup @ref="_confirmRemovePopup"
-                   Title="Remove Subscriber"
-                   Message="@($"Are you sure you want to remove {_subscriberToRemove} from the newsletter?")"
-                   Variant="ConfirmationPopup.ConfirmationVariant.Warning"
-                   ConfirmButtonText="Remove"
-                   CancelButtonText="Cancel"
-                   OnConfirm="ConfirmRemoveSubscriber"
-                   OnCancel="CancelRemoveSubscriber" />
-
-@code {
-    private string GetConfirmSendMessage()
-    {
-        return _emailType switch
+<DynamicModal @ref="ConversationModal"
+             Title="@SelectedConversationSubject"
+             Size="DynamicModal.ModalSize.Large"
+             IsScrollable="true">
+    <BodyContent>
+        @if (SelectedConversation != null)
         {
-            EmailType.Newsletter => $"Send newsletter to {_totalReach} combined recipients?",
-            EmailType.Segmented => $"Send email to {_segmentSize} segmented users?",
-            EmailType.Direct => $"Send email to {_directEmail}?",
-            _ => "Send this email?"
-        };
-    }
-}
+            <div class="conversation-detail">
+                <div class="conversation-info">
+                    <div class="info-row">
+                        <span class="info-label">User:</span>
+                        <span class="info-value">@SelectedConversation.UserDisplayName (@SelectedConversation.UserEmail)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">
+                            <select class="status-select" @bind="SelectedConversation.Status" @bind:after="UpdateConversationStatus">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Created:</span>
+                        <span class="info-value">@SelectedConversation.CreatedAt.ToString("MMM dd, yyyy hh:mm tt")</span>
+                    </div>
+                </div>
+                
+                <div class="messages-thread">
+                    @if (ConversationMessages.Any())
+                    {
+                        @foreach (var message in ConversationMessages)
+                        {
+                            <div class="message-bubble @(message.SenderId == "admin" ? "admin-message" : "user-message")">
+                                <div class="message-header">
+                                    <span class="message-sender">@message.SenderName</span>
+                                    <span class="message-time">@FormatMessageTime(message.Timestamp)</span>
+                                </div>
+                                <div class="message-content">@message.Text</div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="no-messages">No messages in this conversation yet</div>
+                    }
+                </div>
+                
+                <div class="reply-section">
+                    <textarea class="reply-textarea"
+                             @bind="ReplyMessage"
+                             placeholder="Type your reply..."
+                             rows="4"
+                             maxlength="2000"></textarea>
+                    <div class="reply-actions">
+                        <span class="character-count">@ReplyMessage.Length / 2000</span>
+                        <PrimaryButton OnClick="SendReply"
+                                      IsLoading="IsSendingReply"
+                                      IsDisabled="string.IsNullOrWhiteSpace(ReplyMessage)">
+                            Send Reply
+                        </PrimaryButton>
+                    </div>
+                </div>
+            </div>
+        }
+    </BodyContent>
+</DynamicModal>
