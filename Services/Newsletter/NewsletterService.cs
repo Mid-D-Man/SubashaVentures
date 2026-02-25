@@ -266,7 +266,7 @@ public class NewsletterService : INewsletterService
         {
             var result = await _supabase
                 .From<NewsletterModel>()
-                .Order("subscribed_at", Supabase.Postgrest.Constants.Ordering.Descending)
+                .Order("subscribed_at", Constants.Ordering.Descending)
                 .Range(skip, skip + take - 1)
                 .Get();
 
