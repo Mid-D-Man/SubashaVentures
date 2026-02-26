@@ -10,6 +10,7 @@ using SubashaVentures.Services.Users;
 using SubashaVentures.Services.VisualElements;
 using Client = Supabase.Client;
 using Constants = Supabase.Postgrest.Constants;
+
 namespace SubashaVentures.Pages.Admin;
 
 public partial class AdminNewsletter : ComponentBase
@@ -104,16 +105,16 @@ public partial class AdminNewsletter : ComponentBase
         {
             var primary = "var(--primary-color)";
 
-            _mailIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Mail, 32, 32, primary);
-            _userIcon = await VisualElements.GetSvgWithColorAsync(SvgType.User, 32, 32, primary);
-            _statsIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Stats, 32, 32, primary);
-            _composeIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Mail, 18, 18, "white");
-            _subscribersIcon = await VisualElements.GetSvgWithColorAsync(SvgType.User, 18, 18, primary);
-            _sendIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Mail, 18, 18, "white");
-            _warningIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Warning, 16, 16, "var(--danger-color)");
-            _checkIcon = await VisualElements.GetSvgWithColorAsync(SvgType.CheckMark, 16, 16, "var(--success-color)");
-            _historyIcon = await VisualElements.GetSvgWithColorAsync(SvgType.History, 48, 48, "var(--text-muted)");
-            _searchIcon = await VisualElements.GetSvgWithColorAsync(SvgType.Search, 18, 18, "var(--text-secondary)");
+            _mailIcon        = await VisualElements.GetSvgWithColorAsync(SvgType.Mail,      32, 32, primary);
+            _userIcon        = await VisualElements.GetSvgWithColorAsync(SvgType.User,      32, 32, primary);
+            _statsIcon       = await VisualElements.GetSvgWithColorAsync(SvgType.Stats,     32, 32, primary);
+            _composeIcon     = await VisualElements.GetSvgWithColorAsync(SvgType.Mail,      18, 18, "white");
+            _subscribersIcon = await VisualElements.GetSvgWithColorAsync(SvgType.User,      18, 18, primary);
+            _sendIcon        = await VisualElements.GetSvgWithColorAsync(SvgType.Mail,      18, 18, "white");
+            _warningIcon     = await VisualElements.GetSvgWithColorAsync(SvgType.Warning,   16, 16, "var(--danger-color)");
+            _checkIcon       = await VisualElements.GetSvgWithColorAsync(SvgType.CheckMark, 16, 16, "var(--success-color)");
+            _historyIcon     = await VisualElements.GetSvgWithColorAsync(SvgType.History,   48, 48, "var(--text-muted)");
+            _searchIcon      = await VisualElements.GetSvgWithColorAsync(SvgType.Search,    18, 18, "var(--text-secondary)");
         }
         catch (Exception ex)
         {
@@ -129,14 +130,17 @@ public partial class AdminNewsletter : ComponentBase
         {
             _subscriberCount = await NewsletterService.GetSubscriberCountAsync();
 
-            // FIX: Use proper filter syntax for Supabase boolean columns
-            var users = await Supabase
+            // FIX: Use .Where() with lambda expressions — the raw .Filter() overload
+            // does NOT support bool as a criterion type and will throw a PostgrestException.
+            // .Where(u => u.BoolProp) compiles to an expression tree that the library
+            // knows how to translate into a PostgREST filter correctly.
+            var usersResult = await Supabase
                 .From<SubashaVentures.Models.Supabase.UserModel>()
-                .Filter("email_notifications", Constants.Operator.Equals, true)
-                .Filter("is_deleted", Constants.Operator.Equals, false)
+                .Where(u => u.EmailNotifications)  // ✅ bool via expression tree
+                .Where(u => !u.IsDeleted)          // ✅ bool via expression tree
                 .Get();
 
-            _usersWithEmailCount = users?.Models?.Count ?? 0;
+            _usersWithEmailCount = usersResult?.Models?.Count ?? 0;
 
             var combined = await NewsletterService.GetCombinedRecipientEmailsAsync();
             _totalReach = combined.Count;
@@ -201,7 +205,7 @@ public partial class AdminNewsletter : ComponentBase
             var query = _subscriberSearchQuery.ToLowerInvariant();
             _filteredSubscribers = _subscribers
                 .Where(s => s.Email.ToLowerInvariant().Contains(query) ||
-                           s.Source.ToLowerInvariant().Contains(query))
+                            s.Source.ToLowerInvariant().Contains(query))
                 .ToList();
         }
         StateHasChanged();
@@ -297,8 +301,7 @@ public partial class AdminNewsletter : ComponentBase
             return;
         }
 
-        if (_emailType == EmailType.Direct &&
-            string.IsNullOrWhiteSpace(_directEmail))
+        if (_emailType == EmailType.Direct && string.IsNullOrWhiteSpace(_directEmail))
         {
             _sendError = "Please enter a recipient email address.";
             return;
@@ -311,7 +314,7 @@ public partial class AdminNewsletter : ComponentBase
     {
         _isSending = true;
         _sendError = string.Empty;
-        _confirmSendPopup?.Close(); // FIX: Close confirmation popup
+        _confirmSendPopup?.Close();
         StateHasChanged();
 
         try
@@ -323,16 +326,16 @@ public partial class AdminNewsletter : ComponentBase
                 case EmailType.Newsletter:
                     result = await EmailService.SendNewsletterAsync(new SendNewsletterRequest
                     {
-                        Subject = _subject,
+                        Subject    = _subject,
                         HtmlContent = _body,
-                        CtaText = string.IsNullOrWhiteSpace(_ctaText) ? null : _ctaText,
-                        CtaUrl = string.IsNullOrWhiteSpace(_ctaUrl) ? null : _ctaUrl
+                        CtaText    = string.IsNullOrWhiteSpace(_ctaText) ? null : _ctaText,
+                        CtaUrl     = string.IsNullOrWhiteSpace(_ctaUrl)  ? null : _ctaUrl
                     });
                     break;
 
                 case EmailType.Segmented:
                     var criteria = BuildSegmentationCriteria();
-                    var users = await SegmentationService.GetUsersByMultipleCriteriaAsync(criteria);
+                    var users    = await SegmentationService.GetUsersByMultipleCriteriaAsync(criteria);
 
                     if (!users.Any())
                     {
@@ -347,14 +350,14 @@ public partial class AdminNewsletter : ComponentBase
                     {
                         var r = await EmailService.SendTransactionalAsync(new SendTransactionalRequest
                         {
-                            To = user.Email,
+                            To   = user.Email,
                             Type = "newsletter",
                             Data = new Dictionary<string, object>
                             {
-                                { "subject", _subject },
-                                { "content", _body },
-                                { "ctaText", _ctaText },
-                                { "ctaUrl", _ctaUrl }
+                                { "subject",  _subject  },
+                                { "content",  _body     },
+                                { "ctaText",  _ctaText  },
+                                { "ctaUrl",   _ctaUrl   }
                             }
                         });
 
@@ -364,8 +367,8 @@ public partial class AdminNewsletter : ComponentBase
                     result = new EmailResult
                     {
                         Success = errors == 0,
-                        Sent = users.Count - errors,
-                        Failed = errors
+                        Sent    = users.Count - errors,
+                        Failed  = errors
                     };
                     break;
 
@@ -373,14 +376,14 @@ public partial class AdminNewsletter : ComponentBase
                 default:
                     result = await EmailService.SendTransactionalAsync(new SendTransactionalRequest
                     {
-                        To = _directEmail.Trim(),
+                        To   = _directEmail.Trim(),
                         Type = "newsletter",
                         Data = new Dictionary<string, object>
                         {
-                            { "subject", _subject },
-                            { "content", _body },
-                            { "ctaText", _ctaText },
-                            { "ctaUrl", _ctaUrl }
+                            { "subject",  _subject  },
+                            { "content",  _body     },
+                            { "ctaText",  _ctaText  },
+                            { "ctaUrl",   _ctaUrl   }
                         }
                     });
                     break;
@@ -391,9 +394,8 @@ public partial class AdminNewsletter : ComponentBase
                 _sendSuccess = $"Email sent successfully to {result.Sent} recipient(s).";
                 Logger.LogInformation("Newsletter sent: {Sent} success, {Failed} failed",
                     result.Sent, result.Failed);
+
                 await LoadStats();
-                
-                // Clear form after successful send
                 await Task.Delay(2000);
                 CloseComposeModal();
             }
@@ -426,8 +428,7 @@ public partial class AdminNewsletter : ComponentBase
 
     private async Task ConfirmRemoveSubscriber()
     {
-        if (string.IsNullOrEmpty(_subscriberToRemove))
-            return;
+        if (string.IsNullOrEmpty(_subscriberToRemove)) return;
 
         var ok = await NewsletterService.UnsubscribeAsync(_subscriberToRemove);
         if (ok)
@@ -450,19 +451,19 @@ public partial class AdminNewsletter : ComponentBase
 
     private void ResetComposeForm()
     {
-        _emailType = EmailType.Newsletter;
-        _subject = string.Empty;
-        _body = string.Empty;
-        _ctaText = string.Empty;
-        _ctaUrl = string.Empty;
-        _directEmail = string.Empty;
-        _sendError = string.Empty;
-        _sendSuccess = string.Empty;
-        _segmentSize = -1;
+        _emailType    = EmailType.Newsletter;
+        _subject      = string.Empty;
+        _body         = string.Empty;
+        _ctaText      = string.Empty;
+        _ctaUrl       = string.Empty;
+        _directEmail  = string.Empty;
+        _sendError    = string.Empty;
+        _sendSuccess  = string.Empty;
+        _segmentSize  = -1;
         _selectedTiers.Clear();
         _minSpent = _maxSpent = _minOrders = _maxOrders = string.Empty;
         _filterEmailVerified = false;
-        _filterHasOrders = false;
+        _filterHasOrders     = false;
     }
 
     // ── Enums ─────────────────────────────────────────────────────────────────
