@@ -273,9 +273,8 @@
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
 }
 
-/* ===== SCROLL TO TOP BUTTON - CRITICAL FIX ===== */
+/* ===== SCROLL TO TOP BUTTON ===== */
 .scroll-to-top {
-    /* FIXED: Changed from 'fixed' to ensure proper stacking */
     position: fixed;
     bottom: 2rem;
     right: 2rem;
@@ -290,10 +289,8 @@
     align-items: center;
     justify-content: center;
     
-    /* CRITICAL: Very high z-index to appear above everything */
     z-index: 99999 !important;
     
-    /* Initial hidden state */
     transform: translateY(100px) scale(0.8);
     opacity: 0;
     visibility: hidden;
@@ -302,7 +299,6 @@
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 4px 20px rgba(150, 153, 74, 0.4);
     
-    /* Ensure it's above all other content */
     isolation: isolate;
 }
 
@@ -424,13 +420,16 @@
     border-top: 1px solid rgba(184, 187, 106, 0.2);
 }
 
-[data-theme="dark"] .copyright,
+[data-theme="dark"] .copyright {
+    color: #ffffff;
+}
+
 [data-theme="dark"] .payment-label {
     color: var(--text-muted, #9ca3af);
 }
 
 [data-theme="dark"] .legal-links a {
-    color: var(--text-muted, #9ca3af);
+    color: #ffffff;
 }
 
 [data-theme="dark"] .legal-links a:hover {
@@ -667,4 +666,4 @@
         background: white;
         border-top: 1px solid #000;
     }
-}
+    }
