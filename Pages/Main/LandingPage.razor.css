@@ -826,9 +826,13 @@
         justify-content: flex-start;
     }
 
+    .hero-description {
+        padding-right: 200px;
+    }
+
     .hero-actions {
         justify-content: flex-start;
-        width: 100%;
+        width: 50%;
     }
 
     .hero-stats {
@@ -836,7 +840,8 @@
     }
     
     .hero-visual {
-        width: 100%;
+        width: 70%;
+        padding-right: 2rem;
         justify-content: center;
     }
 
@@ -910,17 +915,13 @@
     .hero-description {
         text-align: left;
         font-size: 1.1rem;
+        padding-right: 200px;
     }
 
     .hero-actions {
         justify-content: flex-start;
-        width: 100%;
+        width: 50%;
         gap: 0.75rem;
-    }
-    
-    .hero-actions .professional-btn {
-        flex: 1;
-        min-width: 0;
     }
 
     .hero-stats {
@@ -930,7 +931,9 @@
     }
     
     .hero-visual {
-        width: 100%;
+        width: 70%;
+        padding-right: 2rem;
+        justify-content: center;
     }
 
     .hero-image-container {
@@ -1029,12 +1032,12 @@
         font-size: 1rem;
         text-align: left;
         line-height: 1.5;
+        padding-right: 200px;
     }
 
-    /* FIXED: Center buttons on mobile */
     .hero-actions {
         justify-content: center;
-        width: 100%;
+        width: 50%;
         flex-direction: row;
         gap: 0.75rem;
         margin: 0 auto;
@@ -1073,10 +1076,10 @@
         font-size: 0.75rem;
     }
     
-    /* FIXED: Prevent POD card from going outside screen */
     .hero-visual {
-        width: 100%;
-        padding: 0 1rem;
+        width: 60%;
+        padding-right: 2.5rem;
+        justify-content: center;
     }
 
     .hero-image-container {
@@ -1171,9 +1174,13 @@
 
     .hero-description {
         font-size: 0.9rem;
+        padding-right: 200px;
     }
-    
-    /* Ensure buttons fit on very small screens */
+
+    .hero-actions {
+        width: 50%;
+    }
+
     .hero-actions .professional-btn {
         padding: 0.625rem 0.75rem;
         font-size: 0.8125rem;
@@ -1182,6 +1189,11 @@
     .hero-actions .professional-btn .btn-icon {
         width: 16px;
         height: 16px;
+    }
+
+    .hero-visual {
+        width: 50%;
+        padding-right: 3rem;
     }
 
     .hero-image-container {
@@ -1311,4 +1323,4 @@
         background: white;
         box-shadow: none;
     }
-                                }
+    }
