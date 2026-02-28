@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Feb 28 11:06:51 UTC 2026
+Generated: Sat Feb 28 11:07:24 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 755f0e16f9ad2acad26e8d1ca7091a94d9db035d
+Commit: 011e91fde7bf35e6891bb67dfe630dcc11f72386
 Branch: master
 ==================================
 
@@ -274,6 +274,7 @@ Properties/launchSettings.json
 README.md
 Services/Addresses/AddressService.cs
 Services/Addresses/IAddressService.cs
+Services/AppStats/AppStatsService.cs
 Services/AppStats/IAppStatsService.cs
 Services/Auth/CustomSupabaseClaimsFactory.cs
 Services/Auth/SupabaseAuthStateProvider.cs
@@ -510,7 +511,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 186 files
+.cs       : 187 files
 .razor    : 84 files
 .csproj   : 1 files
 .sln      : 1 files
