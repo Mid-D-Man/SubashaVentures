@@ -1,28 +1,53 @@
 // Pages/Main/LandingPage.razor.js
 export class LandingPage {
     constructor() {
-        // ── Scroll speeds ──────────────────────────────────────────────────
-        // Featured products: moderate pace
-        this._featuredSpeed = 1.0;
-        // Testimonials: noticeably faster than before
+        // ── Scroll speeds ──────────────────────────────────────────────
+        this._featuredSpeed     = 1.0;
         this._testimonialsSpeed = 2.2;
 
-        this._observers      = [];
-        this._scrollStates   = [];
-        this._setupAttempts  = 0;
-        this._maxAttempts    = 15;
+        this._observers    = [];
+        this._scrollStates = [];
+        // Keep a direct reference to the featured scroll state so we can
+        // cancel + recreate it when Blazor replaces the DOM after async load.
+        this._featuredState = null;
+
+        this._setupAttempts = 0;
+        this._maxAttempts   = 15;
     }
 
-    // ── Public API ─────────────────────────────────────────────────────────
+    // ── Public API ─────────────────────────────────────────────────────
 
-    static create() {
-        return new LandingPage();
-    }
+    static create() { return new LandingPage(); }
 
     initialize() {
-        // Defer slightly so Blazor has finished painting the DOM
         const delay = document.readyState === 'loading' ? 0 : 250;
         setTimeout(() => this._trySetup(), delay);
+    }
+
+    /**
+     * Called by Blazor (LandingPage.razor.cs) after featured products
+     * finish loading and StateHasChanged() has triggered a re-render.
+     * Blazor replaces the entire .scroll-wrapper element, so we must
+     * re-query the DOM and restart the RAF loop on the fresh node.
+     */
+    reinitFeaturedScroll() {
+        // 1. Cancel existing featured loop (targets a stale/detached node)
+        if (this._featuredState) {
+            if (this._featuredState.rafId)        cancelAnimationFrame(this._featuredState.rafId);
+            if (this._featuredState.resumeTimeout) clearTimeout(this._featuredState.resumeTimeout);
+            this._scrollStates = this._scrollStates.filter(s => s !== this._featuredState);
+            this._featuredState = null;
+        }
+
+        // 2. Re-query fresh DOM element
+        const wrapper = document.querySelector('.featured-section .scroll-wrapper');
+        if (!wrapper) return;
+
+        const state = this._setupScrollState(wrapper, '.scroll-content', this._featuredSpeed);
+        if (state) {
+            this._featuredState = state;
+            this._scrollStates.push(state);
+        }
     }
 
     dispose() {
@@ -31,11 +56,12 @@ export class LandingPage {
             if (s.resumeTimeout)     clearTimeout(s.resumeTimeout);
         });
         this._observers.forEach(o => o.disconnect());
-        this._scrollStates = [];
-        this._observers    = [];
+        this._scrollStates  = [];
+        this._featuredState = null;
+        this._observers     = [];
     }
 
-    // ── Setup orchestration ────────────────────────────────────────────────
+    // ── Setup orchestration ────────────────────────────────────────────
 
     _trySetup() {
         this._setupAttempts++;
@@ -43,33 +69,49 @@ export class LandingPage {
         const featured     = document.querySelector('.featured-section .scroll-wrapper');
         const testimonials = document.querySelector('.testimonials-section .testimonials-scroll-wrapper');
 
-        if (!featured && this._setupAttempts < this._maxAttempts) {
+        if (!featured && !testimonials && this._setupAttempts < this._maxAttempts) {
             setTimeout(() => this._trySetup(), 300);
             return;
         }
 
-        if (featured)     this._initScroll(featured,     '.scroll-content',              this._featuredSpeed);
-        if (testimonials) this._initScroll(testimonials, '.testimonials-scroll-content', this._testimonialsSpeed);
+        // ── Testimonials: always hardcoded, init immediately ──
+        if (testimonials) {
+            const state = this._setupScrollState(testimonials, '.testimonials-scroll-content', this._testimonialsSpeed);
+            if (state) this._scrollStates.push(state);
+        }
+
+        // ── Featured products: loaded async by Blazor.
+        //    Attempt an immediate init in case products are already rendered
+        //    (e.g., fast network / cached).  If the content is not wide enough
+        //    yet (still showing skeletons), Blazor will call reinitFeaturedScroll()
+        //    after the real cards paint.
+        if (featured) {
+            const content = featured.querySelector('.scroll-content');
+            if (content && content.scrollWidth > featured.clientWidth + 4) {
+                const state = this._setupScrollState(featured, '.scroll-content', this._featuredSpeed);
+                if (state) {
+                    this._featuredState = state;
+                    this._scrollStates.push(state);
+                }
+            }
+            // If not wide enough, reinitFeaturedScroll() will handle it.
+        }
 
         this._initCountUp();
     }
 
-    // ── Infinite scroll ────────────────────────────────────────────────────
+    // ── Core scroll initialiser ────────────────────────────────────────
+    // Returns the state object on success, null if content not ready.
 
-    _initScroll(wrapper, contentSel, speed) {
+    _setupScrollState(wrapper, contentSel, speed) {
         const content = wrapper.querySelector(contentSel);
-        if (!content) return;
+        if (!content) return null;
 
         // Disable smooth scrolling so programmatic assignment is instant
         wrapper.style.scrollBehavior = 'auto';
 
-        // Content may still be laying out — wait until it's wide enough
-        if (content.scrollWidth <= wrapper.clientWidth + 4) {
-            if (this._setupAttempts < this._maxAttempts) {
-                setTimeout(() => this._initScroll(wrapper, contentSel, speed), 300);
-            }
-            return;
-        }
+        // Content must be wider than the viewport to scroll
+        if (content.scrollWidth <= wrapper.clientWidth + 4) return null;
 
         const halfWidth = content.scrollWidth / 2;
 
@@ -77,8 +119,8 @@ export class LandingPage {
             wrapper,
             halfWidth,
             speed,
-            paused:        false,   // mouse hover
-            userScrolling: false,   // touch / wheel / drag
+            paused:        false,
+            userScrolling: false,
             rafId:         null,
             resumeTimeout: null,
             dragging:      false,
@@ -90,9 +132,6 @@ export class LandingPage {
         const tick = () => {
             if (!state.paused && !state.userScrolling) {
                 wrapper.scrollLeft += state.speed;
-
-                // Seamless loop: when we reach the halfway point (duplicate),
-                // jump back to the exact same visual position at the start
                 if (wrapper.scrollLeft >= state.halfWidth) {
                     wrapper.scrollLeft -= state.halfWidth;
                 }
@@ -101,9 +140,7 @@ export class LandingPage {
         };
         state.rafId = requestAnimationFrame(tick);
 
-        this._scrollStates.push(state);
-
-        // ── Pause on hover (desktop) ──
+        // ── Hover pause (desktop) ──
         wrapper.addEventListener('mouseenter', () => { state.paused = true; });
         wrapper.addEventListener('mouseleave', () => {
             if (!state.dragging) state.paused = false;
@@ -119,7 +156,7 @@ export class LandingPage {
             state.resumeTimeout = setTimeout(() => { state.userScrolling = false; }, 2500);
         }, { passive: true });
 
-        // ── Mouse-wheel (track-pad horizontal swipe) ──
+        // ── Trackpad / wheel horizontal swipe ──
         wrapper.addEventListener('wheel', () => {
             state.userScrolling = true;
             clearTimeout(state.resumeTimeout);
@@ -157,9 +194,11 @@ export class LandingPage {
             const walk = (x - state.dragStartX) * 1.5;
             wrapper.scrollLeft = state.dragStartLeft - walk;
         });
+
+        return state;
     }
 
-    // ── Count-up animation ─────────────────────────────────────────────────
+    // ── Count-up animation ─────────────────────────────────────────────
 
     _initCountUp() {
         const statsSection = document.getElementById('hero-stats');
@@ -168,13 +207,10 @@ export class LandingPage {
         const numbers = Array.from(statsSection.querySelectorAll('.stat-number[data-target]'));
         if (!numbers.length) return;
 
-        // Reset display to zero immediately so there's no flash of the
-        // server-rendered value before animation
         numbers.forEach(el => {
             el.textContent = '0' + (el.dataset.suffix || '');
         });
 
-        // Animate only when the stats section enters the viewport
         const io = new IntersectionObserver(entries => {
             if (!entries[0].isIntersecting) return;
             numbers.forEach(el => this._countUp(el));
@@ -186,34 +222,27 @@ export class LandingPage {
     }
 
     _countUp(el) {
-        const target   = parseInt(el.dataset.target,  10) || 0;
+        const target   = parseInt(el.dataset.target, 10) || 0;
         const suffix   = el.dataset.suffix || '';
-        const duration = 1600; // ms — fast but satisfying
+        const duration = 1600;
         const start    = performance.now();
-
-        // Cubic ease-out: starts fast, decelerates into the final value
-        const ease = t => 1 - Math.pow(1 - t, 3);
+        const ease     = t => 1 - Math.pow(1 - t, 3);
 
         const frame = now => {
             const elapsed  = now - start;
             const progress = Math.min(elapsed / duration, 1);
             const current  = Math.floor(ease(progress) * target);
-
             el.textContent = current + suffix;
-
             if (progress < 1) {
                 requestAnimationFrame(frame);
             } else {
-                // Snap to exact target (avoids floating-point rounding)
                 el.textContent = target + suffix;
             }
         };
-
         requestAnimationFrame(frame);
     }
 }
 
-// Expose on window for Blazor interop fallback (not strictly needed with ES module pattern)
 if (typeof window !== 'undefined') {
     window.LandingPage = LandingPage;
 }
