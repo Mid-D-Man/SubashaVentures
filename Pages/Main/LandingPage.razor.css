@@ -222,7 +222,7 @@
     justify-content: flex-start;
 }
 
-/* ===== HERO STATS — count-up aware ===== */
+/* ===== HERO STATS ===== */
 .hero-stats {
     display: flex;
     gap: 2rem;
@@ -241,7 +241,6 @@
     font-weight: 700;
     color: var(--primary, #96994A);
     line-height: 1;
-    /* Prevent layout shift during count-up */
     min-width: 4ch;
     display: inline-block;
     font-variant-numeric: tabular-nums;
@@ -328,7 +327,7 @@
     margin: 0;
 }
 
-/* ===== FEATURED PRODUCTS — scroll wrapper ===== */
+/* ===== FEATURED PRODUCTS ===== */
 .featured-section {
     padding: 4rem 0;
     overflow: hidden;
@@ -341,7 +340,6 @@
     position: relative;
     padding: 1rem 0;
     cursor: grab;
-    /* scroll-behavior intentionally NOT set here — JS sets it to 'auto' */
     will-change: scroll-position;
     transform: translateZ(0);
     -webkit-overflow-scrolling: touch;
@@ -536,7 +534,6 @@
 .newsletter-submit:disabled { opacity: 0.6; cursor: not-allowed !important; }
 .newsletter-privacy { font-size: 0.875rem; color: rgba(255,255,255,0.85); margin: 0; text-shadow: 0 1px 5px rgba(0,0,0,0.3); }
 
-/* newsletter success */
 .newsletter-success {
     display: flex;
     align-items: center;
@@ -589,7 +586,7 @@
     flex-shrink: 0;
 }
 
-/* ===== TESTIMONIALS — scroll wrapper ===== */
+/* ===== TESTIMONIALS ===== */
 .testimonials-section {
     padding: 4rem 0;
     overflow: hidden;
@@ -602,7 +599,6 @@
     position: relative;
     padding: 1rem 0;
     cursor: grab;
-    /* scroll-behavior NOT set here — JS sets it to 'auto' */
     will-change: scroll-position;
     transform: translateZ(0);
     -webkit-overflow-scrolling: touch;
@@ -619,17 +615,19 @@
 
 .testimonials-scroll-content {
     display: flex;
-    gap: 1.5rem;
+    gap: 1.25rem;
     width: max-content;
     will-change: transform;
     transform: translateZ(0);
+    align-items: stretch;
 }
 
+/* ── Compact review card sizing ── */
 .testimonials-scroll-content > * {
-    flex: 0 0 340px;
-    width: 340px;
-    max-width: 340px;
-    min-width: 340px;
+    flex: 0 0 280px;
+    width: 280px;
+    max-width: 280px;
+    min-width: 280px;
     scroll-snap-align: start;
     contain: layout style paint;
 }
@@ -685,7 +683,7 @@
 @media (min-width: 1024px) {
     .scroll-wrapper { height: 620px; }
     .product-card-wrapper { flex: 0 0 340px; width: 340px; height: 560px; }
-    .testimonials-scroll-content > * { flex: 0 0 360px; width: 360px; max-width: 360px; min-width: 360px; }
+    .testimonials-scroll-content > * { flex: 0 0 300px; width: 300px; max-width: 300px; min-width: 300px; }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -701,7 +699,7 @@
     .hero-image-container { max-width: 450px; width: 80%; margin: 0 auto; }
     .scroll-wrapper { height: 560px; }
     .product-card-wrapper { flex: 0 0 280px; width: 280px; height: 480px; }
-    .testimonials-scroll-content > * { flex: 0 0 320px; width: 320px; max-width: 320px; min-width: 320px; }
+    .testimonials-scroll-content > * { flex: 0 0 270px; width: 270px; max-width: 270px; min-width: 270px; }
 }
 
 @media (min-width: 481px) and (max-width: 767px) {
@@ -720,7 +718,7 @@
     .hero-potd-card { height: auto; max-height: 450px; }
     .scroll-wrapper { height: 520px; }
     .product-card-wrapper { flex: 0 0 260px; width: 260px; height: 440px; }
-    .testimonials-scroll-content > * { flex: 0 0 300px; width: 300px; max-width: 300px; min-width: 300px; }
+    .testimonials-scroll-content > * { flex: 0 0 260px; width: 260px; max-width: 260px; min-width: 260px; }
     .newsletter-section { padding: 3rem 1.5rem; margin: 0 0.5rem; }
     .newsletter-title { font-size: 2rem; }
     .form-group { max-width: 100%; padding: 0 0.5rem; }
@@ -750,7 +748,7 @@
     .section-subtitle { font-size: 1rem;    padding: 0 1rem; }
     .scroll-wrapper { height: 480px; }
     .product-card-wrapper { flex: 0 0 240px; width: 240px; height: 400px; }
-    .testimonials-scroll-content > * { flex: 0 0 280px !important; width: 280px !important; max-width: 280px !important; min-width: 280px !important; }
+    .testimonials-scroll-content > * { flex: 0 0 250px !important; width: 250px !important; max-width: 250px !important; min-width: 250px !important; }
     .section-cta { padding: 0 1rem; }
     .section-cta .professional-btn.large { width: 100%; max-width: 100%; }
     .newsletter-section { padding: 2.5rem 1rem; margin: 0; border-radius: 0; }
@@ -773,7 +771,7 @@
     .hero-image-container { max-width: 100%; width: 100%; }
     .hero-potd-card { height: auto; max-height: 350px; }
     .product-card-wrapper { flex: 0 0 220px; width: 220px; height: 380px; }
-    .testimonials-scroll-content > * { flex: 0 0 260px !important; width: 260px !important; max-width: 260px !important; min-width: 260px !important; }
+    .testimonials-scroll-content > * { flex: 0 0 230px !important; width: 230px !important; max-width: 230px !important; min-width: 230px !important; }
     .stat-number { font-size: 1.25rem; }
     .stat-label  { font-size: 0.7rem; }
 }
