@@ -1,188 +1,219 @@
 // Pages/Main/LandingPage.razor.js
 export class LandingPage {
     constructor() {
-        this.scrollSpeed = 0.5; // pixels per frame
-        this.observers = [];
-        this.scrollInstances = [];
+        // ── Scroll speeds ──────────────────────────────────────────────────
+        // Featured products: moderate pace
+        this._featuredSpeed = 1.0;
+        // Testimonials: noticeably faster than before
+        this._testimonialsSpeed = 2.2;
+
+        this._observers      = [];
+        this._scrollStates   = [];
+        this._setupAttempts  = 0;
+        this._maxAttempts    = 15;
     }
+
+    // ── Public API ─────────────────────────────────────────────────────────
 
     static create() {
         return new LandingPage();
     }
 
     initialize() {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                this.setupScrolls();
-            });
-        } else {
-            setTimeout(() => this.setupScrolls(), 100);
-        }
-    }
-
-    setupScrolls() {
-        const featuredWrapper = document.querySelector('.featured-section .scroll-wrapper');
-        const testimonialsWrapper = document.querySelector('.testimonials-section .testimonials-scroll-wrapper');
-
-        if (featuredWrapper) {
-            this.setupInfiniteScroll(featuredWrapper, '.scroll-content', this.scrollSpeed);
-        } else {
-            setTimeout(() => this.setupScrolls(), 500);
-            return;
-        }
-
-        if (testimonialsWrapper) {
-            this.setupInfiniteScroll(testimonialsWrapper, '.testimonials-scroll-content', this.scrollSpeed);
-        }
-    }
-
-    setupInfiniteScroll(wrapper, contentSelector, scrollSpeed) {
-        const content = wrapper.querySelector(contentSelector);
-        if (!content) return;
-
-        const state = {
-            isPaused: false,
-            isUserScrolling: false,
-            animationId: null,
-            lastScrollLeft: 0,
-            userScrollTimeout: null
-        };
-
-        // Auto-scroll function
-        const autoScroll = () => {
-            if (!state.isPaused && !state.isUserScrolling) {
-                const maxScroll = content.scrollWidth / 2;
-                
-                wrapper.scrollLeft += scrollSpeed;
-
-                // Loop back when reaching halfway point
-                if (wrapper.scrollLeft >= maxScroll) {
-                    wrapper.scrollLeft = 0;
-                }
-            }
-
-            state.animationId = requestAnimationFrame(autoScroll);
-        };
-
-        // Start auto-scroll
-        state.animationId = requestAnimationFrame(autoScroll);
-        this.scrollInstances.push(state);
-
-        // Intersection Observer for fade effects
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('in-view');
-                    } else {
-                        entry.target.classList.remove('in-view');
-                    }
-                });
-            },
-            { root: wrapper, threshold: 0.5 }
-        );
-
-        this.observers.push(observer);
-
-        const cards = content.querySelectorAll('.product-card-wrapper, .testimonials-scroll-content > *');
-        cards.forEach(card => observer.observe(card));
-
-        // Pause on hover (desktop)
-        wrapper.addEventListener('mouseenter', () => {
-            state.isPaused = true;
-        });
-
-        wrapper.addEventListener('mouseleave', () => {
-            state.isPaused = false;
-        });
-
-        // Handle touch interactions (mobile)
-        wrapper.addEventListener('touchstart', () => {
-            state.isUserScrolling = true;
-            if (state.userScrollTimeout) {
-                clearTimeout(state.userScrollTimeout);
-            }
-        }, { passive: true });
-
-        wrapper.addEventListener('touchend', () => {
-            state.userScrollTimeout = setTimeout(() => {
-                state.isUserScrolling = false;
-            }, 3000);
-        }, { passive: true });
-
-        // Handle manual scroll (mouse wheel, trackpad)
-        let scrollTimeout;
-        wrapper.addEventListener('scroll', () => {
-            const currentScrollLeft = wrapper.scrollLeft;
-            
-            // Detect if user is manually scrolling
-            if (Math.abs(currentScrollLeft - state.lastScrollLeft) > scrollSpeed * 2) {
-                state.isUserScrolling = true;
-                
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(() => {
-                    state.isUserScrolling = false;
-                }, 3000);
-            }
-            
-            state.lastScrollLeft = currentScrollLeft;
-        }, { passive: true });
-
-        // Mouse drag support
-        let isDragging = false;
-        let startX = 0;
-        let scrollStart = 0;
-
-        wrapper.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.pageX - wrapper.offsetLeft;
-            scrollStart = wrapper.scrollLeft;
-            wrapper.style.cursor = 'grabbing';
-            state.isPaused = true;
-        });
-
-        const stopDragging = () => {
-            if (isDragging) {
-                isDragging = false;
-                wrapper.style.cursor = 'grab';
-                setTimeout(() => {
-                    state.isPaused = false;
-                }, 2000);
-            }
-        };
-
-        wrapper.addEventListener('mouseleave', stopDragging);
-        wrapper.addEventListener('mouseup', stopDragging);
-
-        wrapper.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-
-            const x = e.pageX - wrapper.offsetLeft;
-            const walk = (x - startX) * 2;
-            wrapper.scrollLeft = scrollStart - walk;
-        });
+        // Defer slightly so Blazor has finished painting the DOM
+        const delay = document.readyState === 'loading' ? 0 : 250;
+        setTimeout(() => this._trySetup(), delay);
     }
 
     dispose() {
-        // Cancel all animations
-        this.scrollInstances.forEach(state => {
-            if (state.animationId) {
-                cancelAnimationFrame(state.animationId);
+        this._scrollStates.forEach(s => {
+            if (s.rafId)             cancelAnimationFrame(s.rafId);
+            if (s.resumeTimeout)     clearTimeout(s.resumeTimeout);
+        });
+        this._observers.forEach(o => o.disconnect());
+        this._scrollStates = [];
+        this._observers    = [];
+    }
+
+    // ── Setup orchestration ────────────────────────────────────────────────
+
+    _trySetup() {
+        this._setupAttempts++;
+
+        const featured     = document.querySelector('.featured-section .scroll-wrapper');
+        const testimonials = document.querySelector('.testimonials-section .testimonials-scroll-wrapper');
+
+        if (!featured && this._setupAttempts < this._maxAttempts) {
+            setTimeout(() => this._trySetup(), 300);
+            return;
+        }
+
+        if (featured)     this._initScroll(featured,     '.scroll-content',              this._featuredSpeed);
+        if (testimonials) this._initScroll(testimonials, '.testimonials-scroll-content', this._testimonialsSpeed);
+
+        this._initCountUp();
+    }
+
+    // ── Infinite scroll ────────────────────────────────────────────────────
+
+    _initScroll(wrapper, contentSel, speed) {
+        const content = wrapper.querySelector(contentSel);
+        if (!content) return;
+
+        // Disable smooth scrolling so programmatic assignment is instant
+        wrapper.style.scrollBehavior = 'auto';
+
+        // Content may still be laying out — wait until it's wide enough
+        if (content.scrollWidth <= wrapper.clientWidth + 4) {
+            if (this._setupAttempts < this._maxAttempts) {
+                setTimeout(() => this._initScroll(wrapper, contentSel, speed), 300);
             }
-            if (state.userScrollTimeout) {
-                clearTimeout(state.userScrollTimeout);
+            return;
+        }
+
+        const halfWidth = content.scrollWidth / 2;
+
+        const state = {
+            wrapper,
+            halfWidth,
+            speed,
+            paused:        false,   // mouse hover
+            userScrolling: false,   // touch / wheel / drag
+            rafId:         null,
+            resumeTimeout: null,
+            dragging:      false,
+            dragStartX:    0,
+            dragStartLeft: 0,
+        };
+
+        // ── rAF loop ──
+        const tick = () => {
+            if (!state.paused && !state.userScrolling) {
+                wrapper.scrollLeft += state.speed;
+
+                // Seamless loop: when we reach the halfway point (duplicate),
+                // jump back to the exact same visual position at the start
+                if (wrapper.scrollLeft >= state.halfWidth) {
+                    wrapper.scrollLeft -= state.halfWidth;
+                }
             }
+            state.rafId = requestAnimationFrame(tick);
+        };
+        state.rafId = requestAnimationFrame(tick);
+
+        this._scrollStates.push(state);
+
+        // ── Pause on hover (desktop) ──
+        wrapper.addEventListener('mouseenter', () => { state.paused = true; });
+        wrapper.addEventListener('mouseleave', () => {
+            if (!state.dragging) state.paused = false;
         });
 
-        // Disconnect observers
-        this.observers.forEach(observer => observer.disconnect());
+        // ── Touch ──
+        wrapper.addEventListener('touchstart', () => {
+            state.userScrolling = true;
+            clearTimeout(state.resumeTimeout);
+        }, { passive: true });
 
-        this.scrollInstances = [];
-        this.observers = [];
+        wrapper.addEventListener('touchend', () => {
+            state.resumeTimeout = setTimeout(() => { state.userScrolling = false; }, 2500);
+        }, { passive: true });
+
+        // ── Mouse-wheel (track-pad horizontal swipe) ──
+        wrapper.addEventListener('wheel', () => {
+            state.userScrolling = true;
+            clearTimeout(state.resumeTimeout);
+            state.resumeTimeout = setTimeout(() => { state.userScrolling = false; }, 2500);
+        }, { passive: true });
+
+        // ── Click-drag ──
+        wrapper.addEventListener('mousedown', e => {
+            state.dragging      = true;
+            state.paused        = true;
+            state.userScrolling = true;
+            state.dragStartX    = e.pageX - wrapper.offsetLeft;
+            state.dragStartLeft = wrapper.scrollLeft;
+            wrapper.style.cursor = 'grabbing';
+            clearTimeout(state.resumeTimeout);
+        });
+
+        const stopDrag = () => {
+            if (!state.dragging) return;
+            state.dragging       = false;
+            wrapper.style.cursor = 'grab';
+            state.resumeTimeout  = setTimeout(() => {
+                state.paused        = false;
+                state.userScrolling = false;
+            }, 2000);
+        };
+
+        wrapper.addEventListener('mouseup',    stopDrag);
+        wrapper.addEventListener('mouseleave', stopDrag);
+
+        wrapper.addEventListener('mousemove', e => {
+            if (!state.dragging) return;
+            e.preventDefault();
+            const x    = e.pageX - wrapper.offsetLeft;
+            const walk = (x - state.dragStartX) * 1.5;
+            wrapper.scrollLeft = state.dragStartLeft - walk;
+        });
+    }
+
+    // ── Count-up animation ─────────────────────────────────────────────────
+
+    _initCountUp() {
+        const statsSection = document.getElementById('hero-stats');
+        if (!statsSection) return;
+
+        const numbers = Array.from(statsSection.querySelectorAll('.stat-number[data-target]'));
+        if (!numbers.length) return;
+
+        // Reset display to zero immediately so there's no flash of the
+        // server-rendered value before animation
+        numbers.forEach(el => {
+            el.textContent = '0' + (el.dataset.suffix || '');
+        });
+
+        // Animate only when the stats section enters the viewport
+        const io = new IntersectionObserver(entries => {
+            if (!entries[0].isIntersecting) return;
+            numbers.forEach(el => this._countUp(el));
+            io.disconnect();
+        }, { threshold: 0.4 });
+
+        io.observe(statsSection);
+        this._observers.push(io);
+    }
+
+    _countUp(el) {
+        const target   = parseInt(el.dataset.target,  10) || 0;
+        const suffix   = el.dataset.suffix || '';
+        const duration = 1600; // ms — fast but satisfying
+        const start    = performance.now();
+
+        // Cubic ease-out: starts fast, decelerates into the final value
+        const ease = t => 1 - Math.pow(1 - t, 3);
+
+        const frame = now => {
+            const elapsed  = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const current  = Math.floor(ease(progress) * target);
+
+            el.textContent = current + suffix;
+
+            if (progress < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                // Snap to exact target (avoids floating-point rounding)
+                el.textContent = target + suffix;
+            }
+        };
+
+        requestAnimationFrame(frame);
     }
 }
 
+// Expose on window for Blazor interop fallback (not strictly needed with ES module pattern)
 if (typeof window !== 'undefined') {
     window.LandingPage = LandingPage;
 }
