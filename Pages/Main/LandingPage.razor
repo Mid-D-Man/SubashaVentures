@@ -29,7 +29,7 @@
                 </h1>
                 <p class="hero-description">
                     Discover premium clothing and home goods that reflect your unique personality.
-                    From trendy fashion to cozy home essentials - find everything you love at Subasha.
+                    From trendy fashion to cozy home essentials — find everything you love at Subasha.
                 </p>
                 <div class="hero-actions">
                     <button class="professional-btn primary" @onclick="NavigateToShop">
@@ -39,7 +39,7 @@
                         }
                         <span class="btn-label">Shop Now</span>
                     </button>
-                    <button class="professional-btn secondary">
+                    <button class="professional-btn secondary" @onclick="NavigateToOurStory">
                         @if (!string.IsNullOrEmpty(storyIcon))
                         {
                             <span class="btn-icon">@((MarkupString)storyIcon)</span>
@@ -47,21 +47,32 @@
                         <span class="btn-label">Our Story</span>
                     </button>
                 </div>
-                <div class="hero-stats">
-                    <div class="stat-item">
-                        <span class="stat-number">10K+</span>
-                        <span class="stat-label">Happy Customers</span>
+
+                @if (ShowStats)
+                {
+                    <div class="hero-stats" id="hero-stats">
+                        <div class="stat-item">
+                            <span class="stat-number"
+                                  data-target="@_statCustomersTarget"
+                                  data-suffix="@_statCustomersSuffix">@_statCustomersTarget@_statCustomersSuffix</span>
+                            <span class="stat-label">@CustomersLabel</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number"
+                                  data-target="@_statProductsTarget"
+                                  data-suffix="@_statProductsSuffix">@_statProductsTarget@_statProductsSuffix</span>
+                            <span class="stat-label">@ProductsLabel</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number"
+                                  data-target="@_statOrdersTarget"
+                                  data-suffix="@_statOrdersSuffix">@_statOrdersTarget@_statOrdersSuffix</span>
+                            <span class="stat-label">@OrdersLabel</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-number">5000+</span>
-                        <span class="stat-label">Products</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">50+</span>
-                        <span class="stat-label">Brands</span>
-                    </div>
-                </div>
+                }
             </div>
+
             <div class="hero-visual">
                 <div class="hero-image-container">
                     @if (isLoadingPOTD)
@@ -127,7 +138,7 @@
                                 OnViewDetails="@(() => HandleViewDetails(product))" />
                         </div>
                     }
-                    @* DUPLICATE for seamless loop *@
+                    @* Duplicate for seamless loop *@
                     @foreach (var product in featuredProducts)
                     {
                         <div class="product-card-wrapper">
@@ -169,7 +180,7 @@
     <section class="newsletter-section">
         <div class="newsletter-content">
             <div class="newsletter-text">
-                <h2 class="newsletter-title">Your Style Story Starts Here</h2>
+                <h2 class="newsletter-title">Your Style and Story Starts Here</h2>
                 <p class="newsletter-description">
                     Be the first to shop new arrivals and get insider style tips.
                     Discover fresh looks that speak your language and the stories
@@ -178,7 +189,6 @@
             </div>
             <div class="newsletter-form">
 
-                @* Success state *@
                 @if (newsletterSubscribed)
                 {
                     <div class="newsletter-success">
@@ -247,7 +257,7 @@
                         OnHelpfulClick="@HandleHelpfulClick"
                         OnImageClick="@HandleReviewImageClick" />
                 }
-                @* DUPLICATE for seamless loop *@
+                @* Duplicate for seamless loop *@
                 @foreach (var review in sampleReviews)
                 {
                     <CustomerReviewCard
@@ -259,4 +269,5 @@
             </div>
         </div>
     </section>
+
 </div>
