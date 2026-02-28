@@ -1,7 +1,10 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@using System.Security.Cryptography
+@using System.Text
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Services.Users
 @using SubashaVentures.Domain.Product
 @using SubashaVentures.Domain.Enums
 @using SubashaVentures.Utilities.HelperScripts
@@ -9,6 +12,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ICategoryService CategoryService
 @inject IVisualElementsService VisualElements
+@inject IUserService UserService
 @inject ShopStateService ShopState
 @implements IDisposable
 
@@ -32,7 +36,17 @@
                 <div class="user-profile-section">
                     <div class="user-profile-card">
                         <div class="user-avatar-large">
-                            @GetUserInitial()
+                            @if (!string.IsNullOrEmpty(DisplayAvatarUrl) && !_avatarLoadFailed)
+                            {
+                                <img src="@DisplayAvatarUrl"
+                                     alt="@userName"
+                                     class="user-avatar-img"
+                                     @onerror="HandleAvatarError" />
+                            }
+                            else
+                            {
+                                <span class="user-avatar-initials">@GetUserInitial()</span>
+                            }
                         </div>
                         <div class="user-info-text">
                             <span class="user-name-display">@userName</span>
@@ -50,36 +64,28 @@
                         <a class="nav-link" @onclick="() => NavigateTo(UserDirectory)">
                             @if (navIconCache.ContainsKey("user"))
                             {
-                                <div class="nav-icon">
-                                    @((MarkupString)navIconCache["user"])
-                                </div>
+                                <div class="nav-icon">@((MarkupString)navIconCache["user"])</div>
                             }
                             <span class="nav-text">Me</span>
                         </a>
                         <a class="nav-link" @onclick="() => NavigateTo(ProfileDirectory)">
                             @if (navIconCache.ContainsKey("settings"))
                             {
-                                <div class="nav-icon">
-                                    @((MarkupString)navIconCache["settings"])
-                                </div>
+                                <div class="nav-icon">@((MarkupString)navIconCache["settings"])</div>
                             }
                             <span class="nav-text">Profile Settings</span>
                         </a>
                         <a class="nav-link" @onclick="() => NavigateTo(OrdersDirectory)">
                             @if (navIconCache.ContainsKey("orders"))
                             {
-                                <div class="nav-icon">
-                                    @((MarkupString)navIconCache["orders"])
-                                </div>
+                                <div class="nav-icon">@((MarkupString)navIconCache["orders"])</div>
                             }
                             <span class="nav-text">My Orders</span>
                         </a>
                         <a class="nav-link" @onclick="() => NavigateTo(WishlistDirectory)">
                             @if (navIconCache.ContainsKey("wishlist"))
                             {
-                                <div class="nav-icon">
-                                    @((MarkupString)navIconCache["wishlist"])
-                                </div>
+                                <div class="nav-icon">@((MarkupString)navIconCache["wishlist"])</div>
                             }
                             <span class="nav-text">Wishlist</span>
                         </a>
@@ -91,18 +97,14 @@
                     <a class="nav-link" @onclick="() => NavigateTo(HomeDirectory)">
                         @if (navIconCache.ContainsKey("home"))
                         {
-                            <div class="nav-icon">
-                                @((MarkupString)navIconCache["home"])
-                            </div>
+                            <div class="nav-icon">@((MarkupString)navIconCache["home"])</div>
                         }
                         <span class="nav-text">Home</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(ShopDirectory)">
                         @if (navIconCache.ContainsKey("allproducts"))
                         {
-                            <div class="nav-icon">
-                                @((MarkupString)navIconCache["allproducts"])
-                            </div>
+                            <div class="nav-icon">@((MarkupString)navIconCache["allproducts"])</div>
                         }
                         <span class="nav-text">All Products</span>
                     </a>
@@ -110,7 +112,7 @@
 
                 <div class="nav-section">
                     <h4 class="section-title">Categories</h4>
-                    
+
                     @if (IsLoadingCategories)
                     {
                         <div class="category-loading">
@@ -132,7 +134,7 @@
                                 <span class="nav-text">@category.Name</span>
                             </a>
                         }
-                        
+
                         @if (HasMoreCategories)
                         {
                             <a class="nav-link view-all-link" @onclick="() => NavigateTo(ShopDirectory)">
@@ -153,36 +155,28 @@
                     <a class="nav-link" @onclick="() => NavigateTo(AboutDirectory)">
                         @if (navIconCache.ContainsKey("about"))
                         {
-                            <div class="nav-icon">
-                                @((MarkupString)navIconCache["about"])
-                            </div>
+                            <div class="nav-icon">@((MarkupString)navIconCache["about"])</div>
                         }
                         <span class="nav-text">About Us</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(ContactDirectory)">
                         @if (navIconCache.ContainsKey("contact"))
                         {
-                            <div class="nav-icon">
-                                @((MarkupString)navIconCache["contact"])
-                            </div>
+                            <div class="nav-icon">@((MarkupString)navIconCache["contact"])</div>
                         }
                         <span class="nav-text">Contact</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(HelpDirectory)">
                         @if (navIconCache.ContainsKey("help"))
                         {
-                            <div class="nav-icon">
-                                @((MarkupString)navIconCache["help"])
-                            </div>
+                            <div class="nav-icon">@((MarkupString)navIconCache["help"])</div>
                         }
                         <span class="nav-text">Help Center</span>
                     </a>
                     <a class="nav-link" @onclick="() => NavigateTo(TrackOrderDirectory)">
                         @if (navIconCache.ContainsKey("track"))
                         {
-                            <div class="nav-icon">
-                                @((MarkupString)navIconCache["track"])
-                            </div>
+                            <div class="nav-icon">@((MarkupString)navIconCache["track"])</div>
                         }
                         <span class="nav-text">Track Orders</span>
                     </a>
@@ -208,54 +202,65 @@
 </div>
 
 @code {
-    private const string HomeDirectory = "";
-    private const string ShopDirectory = "shop";
-    private const string AboutDirectory = "about";
-    private const string ContactDirectory = "contact";
-    private const string HelpDirectory = "help";
+    private const string HomeDirectory       = "";
+    private const string ShopDirectory       = "shop";
+    private const string AboutDirectory      = "about";
+    private const string ContactDirectory    = "contact";
+    private const string HelpDirectory       = "help";
     private const string TrackOrderDirectory = "user/orders/track";
-    private const string UserDirectory = "user";
-    private const string ProfileDirectory = "user/settings";
-    private const string OrdersDirectory = "user/orders";
-    private const string WishlistDirectory = "user/wishlist-cart";
-    private const string SignInDirectory = "signin";
-    private const string SignUpDirectory = "signup";
-    
+    private const string UserDirectory       = "user";
+    private const string ProfileDirectory    = "user/settings";
+    private const string OrdersDirectory     = "user/orders";
+    private const string WishlistDirectory   = "user/wishlist-cart";
+    private const string SignInDirectory     = "signin";
+    private const string SignUpDirectory     = "signup";
+
     private const int MAX_CATEGORIES_TO_SHOW = 4;
 
     [Parameter] public bool IsOpen { get; set; } = false;
-    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback<bool>       IsOpenChanged { get; set; }
     [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
-    [Parameter] public EventCallback<string> OnNavigate { get; set; }
+    [Parameter] public EventCallback<string>     OnNavigate    { get; set; }
 
-    private bool isAuthenticated = false;
-    private string userName = "";
+    // ── Auth / user state ────────────────────────────────────────────────
+    private bool   isAuthenticated = false;
+    private string userName  = "";
     private string userEmail = "";
-    
-    private List<CategoryViewModel> TopCategories = new();
-    private bool IsLoadingCategories = true;
-    private bool HasMoreCategories = false;
-    
-    // Cache for pre-rendered category SVGs
-    private Dictionary<string, string> categorySvgCache = new();
-    
-    // Cache for navigation icons
-    private Dictionary<string, string> navIconCache = new();
 
-    public enum ActionType
-    {
-        SignIn,
-        SignUp,
-        Profile,
-        Logout
-    }
+    // ── Avatar ───────────────────────────────────────────────────────────
+    /// <summary>Avatar URL from the user_data profile table.</summary>
+    private string _profileAvatarUrl = string.Empty;
+    /// <summary>Gravatar URL derived from the user's email (MD5 hash).</summary>
+    private string _gravatarUrl = string.Empty;
+    /// <summary>Set to true when the browser fires onerror on the img tag.</summary>
+    private bool   _avatarLoadFailed = false;
+    /// <summary>Tracks which userId's avatar is currently cached, to avoid redundant fetches.</summary>
+    private string _avatarCachedForUserId = string.Empty;
+
+    /// <summary>Returns profile avatar if present, otherwise Gravatar URL.</summary>
+    private string DisplayAvatarUrl =>
+        !string.IsNullOrEmpty(_profileAvatarUrl) ? _profileAvatarUrl : _gravatarUrl;
+
+    // ── Categories ───────────────────────────────────────────────────────
+    private List<CategoryViewModel> TopCategories      = new();
+    private bool                    IsLoadingCategories = true;
+    private bool                    HasMoreCategories   = false;
+
+    private Dictionary<string, string> categorySvgCache = new();
+    private Dictionary<string, string> navIconCache      = new();
+
+    public enum ActionType { SignIn, SignUp, Profile, Logout }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
         await LoadAuthenticationState();
         await LoadNavigationIcons();
         await LoadTopCategories();
-        
+
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
@@ -264,11 +269,9 @@
         if (IsOpen)
         {
             await LoadAuthenticationState();
-            
+
             if (!TopCategories.Any() && !IsLoadingCategories)
-            {
                 await LoadTopCategories();
-            }
         }
     }
 
@@ -278,64 +281,135 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Auth + Avatar loading
+    // ─────────────────────────────────────────────────────────────────────────
+
     private async Task LoadAuthenticationState()
     {
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
+            var user      = authState.User;
+
             isAuthenticated = user?.Identity?.IsAuthenticated ?? false;
-            
+
             if (isAuthenticated)
             {
                 userEmail = user?.FindFirst(ClaimTypes.Email)?.Value ?? "";
-                var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value ?? "";
-                var lastName = user?.FindFirst(ClaimTypes.Surname)?.Value ?? "";
-                
-                userName = !string.IsNullOrEmpty(firstName) 
-                    ? $"{firstName} {lastName}".Trim() 
+                var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value  ?? "";
+                var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value    ?? "";
+                var userId    = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+
+                userName = !string.IsNullOrEmpty(firstName)
+                    ? $"{firstName} {lastName}".Trim()
                     : userEmail.Split('@')[0];
+
+                // Load avatar for this user (skipped if already cached for same userId)
+                await LoadAvatarAsync(userId, userEmail);
             }
             else
             {
-                userName = "";
-                userEmail = "";
+                userName              = "";
+                userEmail             = "";
+                _profileAvatarUrl     = string.Empty;
+                _gravatarUrl          = string.Empty;
+                _avatarLoadFailed     = false;
+                _avatarCachedForUserId = string.Empty;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading auth state: {ex.Message}");
+            Console.WriteLine($"SidePanel: error loading auth state: {ex.Message}");
             isAuthenticated = false;
-            userName = "";
-            userEmail = "";
+            userName        = "";
+            userEmail       = "";
         }
+    }
+
+    /// <summary>
+    /// Fetches the profile avatar once per userId (cached in _avatarCachedForUserId).
+    /// Falls back to Gravatar when no profile avatar is set.
+    /// </summary>
+    private async Task LoadAvatarAsync(string userId, string email)
+    {
+        // Compute Gravatar URL from email — always cheap, no network needed for the URL itself
+        if (!string.IsNullOrEmpty(email))
+            _gravatarUrl = BuildGravatarUrl(email, size: 200);
+
+        // If we already loaded for this user, nothing more to do
+        if (!string.IsNullOrEmpty(userId) && userId == _avatarCachedForUserId)
+            return;
+
+        _avatarCachedForUserId = userId;
+        _profileAvatarUrl      = string.Empty;
+        _avatarLoadFailed      = false;
+
+        if (string.IsNullOrEmpty(userId)) return;
+
+        try
+        {
+            var profile = await UserService.GetUserByIdAsync(userId);
+            _profileAvatarUrl = profile?.AvatarUrl ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SidePanel: could not load profile avatar: {ex.Message}");
+            // Graceful fallback — Gravatar will be used via DisplayAvatarUrl
+        }
+    }
+
+    /// <summary>
+    /// Builds a Gravatar URL using the MD5 hash of the normalised email.
+    /// <paramref name="size"/> is the pixel dimension (default 200).
+    /// The <c>d=404</c> parameter tells Gravatar to return a 404 if no avatar
+    /// exists, so our onerror handler can fall back to initials cleanly.
+    /// </summary>
+    private static string BuildGravatarUrl(string email, int size = 200)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return string.Empty;
+
+        var normalised = email.Trim().ToLowerInvariant();
+        var hashBytes  = MD5.HashData(Encoding.UTF8.GetBytes(normalised));
+        var hash       = Convert.ToHexString(hashBytes).ToLower();
+
+        return $"https://www.gravatar.com/avatar/{hash}?s={size}&d=404";
+    }
+
+    private void HandleAvatarError()
+    {
+        _avatarLoadFailed = true;
+        StateHasChanged();
     }
 
     private string GetUserInitial()
     {
-        if (string.IsNullOrEmpty(userName)) return "?";
-        return userName.Substring(0, 1).ToUpper();
+        if (!string.IsNullOrEmpty(userName)) return userName[0].ToString().ToUpper();
+        if (!string.IsNullOrEmpty(userEmail)) return userEmail[0].ToString().ToUpper();
+        return "?";
     }
-    
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Navigation icons
+    // ─────────────────────────────────────────────────────────────────────────
+
     private async Task LoadNavigationIcons()
     {
         try
         {
-            // Load all navigation icons with proper colors
-            var iconColor = "var(--text-secondary, #666)";
-            
-            navIconCache["user"] = await VisualElements.GetSvgWithColorAsync(SvgType.User, 20, 20, iconColor);
-            navIconCache["settings"] = await VisualElements.GetSvgWithColorAsync(SvgType.Settings, 20, 20, iconColor);
-            navIconCache["orders"] = await VisualElements.GetSvgWithColorAsync(SvgType.Order, 20, 20, iconColor);
-            navIconCache["wishlist"] = await VisualElements.GetSvgWithColorAsync(SvgType.Wishlist, 20, 20, iconColor);
-            navIconCache["home"] = await VisualElements.GetSvgWithColorAsync(SvgType.Home, 20, 20, iconColor);
-            navIconCache["allproducts"] = await VisualElements.GetSvgWithColorAsync(SvgType.AllProducts, 20, 20, iconColor);
-            navIconCache["about"] = await VisualElements.GetSvgWithColorAsync(SvgType.About, 20, 20, iconColor);
-            navIconCache["contact"] = await VisualElements.GetSvgWithColorAsync(SvgType.Contact, 20, 20, iconColor);
-            navIconCache["help"] = await VisualElements.GetSvgWithColorAsync(SvgType.HelpCenter, 20, 20, iconColor);
-            navIconCache["track"] = await VisualElements.GetSvgWithColorAsync(SvgType.TrackOrders, 20, 20, iconColor);
-            
+            var color = "var(--text-secondary, #666)";
+
+            navIconCache["user"]        = await VisualElements.GetSvgWithColorAsync(SvgType.User,        20, 20, color);
+            navIconCache["settings"]    = await VisualElements.GetSvgWithColorAsync(SvgType.Settings,    20, 20, color);
+            navIconCache["orders"]      = await VisualElements.GetSvgWithColorAsync(SvgType.Order,       20, 20, color);
+            navIconCache["wishlist"]    = await VisualElements.GetSvgWithColorAsync(SvgType.Wishlist,    20, 20, color);
+            navIconCache["home"]        = await VisualElements.GetSvgWithColorAsync(SvgType.Home,        20, 20, color);
+            navIconCache["allproducts"] = await VisualElements.GetSvgWithColorAsync(SvgType.AllProducts, 20, 20, color);
+            navIconCache["about"]       = await VisualElements.GetSvgWithColorAsync(SvgType.About,       20, 20, color);
+            navIconCache["contact"]     = await VisualElements.GetSvgWithColorAsync(SvgType.Contact,     20, 20, color);
+            navIconCache["help"]        = await VisualElements.GetSvgWithColorAsync(SvgType.HelpCenter,  20, 20, color);
+            navIconCache["track"]       = await VisualElements.GetSvgWithColorAsync(SvgType.TrackOrders, 20, 20, color);
+
             Console.WriteLine($"✓ Loaded {navIconCache.Count} navigation icons");
         }
         catch (Exception ex)
@@ -344,48 +418,44 @@
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Categories
+    // ─────────────────────────────────────────────────────────────────────────
+
     private async Task LoadTopCategories()
     {
         IsLoadingCategories = true;
         StateHasChanged();
-        
+
         try
         {
             var allCategories = await CategoryService.GetTopLevelCategoriesAsync();
-            
+
             if (allCategories != null && allCategories.Any())
             {
-                TopCategories = allCategories
-                    .Take(MAX_CATEGORIES_TO_SHOW)
-                    .ToList();
-                
+                TopCategories     = allCategories.Take(MAX_CATEGORIES_TO_SHOW).ToList();
                 HasMoreCategories = allCategories.Count > MAX_CATEGORIES_TO_SHOW;
-                
-                // Pre-render category SVGs
+
                 categorySvgCache.Clear();
                 foreach (var category in TopCategories)
                 {
                     if (category.IconSvgType != SvgType.None)
                     {
-                        var svg = await VisualElements.GetSvgWithColorAsync(
-                            category.IconSvgType, 
-                            20, 
-                            20, 
-                            "var(--primary-color)");
-                        categorySvgCache[category.Id] = svg;
+                        categorySvgCache[category.Id] = await VisualElements.GetSvgWithColorAsync(
+                            category.IconSvgType, 20, 20, "var(--primary-color)");
                     }
                 }
             }
             else
             {
-                TopCategories = new List<CategoryViewModel>();
+                TopCategories     = new List<CategoryViewModel>();
                 HasMoreCategories = false;
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading categories: {ex.Message}");
-            TopCategories = new List<CategoryViewModel>();
+            TopCategories     = new List<CategoryViewModel>();
             HasMoreCategories = false;
         }
         finally
@@ -394,6 +464,10 @@
             StateHasChanged();
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Panel actions
+    // ─────────────────────────────────────────────────────────────────────────
 
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
     {
@@ -418,41 +492,29 @@
         await IsOpenChanged.InvokeAsync(IsOpen);
     }
 
-    private async Task HandleOverlayClick()
-    {
-        await ClosePanel();
-    }
+    private async Task HandleOverlayClick() => await ClosePanel();
 
     private async Task NavigateTo(string url)
     {
         await ClosePanel();
         NavigationManager.NavigateTo(url);
-        
         if (OnNavigate.HasDelegate)
-        {
             await OnNavigate.InvokeAsync(url);
-        }
     }
 
     private async Task HandleSignIn()
     {
         await ClosePanel();
         NavigationManager.NavigateTo(SignInDirectory);
-        
         if (OnActionClick.HasDelegate)
-        {
             await OnActionClick.InvokeAsync(ActionType.SignIn);
-        }
     }
 
     private async Task HandleLogout()
     {
         await ClosePanel();
-        
         if (OnActionClick.HasDelegate)
-        {
             await OnActionClick.InvokeAsync(ActionType.Logout);
-        }
     }
 
     public void Dispose()
