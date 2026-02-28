@@ -23,30 +23,23 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
     [Inject] private NavigationManager       Navigation             { get; set; } = default!;
     [Inject] private IJSRuntime              JS                     { get; set; } = default!;
 
-    // ═════════════════════════════════════════════════════════════════════════
-    // DISPLAY CONFIGURATION — flip these to switch data sources
-    // ═════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
+    // DISPLAY CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════
 
-    /// <summary>Show the stats row at all.</summary>
-    private const bool ShowStats = true;
-
-    /// <summary>Use hardcoded numbers instead of the app_stats table.</summary>
+    private const bool ShowStats    = true;
     private const bool UseFakeStats = true;
-
-    /// <summary>Use the hardcoded Nigerian review list instead of Firestore.</summary>
     private const bool UseFakeReviews = true;
 
-    // ── Fake stat raw values (only used when UseFakeStats = true) ─────────────
     private const long FakeCustomerCount   = 10_000;
     private const long FakeProductCount    =  5_200;
     private const long FakeOrdersDelivered =  8_400;
 
-    // ── Stat labels ───────────────────────────────────────────────────────────
     private const string CustomersLabel = "Happy Customers";
     private const string ProductsLabel  = "Products";
     private const string OrdersLabel    = "Orders Delivered";
 
-    // ── Animated stat display values (computed in LoadStats) ──────────────────
+    // ── Animated stat display values ──────────────────────────────────────────
     private int    _statCustomersTarget;
     private string _statCustomersSuffix = "K+";
     private int    _statProductsTarget;
@@ -54,34 +47,19 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
     private int    _statOrdersTarget;
     private string _statOrdersSuffix    = "K+";
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Footer / contact variables — edit these without touching markup
-    // ─────────────────────────────────────────────────────────────────────────
-    // (These are referenced only in the footer component, kept here as the
-    //  single source of truth if you ever wire them up via a config service.)
-    private const string ContactPhone   = "+234 81 999 999 99";
-    private const string ContactEmail   = "subashaventures@gmail.com";
-    private const string ContactAddress = "Everywhere you go";
-
-    private const string SocialFacebook  = "#";
-    private const string SocialInstagram = "#";
-    private const string SocialTwitter   = "#";
-    private const string SocialLinkedIn  = "#";
-
-    private const string LegalPrivacyUrl = "privacy";
-    private const string LegalTermsUrl   = "terms";
-    private const string LegalCookiesUrl = "cookies";
-
-    // ═════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
     // Component state
-    // ═════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════
 
-    private ProductViewModel?       productOfTheDay;
-    private List<ProductViewModel>  featuredProducts = new();
-    private List<ReviewViewModel>   sampleReviews    = new();
+    private ProductViewModel?      productOfTheDay;
+    private List<ProductViewModel> featuredProducts = new();
+    private List<ReviewViewModel>  sampleReviews    = new();
 
     private bool isLoadingPOTD     = true;
     private bool isLoadingFeatured = true;
+
+    // Featured scroll: track whether JS has been asked to (re)init after load
+    private bool _featuredScrollInitialized = false;
 
     // Newsletter
     private string newsletterEmail        = string.Empty;
@@ -120,21 +98,53 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (firstRender)
+        {
+            try
+            {
+                jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "import", "./Pages/Main/LandingPage.razor.js");
 
+                landingPageInstance = await jsModule.InvokeAsync<IJSObjectReference>(
+                    "LandingPage.create");
+
+                await landingPageInstance.InvokeVoidAsync("initialize");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initialising LandingPage JS: {ex.Message}");
+            }
+
+            // If products already loaded by the time the first render is painted,
+            // kick off the scroll init right here.
+            if (!isLoadingFeatured && featuredProducts.Any())
+            {
+                _featuredScrollInitialized = true;
+                await TryReinitFeaturedScrollAsync();
+            }
+
+            return;
+        }
+
+        // On subsequent renders: when featured products have just finished loading,
+        // tell JS to (re)init the scroll on the freshly painted DOM element.
+        if (!_featuredScrollInitialized && !isLoadingFeatured && featuredProducts.Any())
+        {
+            _featuredScrollInitialized = true;
+            await TryReinitFeaturedScrollAsync();
+        }
+    }
+
+    private async Task TryReinitFeaturedScrollAsync()
+    {
+        if (landingPageInstance is null) return;
         try
         {
-            jsModule = await JS.InvokeAsync<IJSObjectReference>(
-                "import", "./Pages/Main/LandingPage.razor.js");
-
-            landingPageInstance = await jsModule.InvokeAsync<IJSObjectReference>(
-                "LandingPage.create");
-
-            await landingPageInstance.InvokeVoidAsync("initialize");
+            await landingPageInstance.InvokeVoidAsync("reinitFeaturedScroll");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error initialising LandingPage JS: {ex.Message}");
+            Console.WriteLine($"Error reinitialising featured scroll: {ex.Message}");
         }
     }
 
@@ -177,7 +187,7 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
         }
         else
         {
-            var snap = await AppStatsService.GetStatsAsync();
+            var snap  = await AppStatsService.GetStatsAsync();
             customers = snap.TotalCustomers;
             products  = snap.TotalProducts;
             orders    = snap.OrdersDelivered;
@@ -188,10 +198,6 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
         (_statOrdersTarget,    _statOrdersSuffix)     = FormatStatForAnimation(orders);
     }
 
-    /// <summary>
-    /// Converts a raw long into the display integer + suffix that JS will animate to.
-    /// e.g. 10 000 → (10, "K+")   |   5 200 000 → (5, "M+")   |   342 → (342, "+")
-    /// </summary>
     private static (int target, string suffix) FormatStatForAnimation(long value)
     {
         if (value >= 1_000_000) return ((int)(value / 1_000_000), "M+");
@@ -246,6 +252,8 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
         finally
         {
             isLoadingFeatured = false;
+            // StateHasChanged() causes OnAfterRenderAsync to fire again,
+            // which triggers reinitFeaturedScroll() via _featuredScrollInitialized guard.
             StateHasChanged();
         }
     }
@@ -283,7 +291,6 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
                 })
                 .ToList();
 
-            // Fall back to fake if no approved reviews yet
             if (!sampleReviews.Any())
                 sampleReviews = GetFakeReviews();
         }
@@ -406,13 +413,13 @@ public partial class LandingPage : ComponentBase, IAsyncDisposable
     private void NavigateToOurStory() => Navigation.NavigateTo("our-story");
 
     private void HandlePOTDClick(ProductViewModel p)       => Navigation.NavigateTo($"product/{p.Slug}");
-    private void HandleViewPOTDDetails(ProductViewModel p)  => Navigation.NavigateTo($"product/{p.Slug}");
-    private void HandleProductClick(ProductViewModel p)     => Navigation.NavigateTo($"product/{p.Slug}");
-    private void HandleViewDetails(ProductViewModel p)      => Navigation.NavigateTo($"product/{p.Slug}");
+    private void HandleViewPOTDDetails(ProductViewModel p) => Navigation.NavigateTo($"product/{p.Slug}");
+    private void HandleProductClick(ProductViewModel p)    => Navigation.NavigateTo($"product/{p.Slug}");
+    private void HandleViewDetails(ProductViewModel p)     => Navigation.NavigateTo($"product/{p.Slug}");
 
-    private Task HandleAddToCart(ProductViewModel _)          => Task.CompletedTask;
-    private Task HandleHelpfulClick(ReviewViewModel _)        => Task.CompletedTask;
-    private Task HandleReviewImageClick(string _)             => Task.CompletedTask;
+    private Task HandleAddToCart(ProductViewModel _)       => Task.CompletedTask;
+    private Task HandleHelpfulClick(ReviewViewModel _)     => Task.CompletedTask;
+    private Task HandleReviewImageClick(string _)          => Task.CompletedTask;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Newsletter
