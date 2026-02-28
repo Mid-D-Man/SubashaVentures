@@ -1,57 +1,57 @@
 /* Components/Shared/Loading/SkeletonCard.razor.css */
 
-/* ===== SKELETON CARD ===== */
+/* ===== SKELETON CARD — matches FeaturedProductCard layout ===== */
 .skeleton-card {
     background: var(--bg-surface, white);
     border: 1px solid var(--border-light, #e5e7eb);
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
-    height: 100%;
     display: flex;
     flex-direction: column;
+    /* Mirror the featured card: image 65%, content 35% */
+    aspect-ratio: 3 / 4;
+    height: 100%;
+    width: 100%;
+    box-shadow: 0 4px 16px rgba(150, 153, 74, 0.1);
     animation: skeletonPulse 1.5s ease-in-out infinite;
 }
 
 @keyframes skeletonPulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.7;
-    }
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.7; }
 }
 
+/* ── Image area (65% of card height) ── */
 .skeleton-image {
+    flex: 0 0 65%;
     width: 100%;
-    aspect-ratio: 1 / 1; /* Match product card image aspect ratio */
     background: linear-gradient(
         90deg,
-        var(--gray-200) 25%,
-        var(--gray-300) 50%,
-        var(--gray-200) 75%
+        #e8e8e8 25%,
+        #f2f2f2 50%,
+        #e8e8e8 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-    0% {
-        background-position: -200% 0;
-    }
-    100% {
-        background-position: 200% 0;
-    }
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
 }
 
+/* ── Content area (35% of card height) — dark like FeaturedProductCard ── */
 .skeleton-content {
-    padding: 12px;
+    flex: 0 0 35%;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    flex: 1;
+    gap: 6px;
     background: #1a1d29;
+    overflow: hidden;
 }
 
+/* All skeleton lines use a dark shimmer to match the dark bg */
 .skeleton-category,
 .skeleton-title,
 .skeleton-text-sm,
@@ -67,20 +67,22 @@
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 4px;
+    flex-shrink: 0;
 }
 
 .skeleton-category {
-    width: 40%;
+    width: 45%;
+    height: 10px;
+}
+
+/* Name + price row */
+.skeleton-title {
+    width: 100%;
     height: 12px;
 }
 
-.skeleton-title {
-    width: 100%;
-    height: 14px;
-}
-
 .skeleton-title-short {
-    width: 70%;
+    width: 65%;
 }
 
 .skeleton-rating {
@@ -90,103 +92,106 @@
 }
 
 .skeleton-stars {
-    width: 80px;
-    height: 12px;
+    width: 70px;
+    height: 10px;
 }
 
 .skeleton-text-sm {
-    width: 50px;
-    height: 12px;
+    width: 40px;
+    height: 10px;
 }
 
+/* Price */
 .skeleton-price .skeleton-text-lg {
-    width: 80px;
-    height: 18px;
+    width: 70px;
+    height: 14px;
 }
 
+/* Buttons row — two pill shapes */
+.skeleton-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.skeleton-btn {
+    flex: 1;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(
+        90deg,
+        #2a2d39 25%,
+        #3a3d49 50%,
+        #2a2d39 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* Keep the old .skeleton-stock selector working if still used */
 .skeleton-stock {
-    width: 60%;
-    height: 12px;
+    width: 55%;
+    height: 10px;
 }
 
 /* ===== DARK THEME ===== */
 [data-theme="dark"] .skeleton-card {
-    background: var(--bg-surface, #1f2937);
+    background: var(--bg-surface, #2d3238);
     border-color: var(--border-dark, #374151);
 }
 
-[data-theme="dark"] .skeleton-image,
+/* Image shimmer slightly lighter in dark mode */
+[data-theme="dark"] .skeleton-image {
+    background: linear-gradient(
+        90deg,
+        #1f2937 25%,
+        #2d3748 50%,
+        #1f2937 75%
+    );
+    background-size: 200% 100%;
+}
+
+[data-theme="dark"] .skeleton-content { background: #111827; }
+
 [data-theme="dark"] .skeleton-category,
 [data-theme="dark"] .skeleton-title,
 [data-theme="dark"] .skeleton-text-sm,
 [data-theme="dark"] .skeleton-text-lg,
 [data-theme="dark"] .skeleton-stars,
-[data-theme="dark"] .skeleton-stock {
+[data-theme="dark"] .skeleton-stock,
+[data-theme="dark"] .skeleton-btn {
     background: linear-gradient(
         90deg,
-        var(--gray-700) 25%,
-        var(--gray-600) 50%,
-        var(--gray-700) 75%
+        #1e2533 25%,
+        #2a3040 50%,
+        #1e2533 75%
     );
     background-size: 200% 100%;
 }
 
-[data-theme="dark"] .skeleton-content {
-    background: #111827;
-}
-
-/* ===== RESPONSIVE ===== */
-
-/* Extra Small Mobile (< 360px) */
+/* ===== RESPONSIVE — mirrors FeaturedProductCard breakpoints ===== */
 @media (max-width: 359px) {
-    .skeleton-content {
-        padding: 6px;
-        gap: 0.5rem;
-    }
-
-    .skeleton-category {
-        height: 10px;
-    }
-
-    .skeleton-title {
-        height: 12px;
-    }
-
-    .skeleton-stars {
-        width: 60px;
-        height: 10px;
-    }
-
-    .skeleton-text-sm {
-        width: 40px;
-        height: 10px;
-    }
-
-    .skeleton-price .skeleton-text-lg {
-        width: 60px;
-        height: 16px;
-    }
+    .skeleton-card { border-radius: 10px; }
+    .skeleton-content { padding: 8px; gap: 4px; }
 }
 
-/* Small Mobile (360px - 480px) */
 @media (min-width: 360px) and (max-width: 480px) {
-    .skeleton-content {
-        padding: 8px;
-        gap: 0.625rem;
-    }
+    .skeleton-card { border-radius: 12px; }
+    .skeleton-content { padding: 10px; gap: 5px; }
+}
 
-    .skeleton-category {
-        height: 11px;
-    }
+@media (min-width: 481px) and (max-width: 767px) {
+    .skeleton-card { border-radius: 14px; }
+    .skeleton-content { padding: 12px; }
+}
 
-    .skeleton-title {
-        height: 13px;
-    }
+@media (min-width: 768px) {
+    .skeleton-content { padding: 14px; }
+}
 
-    .skeleton-price .skeleton-text-lg {
-        width: 70px;
-        height: 17px;
-    }
+@media (min-width: 1024px) {
+    .skeleton-content { padding: 16px; }
 }
 
 /* ===== REDUCED MOTION ===== */
@@ -198,7 +203,8 @@
     .skeleton-text-sm,
     .skeleton-text-lg,
     .skeleton-stars,
-    .skeleton-stock {
+    .skeleton-stock,
+    .skeleton-btn {
         animation: none;
     }
-    }
+}
