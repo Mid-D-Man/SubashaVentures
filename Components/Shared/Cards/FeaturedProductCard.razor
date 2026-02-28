@@ -175,10 +175,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Load SVGs
         await LoadSvgsAsync();
         
-        // Check if user is authenticated and get their wishlist status
         if (await PermissionService.IsAuthenticatedAsync())
         {
             currentUserId = await PermissionService.GetCurrentUserIdAsync();
@@ -194,49 +192,29 @@
     {
         try
         {
-            // Load all SVGs in parallel
             var starTask = VisualElementsService.GetCustomSvgAsync(
-                SvgType.Star, 
-                width: 16, 
-                height: 16,
-                fillColor: "currentColor"
-            );
+                SvgType.Star, width: 16, height: 16, fillColor: "currentColor");
             
+            // Heart: 16x16 — matches the .heart-icon container size exactly
             var heartTask = VisualElementsService.GetCustomSvgAsync(
-                SvgType.Heart, 
-                width: 12, 
-                height: 12,
-                fillColor: "currentColor"
-            );
+                SvgType.Heart, width: 16, height: 16, fillColor: "currentColor");
             
             var cartTask = VisualElementsService.GetCustomSvgAsync(
-                SvgType.Cart, 
-                width: 18, 
-                height: 18,
-                fillColor: "currentColor"
-            );
+                SvgType.Cart, width: 18, height: 18, fillColor: "currentColor");
             
             var checkMarkTask = VisualElementsService.GetCustomSvgAsync(
-                SvgType.CheckMark, 
-                width: 16, 
-                height: 16,
-                fillColor: "currentColor"
-            );
+                SvgType.CheckMark, width: 16, height: 16, fillColor: "currentColor");
             
             var flameTask = VisualElementsService.GetCustomSvgAsync(
-                SvgType.Flame, 
-                width: 16, 
-                height: 16,
-                fillColor: "currentColor"
-            );
+                SvgType.Flame, width: 14, height: 14, fillColor: "currentColor");
 
             await Task.WhenAll(starTask, heartTask, cartTask, checkMarkTask, flameTask);
             
-            starSvg = await starTask;
-            heartSvg = await heartTask;
-            cartSvg = await cartTask;
+            starSvg      = await starTask;
+            heartSvg     = await heartTask;
+            cartSvg      = await cartTask;
             checkMarkSvg = await checkMarkTask;
-            flameSvg = await flameTask;
+            flameSvg     = await flameTask;
         }
         catch (Exception ex)
         {
@@ -246,61 +224,35 @@
 
     private async Task HandleCardClick()
     {
-        // ✅ Track click interaction
         if (!string.IsNullOrEmpty(currentUserId))
-        {
             await InteractionService.TrackClickAsync(Product.Id, currentUserId);
-        }
-        
-        // Navigate to product details page
         NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
     private async Task HandleViewDetails(MouseEventArgs e)
     {
-        // ✅ Track click interaction
         if (!string.IsNullOrEmpty(currentUserId))
-        {
             await InteractionService.TrackClickAsync(Product.Id, currentUserId);
-        }
-        
-        // Navigate to product details page
         NavigationManager.NavigateTo($"product/{Product.Slug}");
     }
 
     private async Task HandleWishlistToggle(MouseEventArgs e)
     {
         if (IsTogglingWishlist) return;
-
         IsTogglingWishlist = true;
         StateHasChanged();
-
         try
         {
-            // Check authentication
-            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-            {
-                return;
-            }
-
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}")) return;
             if (string.IsNullOrEmpty(currentUserId))
-            {
                 currentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
-
             if (string.IsNullOrEmpty(currentUserId))
             {
                 PermissionService.ShowAuthRequiredMessage("add items to wishlist");
                 return;
             }
-
-            // Toggle wishlist
             var success = await WishlistService.ToggleWishlistAsync(currentUserId, Product.Id.ToString());
-            
-            if (success)
-            {
-                isInWishlist = !isInWishlist;
-            }
+            if (success) isInWishlist = !isInWishlist;
         }
         finally
         {
@@ -312,54 +264,32 @@
     private async Task HandleAddToCart(MouseEventArgs e)
     {
         if (!Product.IsInStock || IsAddingToCart) return;
-
         IsAddingToCart = true;
         StateHasChanged();
-
         try
         {
-            // Check authentication
-            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-            {
-                return;
-            }
-
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}")) return;
             if (string.IsNullOrEmpty(currentUserId))
-            {
                 currentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
-
             if (string.IsNullOrEmpty(currentUserId))
             {
                 PermissionService.ShowAuthRequiredMessage("add items to cart");
                 return;
             }
+            if (!Product.IsInStock) return;
 
-            if (!Product.IsInStock)
-            {
-                return;
-            }
-
-            // AUTO-SELECT FIRST VARIANT IF PRODUCT HAS VARIANTS
-            string? selectedSize = null;
+            string? selectedSize  = null;
             string? selectedColor = null;
-            
             if (Product.Variants != null && Product.Variants.Any())
             {
                 var firstVariant = Product.Variants.First();
-                selectedSize = firstVariant.Value.Size;
+                selectedSize  = firstVariant.Value.Size;
                 selectedColor = firstVariant.Value.Color;
             }
 
-            // Add to cart
             var success = await CartService.AddToCartAsync(
-                currentUserId, 
-                Product.Id.ToString(), 
-                quantity: 1,
-                size: selectedSize,
-                color: selectedColor
-            );
-            
+                currentUserId, Product.Id.ToString(),
+                quantity: 1, size: selectedSize, color: selectedColor);
             if (success)
             {
                 IsInCart = true;
