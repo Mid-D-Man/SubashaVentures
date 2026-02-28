@@ -36,6 +36,7 @@ using SubashaVentures.Utilities.Tracking;
 using SubashaVentures.Services.Cryptography;
 using SubashaVentures.Services.Newsletter;
 using SubashaVentures.Services.Notifications;
+using SubashaVentures.Services.AppStats;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -173,7 +174,8 @@ builder.Services.AddScoped<SubashaVentures.Services.Newsletter.INewsletterServic
 // ==================== NOTIFICATIONS (simplified) ====================
 builder.Services.AddScoped<SubashaVentures.Services.Notifications.INotificationService,
                             SubashaVentures.Services.Notifications.NotificationService>();
-
+builder.Services.AddScoped<SubashaVentures.Services.AppStats.IAppStatsService,
+                            SubashaVentures.Services.AppStats.AppStatsService>();
 var host = builder.Build();
 
 try
