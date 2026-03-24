@@ -1,0 +1,104 @@
+name: Update Project Structure
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-structure:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Project Structure
+        run: |
+          echo "Updating project structure documentation..."
+          mkdir -p "Others"
+          {
+            echo "Project Structure Documentation - SubashaVentures"
+            echo "Generated: $(date -u)"
+            echo "Repository: ${{ github.repository }}"
+            echo "Commit: ${{ github.sha }}"
+            echo "Branch: ${{ github.ref_name }}"
+            echo "=================================="
+            echo
+            echo "Source Files:"
+            echo "============"
+            find . -type f \( \
+              -name "*.cs" -o \
+              -name "*.razor" -o \
+              -name "*.csproj" -o \
+              -name "*.sln" -o \
+              -name "*.json" -o \
+              -name "*.css" -o \
+              -name "*.scss" -o \
+              -name "*.js" -o \
+              -name "*.html" -o \
+              -name "*.md" -o \
+              -name "*.yml" \
+            \) -not -path "*/bin/*" \
+              -not -path "*/obj/*" \
+              -not -path "*/.git/*" \
+              -not -path "*/node_modules/*" | \
+            sed 's|^\./||' | sort
+            echo
+            echo "Directory Structure:"
+            echo "==================="
+            find . -type d \
+              -not -path "*/bin" \
+              -not -path "*/bin/*" \
+              -not -path "*/obj" \
+              -not -path "*/obj/*" \
+              -not -path "*/.git" \
+              -not -path "*/.git/*" \
+              -not -path "*/node_modules" \
+              -not -path "*/node_modules/*" | \
+            sed 's|^\./||' | sort | \
+            sed 's|[^/]*/|  |g' | \
+            sed 's|^|./|'
+            echo
+            echo "File Count Summary:"
+            echo "=================="
+            for ext in cs razor csproj sln json css js html; do
+              count=$(find . -name "*.$ext" \
+                -not -path "*/bin/*" \
+                -not -path "*/obj/*" \
+                -not -path "*/.git/*" | wc -l)
+              if [ "$count" -gt 0 ]; then
+                printf "%-10s: %d files\n" ".$ext" "$count"
+              fi
+            done
+          } > "Others/ProjectStructure.txt"
+          echo "Project structure documentation completed"
+
+      - name: Commit Updated Project Structure
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action - SubashaVentures"
+
+          if [ ! -f "Others/ProjectStructure.txt" ]; then
+            echo "ProjectStructure.txt not found, skipping commit"
+            exit 0
+          fi
+
+          git add "Others/ProjectStructure.txt"
+
+          if git diff --staged --quiet; then
+            echo "No changes detected in project structure, skipping commit"
+            exit 0
+          fi
+
+          git pull --rebase origin ${{ github.ref_name }}
+          git commit -m "Auto-update project structure [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+          echo "Project structure committed successfully"
