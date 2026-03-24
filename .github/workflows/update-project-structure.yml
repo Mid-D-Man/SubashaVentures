@@ -98,7 +98,8 @@ jobs:
             exit 0
           fi
 
-          git pull --rebase origin ${{ github.ref_name }}
+          # Commit FIRST (while index is clean for rebase), then pull, then push
           git commit -m "Auto-update project structure [skip ci]"
+          git pull --rebase origin ${{ github.ref_name }}
           git push origin HEAD:${{ github.ref_name }}
           echo "Project structure committed successfully"
