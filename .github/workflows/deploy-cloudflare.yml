@@ -89,11 +89,11 @@ jobs:
             exit 1
           fi
 
-          # Cloudflare Pages + custom domain = root-relative paths, base href is /
+          # Cloudflare Pages + custom domain = root-relative, base href is /
           sed -i 's|<base href="[^"]*" />|<base href="/" />|g' ./pages/index.html
           echo "✅ base href set to /"
 
-          # 404.html tells Cloudflare Pages to serve the SPA for unknown routes
+          # 404.html for SPA client-side routing on Cloudflare Pages
           cp ./pages/index.html ./pages/404.html
           echo "✅ 404.html created for SPA routing"
 
@@ -146,14 +146,28 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Create Pages project if it does not exist
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "=== Ensuring Pages project exists ==="
+          # This will succeed silently if the project already exists
+          npx wrangler pages project create subashaventures-pages \
+            --production-branch=main 2>&1 || echo "Project already exists or creation skipped, continuing"
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "=== Deploying to Cloudflare Pages ==="
-          npx wrangler pages deploy ./pages \
-            --project-name=subashaventures \
+
+          # WRANGLER_CONFIG_PATH=/dev/null stops wrangler picking up
+          # any wrangler.toml / wrangler.jsonc sitting in the repo root
+          # (those belong to other projects and cause the Pages API mismatch)
+          WRANGLER_CONFIG_PATH=/dev/null npx wrangler pages deploy ./pages \
+            --project-name=subashaventures-pages \
             --branch=main \
             --commit-dirty=true
 
@@ -167,7 +181,11 @@ jobs:
           echo "   https://mysubasha.com"
           echo "   https://www.mysubasha.com"
           echo ""
-          echo "🔐 Post-deploy checklist (one-time after domain change):"
+          echo "🔐 Post-deploy checklist (one-time):"
+          echo ""
+          echo "   Cloudflare Pages (subashaventures-pages) → Custom domains:"
+          echo "     Add: mysubasha.com"
+          echo "     Add: www.mysubasha.com"
           echo ""
           echo "   Supabase → Auth → URL Configuration:"
           echo "     Site URL     : https://mysubasha.com"
@@ -176,7 +194,8 @@ jobs:
           echo ""
           echo "   Google Cloud Console → OAuth Client:"
           echo "     Authorized JS Origins : https://mysubasha.com"
-          echo "     Redirect URI (no change): https://wbwmovtewytjibxutssk.supabase.co/auth/v1/callback"
+          echo "     Redirect URI (no change):"
+          echo "       https://wbwmovtewytjibxutssk.supabase.co/auth/v1/callback"
           echo ""
           echo "   Firebase Console → Authentication → Authorized domains:"
           echo "     Add: mysubasha.com"
@@ -202,7 +221,6 @@ jobs:
           if [ "${{ needs.parse-trigger.outputs.run_deploy }}" != "true" ]; then
             echo "ℹ️  Deployment skipped."
             echo ""
-            echo "   Structure is auto-updated via its own workflow."
             echo "   To deploy to Cloudflare Pages, add --cloudflare"
             echo "   to your commit message:"
             echo ""
