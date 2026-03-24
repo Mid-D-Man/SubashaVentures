@@ -1,4 +1,4 @@
-name: Deploy SubashaVentures Blazor WASM
+name: Deploy SubashaVentures Blazor WASM to Cloudflare Pages
 
 on:
   push:
@@ -9,13 +9,16 @@ on:
 
 permissions:
   contents: write
+  deployments: write
+  pull-requests: write
 
 concurrency:
   group: "deploy"
   cancel-in-progress: false
 
 jobs:
-  # Always update project structure on every push
+
+  # ── 1. Always update project structure ─────────────────────────────────────
   update-structure:
     runs-on: ubuntu-latest
     steps:
@@ -23,9 +26,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Project Structure
         run: |
+          echo "Updating project structure documentation..."
           mkdir -p "Others"
           {
             echo "Project Structure Documentation - SubashaVentures"
@@ -36,43 +42,106 @@ jobs:
             echo "=================================="
             echo
             echo "Source Files:"
-            find . -type f \( -name "*.cs" -o -name "*.razor" -o -name "*.csproj" -o -name "*.sln" -o -name "*.json" -o -name "*.css" -o -name "*.scss" -o -name "*.js" -o -name "*.html" -o -name "*.md" -o -name "*.yml" \) \
-              -not -path "*/bin/*" -not -path "*/obj/*" -not -path "*/.git/*" -not -path "*/node_modules/*" | sed 's|^\./||' | sort
+            echo "============"
+            find . -type f \( \
+              -name "*.cs" -o \
+              -name "*.razor" -o \
+              -name "*.csproj" -o \
+              -name "*.sln" -o \
+              -name "*.json" -o \
+              -name "*.css" -o \
+              -name "*.scss" -o \
+              -name "*.js" -o \
+              -name "*.html" -o \
+              -name "*.md" -o \
+              -name "*.yml" \
+            \) -not -path "*/bin/*" \
+              -not -path "*/obj/*" \
+              -not -path "*/.git/*" \
+              -not -path "*/node_modules/*" | \
+            sed 's|^\./||' | sort
             echo
             echo "Directory Structure:"
-            find . -type d -not -path "*/bin" -not -path "*/bin/*" -not -path "*/obj" -not -path "*/obj/*" -not -path "*/.git" -not -path "*/.git/*" -not -path "*/node_modules" -not -path "*/node_modules/*" | sed 's|^\./||' | sort
+            echo "==================="
+            find . -type d \
+              -not -path "*/bin" \
+              -not -path "*/bin/*" \
+              -not -path "*/obj" \
+              -not -path "*/obj/*" \
+              -not -path "*/.git" \
+              -not -path "*/.git/*" \
+              -not -path "*/node_modules" \
+              -not -path "*/node_modules/*" | \
+            sed 's|^\./||' | sort
             echo
             echo "File Count Summary:"
+            echo "=================="
             for ext in cs razor csproj sln json css js html; do
               count=$(find . -name "*.$ext" -not -path "*/bin/*" -not -path "*/obj/*" -not -path "*/.git/*" | wc -l)
-              [ "$count" -gt 0 ] && printf "%-10s: %d files\n" ".$ext" "$count"
+              if [ "$count" -gt 0 ]; then
+                printf "%-10s: %d files\n" ".$ext" "$count"
+              fi
             done
           } > "Others/ProjectStructure.txt"
+          echo "Project structure documentation completed"
 
       - name: Commit Updated Project Structure
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action - SubashaVentures"
+
           if [ -f "Others/ProjectStructure.txt" ]; then
-            if ! git diff --quiet "Others/ProjectStructure.txt" 2>/dev/null; then
-              git add "Others/ProjectStructure.txt"
-              git commit -m "Auto-update project structure [skip ci]"
-              git push
+            git add "Others/ProjectStructure.txt"
+
+            if git diff --staged --quiet; then
+              echo "No changes in project structure, skipping commit"
+              exit 0
             fi
+
+            git pull --rebase origin ${{ github.ref_name }}
+            git commit -m "Auto-update project structure [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+            echo "Project structure committed successfully"
           fi
 
-  # Build and deploy to Cloudflare Pages
-  build-and-deploy-cloudflare:
+  # ── 2. Parse deploy trigger ─────────────────────────────────────────────────
+  parse-trigger:
     runs-on: ubuntu-latest
     needs: update-structure
-    if: |
-      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
-      (contains(github.event.head_commit.message, '--cloudflare') ||
-       contains(github.event.head_commit.message, '--CLOUDFLARE'))
+    outputs:
+      run_deploy: ${{ steps.decide.outputs.run_deploy }}
+    steps:
+      - name: Decide whether to deploy
+        id: decide
+        run: |
+          RUN=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RUN=true
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            MSG="${{ github.event.pull_request.title }}"
+            echo "$MSG" | grep -qiE '\-\-cloudflare\b' && RUN=true || true
+          else
+            MSG="${{ github.event.head_commit.message }}"
+            echo "$MSG" | grep -qiE '\-\-cloudflare\b' && RUN=true || true
+          fi
+
+          echo "run_deploy=$RUN" >> $GITHUB_OUTPUT
+          echo "Run deploy: $RUN"
+          echo "Event: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+
+  # ── 3. Build and deploy ─────────────────────────────────────────────────────
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: parse-trigger
+    if: needs.parse-trigger.outputs.run_deploy == 'true'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -80,58 +149,97 @@ jobs:
           dotnet-version: '7.0.x'
 
       - name: Restore Dependencies
-        run: dotnet restore
+        run: |
+          echo "=== Restoring NuGet packages ==="
+          dotnet restore
 
       - name: Build Project
-        run: dotnet build --configuration Release --no-restore
+        run: |
+          echo "=== Building SubashaVentures ==="
+          dotnet build --configuration Release --no-restore
 
       - name: Publish
-        run: dotnet publish --configuration Release --no-build --output ./dist
+        run: |
+          echo "=== Publishing Blazor WASM ==="
+          dotnet publish --configuration Release --no-build --output ./dist
 
       - name: Prepare deployment files
         run: |
+          echo "=== Preparing deployment files ==="
           mkdir -p ./pages
 
           if [ -d "./dist/wwwroot" ]; then
             cp -r ./dist/wwwroot/* ./pages/
-            echo "✅ wwwroot copied"
+            echo "✅ wwwroot contents copied"
           else
-            echo "❌ wwwroot not found"
+            echo "❌ ERROR: wwwroot not found"
             exit 1
           fi
 
-          # Cloudflare Pages uses root-relative paths — base href is just /
+          # Cloudflare Pages with custom domain uses root-relative paths
+          # base href must be / not /<repo-name>/
           sed -i 's|<base href="[^"]*" />|<base href="/" />|g' ./pages/index.html
+          echo "✅ base href set to /"
 
-          # 404.html for SPA client-side routing
+          # 404.html enables SPA client-side routing on Cloudflare Pages
           cp ./pages/index.html ./pages/404.html
+          echo "✅ 404.html created for SPA routing"
 
-          # Fix service worker path (root relative for custom domain)
+          # Fix service worker registration path
           sed -i "s|register('[^']*service-worker\.js')|register('/service-worker.js')|g" ./pages/index.html
           sed -i "s|register('[^']*service-worker\.js')|register('/service-worker.js')|g" ./pages/404.html
-
-          echo "✅ Files prepared for Cloudflare Pages"
+          echo "✅ Service worker path set to /service-worker.js"
 
       - name: Verify deployment files
         run: |
-          echo "📋 Critical files:"
-          echo "  index.html: $([ -f ./pages/index.html ] && echo '✅' || echo '❌')"
-          echo "  404.html:   $([ -f ./pages/404.html ] && echo '✅' || echo '❌')"
+          echo "=== Verifying deployment ==="
+
+          echo "📋 Critical files check:"
+          echo "  index.html : $([ -f ./pages/index.html ] && echo '✅' || echo '❌')"
+          echo "  404.html   : $([ -f ./pages/404.html ]   && echo '✅' || echo '❌')"
+
           echo ""
           echo "📦 Framework check:"
-          [ -d ./pages/_framework ] && echo "  _framework: ✅" || { echo "  _framework: ❌"; exit 1; }
-          WASM_COUNT=$(find ./pages/_framework -name "*.wasm" | wc -l)
-          echo "  WASM files: $WASM_COUNT"
+          if [ -d ./pages/_framework ]; then
+            echo "  _framework directory: ✅"
+            WASM_COUNT=$(find ./pages/_framework -name "*.wasm" 2>/dev/null | wc -l)
+            DLL_COUNT=$(find  ./pages/_framework -name "*.dll"  2>/dev/null | wc -l)
+            JS_COUNT=$(find   ./pages/_framework -name "*.js"   2>/dev/null | wc -l)
+            echo "  WASM files : $WASM_COUNT $([ $WASM_COUNT -gt 0 ] && echo '✅' || echo '❌')"
+            echo "  DLL  files : $DLL_COUNT  $([ $DLL_COUNT  -gt 0 ] && echo '✅' || echo '❌')"
+            echo "  JS   files : $JS_COUNT   $([ $JS_COUNT   -gt 0 ] && echo '✅' || echo '❌')"
+          else
+            echo "  _framework directory: ❌ NOT FOUND"
+            exit 1
+          fi
+
           echo ""
-          echo "🔍 base href:"
+          echo "📊 Deployment size:"
+          du -sh ./pages | cut -f1
+
+          echo ""
+          echo "🔍 base href verification:"
           grep '<base href=' ./pages/index.html
 
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+          echo ""
+          echo "🔧 Service worker verification:"
+          grep 'service-worker' ./pages/index.html || echo "⚠️ service worker registration not found"
+
+      - name: Setup Node (for wrangler)
+        uses: actions/setup-node@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./pages --project-name=mysubasha --branch=main
+          node-version: '20'
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "=== Deploying to Cloudflare Pages ==="
+          npx wrangler pages deploy ./pages \
+            --project-name=subashaventures \
+            --branch=main \
+            --commit-dirty=true
 
       - name: Deployment Summary
         run: |
@@ -139,33 +247,55 @@ jobs:
           echo "🚀 CLOUDFLARE DEPLOYMENT SUCCESSFUL!"
           echo "======================================"
           echo ""
-          echo "📍 Your app is live at: https://mysubasha.com"
+          echo "📍 Your app is live at:"
+          echo "   https://mysubasha.com"
+          echo "   https://www.mysubasha.com"
           echo ""
-          echo "🔐 Post-deploy checklist:"
-          echo "   1. Supabase → Auth → Site URL: https://mysubasha.com"
-          echo "   2. Supabase → Auth → Redirect URLs: https://mysubasha.com/**"
-          echo "   3. Google OAuth → Authorized Origins: https://mysubasha.com"
-          echo "   4. Firebase → Authorized domains: mysubasha.com"
+          echo "🔐 Post-deploy checklist (one-time after domain change):"
+          echo "   Supabase → Auth → URL Configuration:"
+          echo "     Site URL    : https://mysubasha.com"
+          echo "     Redirect URLs: https://mysubasha.com/**"
+          echo "                    https://www.mysubasha.com/**"
+          echo ""
+          echo "   Google Cloud Console → OAuth Client:"
+          echo "     Authorized JS Origins : https://mysubasha.com"
+          echo "     Redirect URI (unchanged): https://wbwmovtewytjibxutssk.supabase.co/auth/v1/callback"
+          echo ""
+          echo "   Firebase Console → Authentication → Authorized domains:"
+          echo "     Add: mysubasha.com"
+          echo "     Add: www.mysubasha.com"
+          echo ""
+          echo "   Cloudflare Pages → Custom domains:"
+          echo "     Add: mysubasha.com"
+          echo "     Add: www.mysubasha.com"
           echo "======================================"
 
-  # Skipped message
-  deployment-skipped:
+  # ── 4. Summary ──────────────────────────────────────────────────────────────
+  summary:
     runs-on: ubuntu-latest
-    needs: update-structure
-    if: |
-      !(contains(github.event.head_commit.message, '--cloudflare') ||
-        contains(github.event.head_commit.message, '--CLOUDFLARE'))
+    needs: [ parse-trigger, build-and-deploy ]
+    if: always()
     steps:
-      - name: Deployment Skipped
+      - name: Print summary
         run: |
-          echo "======================================"
-          echo "ℹ️  DEPLOYMENT SKIPPED"
-          echo "======================================"
-          echo "To deploy to Cloudflare Pages, include --cloudflare in your commit message"
+          echo "================================================="
+          echo "  SubashaVentures — Deploy Summary"
+          echo "================================================="
+          echo "Build   : #${{ github.run_number }}"
+          echo "Branch  : ${{ github.ref_name }}"
+          echo "Trigger : ${{ github.event_name }}"
+          echo "Deploy  : ${{ needs.build-and-deploy.result || 'skipped' }}"
           echo ""
-          echo "Examples:"
-          echo "  git commit -m 'Fix auth flow --cloudflare'"
-          echo "  git commit -m 'v1.1.0 --cloudflare'"
-          echo ""
-          echo "Current commit: ${{ github.event.head_commit.message }}"
-          echo "======================================"
+          if [ "${{ needs.parse-trigger.outputs.run_deploy }}" != "true" ]; then
+            echo "ℹ️  Deployment skipped."
+            echo ""
+            echo "   Structure was updated but deploy was not triggered."
+            echo "   To deploy, add --cloudflare to your commit message:"
+            echo ""
+            echo "   git commit -m 'your message --cloudflare'"
+            echo "   git commit -m 'fix auth --cloudflare'"
+            echo "   git commit -m 'v1.1.0 --cloudflare'"
+            echo ""
+            echo "   Or trigger manually via Actions → Run workflow."
+          fi
+          echo "================================================="
