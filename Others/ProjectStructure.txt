@@ -1,12 +1,12 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sat Feb 28 13:01:01 UTC 2026
+Generated: Tue Mar 24 09:13:38 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 3898a06243354c049b17fb98b21ba395b2aa7215
+Commit: a062e1ea5ecb3fb3ae35092b1d896b6e4a5df7dc
 Branch: master
 ==================================
 
 Source Files:
-============
+.github/workflows/deploy-cloudflare.yml
 .github/workflows/deploy.yml
 App.razor
 App.razor.css
@@ -407,115 +407,113 @@ wwwroot/wasm/package.json
 wwwroot/wasm/qr_code_generator.js
 
 Directory Structure:
-===================
-./.
-./.github
-./  workflows
-./.idea
-./  .idea.SubashaVentures
-./    .idea
-./Components
-./  Admin
-./    Images
-./    Orders
-./    Products
-./    Users
-./  Shared
-./    Burgers
-./    Buttons
-./    Cards
-./    Forms
-./    Loading
-./    Modals
-./    Notifications
-./    Overlays
-./    Popups
-./    QRCode
-./Domain
-./  Activity
-./  Cart
-./  Checkout
-./  Enums
-./  Expansion
-./  Miscellaneous
-./  Order
-./  Payment
-./  Product
-./  Shop
-./  Statistics
-./  User
-./  ValueObjects
-./Layout
-./  Admin
-./  Auth
-./  Checkout
-./  Main
-./  ProductDetails
-./  Products
-./  Shop
-./  User
-./Models
-./  Firebase
-./  Supabase
-./Others
-./Pages
-./  Admin
-./    StatisticsTabs
-./  Auth
-./  Checkout
-./  Main
-./  Product
-./  Shared
-./  Shop
-./  User
-./Properties
-./Services
-./  Addresses
-./  AppStats
-./  Auth
-./  Authorization
-./  Brands
-./  Cart
-./    Cart
-./  Categories
-./  Checkout
-./  Connectivity
-./  Cryptography
-./  Email
-./  Firebase
-./  Geolocation
-./  Navigation
-./  Newsletter
-./  Notifications
-./  Orders
-./  Partners
-./  Payment
-./  Products
-./  Shop
-./  Statistics
-./  Storage
-./  Supabase
-./  Time
-./  Users
-./  VisualElements
-./  Wishlist
-./Utilities
-./  Auth
-./  Configuration
-./  Constants
-./  HelperScripts
-./  Logging
-./  ObjectPooling
-./  Tracking
-./wwwroot
-./  css
-./  icons
-./  js
-./  svgs
-./  wasm
+.
+.github
+.github/workflows
+.idea
+.idea/.idea.SubashaVentures
+.idea/.idea.SubashaVentures/.idea
+Components
+Components/Admin
+Components/Admin/Images
+Components/Admin/Orders
+Components/Admin/Products
+Components/Admin/Users
+Components/Shared
+Components/Shared/Burgers
+Components/Shared/Buttons
+Components/Shared/Cards
+Components/Shared/Forms
+Components/Shared/Loading
+Components/Shared/Modals
+Components/Shared/Notifications
+Components/Shared/Overlays
+Components/Shared/Popups
+Components/Shared/QRCode
+Domain
+Domain/Activity
+Domain/Cart
+Domain/Checkout
+Domain/Enums
+Domain/Expansion
+Domain/Miscellaneous
+Domain/Order
+Domain/Payment
+Domain/Product
+Domain/Shop
+Domain/Statistics
+Domain/User
+Domain/ValueObjects
+Layout
+Layout/Admin
+Layout/Auth
+Layout/Checkout
+Layout/Main
+Layout/ProductDetails
+Layout/Products
+Layout/Shop
+Layout/User
+Models
+Models/Firebase
+Models/Supabase
+Others
+Pages
+Pages/Admin
+Pages/Admin/StatisticsTabs
+Pages/Auth
+Pages/Checkout
+Pages/Main
+Pages/Product
+Pages/Shared
+Pages/Shop
+Pages/User
+Properties
+Services
+Services/Addresses
+Services/AppStats
+Services/Auth
+Services/Authorization
+Services/Brands
+Services/Cart
+Services/Cart/Cart
+Services/Categories
+Services/Checkout
+Services/Connectivity
+Services/Cryptography
+Services/Email
+Services/Firebase
+Services/Geolocation
+Services/Navigation
+Services/Newsletter
+Services/Notifications
+Services/Orders
+Services/Partners
+Services/Payment
+Services/Products
+Services/Shop
+Services/Statistics
+Services/Storage
+Services/Supabase
+Services/Time
+Services/Users
+Services/VisualElements
+Services/Wishlist
+Utilities
+Utilities/Auth
+Utilities/Configuration
+Utilities/Constants
+Utilities/HelperScripts
+Utilities/Logging
+Utilities/ObjectPooling
+Utilities/Tracking
+wwwroot
+wwwroot/css
+wwwroot/icons
+wwwroot/js
+wwwroot/svgs
+wwwroot/wasm
 
 File Count Summary:
-==================
 .cs       : 189 files
 .razor    : 85 files
 .csproj   : 1 files
