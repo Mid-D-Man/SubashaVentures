@@ -5,43 +5,48 @@
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Shared.Notifications
 @using SubashaVentures.Domain.Enums
+@using SubashaVentures.Domain.Product
 @layout AdminLayout
 
 <div class="category-management">
-    <!-- Header -->
+
     <div class="cm-header">
         <div class="cm-header-left">
             <h1 class="cm-title">Category Management</h1>
-            <p class="cm-subtitle">Manage product categories with SVG icons</p>
+            <p class="cm-subtitle">Manage main categories and their subcategories</p>
         </div>
         <div class="cm-header-right">
             <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
-                          Size="PrimaryButton.ButtonSize.Medium"
-                          Icon="+"
-                          OnClick="OpenAddCategoryModal">
+                           Size="PrimaryButton.ButtonSize.Medium"
+                           Icon="+"
+                           OnClick="OpenAddCategoryModal">
                 Add Category
             </PrimaryButton>
         </div>
     </div>
 
-    <!-- Stats Cards -->
     <div class="cm-stats">
         <div class="stat-card">
             <div class="stat-icon">📂</div>
             <div class="stat-info">
-                <span class="stat-label">Total Categories</span>
+                <span class="stat-label">Main Categories</span>
                 <span class="stat-value">@categories.Count</span>
             </div>
         </div>
-
+        <div class="stat-card">
+            <div class="stat-icon">🗂️</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Subcategories</span>
+                <span class="stat-value">@categories.Sum(c => c.SubCategories.Count)</span>
+            </div>
+        </div>
         <div class="stat-card">
             <div class="stat-icon">✅</div>
             <div class="stat-info">
-                <span class="stat-label">Active</span>
+                <span class="stat-label">Active Categories</span>
                 <span class="stat-value">@categories.Count(c => c.IsActive)</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">📦</div>
             <div class="stat-info">
@@ -51,7 +56,6 @@
         </div>
     </div>
 
-    <!-- Categories Table -->
     @if (isLoading)
     {
         <div class="cm-loading">
@@ -64,85 +68,139 @@
         <div class="cm-empty">
             <div class="empty-icon">📂</div>
             <h3>No categories yet</h3>
-            <p>Create your first category to organize your products</p>
-            <PrimaryButton OnClick="OpenAddCategoryModal">
-                Add Category
-            </PrimaryButton>
+            <p>Create your first main category to get started</p>
+            <PrimaryButton OnClick="OpenAddCategoryModal">Add Category</PrimaryButton>
         </div>
     }
     else
     {
-        <div class="cm-table-container">
-            <table class="cm-table">
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Slug</th>
-                        <th>Products</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var category in categories.OrderBy(c => c.DisplayOrder))
+        <div class="cm-tree">
+            @foreach (var category in categories.OrderBy(c => c.DisplayOrder))
+            {
+                <div class="cm-category-block @(!category.IsActive ? "inactive" : "")">
+
+                    <div class="cm-category-row">
+                        <button class="expand-btn @(expandedCategories.Contains(category.Id) ? "expanded" : "")"
+                                @onclick="() => ToggleExpand(category.Id)">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+
+                        <div class="cm-category-icon">
+                            @if (category.IconSvgType != SvgType.None && categorySvgCache.ContainsKey(category.Id))
+                            {
+                                @((MarkupString)categorySvgCache[category.Id])
+                            }
+                        </div>
+
+                        <div class="cm-category-info">
+                            <span class="cm-category-name">@category.Name</span>
+                            <span class="cm-category-slug">@category.Slug</span>
+                        </div>
+
+                        <div class="cm-category-meta">
+                            <span class="meta-badge products">@category.ProductCount products</span>
+                            <span class="meta-badge subs">@category.SubCategories.Count subcategories</span>
+                            <span class="status-badge @(category.IsActive ? "active" : "inactive")">
+                                @(category.IsActive ? "Active" : "Inactive")
+                            </span>
+                        </div>
+
+                        <div class="cm-category-actions">
+                            <button class="action-btn add-sub"
+                                    @onclick="() => OpenAddSubCategoryModal(category)"
+                                    title="Add Subcategory">
+                                ➕
+                            </button>
+                            <button class="action-btn edit"
+                                    @onclick="() => OpenEditCategoryModal(category)"
+                                    title="Edit Category">
+                                ✏️
+                            </button>
+                            <button class="action-btn delete"
+                                    @onclick="() => HandleDeleteCategory(category)"
+                                    disabled="@(category.ProductCount > 0)"
+                                    title="@(category.ProductCount > 0 ? "Has products" : "Delete")">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (expandedCategories.Contains(category.Id))
                     {
-                        <tr class="@(category.IsActive ? "" : "inactive")">
-                            <td>
-                                <div class="category-name-cell">
-                                    @if (category.IconSvgType != SvgType.None && categorySvgCache.ContainsKey(category.Id))
-                                    {
-                                        <div class="category-icon-svg">
-                                            @((MarkupString)categorySvgCache[category.Id])
+                        <div class="cm-subcategory-list">
+                            @if (!category.SubCategories.Any())
+                            {
+                                <div class="no-subs-message">
+                                    <span>No subcategories yet.</span>
+                                    <button class="inline-add-btn" @onclick="() => OpenAddSubCategoryModal(category)">
+                                        + Add one
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var sub in category.SubCategories.OrderByDescending(s => s.IsDefault).ThenBy(s => s.DisplayOrder))
+                                {
+                                    <div class="cm-sub-row @(!sub.IsActive ? "inactive" : "") @(sub.IsDefault ? "is-default" : "")">
+
+                                        <div class="sub-icon">
+                                            @if (sub.IconSvgType != SvgType.None && subCategorySvgCache.ContainsKey(sub.Id))
+                                            {
+                                                @((MarkupString)subCategorySvgCache[sub.Id])
+                                            }
                                         </div>
-                                    }
-                                    <div class="category-name-info">
-                                        <span class="category-name">@category.Name</span>
-                                        @if (!string.IsNullOrEmpty(category.Description))
-                                        {
-                                            <span class="category-desc">@category.Description</span>
-                                        }
+
+                                        <div class="sub-info">
+                                            <span class="sub-name">@sub.Name</span>
+                                            <span class="sub-slug">@sub.Slug</span>
+                                        </div>
+
+                                        <div class="sub-meta">
+                                            @if (sub.IsDefault)
+                                            {
+                                                <span class="default-badge">Default</span>
+                                            }
+                                            <span class="meta-badge products">@sub.ProductCount products</span>
+                                            <span class="status-badge @(sub.IsActive ? "active" : "inactive")">
+                                                @(sub.IsActive ? "Active" : "Inactive")
+                                            </span>
+                                        </div>
+
+                                        <div class="sub-actions">
+                                            @if (!sub.IsDefault)
+                                            {
+                                                <button class="action-btn set-default"
+                                                        @onclick="() => HandleSetDefault(sub, category.Id)"
+                                                        title="Set as Default">
+                                                    ⭐
+                                                </button>
+                                            }
+                                            <button class="action-btn edit"
+                                                    @onclick="() => OpenEditSubCategoryModal(sub, category)"
+                                                    title="Edit">
+                                                ✏️
+                                            </button>
+                                            <button class="action-btn delete"
+                                                    @onclick="() => HandleDeleteSubCategory(sub)"
+                                                    disabled="@(sub.ProductCount > 0 || sub.IsDefault)"
+                                                    title="@GetSubDeleteTooltip(sub)">
+                                                🗑️
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <code class="category-slug">@category.Slug</code>
-                            </td>
-                            <td>
-                                <span class="product-count">@category.ProductCount</span>
-                            </td>
-                            <td>
-                                <span class="status-badge @(category.IsActive ? "active" : "inactive")">
-                                    @(category.IsActive ? "Active" : "Inactive")
-                                </span>
-                            </td>
-                            <td>
-                                <span class="date-text">@category.CreatedAt.ToString("MMM dd, yyyy")</span>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="action-btn edit" 
-                                            @onclick="@(() => OpenEditCategoryModal(category))"
-                                            title="Edit">
-                                        ✏️
-                                    </button>
-                                    <button class="action-btn delete" 
-                                            @onclick="@(() => HandleDeleteCategory(category))"
-                                            disabled="@(category.ProductCount > 0)"
-                                            title="@(category.ProductCount > 0 ? "Cannot delete - has products" : "Delete")">
-                                        🗑️
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
+                                }
+                            }
+                        </div>
                     }
-                </tbody>
-            </table>
+                </div>
+            }
         </div>
     }
 </div>
 
-<!-- Add/Edit Category Modal -->
+{{/* ==================== CATEGORY MODAL ==================== */}}
 <DynamicModal @ref="categoryModal"
               Title="@(isEditMode ? "Edit Category" : "Add Category")"
               Size="DynamicModal.ModalSize.Medium"
@@ -150,67 +208,54 @@
               ShowFooter="false"
               OnClose="CloseCategoryModal">
     <BodyContent>
-        <div class="category-form">
-            <InputField @bind-Value="editingCategory.Name"
-                       Label="Category Name"
-                       Placeholder="e.g., Men's Clothing"
-                       IsRequired="true"
-                       HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
-                       ErrorMessage="@validationErrors.GetValueOrDefault("Name")"
-                       CssClass="form-field" />
+        <div class="cm-form">
+            <InputField @bind-Value="categoryForm.Name"
+                        Label="Category Name"
+                        Placeholder="e.g., Men"
+                        IsRequired="true"
+                        HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
+                        ErrorMessage="@validationErrors.GetValueOrDefault("Name")"
+                        CssClass="form-field" />
 
-            <InputField @bind-Value="editingCategory.Slug"
-                       Label="Slug (URL)"
-                       Placeholder="e.g., mens-clothing"
-                       HelperText="Auto-generated from name if left empty"
-                       CssClass="form-field" />
+            <InputField @bind-Value="categoryForm.Slug"
+                        Label="Slug"
+                        Placeholder="Auto-generated from name"
+                        HelperText="Leave empty to auto-generate"
+                        CssClass="form-field" />
 
             <div class="form-field">
                 <label class="input-label">Description</label>
                 <textarea class="input-control textarea"
-                         @bind="editingCategory.Description"
-                         placeholder="Brief description of this category"
-                         rows="3"></textarea>
+                          @bind="categoryForm.Description"
+                          placeholder="Optional description"
+                          rows="3"></textarea>
             </div>
 
-            <!-- SVG Icon Picker -->
             <div class="form-field">
                 <label class="input-label">Category Icon</label>
-                
-                <!-- Selected Icon Preview -->
-                <div class="icon-preview-container" @onclick="ToggleIconPicker">
-                    @if (editingCategory.IconSvgType != SvgType.None && selectedIconSvg != null)
+                <div class="icon-preview-container" @onclick="ToggleCategoryIconPicker">
+                    @if (categoryForm.IconSvgType != SvgType.None && selectedCategoryIconSvg != null)
                     {
-                        <div class="selected-icon">
-                            @((MarkupString)selectedIconSvg)
-                        </div>
-                        <span class="selected-icon-name">@editingCategory.IconSvgType.ToString()</span>
+                        <div class="selected-icon">@((MarkupString)selectedCategoryIconSvg)</div>
+                        <span class="selected-icon-name">@categoryForm.IconSvgType.ToString()</span>
                     }
                     else
                     {
-                        <div class="selected-icon-placeholder">
-                            <span>No icon selected</span>
-                        </div>
+                        <div class="selected-icon-placeholder"><span>No icon</span></div>
                     }
-                    <button type="button" class="icon-picker-toggle">
-                        @(showIconPicker ? "▲" : "▼")
-                    </button>
+                    <button type="button" class="icon-picker-toggle">@(showCategoryIconPicker ? "▲" : "▼")</button>
                 </div>
-
-                <!-- Icon Picker Dropdown -->
-                @if (showIconPicker)
+                @if (showCategoryIconPicker)
                 {
                     <div class="icon-picker-dropdown">
                         <div class="icon-picker-grid">
-                            @foreach (var iconType in availableCategoryIcons)
+                            @foreach (var iconType in availableIcons)
                             {
-                                var isSelected = editingCategory.IconSvgType == iconType;
-                                var iconSvg = iconSvgCache.GetValueOrDefault(iconType, "");
-                                
-                                <div class="icon-picker-item @(isSelected ? "selected" : "")"
-                                     @onclick="@(() => SelectIcon(iconType))"
+                                var svg = iconSvgCache.GetValueOrDefault(iconType, "");
+                                <div class="icon-picker-item @(categoryForm.IconSvgType == iconType ? "selected" : "")"
+                                     @onclick="() => SelectCategoryIcon(iconType)"
                                      title="@iconType.ToString()">
-                                    @((MarkupString)iconSvg)
+                                    @((MarkupString)svg)
                                 </div>
                             }
                         </div>
@@ -220,33 +265,29 @@
 
             <div class="form-field">
                 <label class="input-label">Display Order</label>
-                <input type="number"
-                       class="input-control"
-                       @bind="editingCategory.DisplayOrder"
-                       placeholder="0"
-                       min="0" />
+                <input type="number" class="input-control" @bind="categoryForm.DisplayOrder" min="0" />
             </div>
 
-            <div class="form-field">
-                <label class="toggle-switch">
-                    <input type="checkbox"
-                           @bind="editingCategory.IsActive" />
-                    <span class="toggle-slider"></span>
-                    <span class="toggle-label">Active</span>
-                </label>
-            </div>
+            @if (isEditMode)
+            {
+                <div class="form-field">
+                    <label class="toggle-switch">
+                        <input type="checkbox" @bind="categoryForm.IsActive" />
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Active</span>
+                    </label>
+                </div>
+            }
 
             <div class="modal-actions">
                 <SecondaryButton OnClick="CloseCategoryModal"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                IsDisabled="@isSaving"
-                                Size="SecondaryButton.ButtonSize.Medium">
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 IsDisabled="@isSaving">
                     Cancel
                 </SecondaryButton>
                 <PrimaryButton OnClick="SaveCategory"
-                              IsLoading="@isSaving"
-                              IsDisabled="@isSaving"
-                              Size="PrimaryButton.ButtonSize.Medium">
+                               IsLoading="@isSaving"
+                               IsDisabled="@isSaving">
                     @(isEditMode ? "Update" : "Create") Category
                 </PrimaryButton>
             </div>
@@ -254,19 +295,122 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Delete Confirmation -->
+{{/* ==================== SUBCATEGORY MODAL ==================== */}}
+<DynamicModal @ref="subCategoryModal"
+              Title="@(isEditSubMode ? $"Edit Subcategory — {activeParentCategory?.Name}" : $"Add Subcategory — {activeParentCategory?.Name}")"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isSubCategoryModalOpen"
+              ShowFooter="false"
+              OnClose="CloseSubCategoryModal">
+    <BodyContent>
+        <div class="cm-form">
+            <InputField @bind-Value="subCategoryForm.Name"
+                        Label="Subcategory Name"
+                        Placeholder="e.g., Footwear"
+                        IsRequired="true"
+                        HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("SubName")))"
+                        ErrorMessage="@validationErrors.GetValueOrDefault("SubName")"
+                        CssClass="form-field" />
+
+            <InputField @bind-Value="subCategoryForm.Slug"
+                        Label="Slug"
+                        Placeholder="Auto-generated"
+                        HelperText="Leave empty to auto-generate"
+                        CssClass="form-field" />
+
+            <div class="form-field">
+                <label class="input-label">Description</label>
+                <textarea class="input-control textarea"
+                          @bind="subCategoryForm.Description"
+                          placeholder="Optional description"
+                          rows="3"></textarea>
+            </div>
+
+            <div class="form-field">
+                <label class="input-label">Subcategory Icon</label>
+                <div class="icon-preview-container" @onclick="ToggleSubIconPicker">
+                    @if (subCategoryForm.IconSvgType != SvgType.None && selectedSubIconSvg != null)
+                    {
+                        <div class="selected-icon">@((MarkupString)selectedSubIconSvg)</div>
+                        <span class="selected-icon-name">@subCategoryForm.IconSvgType.ToString()</span>
+                    }
+                    else
+                    {
+                        <div class="selected-icon-placeholder"><span>No icon</span></div>
+                    }
+                    <button type="button" class="icon-picker-toggle">@(showSubIconPicker ? "▲" : "▼")</button>
+                </div>
+                @if (showSubIconPicker)
+                {
+                    <div class="icon-picker-dropdown">
+                        <div class="icon-picker-grid">
+                            @foreach (var iconType in availableIcons)
+                            {
+                                var svg = iconSvgCache.GetValueOrDefault(iconType, "");
+                                <div class="icon-picker-item @(subCategoryForm.IconSvgType == iconType ? "selected" : "")"
+                                     @onclick="() => SelectSubIcon(iconType)"
+                                     title="@iconType.ToString()">
+                                    @((MarkupString)svg)
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="form-field">
+                <label class="input-label">Display Order</label>
+                <input type="number" class="input-control" @bind="subCategoryForm.DisplayOrder" min="0" />
+            </div>
+
+            <div class="form-field">
+                <label class="toggle-switch">
+                    <input type="checkbox" @bind="subCategoryForm.IsDefault" />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Set as Default Subcategory</span>
+                </label>
+                <span class="helper-text">The default subcategory is pre-selected when browsing this category.</span>
+            </div>
+
+            @if (isEditSubMode)
+            {
+                <div class="form-field">
+                    <label class="toggle-switch">
+                        <input type="checkbox" @bind="subCategoryForm.IsActive" />
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Active</span>
+                    </label>
+                </div>
+            }
+
+            <div class="modal-actions">
+                <SecondaryButton OnClick="CloseSubCategoryModal"
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 IsDisabled="@isSaving">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="SaveSubCategory"
+                               IsLoading="@isSaving"
+                               IsDisabled="@isSaving">
+                    @(isEditSubMode ? "Update" : "Create") Subcategory
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
 <ConfirmationPopup @ref="confirmationPopup"
                    IsOpen="@isConfirmationOpen"
-                   Title="Delete Category?"
-                   Message="@($"Are you sure you want to delete \"{categoryToDelete?.Name}\"?")"
+                   Title="@confirmTitle"
+                   Message="@confirmMessage"
                    WarningText="This action cannot be undone."
                    Variant="ConfirmationPopup.ConfirmationVariant.Danger"
                    ConfirmButtonText="Delete"
                    CancelButtonText="Cancel"
                    IsProcessing="@isDeleting"
-                   OnConfirm="ConfirmDeleteCategory"
-                   OnCancel="CancelDeleteCategory" />
+                   OnConfirm="ConfirmDelete"
+                   OnCancel="CancelDelete" />
 
-<NotificationComponent @ref="notificationComponent" 
-                      Position="NotificationPosition.TopRight"
-                      AutoDismissTime="5000" />
+<NotificationComponent @ref="notificationComponent"
+                       Position="NotificationPosition.TopRight"
+                       AutoDismissTime="5000" />
