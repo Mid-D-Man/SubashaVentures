@@ -1,4 +1,4 @@
-/* ===== SHOP LAYOUT WRAPPER - NO PADDING ===== */
+/* ===== SHOP LAYOUT WRAPPER ===== */
 .shop-layout-wrapper {
     display: flex;
     flex-direction: column;
@@ -11,20 +11,22 @@
     overflow-x: hidden;
 }
 
-/* ===== SHOP CONTAINER (Left Sidebar + Right Content) - NO PADDING ===== */
+/* ===== SHOP CONTAINER ===== */
+/* Sits directly under the fixed nav — zero padding so content bleeds edge to edge */
 .shop-container {
     display: flex;
     flex: 1;
     width: 100%;
     max-width: 100%;
     margin: 0;
-    margin-top: 60px; /* Space for fixed navigation */
-    padding: 0; /* REMOVED PADDING */
+    margin-top: 60px; /* height of ShopTop nav */
+    padding: 0;       /* NO horizontal padding here */
+    box-sizing: border-box;
 }
 
-/* ===== DESKTOP FILTER SIDEBAR (Left - 30%) ===== */
+/* ===== DESKTOP SIDEBAR ===== */
 .shop-sidebar {
-    width: 320px;
+    width: 300px;
     flex-shrink: 0;
     height: calc(100vh - 60px);
     position: sticky;
@@ -32,118 +34,36 @@
     overflow-y: auto;
     background: var(--bg-surface);
     border-right: 1px solid var(--border-light);
+    /* no extra padding or margin */
 }
 
-/* Custom scrollbar for sidebar */
-.shop-sidebar::-webkit-scrollbar {
-    width: 6px;
-}
-
-.shop-sidebar::-webkit-scrollbar-track {
-    background: transparent;
-}
-
+.shop-sidebar::-webkit-scrollbar { width: 5px; }
+.shop-sidebar::-webkit-scrollbar-track { background: transparent; }
 .shop-sidebar::-webkit-scrollbar-thumb {
     background: rgba(150, 153, 74, 0.3);
     border-radius: 3px;
 }
-
 .shop-sidebar::-webkit-scrollbar-thumb:hover {
     background: rgba(150, 153, 74, 0.5);
 }
 
-/* ===== MAIN SHOP CONTENT (Right - 70%) - NO PADDING ===== */
+/* ===== MAIN SHOP CONTENT ===== */
+/* flex: 1 fills remaining width. Zero padding — child pages own their own spacing */
 .shop-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
     overflow-x: hidden;
-    padding: 0; /* REMOVED PADDING */
+    padding: 0;   /* NO padding — this was causing the whitespace */
     margin: 0;
-}
-
-/* ===== MOBILE FILTER DRAWER ===== */
-.mobile-filter-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 2000;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    animation: fadeIn 0.2s ease;
-    display: none;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.mobile-filter-drawer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 85%;
-    max-width: 380px;
-    background: var(--bg-surface);
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
-    overflow-y: auto;
-    animation: slideIn 0.3s ease;
-    display: flex;
-    flex-direction: column;
-}
-
-@keyframes slideIn {
-    from { transform: translateX(-100%); }
-    to { transform: translateX(0); }
-}
-
-.mobile-filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-light);
-    background: var(--bg-surface);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.filter-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.filter-close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.filter-close-btn:hover {
-    background: var(--gray-100);
-}
-
-.close-icon {
-    font-size: 1.25rem;
-    color: var(--text-primary);
+    box-sizing: border-box;
 }
 
 /* ===== RESPONSIVE ===== */
 
-/* Mobile (≤768px) - Show mobile drawer, hide desktop sidebar */
-@media (max-width: 768px) {
+/* Mobile — hide sidebar, full width content */
+@media (max-width: 1023px) {
     .shop-container {
         margin-top: 56px;
     }
@@ -152,28 +72,20 @@
         display: none !important;
     }
 
-    .mobile-filter-overlay {
-        display: flex;
-    }
-
     .shop-content {
         width: 100%;
     }
 }
 
-/* Tablet (768px - 1024px) */
-@media (min-width: 768px) and (max-width: 1024px) {
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
     .shop-sidebar {
-        width: 280px;
+        width: 260px;
     }
 }
 
-/* Desktop (≥1024px) - Show sidebar, hide mobile drawer */
+/* Desktop */
 @media (min-width: 1024px) {
-    .mobile-filter-overlay {
-        display: none !important;
-    }
-
     .shop-sidebar {
         display: block;
     }
@@ -185,19 +97,6 @@
     border-right-color: var(--border-dark);
 }
 
-[data-theme="dark"] .mobile-filter-drawer {
-    background: var(--bg-surface);
-}
-
-[data-theme="dark"] .mobile-filter-header {
-    background: var(--bg-surface);
-    border-bottom-color: var(--border-dark);
-}
-
-[data-theme="dark"] .filter-close-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
 [data-theme="dark"] .shop-sidebar::-webkit-scrollbar-thumb {
     background: rgba(184, 187, 106, 0.3);
 }
@@ -205,17 +104,3 @@
 [data-theme="dark"] .shop-sidebar::-webkit-scrollbar-thumb:hover {
     background: rgba(184, 187, 106, 0.5);
 }
-
-/* ===== ACCESSIBILITY ===== */
-.filter-close-btn:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-}
-
-/* ===== REDUCED MOTION ===== */
-@media (prefers-reduced-motion: reduce) {
-    .mobile-filter-overlay,
-    .mobile-filter-drawer {
-        animation: none;
-    }
-    }
