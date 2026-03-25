@@ -1,6 +1,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using SubashaVentures.Services.Supabase
 @using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Banners
 
 @inherits LayoutComponentBase
 @inject INavigationService NavService
@@ -10,25 +11,28 @@
 @implements IDisposable
 
 <div class="main-layout">
+
+    <DevBanner />
+
     <header class="layout-header">
         <TopNavigation />
-    </header>  
+    </header>
 
     <main class="layout-content">
         <div class="page-content">
             @Body
-            
+
             <footer class="page-footer">
                 <FooterSection />
             </footer>
         </div>
     </main>
-    
+
     <SidePanel IsOpen="@isSidePanelOpen"
                IsOpenChanged="@HandleSidePanelToggle"
                OnActionClick="@HandleActionClick"
                OnNavigate="@HandleNavigate" />
-    
+
     <ConfirmationPopup IsOpen="@showLogoutConfirmation"
                        Title="Sign Out"
                        Message="Are you sure you want to sign out?"
@@ -104,7 +108,7 @@
         {
             Logger.LogError(ex, "Error showing logout confirmation");
         }
-        
+
         await Task.CompletedTask;
     }
 
@@ -114,11 +118,11 @@
         {
             isSigningOut = true;
             StateHasChanged();
-            
+
             Logger.LogInformation("Signing out user");
-            
+
             var success = await AuthService.SignOutAsync();
-            
+
             if (success)
             {
                 Logger.LogInformation("User signed out successfully");
@@ -153,7 +157,7 @@
         {
             Logger.LogError(ex, "Error cancelling logout");
         }
-        
+
         await Task.CompletedTask;
     }
 
