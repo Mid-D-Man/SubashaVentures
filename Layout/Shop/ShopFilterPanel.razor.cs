@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Domain.Shop;
+using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Brands;
 using SubashaVentures.Services.VisualElements;
@@ -13,46 +14,105 @@ public partial class ShopFilterPanel : ComponentBase
 {
     [Parameter] public EventCallback<FilterState> OnFiltersChanged { get; set; }
     [Parameter] public FilterState? CurrentFilters { get; set; }
-    
+
     [Inject] private ICategoryService CategoryService { get; set; } = null!;
     [Inject] private IBrandService BrandService { get; set; } = null!;
     [Inject] private IVisualElementsService VisualElements { get; set; } = null!;
 
-    // Lists from FIREBASE (authoritative source)
-    private List<string> Categories = new();
-    private List<string> Brands = new();
-    
-    // UI state
+    // ==================== DATA ====================
+
+    private List<CategoryViewModel> CategoriesWithSubs { get; set; } = new();
+    private List<string> Brands { get; set; } = new();
+
+    // ==================== SELECTED STATE ====================
+
     private List<string> SelectedCategories = new();
+    private List<string> SelectedSubCategories = new();
     private List<string> SelectedBrands = new();
-    
     private string MinPriceText = "";
     private string MaxPriceText = "";
-    
     private int MinRating = 0;
     private bool OnSale = false;
     private bool FreeShipping = false;
-    
+
+    // ==================== UI STATE ====================
+
     private bool IsLoading = true;
-    
-    // SVG
     public string StarSvg { get; private set; } = string.Empty;
-    
-    // Track last synced state to avoid re-syncing unnecessarily
-    private FilterState? LastSyncedFilters = null;
+
+    // Subcategories currently visible — derived from selected main categories
+    private List<SubCategoryViewModel> VisibleSubCategories =>
+        CategoriesWithSubs
+            .Where(c => SelectedCategories.Contains(c.Name, StringComparer.OrdinalIgnoreCase))
+            .SelectMany(c => c.SubCategories)
+            .OrderByDescending(s => s.IsDefault)
+            .ThenBy(s => s.DisplayOrder)
+            .ThenBy(s => s.Name)
+            .ToList();
+
+    private FilterState? _lastSyncedFilters = null;
+
+    // ==================== LIFECYCLE ====================
 
     protected override async Task OnInitializedAsync()
     {
-        // Load star SVG
         await LoadStarSvgAsync();
-        
-        // Load from FIREBASE FIRST
-        await LoadFilterOptionsFromFirebase();
-        
-        // THEN sync with current filters
+        await LoadFilterOptionsAsync();
+
         if (CurrentFilters != null)
+            SyncFromFilters(CurrentFilters);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (CurrentFilters == null || IsLoading) return;
+
+        // Only sync if filters actually changed
+        if (_lastSyncedFilters == null || !FiltersEqual(_lastSyncedFilters, CurrentFilters))
+            SyncFromFilters(CurrentFilters);
+    }
+
+    // ==================== DATA LOADING ====================
+
+    private async Task LoadFilterOptionsAsync()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
         {
-            SyncWithCurrentFilters();
+            var categoriesTask = CategoryService.GetCategoriesWithSubcategoriesAsync();
+            var brandsTask = BrandService.GetAllBrandsAsync();
+
+            await Task.WhenAll(categoriesTask, brandsTask);
+
+            CategoriesWithSubs = await categoriesTask;
+
+            Brands = (await brandsTask)
+                .Where(b => b.IsActive)
+                .Select(b => b.Name.Trim())
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Filter options: {CategoriesWithSubs.Count} categories, {Brands.Count} brands",
+                LogLevel.Info);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ShopFilterPanel.LoadFilterOptions");
+            CategoriesWithSubs = new List<CategoryViewModel>();
+            Brands = new List<string>();
+        }
+        finally
+        {
+            IsLoading = false;
+
+            if (CurrentFilters != null)
+                SyncFromFilters(CurrentFilters);
+
+            StateHasChanged();
         }
     }
 
@@ -61,11 +121,7 @@ public partial class ShopFilterPanel : ComponentBase
         try
         {
             StarSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Star,
-                width: 16,
-                height: 16,
-                fillColor: "currentColor"
-            );
+                SvgType.Star, width: 16, height: 16, fillColor: "currentColor");
         }
         catch (Exception ex)
         {
@@ -73,28 +129,27 @@ public partial class ShopFilterPanel : ComponentBase
         }
     }
 
-    protected override void OnParametersSet()
+    // ==================== SYNC ====================
+
+    private void SyncFromFilters(FilterState filters)
     {
-        // Only sync if CurrentFilters actually changed
-        if (CurrentFilters != null && !IsLoading)
-        {
-            // Check if filters actually changed
-            if (LastSyncedFilters == null || !FiltersAreEqual(LastSyncedFilters, CurrentFilters))
-            {
-                Console.WriteLine($"🔄 ShopFilterPanel: CurrentFilters changed, syncing UI");
-                SyncWithCurrentFilters();
-            }
-        }
+        SelectedCategories = new List<string>(filters.Categories);
+        SelectedSubCategories = new List<string>(filters.SubCategories);
+        SelectedBrands = new List<string>(filters.Brands);
+        MinRating = filters.MinRating;
+        MinPriceText = filters.MinPrice > 0 ? filters.MinPrice.ToString() : "";
+        MaxPriceText = filters.MaxPrice < 1000000 ? filters.MaxPrice.ToString() : "";
+        OnSale = filters.OnSale;
+        FreeShipping = filters.FreeShipping;
+
+        _lastSyncedFilters = filters.Clone();
+        StateHasChanged();
     }
 
-    /// <summary>
-    /// Check if two filter states are equal
-    /// </summary>
-    private bool FiltersAreEqual(FilterState a, FilterState b)
+    private bool FiltersEqual(FilterState a, FilterState b)
     {
-        if (a == null || b == null) return false;
-        
         return a.Categories.SequenceEqual(b.Categories) &&
+               a.SubCategories.SequenceEqual(b.SubCategories) &&
                a.Brands.SequenceEqual(b.Brands) &&
                a.MinRating == b.MinRating &&
                a.MinPrice == b.MinPrice &&
@@ -105,173 +160,103 @@ public partial class ShopFilterPanel : ComponentBase
                a.SortBy == b.SortBy;
     }
 
-    /// <summary>
-    /// Sync UI state with CurrentFilters
-    /// </summary>
-    private void SyncWithCurrentFilters()
-    {
-        if (CurrentFilters == null) return;
-        
-        Console.WriteLine($"🔄 Syncing filter panel with current filters");
-        Console.WriteLine($"   Categories: [{string.Join(", ", CurrentFilters.Categories)}]");
-        Console.WriteLine($"   Brands: [{string.Join(", ", CurrentFilters.Brands)}]");
-        
-        SelectedCategories = new List<string>(CurrentFilters.Categories);
-        SelectedBrands = new List<string>(CurrentFilters.Brands);
-        MinRating = CurrentFilters.MinRating;
-        MinPriceText = CurrentFilters.MinPrice > 0 ? CurrentFilters.MinPrice.ToString() : "";
-        MaxPriceText = CurrentFilters.MaxPrice < 1000000 ? CurrentFilters.MaxPrice.ToString() : "";
-        OnSale = CurrentFilters.OnSale;
-        FreeShipping = CurrentFilters.FreeShipping;
-        
-        // Store last synced state
-        LastSyncedFilters = CurrentFilters.Clone();
-        
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Load categories and brands from FIREBASE (authoritative source)
-    /// NO FALLBACKS - if Firebase fails, show empty lists
-    /// </summary>
-    private async Task LoadFilterOptionsFromFirebase()
-    {
-        IsLoading = true;
-        StateHasChanged();
-
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "📦 Loading filter options from Firebase",
-                LogLevel.Info
-            );
-            
-            // Load from Firebase
-            var firebaseCategories = await CategoryService.GetAllCategoriesAsync();
-            var firebaseBrands = await BrandService.GetAllBrandsAsync();
-            
-            // Extract names (these are correct like "Mens Clothing", "Womens Clothing")
-            Categories = firebaseCategories
-                .Where(c => c.IsActive)
-                .Select(c => c.Name.Trim())
-                .Distinct()
-                .OrderBy(n => n)
-                .ToList();
-
-            Brands = firebaseBrands
-                .Where(b => b.IsActive)
-                .Select(b => b.Name.Trim())
-                .Distinct()
-                .OrderBy(n => n)
-                .ToList();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {Categories.Count} categories and {Brands.Count} brands from Firebase",
-                LogLevel.Info
-            );
-            
-            Console.WriteLine($"📋 Available categories: [{string.Join(", ", Categories)}]");
-            Console.WriteLine($"📋 Available brands: [{string.Join(", ", Brands)}]");
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading filter options from Firebase");
-            
-            // NO FALLBACKS - if Firebase fails, we have bigger problems
-            Categories = new List<string>();
-            Brands = new List<string>();
-        }
-        finally
-        {
-            IsLoading = false;
-            
-            // Sync after loading
-            if (CurrentFilters != null)
-            {
-                SyncWithCurrentFilters();
-            }
-            
-            StateHasChanged();
-        }
-    }
-
-    private bool IsChecked(List<string> list, string value)
-    {
-        // EXACT match only
-        return list.Contains(value, StringComparer.Ordinal);
-    }
+    // ==================== TOGGLE HELPERS ====================
 
     private void ToggleCategory(string category)
     {
-        // EXACT match toggle
         if (SelectedCategories.Contains(category, StringComparer.Ordinal))
         {
             SelectedCategories.Remove(category);
-            Console.WriteLine($"❌ Removed category: {category}");
+
+            // Remove subcategory selections that belonged to this category
+            var removedCat = CategoriesWithSubs
+                .FirstOrDefault(c => c.Name.Equals(category, StringComparison.OrdinalIgnoreCase));
+
+            if (removedCat != null)
+            {
+                var subNames = removedCat.SubCategories.Select(s => s.Name).ToHashSet();
+                SelectedSubCategories.RemoveAll(s => subNames.Contains(s));
+            }
         }
         else
         {
             SelectedCategories.Add(category);
-            Console.WriteLine($"✅ Added category: {category}");
+
+            // Auto-select default subcategory for this category
+            var cat = CategoriesWithSubs
+                .FirstOrDefault(c => c.Name.Equals(category, StringComparison.OrdinalIgnoreCase));
+
+            var defaultSub = cat?.SubCategories.FirstOrDefault(s => s.IsDefault)
+                          ?? cat?.SubCategories.FirstOrDefault();
+
+            if (defaultSub != null &&
+                !SelectedSubCategories.Contains(defaultSub.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                SelectedSubCategories.Add(defaultSub.Name);
+            }
         }
-        
-        Console.WriteLine($"📂 Selected categories: [{string.Join(", ", SelectedCategories)}]");
+
+        StateHasChanged();
+    }
+
+    private void ToggleSubCategory(string subName)
+    {
+        if (SelectedSubCategories.Contains(subName, StringComparer.Ordinal))
+            SelectedSubCategories.Remove(subName);
+        else
+            SelectedSubCategories.Add(subName);
+
         StateHasChanged();
     }
 
     private void ToggleBrand(string brand)
     {
-        // EXACT match toggle
         if (SelectedBrands.Contains(brand, StringComparer.Ordinal))
-        {
             SelectedBrands.Remove(brand);
-            Console.WriteLine($"❌ Removed brand: {brand}");
-        }
         else
-        {
             SelectedBrands.Add(brand);
-            Console.WriteLine($"✅ Added brand: {brand}");
-        }
-        
-        Console.WriteLine($"🏷️ Selected brands: [{string.Join(", ", SelectedBrands)}]");
+
         StateHasChanged();
     }
 
     private void SetMinRating(int rating)
     {
         MinRating = rating;
-        Console.WriteLine($"⭐ Min rating set to: {rating}");
         StateHasChanged();
     }
 
     private void ToggleOnSale()
     {
         OnSale = !OnSale;
-        Console.WriteLine($"🔥 On sale filter: {OnSale}");
         StateHasChanged();
     }
 
     private void ToggleFreeShipping()
     {
         FreeShipping = !FreeShipping;
-        Console.WriteLine($"🚚 Free shipping filter: {FreeShipping}");
         StateHasChanged();
     }
 
+    private bool IsCategoryChecked(string name) =>
+        SelectedCategories.Contains(name, StringComparer.Ordinal);
+
+    private bool IsSubChecked(string name) =>
+        SelectedSubCategories.Contains(name, StringComparer.Ordinal);
+
+    private bool IsBrandChecked(string name) =>
+        SelectedBrands.Contains(name, StringComparer.Ordinal);
+
+    // ==================== APPLY / RESET ====================
+
     private async Task ApplyFilters()
     {
-        var minPrice = 0m;
-        var maxPrice = 1000000m;
-
-        if (decimal.TryParse(MinPriceText, out var parsedMin))
-            minPrice = parsedMin;
-
-        if (decimal.TryParse(MaxPriceText, out var parsedMax))
-            maxPrice = parsedMax;
+        decimal.TryParse(MinPriceText, out var minPrice);
+        var maxPrice = decimal.TryParse(MaxPriceText, out var maxVal) ? maxVal : 1000000m;
 
         var filters = new FilterState
         {
             Categories = new List<string>(SelectedCategories),
+            SubCategories = new List<string>(SelectedSubCategories),
             Brands = new List<string>(SelectedBrands),
             MinRating = MinRating,
             MinPrice = minPrice,
@@ -282,25 +267,16 @@ public partial class ShopFilterPanel : ComponentBase
             SortBy = CurrentFilters?.SortBy ?? "default"
         };
 
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✅ Applying filters: {filters.Categories.Count} categories, {filters.Brands.Count} brands",
-            LogLevel.Info
-        );
-        
-        Console.WriteLine($"📤 Sending filters to Shop page: Categories=[{string.Join(", ", filters.Categories)}]");
-
-        // Update last synced state before invoking callback
-        LastSyncedFilters = filters.Clone();
+        _lastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
-        {
             await OnFiltersChanged.InvokeAsync(filters);
-        }
     }
 
     private async Task ResetFilters()
     {
         SelectedCategories.Clear();
+        SelectedSubCategories.Clear();
         SelectedBrands.Clear();
         MinPriceText = "";
         MaxPriceText = "";
@@ -308,32 +284,12 @@ public partial class ShopFilterPanel : ComponentBase
         OnSale = false;
         FreeShipping = false;
 
-        var filters = new FilterState
-        {
-            Categories = new List<string>(),
-            Brands = new List<string>(),
-            MinRating = 0,
-            MinPrice = 0,
-            MaxPrice = 1000000,
-            OnSale = false,
-            FreeShipping = false,
-            SearchQuery = "",
-            SortBy = "default"
-        };
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            "🔄 Resetting all filters",
-            LogLevel.Info
-        );
-
-        // Update last synced state before invoking callback
-        LastSyncedFilters = filters.Clone();
+        var filters = FilterState.CreateDefault();
+        _lastSyncedFilters = filters.Clone();
 
         if (OnFiltersChanged.HasDelegate)
-        {
             await OnFiltersChanged.InvokeAsync(filters);
-        }
-        
+
         StateHasChanged();
     }
 }
