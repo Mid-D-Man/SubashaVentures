@@ -1,9 +1,6 @@
-// Pages/Admin/CategoryManagement.razor.cs
 using Microsoft.AspNetCore.Components;
-using SubashaVentures.Services.Firebase;
-using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Services.Categories;
-using SubashaVentures.Models.Firebase;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Domain.Enums;
@@ -15,31 +12,56 @@ namespace SubashaVentures.Pages.Admin;
 
 public partial class CategoryManagement : ComponentBase
 {
-    [Inject] private IFirestoreService FirestoreService { get; set; } = default!;
-    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
     [Inject] private ILogger<CategoryManagement> Logger { get; set; } = default!;
 
+    // ==================== STATE ====================
+
     private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+
+    // Category modal
     private bool isCategoryModalOpen = false;
     private bool isEditMode = false;
-    private bool isSaving = false;
-    private bool isConfirmationOpen = false;
-    private bool isDeleting = false;
-    private bool showIconPicker = false;
+    private bool showCategoryIconPicker = false;
+    private string? selectedCategoryIconSvg = null;
 
+    // Subcategory modal
+    private bool isSubCategoryModalOpen = false;
+    private bool isEditSubMode = false;
+    private bool showSubIconPicker = false;
+    private string? selectedSubIconSvg = null;
+    private CategoryViewModel? activeParentCategory = null;
+
+    // Confirmation
+    private bool isConfirmationOpen = false;
+    private string confirmTitle = "";
+    private string confirmMessage = "";
+    private Func<Task>? pendingDeleteAction = null;
+
+    // Expand/collapse
+    private HashSet<string> expandedCategories = new();
+
+    // Data
     private List<CategoryViewModel> categories = new();
-    private CategoryFormData editingCategory = new();
-    private CategoryModel? categoryToDelete = null;
+
+    // Forms
+    private CategoryFormData categoryForm = new();
+    private SubCategoryFormData subCategoryForm = new();
+    private string? editingCategoryId = null;
+    private string? editingSubCategoryId = null;
+
+    // Validation
     private Dictionary<string, string> validationErrors = new();
-    
-    // Cache for pre-rendered SVGs
+
+    // SVG caches
     private Dictionary<string, string> categorySvgCache = new();
+    private Dictionary<string, string> subCategorySvgCache = new();
     private Dictionary<SvgType, string> iconSvgCache = new();
-    private string? selectedIconSvg = null;
-    
-    // Available category icons (curated list)
-    private readonly List<SvgType> availableCategoryIcons = new()
+
+    private readonly List<SvgType> availableIcons = new()
     {
         SvgType.AllProducts,
         SvgType.Beddings,
@@ -55,77 +77,66 @@ public partial class CategoryManagement : ComponentBase
         SvgType.Flame
     };
 
+    // Component refs
     private DynamicModal? categoryModal;
+    private DynamicModal? subCategoryModal;
     private ConfirmationPopup? confirmationPopup;
     private NotificationComponent? notificationComponent;
+
+    // ==================== LIFECYCLE ====================
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Pre-load all icon SVGs for picker
-            await PreloadIconSvgs();
+            await PreloadIconSvgsAsync();
             await LoadCategoriesAsync();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "CategoryManagement initialization");
-            ShowError("Failed to initialize category management");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "CategoryManagement init");
+            ShowError("Failed to initialize");
         }
     }
 
-    private async Task PreloadIconSvgs()
-    {
-        try
-        {
-            foreach (var iconType in availableCategoryIcons)
-            {
-                var svg = await VisualElements.GetSvgWithColorAsync(
-                    iconType, 
-                    28, 
-                    28, 
-                    "var(--text-secondary)");
-                iconSvgCache[iconType] = svg;
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Preloading icon SVGs");
-        }
-    }
+    // ==================== DATA LOADING ====================
 
     private async Task LoadCategoriesAsync()
     {
+        isLoading = true;
+        StateHasChanged();
+
         try
         {
-            isLoading = true;
-            StateHasChanged();
+            categories = await CategoryService.GetCategoriesWithSubcategoriesAsync();
 
-            categories = await CategoryService.GetAllCategoriesAsync();
-            
-            // Pre-render category SVGs for table
             categorySvgCache.Clear();
-            foreach (var category in categories)
+            subCategorySvgCache.Clear();
+
+            foreach (var cat in categories)
             {
-                if (category.IconSvgType != SvgType.None)
+                if (cat.IconSvgType != SvgType.None)
                 {
-                    var svg = await VisualElements.GetSvgWithColorAsync(
-                        category.IconSvgType, 
-                        24, 
-                        24, 
-                        "var(--primary-color)");
-                    categorySvgCache[category.Id] = svg;
+                    categorySvgCache[cat.Id] = await VisualElements.GetSvgWithColorAsync(
+                        cat.IconSvgType, 24, 24, "var(--primary-color)");
+                }
+
+                foreach (var sub in cat.SubCategories)
+                {
+                    if (sub.IconSvgType != SvgType.None)
+                    {
+                        subCategorySvgCache[sub.Id] = await VisualElements.GetSvgWithColorAsync(
+                            sub.IconSvgType, 20, 20, "var(--primary-color)");
+                    }
                 }
             }
-            
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Loaded {categories.Count} categories",
-                LogLevel.Info
-            );
+                $"✓ Loaded {categories.Count} categories", LogLevel.Info);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Loading categories");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "LoadCategoriesAsync");
             ShowError("Failed to load categories");
         }
         finally
@@ -135,27 +146,37 @@ public partial class CategoryManagement : ComponentBase
         }
     }
 
+    private async Task PreloadIconSvgsAsync()
+    {
+        foreach (var icon in availableIcons)
+        {
+            iconSvgCache[icon] = await VisualElements.GetSvgWithColorAsync(
+                icon, 28, 28, "var(--text-secondary)");
+        }
+    }
+
+    // ==================== EXPAND / COLLAPSE ====================
+
+    private void ToggleExpand(string categoryId)
+    {
+        if (expandedCategories.Contains(categoryId))
+            expandedCategories.Remove(categoryId);
+        else
+            expandedCategories.Add(categoryId);
+
+        StateHasChanged();
+    }
+
+    // ==================== CATEGORY MODAL ====================
+
     private async Task OpenAddCategoryModal()
     {
         isEditMode = false;
-        editingCategory = new CategoryFormData
-        {
-            Id = Guid.NewGuid().ToString(),
-            IsActive = true,
-            DisplayOrder = categories.Count,
-            CreatedAt = DateTime.UtcNow,
-            IconSvgType = SvgType.AllProducts // Default icon
-        };
+        editingCategoryId = null;
+        categoryForm = new CategoryFormData();
         validationErrors.Clear();
-        showIconPicker = false;
-        
-        // Pre-render selected icon
-        selectedIconSvg = await VisualElements.GetSvgWithColorAsync(
-            editingCategory.IconSvgType, 
-            32, 
-            32, 
-            "var(--primary-color)");
-        
+        showCategoryIconPicker = false;
+        selectedCategoryIconSvg = null;
         isCategoryModalOpen = true;
         StateHasChanged();
     }
@@ -163,34 +184,30 @@ public partial class CategoryManagement : ComponentBase
     private async Task OpenEditCategoryModal(CategoryViewModel category)
     {
         isEditMode = true;
-        editingCategory = new CategoryFormData
+        editingCategoryId = category.Id;
+        categoryForm = new CategoryFormData
         {
-            Id = category.Id,
             Name = category.Name,
             Slug = category.Slug,
             Description = category.Description,
             IconSvgType = category.IconSvgType,
-            ImageUrl = category.ImageUrl,
-            ParentId = category.ParentId,
             DisplayOrder = category.DisplayOrder,
-            IsActive = category.IsActive,
-            ProductCount = category.ProductCount,
-            CreatedAt = category.CreatedAt,
-            UpdatedAt = DateTime.UtcNow
+            IsActive = category.IsActive
         };
+
         validationErrors.Clear();
-        showIconPicker = false;
-        
-        // Pre-render selected icon
-        if (editingCategory.IconSvgType != SvgType.None)
+        showCategoryIconPicker = false;
+
+        if (category.IconSvgType != SvgType.None)
         {
-            selectedIconSvg = await VisualElements.GetSvgWithColorAsync(
-                editingCategory.IconSvgType, 
-                32, 
-                32, 
-                "var(--primary-color)");
+            selectedCategoryIconSvg = await VisualElements.GetSvgWithColorAsync(
+                category.IconSvgType, 32, 32, "var(--primary-color)");
         }
-        
+        else
+        {
+            selectedCategoryIconSvg = null;
+        }
+
         isCategoryModalOpen = true;
         StateHasChanged();
     }
@@ -198,101 +215,94 @@ public partial class CategoryManagement : ComponentBase
     private void CloseCategoryModal()
     {
         isCategoryModalOpen = false;
-        editingCategory = new();
+        categoryForm = new CategoryFormData();
         validationErrors.Clear();
-        showIconPicker = false;
-        selectedIconSvg = null;
+        showCategoryIconPicker = false;
+        selectedCategoryIconSvg = null;
         StateHasChanged();
     }
 
-    private void ToggleIconPicker()
+    private void ToggleCategoryIconPicker()
     {
-        showIconPicker = !showIconPicker;
+        showCategoryIconPicker = !showCategoryIconPicker;
         StateHasChanged();
     }
 
-    private async Task SelectIcon(SvgType iconType)
+    private async Task SelectCategoryIcon(SvgType icon)
     {
-        editingCategory.IconSvgType = iconType;
-        showIconPicker = false;
-        
-        // Update selected icon preview
-        selectedIconSvg = await VisualElements.GetSvgWithColorAsync(
-            iconType, 
-            32, 
-            32, 
-            "var(--primary-color)");
-        
+        categoryForm.IconSvgType = icon;
+        showCategoryIconPicker = false;
+        selectedCategoryIconSvg = await VisualElements.GetSvgWithColorAsync(
+            icon, 32, 32, "var(--primary-color)");
         StateHasChanged();
     }
 
     private async Task SaveCategory()
     {
+        validationErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(categoryForm.Name))
+        {
+            validationErrors["Name"] = "Category name is required";
+            StateHasChanged();
+            return;
+        }
+
+        isSaving = true;
+        StateHasChanged();
+
         try
         {
-            if (!ValidateCategory())
-                return;
-
-            isSaving = true;
-            StateHasChanged();
-
-            var request = isEditMode 
-                ? new UpdateCategoryRequest
-                {
-                    Name = editingCategory.Name,
-                    Description = editingCategory.Description,
-                    ImageUrl = editingCategory.ImageUrl,
-                    IconSvgType = editingCategory.IconSvgType,
-                    DisplayOrder = editingCategory.DisplayOrder,
-                    IsActive = editingCategory.IsActive
-                }
-                : null;
-
-            bool success;
-            if (isEditMode)
+            if (isEditMode && editingCategoryId != null)
             {
-                success = await CategoryService.UpdateCategoryAsync(editingCategory.Id, request!);
-            }
-            else
-            {
-                var createRequest = new CreateCategoryRequest
+                var request = new UpdateCategoryRequest
                 {
-                    Name = editingCategory.Name,
-                    Description = editingCategory.Description,
-                    ImageUrl = editingCategory.ImageUrl,
-                    IconSvgType = editingCategory.IconSvgType,
-                    ParentId = editingCategory.ParentId,
-                    DisplayOrder = editingCategory.DisplayOrder
+                    Name = categoryForm.Name,
+                    Description = categoryForm.Description,
+                    IconSvgType = categoryForm.IconSvgType,
+                    DisplayOrder = categoryForm.DisplayOrder,
+                    IsActive = categoryForm.IsActive
                 };
-                
-                var id = await CategoryService.CreateCategoryAsync(createRequest);
-                success = !string.IsNullOrEmpty(id);
-            }
 
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category {(isEditMode ? "updated" : "created")}: {editingCategory.Name}",
-                    LogLevel.Info
-                );
-
-                ShowSuccess($"Category '{editingCategory.Name}' {(isEditMode ? "updated" : "created")} successfully");
-                await LoadCategoriesAsync();
-                CloseCategoryModal();
+                var success = await CategoryService.UpdateCategoryAsync(editingCategoryId, request);
+                if (success)
+                {
+                    ShowSuccess($"Category '{categoryForm.Name}' updated");
+                    CloseCategoryModal();
+                    await LoadCategoriesAsync();
+                }
+                else
+                {
+                    ShowError("Failed to update category");
+                }
             }
             else
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Failed to save category",
-                    LogLevel.Error
-                );
-                ShowError("Failed to save category");
+                var request = new CreateCategoryRequest
+                {
+                    Name = categoryForm.Name,
+                    Description = categoryForm.Description,
+                    IconSvgType = categoryForm.IconSvgType,
+                    DisplayOrder = categoryForm.DisplayOrder
+                };
+
+                var id = await CategoryService.CreateCategoryAsync(request);
+                if (!string.IsNullOrEmpty(id))
+                {
+                    ShowSuccess($"Category '{categoryForm.Name}' created");
+                    CloseCategoryModal();
+                    await LoadCategoriesAsync();
+                }
+                else
+                {
+                    ShowError("Failed to create category");
+                }
             }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Saving category");
-            ShowError("An error occurred while saving");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "SaveCategory");
+            ShowError("An error occurred");
         }
         finally
         {
@@ -301,138 +311,321 @@ public partial class CategoryManagement : ComponentBase
         }
     }
 
-    private bool ValidateCategory()
+    // ==================== SUBCATEGORY MODAL ====================
+
+    private async Task OpenAddSubCategoryModal(CategoryViewModel parent)
+    {
+        isEditSubMode = false;
+        editingSubCategoryId = null;
+        activeParentCategory = parent;
+        subCategoryForm = new SubCategoryFormData
+        {
+            CategoryId = parent.Id,
+            // Auto-default if parent has no subcategories yet
+            IsDefault = !parent.SubCategories.Any()
+        };
+
+        validationErrors.Clear();
+        showSubIconPicker = false;
+        selectedSubIconSvg = null;
+
+        // Auto-expand the parent
+        expandedCategories.Add(parent.Id);
+
+        isSubCategoryModalOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task OpenEditSubCategoryModal(SubCategoryViewModel sub, CategoryViewModel parent)
+    {
+        isEditSubMode = true;
+        editingSubCategoryId = sub.Id;
+        activeParentCategory = parent;
+        subCategoryForm = new SubCategoryFormData
+        {
+            CategoryId = sub.CategoryId,
+            Name = sub.Name,
+            Slug = sub.Slug,
+            Description = sub.Description,
+            IconSvgType = sub.IconSvgType,
+            IsDefault = sub.IsDefault,
+            DisplayOrder = sub.DisplayOrder,
+            IsActive = sub.IsActive
+        };
+
+        validationErrors.Clear();
+        showSubIconPicker = false;
+
+        if (sub.IconSvgType != SvgType.None)
+        {
+            selectedSubIconSvg = await VisualElements.GetSvgWithColorAsync(
+                sub.IconSvgType, 32, 32, "var(--primary-color)");
+        }
+        else
+        {
+            selectedSubIconSvg = null;
+        }
+
+        isSubCategoryModalOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseSubCategoryModal()
+    {
+        isSubCategoryModalOpen = false;
+        subCategoryForm = new SubCategoryFormData();
+        validationErrors.Clear();
+        showSubIconPicker = false;
+        selectedSubIconSvg = null;
+        activeParentCategory = null;
+        StateHasChanged();
+    }
+
+    private void ToggleSubIconPicker()
+    {
+        showSubIconPicker = !showSubIconPicker;
+        StateHasChanged();
+    }
+
+    private async Task SelectSubIcon(SvgType icon)
+    {
+        subCategoryForm.IconSvgType = icon;
+        showSubIconPicker = false;
+        selectedSubIconSvg = await VisualElements.GetSvgWithColorAsync(
+            icon, 32, 32, "var(--primary-color)");
+        StateHasChanged();
+    }
+
+    private async Task SaveSubCategory()
     {
         validationErrors.Clear();
 
-        if (string.IsNullOrWhiteSpace(editingCategory.Name))
+        if (string.IsNullOrWhiteSpace(subCategoryForm.Name))
         {
-            validationErrors["Name"] = "Category name is required";
-        }
-
-        if (validationErrors.Any())
-        {
+            validationErrors["SubName"] = "Subcategory name is required";
             StateHasChanged();
-            return false;
+            return;
         }
 
-        return true;
+        isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (isEditSubMode && editingSubCategoryId != null)
+            {
+                var request = new UpdateSubCategoryRequest
+                {
+                    Name = subCategoryForm.Name,
+                    Description = subCategoryForm.Description,
+                    IconSvgType = subCategoryForm.IconSvgType,
+                    IsDefault = subCategoryForm.IsDefault,
+                    DisplayOrder = subCategoryForm.DisplayOrder,
+                    IsActive = subCategoryForm.IsActive
+                };
+
+                var success = await CategoryService.UpdateSubCategoryAsync(editingSubCategoryId, request);
+                if (success)
+                {
+                    ShowSuccess($"Subcategory '{subCategoryForm.Name}' updated");
+                    CloseSubCategoryModal();
+                    await LoadCategoriesAsync();
+                }
+                else
+                {
+                    ShowError("Failed to update subcategory");
+                }
+            }
+            else
+            {
+                var request = new CreateSubCategoryRequest
+                {
+                    CategoryId = subCategoryForm.CategoryId,
+                    Name = subCategoryForm.Name,
+                    Description = subCategoryForm.Description,
+                    IconSvgType = subCategoryForm.IconSvgType,
+                    IsDefault = subCategoryForm.IsDefault,
+                    DisplayOrder = subCategoryForm.DisplayOrder
+                };
+
+                var id = await CategoryService.CreateSubCategoryAsync(request);
+                if (!string.IsNullOrEmpty(id))
+                {
+                    ShowSuccess($"Subcategory '{subCategoryForm.Name}' created");
+                    CloseSubCategoryModal();
+                    await LoadCategoriesAsync();
+                }
+                else
+                {
+                    ShowError("Failed to create subcategory");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "SaveSubCategory");
+            ShowError("An error occurred");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
     }
+
+    // ==================== DELETE ====================
 
     private void HandleDeleteCategory(CategoryViewModel category)
     {
         if (category.ProductCount > 0)
         {
-            MID_HelperFunctions.DebugMessage(
-                "Cannot delete category with products",
-                LogLevel.Warning
-            );
-            ShowWarning("Cannot delete category with products");
+            ShowWarning("Cannot delete a category that has products");
             return;
         }
 
-        categoryToDelete = new CategoryModel
+        confirmTitle = "Delete Category?";
+        confirmMessage = $"Delete '{category.Name}' and all its subcategories?";
+        pendingDeleteAction = async () =>
         {
-            Id = category.Id,
-            Name = category.Name,
-            Slug = category.Slug,
-            Description = category.Description,
-            ImageUrl = category.ImageUrl,
-            IconSvgType = category.IconSvgType,
-            ParentId = category.ParentId,
-            ProductCount = category.ProductCount,
-            DisplayOrder = category.DisplayOrder,
-            IsActive = category.IsActive,
-            CreatedAt = category.CreatedAt,
-            UpdatedAt = category.UpdatedAt
-        };
-        
-        isConfirmationOpen = true;
-        StateHasChanged();
-    }
-
-    private async Task ConfirmDeleteCategory()
-    {
-        if (categoryToDelete == null)
-            return;
-
-        try
-        {
-            isDeleting = true;
-            StateHasChanged();
-
-            var success = await CategoryService.DeleteCategoryAsync(categoryToDelete.Id);
-
+            var success = await CategoryService.DeleteCategoryAsync(category.Id);
             if (success)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category deleted: {categoryToDelete.Name}",
-                    LogLevel.Info
-                );
-
-                ShowSuccess($"Category '{categoryToDelete.Name}' deleted successfully");
+                ShowSuccess($"Category '{category.Name}' deleted");
                 await LoadCategoriesAsync();
             }
             else
             {
                 ShowError("Failed to delete category");
             }
-        }
-        catch (Exception ex)
+        };
+
+        isConfirmationOpen = true;
+        StateHasChanged();
+    }
+
+    private void HandleDeleteSubCategory(SubCategoryViewModel sub)
+    {
+        if (sub.ProductCount > 0)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting category");
-            ShowError("An error occurred while deleting");
+            ShowWarning("Cannot delete a subcategory that has products");
+            return;
+        }
+
+        if (sub.IsDefault)
+        {
+            ShowWarning("Cannot delete the default subcategory — set another as default first");
+            return;
+        }
+
+        confirmTitle = "Delete Subcategory?";
+        confirmMessage = $"Delete subcategory '{sub.Name}'?";
+        pendingDeleteAction = async () =>
+        {
+            var success = await CategoryService.DeleteSubCategoryAsync(sub.Id);
+            if (success)
+            {
+                ShowSuccess($"Subcategory '{sub.Name}' deleted");
+                await LoadCategoriesAsync();
+            }
+            else
+            {
+                ShowError("Failed to delete subcategory");
+            }
+        };
+
+        isConfirmationOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDelete()
+    {
+        isDeleting = true;
+        StateHasChanged();
+
+        try
+        {
+            if (pendingDeleteAction != null)
+                await pendingDeleteAction();
         }
         finally
         {
             isDeleting = false;
             isConfirmationOpen = false;
-            categoryToDelete = null;
+            pendingDeleteAction = null;
             StateHasChanged();
         }
     }
 
-    private void CancelDeleteCategory()
+    private void CancelDelete()
     {
         isConfirmationOpen = false;
-        categoryToDelete = null;
+        pendingDeleteAction = null;
         StateHasChanged();
     }
 
-    private void ShowSuccess(string message)
+    // ==================== SET DEFAULT ====================
+
+    private async Task HandleSetDefault(SubCategoryViewModel sub, string categoryId)
     {
-        notificationComponent?.ShowNotification(message, NotificationType.Success);
+        try
+        {
+            var success = await CategoryService.SetDefaultSubCategoryAsync(sub.Id, categoryId);
+            if (success)
+            {
+                ShowSuccess($"'{sub.Name}' is now the default subcategory");
+                await LoadCategoriesAsync();
+            }
+            else
+            {
+                ShowError("Failed to set default");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "HandleSetDefault");
+            ShowError("An error occurred");
+        }
     }
 
-    private void ShowError(string message)
+    // ==================== HELPERS ====================
+
+    private string GetSubDeleteTooltip(SubCategoryViewModel sub)
     {
-        notificationComponent?.ShowNotification(message, NotificationType.Error);
+        if (sub.ProductCount > 0) return "Has products";
+        if (sub.IsDefault) return "Cannot delete default subcategory";
+        return "Delete";
     }
 
-    private void ShowWarning(string message)
-    {
-        notificationComponent?.ShowNotification(message, NotificationType.Warning);
-    }
+    private void ShowSuccess(string msg) =>
+        notificationComponent?.ShowNotification(msg, NotificationType.Success);
 
-    private void ShowInfo(string message)
-    {
-        notificationComponent?.ShowNotification(message, NotificationType.Info);
-    }
+    private void ShowError(string msg) =>
+        notificationComponent?.ShowNotification(msg, NotificationType.Error);
 
-    // Form data class
+    private void ShowWarning(string msg) =>
+        notificationComponent?.ShowNotification(msg, NotificationType.Warning);
+
+    // ==================== FORM DATA ====================
+
     public class CategoryFormData
     {
-        public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public string Slug { get; set; } = "";
         public string? Description { get; set; }
-        public string? ImageUrl { get; set; }
         public SvgType IconSvgType { get; set; } = SvgType.None;
-        public string? ParentId { get; set; }
-        public int ProductCount { get; set; }
         public int DisplayOrder { get; set; }
         public bool IsActive { get; set; } = true;
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
+    }
+
+    public class SubCategoryFormData
+    {
+        public string CategoryId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Slug { get; set; } = "";
+        public string? Description { get; set; }
+        public SvgType IconSvgType { get; set; } = SvgType.None;
+        public bool IsDefault { get; set; } = false;
+        public int DisplayOrder { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }
