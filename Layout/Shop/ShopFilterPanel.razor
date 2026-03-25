@@ -1,67 +1,91 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
-
+@using SubashaVentures.Domain.Product
 @using SubashaVentures.Domain.Enums
-
 
 <div class="filter-panel">
     @if (IsLoading)
     {
         <div class="filter-loading">
-            <p>Loading filters...</p>
+            <div class="loading-spinner-small"></div>
+            <span class="loading-text">Loading filters...</span>
         </div>
     }
     else
     {
-        @* Categories *@
+        @* ===== CATEGORIES ===== *@
         <div class="filter-section">
             <h3 class="section-title">Categories</h3>
             <div class="filter-options">
-                @foreach (var category in Categories)
+                @foreach (var category in CategoriesWithSubs)
                 {
+                    var catName = category.Name;
                     <label class="filter-option">
-                        <input 
-                            type="checkbox" 
-                            checked="@IsChecked(SelectedCategories, category)"
-                            @onchange="@(() => ToggleCategory(category))" />
-                        <span class="option-label">@category</span>
+                        <input type="checkbox"
+                               checked="@IsCategoryChecked(catName)"
+                               @onchange="() => ToggleCategory(catName)" />
+                        <span class="option-label">@category.Name</span>
                     </label>
                 }
             </div>
         </div>
 
-        @* Brands *@
+        @* ===== SUBCATEGORIES (only shown when a parent is selected) ===== *@
+        @if (VisibleSubCategories.Any())
+        {
+            <div class="filter-section subcategory-section">
+                <h3 class="section-title">Subcategories</h3>
+                <div class="filter-options">
+                    @foreach (var sub in VisibleSubCategories)
+                    {
+                        var subName = sub.Name;
+                        <label class="filter-option @(sub.IsDefault ? "is-default-sub" : "")">
+                            <input type="checkbox"
+                                   checked="@IsSubChecked(subName)"
+                                   @onchange="() => ToggleSubCategory(subName)" />
+                            <span class="option-label">
+                                @sub.Name
+                                @if (sub.IsDefault)
+                                {
+                                    <span class="default-tag">default</span>
+                                }
+                            </span>
+                        </label>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ===== BRANDS ===== *@
         <div class="filter-section">
             <h3 class="section-title">Brands</h3>
             <div class="filter-options">
                 @foreach (var brand in Brands)
                 {
+                    var b = brand;
                     <label class="filter-option">
-                        <input 
-                            type="checkbox" 
-                            checked="@IsChecked(SelectedBrands, brand)"
-                            @onchange="@(() => ToggleBrand(brand))" />
+                        <input type="checkbox"
+                               checked="@IsBrandChecked(b)"
+                               @onchange="() => ToggleBrand(b)" />
                         <span class="option-label">@brand</span>
                     </label>
                 }
             </div>
         </div>
 
-        @* Rating *@
+        @* ===== RATING ===== *@
         <div class="filter-section">
             <h3 class="section-title">Minimum Rating</h3>
             <div class="rating-options">
-                @for (int rating = 4; rating >= 1; rating--)
+                @for (int r = 4; r >= 1; r--)
                 {
-                    int currentRating = rating;
-                    <button 
-                        class="rating-btn @(MinRating == currentRating ? "active" : "")"
-                        @onclick="@(() => SetMinRating(currentRating))">
+                    var rVal = r;
+                    <button class="rating-btn @(MinRating == rVal ? "active" : "")"
+                            @onclick="() => SetMinRating(rVal)">
                         <div class="stars-row">
                             @for (int i = 0; i < 5; i++)
                             {
-                                int starIndex = i;
-                                <span class="star @(starIndex < currentRating ? "filled" : "")">
+                                <span class="star @(i < rVal ? "filled" : "")">
                                     @if (!string.IsNullOrEmpty(StarSvg))
                                     {
                                         @((MarkupString)StarSvg)
@@ -74,66 +98,59 @@
                 }
                 @if (MinRating > 0)
                 {
-                    <button class="rating-btn" @onclick="@(() => SetMinRating(0))">
+                    <button class="rating-btn" @onclick="() => SetMinRating(0)">
                         <span class="rating-text">Clear Rating</span>
                     </button>
                 }
             </div>
         </div>
 
-        @* Price Range *@
+        @* ===== PRICE ===== *@
         <div class="filter-section">
             <h3 class="section-title">Price Range</h3>
             <div class="price-inputs-wrapper">
-                <InputField 
-                    Type="number"
-                    Placeholder="Min"
-                    Value="@MinPriceText"
-                    ValueChanged="@(value => MinPriceText = value)"
-                    Size="InputField.InputSize.Small"
-                    CssClass="price-input-field" />
-                
+                <InputField Type="number"
+                            Placeholder="Min"
+                            Value="@MinPriceText"
+                            ValueChanged="@(v => MinPriceText = v)"
+                            Size="InputField.InputSize.Small"
+                            CssClass="price-input-field" />
                 <span class="price-separator">-</span>
-                
-                <InputField 
-                    Type="number"
-                    Placeholder="Max"
-                    Value="@MaxPriceText"
-                    ValueChanged="@(value => MaxPriceText = value)"
-                    Size="InputField.InputSize.Small"
-                    CssClass="price-input-field" />
+                <InputField Type="number"
+                            Placeholder="Max"
+                            Value="@MaxPriceText"
+                            ValueChanged="@(v => MaxPriceText = v)"
+                            Size="InputField.InputSize.Small"
+                            CssClass="price-input-field" />
             </div>
         </div>
 
-        @* Other Filters *@
+        @* ===== OTHER ===== *@
         <div class="filter-section">
             <h3 class="section-title">Other</h3>
             <div class="filter-options">
                 <label class="filter-option">
-                    <input type="checkbox" checked="@OnSale" @onchange="@(() => ToggleOnSale())" />
+                    <input type="checkbox" checked="@OnSale" @onchange="ToggleOnSale" />
                     <span class="option-label">On Sale</span>
                 </label>
                 <label class="filter-option">
-                    <input type="checkbox" checked="@FreeShipping" @onchange="@(() => ToggleFreeShipping())" />
+                    <input type="checkbox" checked="@FreeShipping" @onchange="ToggleFreeShipping" />
                     <span class="option-label">Free Shipping</span>
                 </label>
             </div>
         </div>
 
-        @* Action Buttons *@
+        @* ===== ACTIONS ===== *@
         <div class="filter-actions">
-            <PrimaryButton 
-                Size="PrimaryButton.ButtonSize.Large"
-                OnClick="ApplyFilters"
-                CssClass="apply-btn">
+            <PrimaryButton Size="PrimaryButton.ButtonSize.Large"
+                           OnClick="ApplyFilters"
+                           CssClass="apply-btn">
                 Apply Filters
             </PrimaryButton>
-            
-            <SecondaryButton 
-                Size="SecondaryButton.ButtonSize.Large"
-                Variant="SecondaryButton.ButtonVariant.Outline"
-                OnClick="ResetFilters"
-                CssClass="reset-btn">
+            <SecondaryButton Size="SecondaryButton.ButtonSize.Large"
+                             Variant="SecondaryButton.ButtonVariant.Outline"
+                             OnClick="ResetFilters"
+                             CssClass="reset-btn">
                 Reset All
             </SecondaryButton>
         </div>
