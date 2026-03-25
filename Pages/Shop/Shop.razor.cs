@@ -21,7 +21,6 @@ public partial class Shop : ComponentBase, IDisposable
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
     private List<ProductViewModel> CurrentPageProducts { get; set; } = new();
 
-    // Available options extracted from loaded products
     private List<string> AvailableCategories { get; set; } = new();
     private List<string> AvailableBrands { get; set; } = new();
 
@@ -74,8 +73,8 @@ public partial class Shop : ComponentBase, IDisposable
         await LoadProducts();
         ExtractFilterOptions();
 
-        // Parse URL params after products are loaded
-        ParseUrlToFilters();
+        // FIX: await the now-async ParseUrlToFilters
+        await ParseUrlToFilters();
 
         await ApplyFilters();
 
@@ -85,10 +84,10 @@ public partial class Shop : ComponentBase, IDisposable
 
     private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        // Only react to /shop URL changes
         if (!e.Location.Contains("/shop")) return;
 
-        ParseUrlToFilters();
+        // FIX: await the now-async ParseUrlToFilters
+        await ParseUrlToFilters();
         await ApplyFilters();
         await InvokeAsync(StateHasChanged);
     }
@@ -102,16 +101,16 @@ public partial class Shop : ComponentBase, IDisposable
     // ==================== URL HANDLING ====================
 
     /// <summary>
+    /// FIX: Changed from void to async Task so await inside is valid.
     /// Reads the current URL query string and populates CurrentFilters.
     /// </summary>
-    private void ParseUrlToFilters()
+    private async Task ParseUrlToFilters()
     {
         var uri = new Uri(NavigationManager.Uri);
         var query = QueryHelpers.ParseQuery(uri.Query);
 
         var filters = FilterState.CreateDefault();
 
-        // Categories (comma-separated)
         if (query.TryGetValue("category", out var cats) && !string.IsNullOrEmpty(cats))
         {
             filters.Categories = cats.ToString()
@@ -120,7 +119,6 @@ public partial class Shop : ComponentBase, IDisposable
                 .ToList();
         }
 
-        // SubCategories
         if (query.TryGetValue("sub", out var subs) && !string.IsNullOrEmpty(subs))
         {
             filters.SubCategories = subs.ToString()
@@ -129,7 +127,6 @@ public partial class Shop : ComponentBase, IDisposable
                 .ToList();
         }
 
-        // Brands
         if (query.TryGetValue("brand", out var brands) && !string.IsNullOrEmpty(brands))
         {
             filters.Brands = brands.ToString()
@@ -138,20 +135,16 @@ public partial class Shop : ComponentBase, IDisposable
                 .ToList();
         }
 
-        // Search
         if (query.TryGetValue("q", out var q) && !string.IsNullOrEmpty(q))
             filters.SearchQuery = Uri.UnescapeDataString(q.ToString().Trim());
 
-        // Sort
         if (query.TryGetValue("sort", out var sort) && !string.IsNullOrEmpty(sort))
             filters.SortBy = sort.ToString();
 
-        // Min rating
         if (query.TryGetValue("rating", out var rating) &&
             int.TryParse(rating, out var ratingVal))
             filters.MinRating = ratingVal;
 
-        // Price range
         if (query.TryGetValue("minPrice", out var minP) &&
             decimal.TryParse(minP, out var minPVal))
             filters.MinPrice = minPVal;
@@ -160,7 +153,6 @@ public partial class Shop : ComponentBase, IDisposable
             decimal.TryParse(maxP, out var maxPVal))
             filters.MaxPrice = maxPVal;
 
-        // Toggles
         if (query.TryGetValue("sale", out var sale))
             filters.OnSale = sale.ToString() == "true";
 
@@ -177,10 +169,6 @@ public partial class Shop : ComponentBase, IDisposable
         );
     }
 
-    /// <summary>
-    /// Builds a URL from the current filter state and navigates to it.
-    /// Uses replace:true so the back button isn't spammed.
-    /// </summary>
     private void PushFiltersToUrl()
     {
         var queryParams = new Dictionary<string, string?>();
@@ -282,7 +270,6 @@ public partial class Shop : ComponentBase, IDisposable
             .Where(p => p.IsActive && !string.IsNullOrEmpty(p.Name))
             .ToList();
 
-        // Search
         if (!string.IsNullOrWhiteSpace(CurrentFilters.SearchQuery))
         {
             var q = CurrentFilters.SearchQuery.ToLowerInvariant().Trim();
@@ -294,7 +281,6 @@ public partial class Shop : ComponentBase, IDisposable
             ).ToList();
         }
 
-        // Category (case-insensitive)
         if (CurrentFilters.Categories.Any())
         {
             FilteredProducts = FilteredProducts.Where(p =>
@@ -304,7 +290,6 @@ public partial class Shop : ComponentBase, IDisposable
             ).ToList();
         }
 
-        // SubCategory (case-insensitive)
         if (CurrentFilters.SubCategories.Any())
         {
             FilteredProducts = FilteredProducts.Where(p =>
@@ -314,7 +299,6 @@ public partial class Shop : ComponentBase, IDisposable
             ).ToList();
         }
 
-        // Brand
         if (CurrentFilters.Brands.Any())
         {
             FilteredProducts = FilteredProducts.Where(p =>
@@ -324,34 +308,29 @@ public partial class Shop : ComponentBase, IDisposable
             ).ToList();
         }
 
-        // Rating
         if (CurrentFilters.MinRating > 0)
             FilteredProducts = FilteredProducts
                 .Where(p => p.Rating >= CurrentFilters.MinRating).ToList();
 
-        // Price
         if (CurrentFilters.MinPrice > 0 || CurrentFilters.MaxPrice < 1000000)
             FilteredProducts = FilteredProducts
                 .Where(p => p.Price >= CurrentFilters.MinPrice &&
                             p.Price <= CurrentFilters.MaxPrice).ToList();
 
-        // On Sale
         if (CurrentFilters.OnSale)
             FilteredProducts = FilteredProducts.Where(p => p.IsOnSale).ToList();
 
-        // Free Shipping
         if (CurrentFilters.FreeShipping)
             FilteredProducts = FilteredProducts.Where(p => p.HasFreeShipping).ToList();
 
-        // Sort
         FilteredProducts = SelectedSort switch
         {
-            "price-asc"    => FilteredProducts.OrderBy(p => p.Price).ToList(),
-            "price-desc"   => FilteredProducts.OrderByDescending(p => p.Price).ToList(),
-            "rating-desc"  => FilteredProducts.OrderByDescending(p => p.Rating).ToList(),
-            "name-asc"     => FilteredProducts.OrderBy(p => p.Name).ToList(),
-            "newest"       => FilteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
-            _              => FilteredProducts.OrderBy(p => p.Id).ToList()
+            "price-asc"   => FilteredProducts.OrderBy(p => p.Price).ToList(),
+            "price-desc"  => FilteredProducts.OrderByDescending(p => p.Price).ToList(),
+            "rating-desc" => FilteredProducts.OrderByDescending(p => p.Rating).ToList(),
+            "name-asc"    => FilteredProducts.OrderBy(p => p.Name).ToList(),
+            "newest"      => FilteredProducts.OrderByDescending(p => p.CreatedAt).ToList(),
+            _             => FilteredProducts.OrderBy(p => p.Id).ToList()
         };
 
         await MID_HelperFunctions.DebugMessageAsync(
@@ -378,8 +357,6 @@ public partial class Shop : ComponentBase, IDisposable
         CurrentFilters = filters.Clone();
         SelectedSort = CurrentFilters.SortBy;
         PushFiltersToUrl();
-        // OnLocationChanged will fire and re-apply — but since we already
-        // have the filters in memory just apply directly to avoid a round trip
         await ApplyFilters();
         CloseMobileFilters();
     }
