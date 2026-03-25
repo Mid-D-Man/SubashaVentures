@@ -1,0 +1,21 @@
+@* Components/Shared/Banners/DevBanner.razor *@
+
+@if (!_dismissed)
+{
+    <div class="dev-banner">
+        <div class="dev-banner-inner">
+            <span class="dev-banner-icon">🚧</span>
+            <p class="dev-banner-text">
+                <strong>SubashaVentures is currently under development.</strong>
+                Some features may be incomplete or change without notice.
+            </p>
+            <button class="dev-banner-close" @onclick="Dismiss" aria-label="Dismiss">✕</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _dismissed = false;
+
+    private void Dismiss() => _dismissed = true;
+}
