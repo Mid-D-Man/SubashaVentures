@@ -1,0 +1,65 @@
+.dev-banner {
+    width: 100%;
+    background: linear-gradient(90deg, #b45309 0%, #d97706 50%, #b45309 100%);
+    color: #fff;
+    z-index: 200;
+    position: relative;
+}
+
+.dev-banner-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.6rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.dev-banner-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.dev-banner-text {
+    flex: 1;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #fff;
+}
+
+.dev-banner-text strong {
+    font-weight: 700;
+    color: #fff;
+}
+
+.dev-banner-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.dev-banner-close:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+@media (max-width: 480px) {
+    .dev-banner-inner {
+        padding: 0.5rem 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .dev-banner-text {
+        font-size: 0.8125rem;
+    }
+  }
