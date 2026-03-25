@@ -470,21 +470,21 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
+{
+    try
     {
-        try
-        {
-            await ShopState.UpdateCategoriesAsync(new List<string> { category.Name });
-            await ClosePanel();
-            await Task.Delay(100);
-            NavigationManager.NavigateTo(ShopDirectory, forceLoad: false);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error navigating with category: {ex.Message}");
-            await ClosePanel();
-            NavigationManager.NavigateTo(ShopDirectory);
-        }
+        await ClosePanel();
+        await Task.Delay(80);
+        var url = $"shop?category={Uri.EscapeDataString(category.Name)}";
+        NavigationManager.NavigateTo(url, forceLoad: false);
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"SidePanel: error navigating with category: {ex.Message}");
+        await ClosePanel();
+        NavigationManager.NavigateTo("shop");
+    }
+}
 
     private async Task ClosePanel()
     {
