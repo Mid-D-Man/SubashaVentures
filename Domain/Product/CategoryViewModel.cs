@@ -10,30 +10,23 @@ public class CategoryViewModel
     public string Slug { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
-    
-    /// <summary>
-    /// SVG icon type for this category (replaces IconEmoji)
-    /// </summary>
     public SvgType IconSvgType { get; set; } = SvgType.None;
-    
-    public string? ParentId { get; set; }
     public int ProductCount { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-    public List<CategoryViewModel> SubCategories { get; set; } = new();
-    
-    // ==================== CONVERSION METHODS ====================
-    
+
     /// <summary>
-    /// Convert from Firebase CategoryModel to CategoryViewModel
+    /// Populated by GetCategoriesWithSubcategoriesAsync.
+    /// Default subcategory is always first in this list.
     /// </summary>
+    public List<SubCategoryViewModel> SubCategories { get; set; } = new();
+
     public static CategoryViewModel FromCloudModel(CategoryModel model)
     {
-        if (model == null)
-            throw new ArgumentNullException(nameof(model));
-            
+        if (model == null) throw new ArgumentNullException(nameof(model));
+
         return new CategoryViewModel
         {
             Id = model.Id,
@@ -42,19 +35,15 @@ public class CategoryViewModel
             Description = model.Description,
             ImageUrl = model.ImageUrl,
             IconSvgType = model.IconSvgType,
-            ParentId = model.ParentId,
             ProductCount = model.ProductCount,
             DisplayOrder = model.DisplayOrder,
             IsActive = model.IsActive,
             CreatedAt = model.CreatedAt,
             UpdatedAt = model.UpdatedAt,
-            SubCategories = new List<CategoryViewModel>()
+            SubCategories = new List<SubCategoryViewModel>()
         };
     }
-    
-    /// <summary>
-    /// Convert from CategoryViewModel to Firebase CategoryModel
-    /// </summary>
+
     public CategoryModel ToCloudModel()
     {
         return new CategoryModel
@@ -65,7 +54,6 @@ public class CategoryViewModel
             Description = this.Description,
             ImageUrl = this.ImageUrl,
             IconSvgType = this.IconSvgType,
-            ParentId = this.ParentId,
             ProductCount = this.ProductCount,
             DisplayOrder = this.DisplayOrder,
             IsActive = this.IsActive,
@@ -73,15 +61,10 @@ public class CategoryViewModel
             UpdatedAt = this.UpdatedAt
         };
     }
-    
-    /// <summary>
-    /// Convert list of CategoryModels to list of CategoryViewModels
-    /// </summary>
+
     public static List<CategoryViewModel> FromCloudModels(IEnumerable<CategoryModel> models)
     {
-        if (models == null)
-            return new List<CategoryViewModel>();
-            
+        if (models == null) return new List<CategoryViewModel>();
         return models.Select(FromCloudModel).ToList();
     }
 }
