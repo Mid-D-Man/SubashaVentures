@@ -1,78 +1,89 @@
+namespace SubashaVentures.Services.Categories;
+
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Domain.Enums;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Services.Firebase;
 using SubashaVentures.Utilities.HelperScripts;
-using SubashaVentures.Utilities.ObjectPooling;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-
-namespace SubashaVentures.Services.Categories;
 
 public class CategoryService : ICategoryService, IDisposable
 {
     private readonly IFirestoreService _firestore;
     private readonly ILogger<CategoryService> _logger;
-    private const string COLLECTION = "categories";
-    
-    // Object pool for category lists
-    private MID_ComponentObjectPool<List<CategoryViewModel>>? _categoryListPool;
-    private MID_ComponentObjectPool<List<CategoryModel>>? _categoryModelListPool;
 
-    public CategoryService(
-        IFirestoreService firestore,
-        ILogger<CategoryService> logger)
+    private const string CAT_COLLECTION = "categories";
+    private const string SUB_COLLECTION = "subcategories";
+
+    public CategoryService(IFirestoreService firestore, ILogger<CategoryService> logger)
     {
         _firestore = firestore;
         _logger = logger;
-        
-        // Initialize object pools
-        _categoryListPool = new MID_ComponentObjectPool<List<CategoryViewModel>>(
-            () => new List<CategoryViewModel>(50),
-            list => list.Clear(),
-            maxPoolSize: 5
-        );
-        
-        _categoryModelListPool = new MID_ComponentObjectPool<List<CategoryModel>>(
-            () => new List<CategoryModel>(50),
-            list => list.Clear(),
-            maxPoolSize: 5
-        );
     }
+
+    // ==================== CATEGORIES ====================
 
     public async Task<List<CategoryViewModel>> GetAllCategoriesAsync()
     {
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync("Fetching all categories", LogLevel.Info);
-            
-            var categories = await _firestore.GetCollectionAsync<CategoryModel>(COLLECTION);
-            
-            if (categories == null || !categories.Any())
-            {
-                await MID_HelperFunctions.DebugMessageAsync("No categories found", LogLevel.Warning);
-                return new List<CategoryViewModel>();
-            }
-            
-            // Use object pool for result list
-            using var pooledList = _categoryListPool?.GetPooled();
-            var result = pooledList?.Object ?? new List<CategoryViewModel>();
-            
-            foreach (var category in categories.Where(c => c.IsActive))
-            {
-                result.Add(MapToViewModel(category));
-            }
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Loaded {result.Count} active categories",
-                LogLevel.Info
-            );
-            
-            return result.ToList(); // Return copy, not pooled instance
+            var models = await _firestore.GetCollectionAsync<CategoryModel>(CAT_COLLECTION);
+            if (models == null || !models.Any()) return new List<CategoryViewModel>();
+
+            return models
+                .Where(c => c.IsActive)
+                .Select(CategoryViewModel.FromCloudModel)
+                .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting all categories");
-            _logger.LogError(ex, "Failed to get all categories");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetAllCategoriesAsync");
+            return new List<CategoryViewModel>();
+        }
+    }
+
+    public async Task<List<CategoryViewModel>> GetTopLevelCategoriesAsync()
+    {
+        try
+        {
+            var all = await GetAllCategoriesAsync();
+            return all
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.Name)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetTopLevelCategoriesAsync");
+            return new List<CategoryViewModel>();
+        }
+    }
+
+    public async Task<List<CategoryViewModel>> GetCategoriesWithSubcategoriesAsync()
+    {
+        try
+        {
+            var categories = await GetAllCategoriesAsync();
+            var allSubs = await GetAllSubCategoriesRawAsync();
+
+            foreach (var cat in categories)
+            {
+                cat.SubCategories = allSubs
+                    .Where(s => s.CategoryId == cat.Id && s.IsActive)
+                    .OrderByDescending(s => s.IsDefault)
+                    .ThenBy(s => s.DisplayOrder)
+                    .ThenBy(s => s.Name)
+                    .ToList();
+            }
+
+            return categories
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.Name)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetCategoriesWithSubcategoriesAsync");
             return new List<CategoryViewModel>();
         }
     }
@@ -81,25 +92,13 @@ public class CategoryService : ICategoryService, IDisposable
     {
         try
         {
-            if (string.IsNullOrEmpty(categoryId))
-            {
-                await MID_HelperFunctions.DebugMessageAsync("Category ID is null or empty", LogLevel.Warning);
-                return null;
-            }
-            
-            var category = await _firestore.GetDocumentAsync<CategoryModel>(COLLECTION, categoryId);
-            
-            if (category == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync($"Category not found: {categoryId}", LogLevel.Warning);
-                return null;
-            }
-            
-            return MapToViewModel(category);
+            if (string.IsNullOrEmpty(categoryId)) return null;
+            var model = await _firestore.GetDocumentAsync<CategoryModel>(CAT_COLLECTION, categoryId);
+            return model == null ? null : CategoryViewModel.FromCloudModel(model);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting category: {categoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetCategoryByIdAsync: {categoryId}");
             return null;
         }
     }
@@ -108,94 +107,16 @@ public class CategoryService : ICategoryService, IDisposable
     {
         try
         {
-            if (string.IsNullOrEmpty(slug))
-            {
-                await MID_HelperFunctions.DebugMessageAsync("Slug is null or empty", LogLevel.Warning);
-                return null;
-            }
-            
-            var categories = await _firestore.QueryCollectionAsync<CategoryModel>(
-                COLLECTION, 
-                "slug", 
-                slug.ToLowerInvariant()
-            );
-            
-            var category = categories?.FirstOrDefault();
-            
-            if (category == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync($"Category not found for slug: {slug}", LogLevel.Warning);
-                return null;
-            }
-            
-            return MapToViewModel(category);
+            if (string.IsNullOrEmpty(slug)) return null;
+            var results = await _firestore.QueryCollectionAsync<CategoryModel>(
+                CAT_COLLECTION, "slug", slug.ToLowerInvariant());
+            var model = results?.FirstOrDefault();
+            return model == null ? null : CategoryViewModel.FromCloudModel(model);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting category by slug: {slug}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetCategoryBySlugAsync: {slug}");
             return null;
-        }
-    }
-
-    public async Task<List<CategoryViewModel>> GetTopLevelCategoriesAsync()
-    {
-        try
-        {
-            await MID_HelperFunctions.DebugMessageAsync("Fetching top-level categories", LogLevel.Info);
-            
-            var allCategories = await GetAllCategoriesAsync();
-            
-            var topLevel = allCategories
-                .Where(c => string.IsNullOrEmpty(c.ParentId))
-                .OrderBy(c => c.DisplayOrder)
-                .ThenBy(c => c.Name)
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Found {topLevel.Count} top-level categories",
-                LogLevel.Info
-            );
-            
-            return topLevel;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting top-level categories");
-            return new List<CategoryViewModel>();
-        }
-    }
-
-    public async Task<List<CategoryViewModel>> GetSubCategoriesAsync(string parentId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(parentId))
-            {
-                await MID_HelperFunctions.DebugMessageAsync("Parent ID is null or empty", LogLevel.Warning);
-                return new List<CategoryViewModel>();
-            }
-            
-            await MID_HelperFunctions.DebugMessageAsync($"Fetching subcategories for: {parentId}", LogLevel.Info);
-            
-            var allCategories = await GetAllCategoriesAsync();
-            
-            var subCategories = allCategories
-                .Where(c => c.ParentId == parentId)
-                .OrderBy(c => c.DisplayOrder)
-                .ThenBy(c => c.Name)
-                .ToList();
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Found {subCategories.Count} subcategories",
-                LogLevel.Info
-            );
-            
-            return subCategories;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting subcategories for: {parentId}");
-            return new List<CategoryViewModel>();
         }
     }
 
@@ -203,13 +124,10 @@ public class CategoryService : ICategoryService, IDisposable
     {
         try
         {
-            if (request == null)
-                throw new ArgumentNullException(nameof(request));
-            
             if (string.IsNullOrWhiteSpace(request.Name))
-                throw new ArgumentException("Category name is required", nameof(request));
-            
-            var categoryModel = new CategoryModel
+                throw new ArgumentException("Category name is required");
+
+            var model = new CategoryModel
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = request.Name.Trim(),
@@ -217,30 +135,22 @@ public class CategoryService : ICategoryService, IDisposable
                 Description = request.Description?.Trim(),
                 ImageUrl = request.ImageUrl?.Trim(),
                 IconSvgType = request.IconSvgType,
-                ParentId = request.ParentId?.Trim(),
                 DisplayOrder = request.DisplayOrder,
                 IsActive = true,
                 ProductCount = 0,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = null
+                CreatedAt = DateTime.UtcNow
             };
-            
-            var id = await _firestore.AddDocumentAsync(COLLECTION, categoryModel, categoryModel.Id);
-            
-            if (!string.IsNullOrEmpty(id))
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category created: {request.Name} (ID: {id}, Icon: {request.IconSvgType})",
-                    LogLevel.Info
-                );
-            }
-            
+
+            var id = await _firestore.AddDocumentAsync(CAT_COLLECTION, model, model.Id);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Category created: {model.Name} ({id})", LogLevel.Info);
+
             return id ?? string.Empty;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating category: {request.Name}");
-            _logger.LogError(ex, "Failed to create category: {Name}", request.Name);
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"CreateCategoryAsync: {request.Name}");
             return string.Empty;
         }
     }
@@ -249,53 +159,31 @@ public class CategoryService : ICategoryService, IDisposable
     {
         try
         {
-            if (string.IsNullOrEmpty(categoryId))
-                throw new ArgumentException("Category ID is required", nameof(categoryId));
-            
-            if (request == null)
-                throw new ArgumentNullException(nameof(request));
-            
-            var existing = await _firestore.GetDocumentAsync<CategoryModel>(COLLECTION, categoryId);
-            
-            if (existing == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync($"Category not found: {categoryId}", LogLevel.Warning);
-                return false;
-            }
-            
-            // Update only provided fields
+            if (string.IsNullOrEmpty(categoryId)) return false;
+
+            var existing = await _firestore.GetDocumentAsync<CategoryModel>(CAT_COLLECTION, categoryId);
+            if (existing == null) return false;
+
             var updated = new CategoryModel
             {
                 Id = existing.Id,
                 Name = request.Name?.Trim() ?? existing.Name,
-                Slug = !string.IsNullOrEmpty(request.Name) ? GenerateSlug(request.Name) : existing.Slug,
+                Slug = request.Name != null ? GenerateSlug(request.Name) : existing.Slug,
                 Description = request.Description ?? existing.Description,
                 ImageUrl = request.ImageUrl ?? existing.ImageUrl,
                 IconSvgType = request.IconSvgType ?? existing.IconSvgType,
-                ParentId = existing.ParentId,
                 DisplayOrder = request.DisplayOrder ?? existing.DisplayOrder,
                 IsActive = request.IsActive ?? existing.IsActive,
                 ProductCount = existing.ProductCount,
                 CreatedAt = existing.CreatedAt,
                 UpdatedAt = DateTime.UtcNow
             };
-            
-            var success = await _firestore.UpdateDocumentAsync(COLLECTION, categoryId, updated);
-            
-            if (success)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category updated: {updated.Name} (Icon: {updated.IconSvgType})",
-                    LogLevel.Info
-                );
-            }
-            
-            return success;
+
+            return await _firestore.UpdateDocumentAsync(CAT_COLLECTION, categoryId, updated);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating category: {categoryId}");
-            _logger.LogError(ex, "Failed to update category: {Id}", categoryId);
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateCategoryAsync: {categoryId}");
             return false;
         }
     }
@@ -304,37 +192,35 @@ public class CategoryService : ICategoryService, IDisposable
     {
         try
         {
-            if (string.IsNullOrEmpty(categoryId))
-                throw new ArgumentException("Category ID is required", nameof(categoryId));
-            
-            // Check if category has products
-            var productCount = await GetProductCountForCategoryAsync(categoryId);
-            
-            if (productCount > 0)
+            if (string.IsNullOrEmpty(categoryId)) return false;
+
+            var category = await GetCategoryByIdAsync(categoryId);
+            if (category == null) return false;
+
+            if (category.ProductCount > 0)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Cannot delete category with {productCount} products",
-                    LogLevel.Warning
-                );
+                    $"Cannot delete category with products: {category.Name}", LogLevel.Warning);
                 return false;
             }
-            
-            var success = await _firestore.DeleteDocumentAsync(COLLECTION, categoryId);
-            
-            if (success)
+
+            var subs = await GetSubCategoriesAsync(categoryId);
+            if (subs.Any(s => s.ProductCount > 0))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Category deleted: {categoryId}",
-                    LogLevel.Info
-                );
+                    $"Cannot delete — a subcategory under {category.Name} has products", LogLevel.Warning);
+                return false;
             }
-            
-            return success;
+
+            // Delete all subcategories first
+            foreach (var sub in subs)
+                await _firestore.DeleteDocumentAsync(SUB_COLLECTION, sub.Id);
+
+            return await _firestore.DeleteDocumentAsync(CAT_COLLECTION, categoryId);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Deleting category: {categoryId}");
-            _logger.LogError(ex, "Failed to delete category: {Id}", categoryId);
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"DeleteCategoryAsync: {categoryId}");
             return false;
         }
     }
@@ -343,44 +229,262 @@ public class CategoryService : ICategoryService, IDisposable
     {
         try
         {
-            if (string.IsNullOrEmpty(categoryId))
-                return 0;
-            
-            var category = await _firestore.GetDocumentAsync<CategoryModel>(COLLECTION, categoryId);
-            return category?.ProductCount ?? 0;
+            if (string.IsNullOrEmpty(categoryId)) return 0;
+            var model = await _firestore.GetDocumentAsync<CategoryModel>(CAT_COLLECTION, categoryId);
+            return model?.ProductCount ?? 0;
+        }
+        catch { return 0; }
+    }
+
+    // ==================== SUBCATEGORIES ====================
+
+    public async Task<List<SubCategoryViewModel>> GetSubCategoriesAsync(string categoryId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(categoryId)) return new List<SubCategoryViewModel>();
+
+            var results = await _firestore.QueryCollectionAsync<SubCategoryModel>(
+                SUB_COLLECTION, "categoryId", categoryId);
+
+            return (results ?? new List<SubCategoryModel>())
+                .Where(s => s.IsActive)
+                .Select(SubCategoryViewModel.FromCloudModel)
+                .OrderByDescending(s => s.IsDefault)
+                .ThenBy(s => s.DisplayOrder)
+                .ThenBy(s => s.Name)
+                .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting product count for category: {categoryId}");
-            return 0;
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetSubCategoriesAsync: {categoryId}");
+            return new List<SubCategoryViewModel>();
         }
     }
 
-    // ==================== PRIVATE HELPER METHODS ====================
-
-    private CategoryViewModel MapToViewModel(CategoryModel model)
+    public async Task<List<SubCategoryViewModel>> GetSubCategoriesByParentNameAsync(string categoryName)
     {
-        return new CategoryViewModel
+        try
         {
-            Id = model.Id,
-            Name = model.Name,
-            Slug = model.Slug,
-            Description = model.Description,
-            ImageUrl = model.ImageUrl,
-            IconSvgType = model.IconSvgType,
-            ParentId = model.ParentId,
-            ProductCount = model.ProductCount,
-            DisplayOrder = model.DisplayOrder,
-            IsActive = model.IsActive,
-            SubCategories = new List<CategoryViewModel>() // Populated separately if needed
-        };
+            if (string.IsNullOrEmpty(categoryName)) return new List<SubCategoryViewModel>();
+
+            var parent = (await GetAllCategoriesAsync())
+                .FirstOrDefault(c => c.Name.Equals(categoryName, StringComparison.OrdinalIgnoreCase));
+
+            if (parent == null) return new List<SubCategoryViewModel>();
+
+            return await GetSubCategoriesAsync(parent.Id);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetSubCategoriesByParentNameAsync: {categoryName}");
+            return new List<SubCategoryViewModel>();
+        }
+    }
+
+    public async Task<SubCategoryViewModel?> GetSubCategoryByIdAsync(string subCategoryId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(subCategoryId)) return null;
+            var model = await _firestore.GetDocumentAsync<SubCategoryModel>(SUB_COLLECTION, subCategoryId);
+            return model == null ? null : SubCategoryViewModel.FromCloudModel(model);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetSubCategoryByIdAsync: {subCategoryId}");
+            return null;
+        }
+    }
+
+    public async Task<SubCategoryViewModel?> GetDefaultSubCategoryAsync(string categoryId)
+    {
+        try
+        {
+            var subs = await GetSubCategoriesAsync(categoryId);
+            return subs.FirstOrDefault(s => s.IsDefault) ?? subs.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetDefaultSubCategoryAsync: {categoryId}");
+            return null;
+        }
+    }
+
+    public async Task<string> CreateSubCategoryAsync(CreateSubCategoryRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+                throw new ArgumentException("Subcategory name is required");
+
+            if (string.IsNullOrEmpty(request.CategoryId))
+                throw new ArgumentException("CategoryId is required");
+
+            var parent = await GetCategoryByIdAsync(request.CategoryId);
+            if (parent == null)
+                throw new ArgumentException($"Parent category not found: {request.CategoryId}");
+
+            if (request.IsDefault)
+                await DemoteExistingDefaultAsync(request.CategoryId);
+
+            var model = new SubCategoryModel
+            {
+                Id = Guid.NewGuid().ToString(),
+                CategoryId = request.CategoryId,
+                Name = request.Name.Trim(),
+                Slug = GenerateSlug($"{parent.Slug}-{request.Name}"),
+                Description = request.Description?.Trim(),
+                ImageUrl = request.ImageUrl?.Trim(),
+                IconSvgType = request.IconSvgType,
+                IsDefault = request.IsDefault,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                ProductCount = 0,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var id = await _firestore.AddDocumentAsync(SUB_COLLECTION, model, model.Id);
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Subcategory created: {model.Name} under {parent.Name} (default={model.IsDefault})",
+                LogLevel.Info);
+
+            return id ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"CreateSubCategoryAsync: {request.Name}");
+            return string.Empty;
+        }
+    }
+
+    public async Task<bool> UpdateSubCategoryAsync(string subCategoryId, UpdateSubCategoryRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(subCategoryId)) return false;
+
+            var existing = await _firestore.GetDocumentAsync<SubCategoryModel>(SUB_COLLECTION, subCategoryId);
+            if (existing == null) return false;
+
+            if (request.IsDefault == true)
+                await DemoteExistingDefaultAsync(existing.CategoryId);
+
+            var updated = new SubCategoryModel
+            {
+                Id = existing.Id,
+                CategoryId = existing.CategoryId,
+                Name = request.Name?.Trim() ?? existing.Name,
+                Slug = request.Name != null ? GenerateSlug(request.Name) : existing.Slug,
+                Description = request.Description ?? existing.Description,
+                ImageUrl = request.ImageUrl ?? existing.ImageUrl,
+                IconSvgType = request.IconSvgType ?? existing.IconSvgType,
+                IsDefault = request.IsDefault ?? existing.IsDefault,
+                DisplayOrder = request.DisplayOrder ?? existing.DisplayOrder,
+                IsActive = request.IsActive ?? existing.IsActive,
+                ProductCount = existing.ProductCount,
+                CreatedAt = existing.CreatedAt,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            return await _firestore.UpdateDocumentAsync(SUB_COLLECTION, subCategoryId, updated);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateSubCategoryAsync: {subCategoryId}");
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteSubCategoryAsync(string subCategoryId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(subCategoryId)) return false;
+
+            var sub = await GetSubCategoryByIdAsync(subCategoryId);
+            if (sub == null) return false;
+
+            if (sub.ProductCount > 0)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"Cannot delete subcategory with products: {sub.Name}", LogLevel.Warning);
+                return false;
+            }
+
+            return await _firestore.DeleteDocumentAsync(SUB_COLLECTION, subCategoryId);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"DeleteSubCategoryAsync: {subCategoryId}");
+            return false;
+        }
+    }
+
+    public async Task<bool> SetDefaultSubCategoryAsync(string subCategoryId, string categoryId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(subCategoryId) || string.IsNullOrEmpty(categoryId))
+                return false;
+
+            await DemoteExistingDefaultAsync(categoryId);
+
+            var target = await _firestore.GetDocumentAsync<SubCategoryModel>(SUB_COLLECTION, subCategoryId);
+            if (target == null || target.CategoryId != categoryId) return false;
+
+            target.IsDefault = true;
+            target.UpdatedAt = DateTime.UtcNow;
+
+            return await _firestore.UpdateDocumentAsync(SUB_COLLECTION, subCategoryId, target);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"SetDefaultSubCategoryAsync: {subCategoryId}");
+            return false;
+        }
+    }
+
+    // ==================== PRIVATE ====================
+
+    private async Task<List<SubCategoryViewModel>> GetAllSubCategoriesRawAsync()
+    {
+        try
+        {
+            var models = await _firestore.GetCollectionAsync<SubCategoryModel>(SUB_COLLECTION);
+            if (models == null) return new List<SubCategoryViewModel>();
+            return models.Select(SubCategoryViewModel.FromCloudModel).ToList();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetAllSubCategoriesRawAsync");
+            return new List<SubCategoryViewModel>();
+        }
+    }
+
+    private async Task DemoteExistingDefaultAsync(string categoryId)
+    {
+        try
+        {
+            var allSubs = await _firestore.GetCollectionAsync<SubCategoryModel>(SUB_COLLECTION);
+            var currentDefault = allSubs?.FirstOrDefault(s =>
+                s.CategoryId == categoryId && s.IsDefault);
+
+            if (currentDefault == null) return;
+
+            currentDefault.IsDefault = false;
+            currentDefault.UpdatedAt = DateTime.UtcNow;
+            await _firestore.UpdateDocumentAsync(SUB_COLLECTION, currentDefault.Id, currentDefault);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"DemoteExistingDefaultAsync: {categoryId}");
+        }
     }
 
     private string GenerateSlug(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            return string.Empty;
-        
         return name
             .ToLowerInvariant()
             .Replace(" ", "-")
@@ -392,9 +496,5 @@ public class CategoryService : ICategoryService, IDisposable
             .Trim('-');
     }
 
-    public void Dispose()
-    {
-        _categoryListPool?.Dispose();
-        _categoryModelListPool?.Dispose();
-    }
+    public void Dispose() { }
 }
