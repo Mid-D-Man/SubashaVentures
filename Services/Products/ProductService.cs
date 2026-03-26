@@ -17,9 +17,9 @@ public class ProductService : IProductService
 
     private static readonly List<string> CommonTags = new()
     {
-        "New Arrival", "Best Seller", "Trending", "Limited Edition", 
+        "New Arrival", "Best Seller", "Trending", "Limited Edition",
         "Eco-Friendly", "Handmade", "Premium", "Luxury", "Budget-Friendly",
-        "Summer Collection", "Winter Collection", "Casual", "Formal", 
+        "Summer Collection", "Winter Collection", "Casual", "Formal",
         "Sporty", "Vintage", "Modern", "Classic"
     };
 
@@ -53,6 +53,12 @@ public class ProductService : IProductService
     public List<string> GetCommonSizes() => CommonSizes;
     public List<string> GetCommonColors() => CommonColors;
 
+    // ==================== RETRIEVAL ====================
+
+    /// <summary>
+    /// Returns all non-deleted, ACTIVE products.
+    /// Used by the public-facing shop page — inactive products are excluded.
+    /// </summary>
     public async Task<List<ProductViewModel>> GetAllProductsAsync()
     {
         try
@@ -65,7 +71,30 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting all products");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetAllProductsAsync");
+            return new List<ProductViewModel>();
+        }
+    }
+
+    /// <summary>
+    /// Returns all non-deleted products regardless of IsActive status.
+    /// Used by the admin panel so inactive products are still visible.
+    /// </summary>
+    public async Task<List<ProductViewModel>> GetProductsAsync(int skip = 0, int take = 100)
+    {
+        try
+        {
+            var products = await _database.GetAllAsync<ProductModel>();
+            return products
+                .Where(p => !p.IsDeleted)
+                .Skip(skip)
+                .Take(take)
+                .Select(MapToViewModel)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetProductsAsync");
             return new List<ProductViewModel>();
         }
     }
@@ -75,11 +104,7 @@ public class ProductService : IProductService
         try
         {
             var products = await _database.GetWithFilterAsync<ProductModel>(
-                "category_id",
-                Constants.Operator.Equals,
-                categoryId
-            );
-            
+                "category_id", Constants.Operator.Equals, categoryId);
             return products
                 .Where(p => !p.IsDeleted && p.IsActive)
                 .Select(MapToViewModel)
@@ -87,7 +112,7 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting products by category: {categoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetProductsByCategoryAsync: {categoryId}");
             return new List<ProductViewModel>();
         }
     }
@@ -97,11 +122,7 @@ public class ProductService : IProductService
         try
         {
             var products = await _database.GetWithFilterAsync<ProductModel>(
-                "partner_id",
-                Constants.Operator.Equals,
-                partnerId
-            );
-            
+                "partner_id", Constants.Operator.Equals, partnerId);
             return products
                 .Where(p => !p.IsDeleted && p.IsActive)
                 .Select(MapToViewModel)
@@ -109,10 +130,42 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting products by partner: {partnerId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetProductsByPartnerAsync: {partnerId}");
             return new List<ProductViewModel>();
         }
     }
+
+    public async Task<ProductViewModel?> GetProductByIdAsync(int productId)
+    {
+        try
+        {
+            var product = await _database.GetByIdAsync<ProductModel>(productId);
+            return product != null ? MapToViewModel(product) : null;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetProductByIdAsync: {productId}");
+            return null;
+        }
+    }
+
+    public async Task<ProductViewModel?> GetProductBySkuAsync(string sku)
+    {
+        try
+        {
+            var products = await _database.GetWithFilterAsync<ProductModel>(
+                "sku", Constants.Operator.Equals, sku);
+            var product = products.FirstOrDefault();
+            return product != null ? MapToViewModel(product) : null;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetProductBySkuAsync: {sku}");
+            return null;
+        }
+    }
+
+    // ==================== CREATE ====================
 
     public async Task<ProductViewModel?> CreateProductAsync(CreateProductRequest request)
     {
@@ -122,21 +175,17 @@ public class ProductService : IProductService
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Creating product: Name={request.Name}, SKU={request.Sku}, CategoryId={request.CategoryId}",
-                LogLevel.Info
-            );
+                LogLevel.Info);
 
             var existingSku = await GetProductBySkuAsync(request.Sku);
             if (existingSku != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"SKU already exists: {request.Sku}",
-                    LogLevel.Error
-                );
+                    $"SKU already exists: {request.Sku}", LogLevel.Error);
                 return null;
             }
 
-            // Fetch category name from CategoryService
-            string categoryName = "";
+            string categoryName = string.Empty;
             if (!string.IsNullOrEmpty(request.CategoryId))
             {
                 var category = await _categoryService.GetCategoryByIdAsync(request.CategoryId);
@@ -144,257 +193,179 @@ public class ProductService : IProductService
                 {
                     categoryName = category.Name;
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"✓ Category resolved: {request.CategoryId} → {categoryName}",
-                        LogLevel.Info
-                    );
+                        $"✓ Category resolved: {request.CategoryId} → {categoryName}", LogLevel.Info);
                 }
                 else
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"⚠️ Category not found: {request.CategoryId}",
-                        LogLevel.Warning
-                    );
+                        $"⚠️ Category not found: {request.CategoryId}", LogLevel.Warning);
                 }
             }
 
             var productModel = new ProductModel
             {
-                Name = request.Name,
-                Slug = GenerateSlug(request.Name),
-                Description = request.Description ?? "",
-                LongDescription = request.LongDescription ?? "",
-                
-                // Partnership
-                IsOwnedByStore = request.IsOwnedByStore,
-                PartnerId = request.PartnerId,
-                
-                // Pricing
-                Price = request.Price,
-                OriginalPrice = request.OriginalPrice,
-                IsOnSale = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
-                Discount = CalculateDiscount(request.Price, request.OriginalPrice),
-                
-                // Media
-                Images = request.ImageUrls ?? new List<string>(),
-                VideoUrl = request.VideoUrl,
-                
-                // Variants (ONLY set this - sizes/colors/stock auto-populated by triggers)
-                Variants = request.Variants ?? new Dictionary<string, ProductVariant>(),
-                
-                // Shipping
-                BaseWeight = request.BaseWeight,
-                BaseShippingCost = request.BaseShippingCost,
-                HasFreeShipping = request.HasFreeShipping,
-                
-                // Inventory
-                Sku = request.Sku,
-                
-                // Set both category_id AND category name
-                CategoryId = request.CategoryId,
-                Category = categoryName,
-                SubCategory = request.SubCategory,
-                Brand = request.Brand ?? "",
-                Tags = request.Tags ?? new List<string>(),
-                
-                // Initial metrics
-                Rating = 0,
-                ReviewCount = 0,
-                
-                // Settings
-                IsActive = true,
-                IsFeatured = request.IsFeatured,
-                
-                // Audit
-                CreatedAt = now,
-                CreatedBy = "system",
-                IsDeleted = false
+                Name              = request.Name,
+                Slug              = GenerateSlug(request.Name),
+                Description       = request.Description ?? string.Empty,
+                LongDescription   = request.LongDescription ?? string.Empty,
+                IsOwnedByStore    = request.IsOwnedByStore,
+                PartnerId         = request.PartnerId,
+                Price             = request.Price,
+                OriginalPrice     = request.OriginalPrice,
+                IsOnSale          = request.OriginalPrice.HasValue && request.OriginalPrice > request.Price,
+                Discount          = CalculateDiscount(request.Price, request.OriginalPrice),
+                Images            = request.ImageUrls ?? new List<string>(),
+                VideoUrl          = request.VideoUrl,
+                Variants          = request.Variants ?? new Dictionary<string, ProductVariant>(),
+                BaseWeight        = request.BaseWeight,
+                BaseShippingCost  = request.BaseShippingCost,
+                HasFreeShipping   = request.HasFreeShipping,
+                Sku               = request.Sku,
+                CategoryId        = request.CategoryId,
+                Category          = categoryName,
+                SubCategory       = request.SubCategory,
+                Brand             = request.Brand ?? string.Empty,
+                Tags              = request.Tags ?? new List<string>(),
+                Rating            = 0,
+                ReviewCount       = 0,
+                IsActive          = true,
+                IsFeatured        = request.IsFeatured,
+                CreatedAt         = now,
+                CreatedBy         = "system",
+                IsDeleted         = false
             };
-
-            _logger.LogInformation(
-                "Inserting product: {Name}, Category: {CategoryId}/{Category}, Partnership: {IsOwnedByStore}/{PartnerId}", 
-                request.Name, request.CategoryId, categoryName, request.IsOwnedByStore, request.PartnerId
-            );
 
             var result = await _database.InsertAsync(productModel);
 
             if (result == null || !result.Any())
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Insert returned null/empty result",
-                    LogLevel.Error
-                );
+                await MID_HelperFunctions.DebugMessageAsync("Insert returned null/empty", LogLevel.Error);
                 return null;
             }
 
-            var createdProduct = result.First();
-            var productId = createdProduct.Id;
+            var created = result.First();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Product created with ID: {productId}, Stock: {createdProduct.Stock} (auto-calculated from variants)",
-                LogLevel.Info
-            );
+                $"✓ Product created: ID={created.Id}, Stock={created.Stock}", LogLevel.Info);
 
-            // Create analytics row
+            // Create analytics row (best-effort — never blocks product creation)
             try
             {
-                var analyticsModel = new ProductAnalyticsModel
+                var analytics = new ProductAnalyticsModel
                 {
-                    ProductId = productId,
-                    ProductSku = request.Sku,
-                    ProductName = request.Name,
-                    TotalViews = 0,
-                    TotalClicks = 0,
-                    TotalAddToCart = 0,
-                    TotalPurchases = 0,
-                    TotalRevenue = 0,
-                    TotalWishlistAdds = 0,
-                    ViewToCartRate = 0,
-                    CartToPurchaseRate = 0,
-                    OverallConversionRate = 0,
-                    WishlistToCartRate = 0,
+                    ProductId              = created.Id,
+                    ProductSku             = request.Sku,
+                    ProductName            = request.Name,
+                    TotalViews             = 0,
+                    TotalClicks            = 0,
+                    TotalAddToCart         = 0,
+                    TotalPurchases         = 0,
+                    TotalRevenue           = 0,
+                    TotalWishlistAdds      = 0,
+                    ViewToCartRate         = 0,
+                    CartToPurchaseRate     = 0,
+                    OverallConversionRate  = 0,
+                    WishlistToCartRate     = 0,
                     WishlistToPurchaseRate = 0,
-                    IsTrending = false,
-                    IsBestSeller = false,
-                    NeedsAttention = false,
-                    CreatedAt = now,
-                    UpdatedAt = now
+                    IsTrending             = false,
+                    IsBestSeller          = false,
+                    NeedsAttention         = false,
+                    CreatedAt              = now,
+                    UpdatedAt              = now
                 };
 
-                var analyticsResult = await _database.InsertAsync(analyticsModel);
+                await _database.InsertAsync(analytics);
 
-                if (analyticsResult != null && analyticsResult.Any())
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"✓ Analytics created for product ID: {productId}",
-                        LogLevel.Info
-                    );
-                }
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"✓ Analytics row created for product {created.Id}", LogLevel.Info);
             }
             catch (Exception analyticsEx)
             {
-                await MID_HelperFunctions.LogExceptionAsync(
-                    analyticsEx, 
-                    $"Creating analytics for product: {productId}"
-                );
-                _logger.LogError(
-                    analyticsEx, 
-                    "Failed to create analytics for product {ProductId}", 
-                    productId
-                );
+                _logger.LogError(analyticsEx, "Failed to create analytics row for product {Id}", created.Id);
             }
 
-            return MapToViewModel(createdProduct);
+            return MapToViewModel(created);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Creating product: {request.Name}");
-            _logger.LogError(ex, "Failed to create product: {Name}", request.Name);
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"CreateProductAsync: {request.Name}");
             return null;
         }
     }
+
+    // ==================== UPDATE ====================
+
     public async Task<bool> UpdateProductAsync(int productId, UpdateProductRequest request)
     {
         try
         {
-            var existingProduct = await _database.GetByIdAsync<ProductModel>(productId);
-
-            if (existingProduct == null)
+            var existing = await _database.GetByIdAsync<ProductModel>(productId);
+            if (existing == null)
             {
-                _logger.LogWarning("Product not found: {ProductId}", productId);
+                _logger.LogWarning("Product not found for update: {Id}", productId);
                 return false;
             }
 
-            // Update fields if provided
-            if (request.Name != null) existingProduct.Name = request.Name;
-            if (request.Description != null) existingProduct.Description = request.Description;
-            if (request.LongDescription != null) existingProduct.LongDescription = request.LongDescription;
-            
-            // Partnership
-            if (request.IsOwnedByStore.HasValue) existingProduct.IsOwnedByStore = request.IsOwnedByStore.Value;
-            if (request.PartnerId.HasValue) existingProduct.PartnerId = request.PartnerId;
-            
-            // Pricing
-            if (request.Price.HasValue) existingProduct.Price = request.Price.Value;
-            if (request.OriginalPrice.HasValue) existingProduct.OriginalPrice = request.OriginalPrice;
-            
-            // Media
-            if (request.ImageUrls != null) existingProduct.Images = request.ImageUrls;
-            if (request.VideoUrl != null) existingProduct.VideoUrl = request.VideoUrl;
-            
-            // Variants (sizes/colors/stock will auto-update via trigger)
-            if (request.Variants != null) existingProduct.Variants = request.Variants;
-            
-            // Shipping
-            if (request.BaseWeight.HasValue) existingProduct.BaseWeight = request.BaseWeight.Value;
-            if (request.BaseShippingCost.HasValue) existingProduct.BaseShippingCost = request.BaseShippingCost.Value;
-            if (request.HasFreeShipping.HasValue) existingProduct.HasFreeShipping = request.HasFreeShipping.Value;
-            
-            // Category handling - fetch category name if category_id changed
-            if (request.CategoryId != null && request.CategoryId != existingProduct.CategoryId)
+            if (request.Name           != null) existing.Name           = request.Name;
+            if (request.Description    != null) existing.Description    = request.Description;
+            if (request.LongDescription != null) existing.LongDescription = request.LongDescription;
+
+            if (request.IsOwnedByStore.HasValue) existing.IsOwnedByStore = request.IsOwnedByStore.Value;
+            if (request.PartnerId.HasValue)      existing.PartnerId      = request.PartnerId;
+
+            if (request.Price.HasValue)         existing.Price         = request.Price.Value;
+            if (request.OriginalPrice.HasValue) existing.OriginalPrice = request.OriginalPrice;
+
+            if (request.ImageUrls != null) existing.Images   = request.ImageUrls;
+            if (request.VideoUrl  != null) existing.VideoUrl = request.VideoUrl;
+
+            if (request.Variants != null) existing.Variants = request.Variants;
+
+            if (request.BaseWeight.HasValue)       existing.BaseWeight       = request.BaseWeight.Value;
+            if (request.BaseShippingCost.HasValue) existing.BaseShippingCost = request.BaseShippingCost.Value;
+            if (request.HasFreeShipping.HasValue)  existing.HasFreeShipping  = request.HasFreeShipping.Value;
+
+            if (request.CategoryId != null && request.CategoryId != existing.CategoryId)
             {
-                existingProduct.CategoryId = request.CategoryId;
-                
-                var category = await _categoryService.GetCategoryByIdAsync(request.CategoryId);
-                if (category != null)
+                existing.CategoryId = request.CategoryId;
+                var cat = await _categoryService.GetCategoryByIdAsync(request.CategoryId);
+                if (cat != null)
                 {
-                    existingProduct.Category = category.Name;
+                    existing.Category = cat.Name;
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"✓ Category updated: {request.CategoryId} → {category.Name}",
-                        LogLevel.Info
-                    );
-                }
-                else
-                {
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"⚠️ Category not found: {request.CategoryId}",
-                        LogLevel.Warning
-                    );
+                        $"✓ Category updated: {request.CategoryId} → {cat.Name}", LogLevel.Info);
                 }
             }
-            
-            if (request.Brand != null) existingProduct.Brand = request.Brand;
-            if (request.Tags != null) existingProduct.Tags = request.Tags;
-            
-            // Settings
-            if (request.IsFeatured.HasValue) existingProduct.IsFeatured = request.IsFeatured.Value;
-            if (request.IsActive.HasValue) existingProduct.IsActive = request.IsActive.Value;
 
-            // Recalculate sale status
+            if (request.Brand != null) existing.Brand = request.Brand;
+            if (request.Tags  != null) existing.Tags  = request.Tags;
+
+            if (request.IsFeatured.HasValue) existing.IsFeatured = request.IsFeatured.Value;
+            if (request.IsActive.HasValue)   existing.IsActive   = request.IsActive.Value;
+
             if (request.Price.HasValue || request.OriginalPrice.HasValue)
             {
-                existingProduct.IsOnSale = existingProduct.OriginalPrice.HasValue && 
-                                           existingProduct.OriginalPrice > existingProduct.Price;
-                existingProduct.Discount = CalculateDiscount(existingProduct.Price, existingProduct.OriginalPrice);
+                existing.IsOnSale = existing.OriginalPrice.HasValue &&
+                                    existing.OriginalPrice > existing.Price;
+                existing.Discount = CalculateDiscount(existing.Price, existing.OriginalPrice);
             }
-            
-            // Update slug if name changed
+
             if (request.Name != null)
-            {
-                existingProduct.Slug = GenerateSlug(request.Name);
-            }
+                existing.Slug = GenerateSlug(request.Name);
 
-            existingProduct.UpdatedAt = DateTime.UtcNow;
-            existingProduct.UpdatedBy = "system";
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdatedBy = "system";
 
-            _logger.LogInformation(
-                "Updating product {ProductId}: Category={CategoryId}/{Category}, Partnership={IsOwnedByStore}/{PartnerId}",
-                productId,
-                existingProduct.CategoryId,
-                existingProduct.Category,
-                existingProduct.IsOwnedByStore,
-                existingProduct.PartnerId
-            );
+            var result = await _database.UpdateAsync(existing);
 
-            var result = await _database.UpdateAsync(existingProduct);
-            
-            // Update analytics if name changed
+            // Update analytics product name if name changed
             if (request.Name != null)
             {
                 var analytics = await GetProductAnalyticsByProductIdAsync(productId);
                 if (analytics != null)
                 {
                     analytics.ProductName = request.Name;
-                    analytics.UpdatedAt = DateTime.UtcNow;
+                    analytics.UpdatedAt   = DateTime.UtcNow;
                     await _database.UpdateAsync(analytics);
                 }
             }
@@ -403,11 +374,12 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating product: {productId}");
-            _logger.LogError(ex, "Failed to update product: {ProductId}", productId);
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateProductAsync: {productId}");
             return false;
         }
     }
+
+    // ==================== DELETE ====================
 
     public async Task<bool> DeleteProductAsync(int productId)
     {
@@ -425,7 +397,7 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Deleting product: {productId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"DeleteProductAsync: {productId}");
             return false;
         }
     }
@@ -435,72 +407,18 @@ public class ProductService : IProductService
         try
         {
             foreach (var id in productIds)
-            {
                 await DeleteProductAsync(id);
-            }
             return true;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Bulk delete products");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "DeleteProductsAsync");
             return false;
         }
     }
 
-    public async Task<ProductViewModel?> GetProductByIdAsync(int productId)
-    {
-        try
-        {
-            var product = await _database.GetByIdAsync<ProductModel>(productId);
-            return product != null ? MapToViewModel(product) : null;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting product: {productId}");
-            return null;
-        }
-    }
+    // ==================== STOCK ====================
 
-    public async Task<ProductViewModel?> GetProductBySkuAsync(string sku)
-    {
-        try
-        {
-            var products = await _database.GetWithFilterAsync<ProductModel>(
-                "sku", 
-                Constants.Operator.Equals, 
-                sku
-            );
-            
-            var product = products.FirstOrDefault();
-            return product != null ? MapToViewModel(product) : null;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting product by SKU: {sku}");
-            return null;
-        }
-    }
-
-    public async Task<List<ProductViewModel>> GetProductsAsync(int skip = 0, int take = 100)
-    {
-        try
-        {
-            var products = await _database.GetAllAsync<ProductModel>();
-            
-            return products
-                .Where(p => !p.IsDeleted)
-                .Skip(skip)
-                .Take(take)
-                .Select(MapToViewModel)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting products");
-            return new List<ProductViewModel>();
-        }
-    }
-    
     public async Task<bool> UpdateProductStockAsync(int productId, int newStock)
     {
         try
@@ -508,9 +426,7 @@ public class ProductService : IProductService
             var product = await _database.GetByIdAsync<ProductModel>(productId);
             if (product == null) return false;
 
-            // Note: If using variants, this should update all variant stocks proportionally
-            // or you should use UpdateVariantStockAsync instead
-            product.Stock = newStock;
+            product.Stock     = newStock;
             product.UpdatedAt = DateTime.UtcNow;
 
             var result = await _database.UpdateAsync(product);
@@ -518,7 +434,7 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating stock: {productId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateProductStockAsync: {productId}");
             return false;
         }
     }
@@ -530,27 +446,23 @@ public class ProductService : IProductService
             var product = await _database.GetByIdAsync<ProductModel>(productId);
             if (product == null) return false;
 
-            if (product.Variants.TryGetValue(variantKey, out var variant))
-            {
-                variant.Stock = newStock;
-                product.Variants[variantKey] = variant;
-                product.UpdatedAt = DateTime.UtcNow;
+            if (!product.Variants.TryGetValue(variantKey, out var variant)) return false;
 
-                var result = await _database.UpdateAsync(product);
-                return result != null && result.Any();
-            }
+            variant.Stock                  = newStock;
+            product.Variants[variantKey]   = variant;
+            product.UpdatedAt              = DateTime.UtcNow;
 
-            return false;
+            var result = await _database.UpdateAsync(product);
+            return result != null && result.Any();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(
-                ex, 
-                $"Updating variant stock: {productId}/{variantKey}"
-            );
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateVariantStockAsync: {productId}/{variantKey}");
             return false;
         }
     }
+
+    // ==================== VARIANTS ====================
 
     public async Task<bool> AddProductVariantAsync(int productId, string variantKey, ProductVariant variant)
     {
@@ -561,26 +473,19 @@ public class ProductService : IProductService
 
             if (product.Variants.ContainsKey(variantKey))
             {
-                _logger.LogWarning(
-                    "Variant {VariantKey} already exists for product {ProductId}", 
-                    variantKey, 
-                    productId
-                );
+                _logger.LogWarning("Variant {Key} already exists on product {Id}", variantKey, productId);
                 return false;
             }
 
             product.Variants[variantKey] = variant;
-            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedAt            = DateTime.UtcNow;
 
             var result = await _database.UpdateAsync(product);
             return result != null && result.Any();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(
-                ex, 
-                $"Adding variant: {productId}/{variantKey}"
-            );
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"AddProductVariantAsync: {productId}/{variantKey}");
             return false;
         }
     }
@@ -594,26 +499,19 @@ public class ProductService : IProductService
 
             if (!product.Variants.ContainsKey(variantKey))
             {
-                _logger.LogWarning(
-                    "Variant {VariantKey} not found for product {ProductId}", 
-                    variantKey, 
-                    productId
-                );
+                _logger.LogWarning("Variant {Key} not found on product {Id}", variantKey, productId);
                 return false;
             }
 
             product.Variants[variantKey] = variant;
-            product.UpdatedAt = DateTime.UtcNow;
+            product.UpdatedAt            = DateTime.UtcNow;
 
             var result = await _database.UpdateAsync(product);
             return result != null && result.Any();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(
-                ex, 
-                $"Updating variant: {productId}/{variantKey}"
-            );
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateProductVariantAsync: {productId}/{variantKey}");
             return false;
         }
     }
@@ -627,11 +525,7 @@ public class ProductService : IProductService
 
             if (!product.Variants.Remove(variantKey))
             {
-                _logger.LogWarning(
-                    "Variant {VariantKey} not found for product {ProductId}", 
-                    variantKey, 
-                    productId
-                );
+                _logger.LogWarning("Variant {Key} not found on product {Id}", variantKey, productId);
                 return false;
             }
 
@@ -642,10 +536,7 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(
-                ex, 
-                $"Removing variant: {productId}/{variantKey}"
-            );
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"RemoveProductVariantAsync: {productId}/{variantKey}");
             return false;
         }
     }
@@ -659,67 +550,40 @@ public class ProductService : IProductService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting variants: {productId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetProductVariantsAsync: {productId}");
             return null;
         }
     }
-    
-    // ==================== ANALYTICS METHODS (ADMIN ONLY - RLS ENFORCED) ====================
-    
+
+    // ==================== ANALYTICS (ADMIN ONLY) ====================
+
     private async Task<ProductAnalyticsModel?> GetProductAnalyticsByProductIdAsync(int productId)
     {
         try
         {
-            var analytics = await _database.GetWithFilterAsync<ProductAnalyticsModel>(
-                "product_id",
-                Constants.Operator.Equals,
-                productId
-            );
-        
-            return analytics.FirstOrDefault();
+            var list = await _database.GetWithFilterAsync<ProductAnalyticsModel>(
+                "product_id", Constants.Operator.Equals, productId);
+            return list.FirstOrDefault();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting analytics by product_id: {productId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetProductAnalyticsByProductIdAsync: {productId}");
             return null;
         }
     }
 
     public async Task<ProductAnalyticsModel?> GetProductAnalyticsAsync(int productId)
-    {
-        try
-        {
-            return await GetProductAnalyticsByProductIdAsync(productId);
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting analytics: {productId}");
-            return null;
-        }
-    }
+        => await GetProductAnalyticsByProductIdAsync(productId);
 
     public async Task<List<ProductAnalyticsModel>> GetProductAnalyticsBatchAsync(List<int> productIds)
     {
-        try
+        var result = new List<ProductAnalyticsModel>();
+        foreach (var id in productIds)
         {
-            var analyticsList = new List<ProductAnalyticsModel>();
-            
-            foreach (var productId in productIds)
-            {
-                var analytics = await GetProductAnalyticsByProductIdAsync(productId);
-                if (analytics != null)
-                {
-                    analyticsList.Add(analytics);
-                }
-            }
-            
-            return analyticsList;
+            var row = await GetProductAnalyticsByProductIdAsync(id);
+            if (row != null) result.Add(row);
         }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting batch analytics");
-            return new List<ProductAnalyticsModel>();
-        }
+        return result;
     }
 
     public async Task<bool> UpdateProductAnalyticsAsync(int productId)
@@ -729,32 +593,26 @@ public class ProductService : IProductService
             var analytics = await GetProductAnalyticsByProductIdAsync(productId);
             if (analytics == null) return false;
 
-            // Recalculate conversion rates
             if (analytics.TotalViews > 0)
             {
-                analytics.ViewToCartRate = (decimal)analytics.TotalAddToCart / analytics.TotalViews * 100;
-                analytics.OverallConversionRate = (decimal)analytics.TotalPurchases / analytics.TotalViews * 100;
+                analytics.ViewToCartRate          = (decimal)analytics.TotalAddToCart / analytics.TotalViews * 100;
+                analytics.OverallConversionRate   = (decimal)analytics.TotalPurchases / analytics.TotalViews * 100;
             }
-
             if (analytics.TotalAddToCart > 0)
-            {
-                analytics.CartToPurchaseRate = (decimal)analytics.TotalPurchases / analytics.TotalAddToCart * 100;
-            }
-
+                analytics.CartToPurchaseRate      = (decimal)analytics.TotalPurchases / analytics.TotalAddToCart * 100;
             if (analytics.TotalWishlistAdds > 0)
             {
-                analytics.WishlistToCartRate = (decimal)analytics.TotalAddToCart / analytics.TotalWishlistAdds * 100;
-                analytics.WishlistToPurchaseRate = (decimal)analytics.TotalPurchases / analytics.TotalWishlistAdds * 100;
+                analytics.WishlistToCartRate      = (decimal)analytics.TotalAddToCart  / analytics.TotalWishlistAdds * 100;
+                analytics.WishlistToPurchaseRate  = (decimal)analytics.TotalPurchases  / analytics.TotalWishlistAdds * 100;
             }
 
             analytics.UpdatedAt = DateTime.UtcNow;
-
-            var result = await _database.UpdateAsync(analytics);
-            return result != null;
+            var res = await _database.UpdateAsync(analytics);
+            return res != null;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Updating analytics: {productId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateProductAnalyticsAsync: {productId}");
             return false;
         }
     }
@@ -763,132 +621,95 @@ public class ProductService : IProductService
     {
         try
         {
-            var analytics = await _database.GetWithFilterAsync<ProductVariantAnalyticsModel>(
-                "product_id",
-                Constants.Operator.Equals,
-                productId
-            );
-            
-            return analytics;
+            return await _database.GetWithFilterAsync<ProductVariantAnalyticsModel>(
+                "product_id", Constants.Operator.Equals, productId);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting variant analytics for product: {productId}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetVariantAnalyticsAsync: {productId}");
             return new List<ProductVariantAnalyticsModel>();
         }
     }
 
     public async Task<ProductVariantAnalyticsModel?> GetVariantAnalyticsAsync(int productId, string variantKey)
     {
-        try
-        {
-            var allAnalytics = await GetVariantAnalyticsAsync(productId);
-            return allAnalytics.FirstOrDefault(va => va.VariantKey == variantKey);
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(
-                ex, 
-                $"Getting variant analytics: {productId}/{variantKey}"
-            );
-            return null;
-        }
+        var all = await GetVariantAnalyticsAsync(productId);
+        return all.FirstOrDefault(v => v.VariantKey == variantKey);
     }
 
     public async Task<List<ProductVariantAnalyticsModel>> GetAllVariantAnalyticsAsync(int skip = 0, int take = 100)
     {
         try
         {
-            var allAnalytics = await _database.GetAllAsync<ProductVariantAnalyticsModel>();
-            
-            return allAnalytics
-                .Skip(skip)
-                .Take(take)
-                .ToList();
+            var all = await _database.GetAllAsync<ProductVariantAnalyticsModel>();
+            return all.Skip(skip).Take(take).ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting all variant analytics");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetAllVariantAnalyticsAsync");
             return new List<ProductVariantAnalyticsModel>();
         }
     }
-    
+
+    // ==================== UTILITIES ====================
+
     public string GenerateUniqueSku()
     {
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-        var random = Guid.NewGuid().ToString("N").Substring(0, 4).ToUpper();
-        return $"PROD-{timestamp}-{random}";
+        var ts     = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+        var random = Guid.NewGuid().ToString("N")[..4].ToUpper();
+        return $"PROD-{ts}-{random}";
     }
 
-    private ProductViewModel MapToViewModel(ProductModel model)
+    // ==================== PRIVATE HELPERS ====================
+
+    private ProductViewModel MapToViewModel(ProductModel m) => new ProductViewModel
     {
-        return new ProductViewModel
-        {
-            Id = model.Id,
-            Name = model.Name,
-            Slug = model.Slug,
-            Description = model.Description,
-            LongDescription = model.LongDescription,
-            
-            // Partnership
-            IsOwnedByStore = model.IsOwnedByStore,
-            PartnerId = model.PartnerId,
-            
-            // Pricing
-            Price = model.Price,
-            OriginalPrice = model.OriginalPrice,
-            IsOnSale = model.IsOnSale,
-            Discount = model.Discount,
-            
-            // Media
-            Images = model.Images,
-            VideoUrl = model.VideoUrl,
-            
-            // Variants
-            Variants = model.Variants,
-            Sizes = model.Sizes,
-            Colors = model.Colors,
-            
-            // Inventory
-            Stock = model.Stock,
-            Sku = model.Sku,
-            
-            // Shipping
-            BaseWeight = model.BaseWeight,
-            BaseShippingCost = model.BaseShippingCost,
-            HasFreeShipping = model.HasFreeShipping,
-            
-            // Classification
-            CategoryId = model.CategoryId,
-            Category = model.Category,
-            SubCategory = model.SubCategory,
-            Brand = model.Brand,
-            Tags = model.Tags,
-            
-            // Metrics
-            Rating = model.Rating,
-            ReviewCount = model.ReviewCount,
-            
-            // Metadata
-            CreatedAt = model.CreatedAt,
-            UpdatedAt = model.UpdatedAt,
-            IsActive = model.IsActive,
-            IsFeatured = model.IsFeatured
-        };
-    }
+        Id               = m.Id,
+        Name             = m.Name,
+        Slug             = m.Slug,
+        Description      = m.Description,
+        LongDescription  = m.LongDescription,
+        IsOwnedByStore   = m.IsOwnedByStore,
+        PartnerId        = m.PartnerId,
+        Price            = m.Price,
+        OriginalPrice    = m.OriginalPrice,
+        IsOnSale         = m.IsOnSale,
+        Discount         = m.Discount,
+        Images           = m.Images ?? new List<string>(),
+        VideoUrl         = m.VideoUrl,
+        Variants         = m.Variants ?? new Dictionary<string, ProductVariant>(),
+        Sizes            = m.Sizes   ?? new List<string>(),
+        Colors           = m.Colors  ?? new List<string>(),
+        Stock            = m.Stock,
+        Sku              = m.Sku,
+        BaseWeight       = m.BaseWeight,
+        BaseShippingCost = m.BaseShippingCost,
+        HasFreeShipping  = m.HasFreeShipping,
+        CategoryId       = m.CategoryId,
+        Category         = m.Category,
+        SubCategory      = m.SubCategory,
+        Brand            = m.Brand,
+        Tags             = m.Tags ?? new List<string>(),
+        Rating           = m.Rating,
+        ReviewCount      = m.ReviewCount,
+        CreatedAt        = m.CreatedAt,
+        UpdatedAt        = m.UpdatedAt,
+        IsActive         = m.IsActive,
+        IsFeatured       = m.IsFeatured
+    };
 
-    private string GenerateSlug(string name)
-    {
-        return name.ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("&", "and")
-            .Replace("'", "")
-            .Replace("\"", "");
-    }
+    private static string GenerateSlug(string name) =>
+        name.ToLowerInvariant()
+            .Replace(" ",  "-")
+            .Replace("&",  "and")
+            .Replace("'",  "")
+            .Replace("\"", "")
+            .Replace("/",  "-")
+            .Trim('-');
 
-    private int CalculateDiscount(decimal price, decimal? originalPrice)
+    private static int CalculateDiscount(decimal price, decimal? originalPrice)
     {
         if (!originalPrice.HasValue || originalPrice <= price) return 0;
-        return (int)Math.Round(((originalPrice.Value - price) / originalPrice.Value) * 100);
+        return (int)Math.Round((originalPrice.Value - price) / originalPrice.Value * 100);
     }
 }
