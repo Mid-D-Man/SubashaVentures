@@ -107,9 +107,11 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private NotificationComponent? notificationComponent;
 
     private int totalPages => (int)Math.Ceiling(filteredProducts.Count / (double)pageSize);
-// ── Subcategory state (product form) ─────────────────────────────────
+
+    // ── Subcategory state (product form) ─────────────────────────────────
     private List<SubCategoryViewModel> availableSubCategories = new();
     private bool isLoadingSubCategories = false;
+
     // ==================== LIFECYCLE ====================
 
     protected override async Task OnInitializedAsync()
@@ -159,12 +161,10 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             isLoading = true;
             StateHasChanged();
 
-            // GetProductsAsync returns ALL non-deleted products (including inactive)
             var products = await ProductService.GetProductsAsync(0, 1000);
             allProducts  = products ?? new List<ProductViewModel>();
             totalProducts = allProducts.Count;
 
-            // Enrich partner names
             foreach (var product in allProducts.Where(p => !p.IsOwnedByStore && p.PartnerId.HasValue))
             {
                 var partner = partners.FirstOrDefault(p => p.Id == product.PartnerId!.Value);
@@ -298,7 +298,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-
     /// <summary>
     /// Called when the category dropdown changes in the product form.
     /// Loads subcategories for the selected category.
@@ -359,7 +358,6 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         try
         {
             availableSubCategories = await CategoryService.GetSubCategoriesAsync(categoryId);
-            // Keep the existing subcategory value — don't auto-reset on edit
             if (!string.IsNullOrEmpty(currentSubCategory))
                 productForm.SubCategory = currentSubCategory;
         }
@@ -374,6 +372,7 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
             StateHasChanged();
         }
     }
+
     // ==================== FILTERING & SORTING ====================
 
     private void ApplyFiltersAndSort()
@@ -493,7 +492,8 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         isProductModalOpen = true;
         StateHasChanged();
     }
-private void OpenEditProductModal(ProductViewModel product)
+
+    private void OpenEditProductModal(ProductViewModel product)
     {
         isEditMode   = true;
         productForm  = MapToFormData(product);
@@ -502,9 +502,9 @@ private void OpenEditProductModal(ProductViewModel product)
         isProductModalOpen = true;
         StateHasChanged();
 
-        // Load subcategories asynchronously without blocking the modal open
         _ = LoadSubCategoriesForEdit(product.CategoryId, product.SubCategory);
     }
+
     private void CloseProductModal()
     {
         isProductModalOpen = false;
@@ -646,8 +646,8 @@ private void OpenEditProductModal(ProductViewModel product)
         editingVariantKey = null;
         variantForm       = new VariantFormData
         {
-            Weight       = productForm.BaseWeight,
-            ShippingCost = productForm.BaseShippingCost,
+            Weight          = productForm.BaseWeight,
+            ShippingCost    = productForm.BaseShippingCost,
             HasFreeShipping = productForm.HasFreeShipping
         };
         isVariantModalOpen = true;
@@ -794,8 +794,8 @@ private void OpenEditProductModal(ProductViewModel product)
 
     private void HandleDeleteProduct(ProductViewModel product)
     {
-        productToDelete     = product;
-        productsToDelete    = null;
+        productToDelete        = product;
+        productsToDelete       = null;
         showDeleteConfirmation = true;
         StateHasChanged();
     }
@@ -834,10 +834,10 @@ private void OpenEditProductModal(ProductViewModel product)
     {
         try
         {
-            var form      = MapToFormData(product);
-            form.Id       = 0;
-            form.Name     = $"{product.Name} (Copy)";
-            form.Sku      = ProductService.GenerateUniqueSku();
+            var form  = MapToFormData(product);
+            form.Id   = 0;
+            form.Name = $"{product.Name} (Copy)";
+            form.Sku  = ProductService.GenerateUniqueSku();
 
             var result = await ProductService.CreateProductAsync(MapToCreateRequest(form));
             if (result != null)
@@ -1024,17 +1024,18 @@ private void OpenEditProductModal(ProductViewModel product)
             StateHasChanged();
 
             var csv = new StringBuilder();
-            csv.AppendLine("ID,SKU,Name,Owner,Category,Brand,Price,Original Price,Discount %," +
+            csv.AppendLine("ID,SKU,Name,Owner,Category,SubCategory,Brand,Price,Original Price,Discount %," +
                            "Stock,Variants,Status,Featured,On Sale,Rating,Reviews,Created At,Updated At");
 
             foreach (var p in filteredProducts)
             {
-                var line = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17}",
+                var line = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18}",
                     p.Id,
                     EscapeCsv(p.Sku),
                     EscapeCsv(p.Name),
                     EscapeCsv(p.IsOwnedByStore ? "Store" : p.PartnerName ?? "Partner"),
                     EscapeCsv(p.Category),
+                    EscapeCsv(p.SubCategory ?? string.Empty),
                     EscapeCsv(p.Brand),
                     p.Price.ToString("F2"),
                     p.OriginalPrice?.ToString("F2") ?? string.Empty,
@@ -1051,9 +1052,9 @@ private void OpenEditProductModal(ProductViewModel product)
                 csv.AppendLine(line);
             }
 
-            var fileName  = $"products_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-            var bytes     = Encoding.UTF8.GetBytes(csv.ToString());
-            var base64    = Convert.ToBase64String(bytes);
+            var fileName = $"products_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+            var bytes    = Encoding.UTF8.GetBytes(csv.ToString());
+            var base64   = Convert.ToBase64String(bytes);
 
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/csv");
             ShowSuccessNotification($"Exported {filteredProducts.Count} products");
@@ -1083,13 +1084,13 @@ private void OpenEditProductModal(ProductViewModel product)
 
     private static string GetStockClass(int stock)
     {
-        if (stock <= 0)   return "out-of-stock";
-        if (stock <= 10)  return "low";
+        if (stock <= 0)  return "out-of-stock";
+        if (stock <= 10) return "low";
         return "in-stock";
     }
 
-    private void PreviousPage() { if (currentPage > 1)           { currentPage--; UpdatePaginatedProducts(); } }
-    private void NextPage()     { if (currentPage < totalPages)  { currentPage++; UpdatePaginatedProducts(); } }
+    private void PreviousPage() { if (currentPage > 1)          { currentPage--; UpdatePaginatedProducts(); } }
+    private void NextPage()     { if (currentPage < totalPages) { currentPage++; UpdatePaginatedProducts(); } }
 
     private void GoToPage(int page)
     {
@@ -1099,7 +1100,6 @@ private void OpenEditProductModal(ProductViewModel product)
     }
 
     // ==================== NOTIFICATIONS ====================
-    // FIX: Use ShowNotification with NotificationType enum to match NotificationComponent API.
 
     private void ShowSuccessNotification(string message) =>
         notificationComponent?.ShowNotification(message, NotificationType.Success);
@@ -1132,6 +1132,7 @@ private void OpenEditProductModal(ProductViewModel product)
             HasFreeShipping  = p.HasFreeShipping,
             Sku              = p.Sku,
             CategoryId       = p.CategoryId,
+            SubCategory      = p.SubCategory ?? string.Empty,
             Brand            = p.Brand,
             Tags             = p.Tags?.ToList(),
             ImageUrls        = p.Images?.ToList(),
@@ -1160,6 +1161,7 @@ private void OpenEditProductModal(ProductViewModel product)
         HasFreeShipping  = f.HasFreeShipping,
         Sku              = f.Sku,
         CategoryId       = f.CategoryId,
+        SubCategory      = string.IsNullOrEmpty(f.SubCategory) ? null : f.SubCategory,
         Brand            = f.Brand,
         Tags             = f.Tags,
         ImageUrls        = f.ImageUrls,
@@ -1181,6 +1183,7 @@ private void OpenEditProductModal(ProductViewModel product)
         BaseShippingCost = f.BaseShippingCost,
         HasFreeShipping  = f.HasFreeShipping,
         CategoryId       = f.CategoryId,
+        SubCategory      = string.IsNullOrEmpty(f.SubCategory) ? null : f.SubCategory,
         Brand            = f.Brand,
         Tags             = f.Tags,
         ImageUrls        = f.ImageUrls,
@@ -1196,7 +1199,8 @@ private void OpenEditProductModal(ProductViewModel product)
         f.LongDescription = string.Empty; f.IsOwnedByStore = true;
         f.PartnerIdString = null; f.Price = 0; f.OriginalPrice = null;
         f.BaseWeight = 1.0m; f.BaseShippingCost = 2000m; f.HasFreeShipping = false;
-        f.Sku = string.Empty; f.CategoryId = string.Empty; f.Brand = string.Empty;
+        f.Sku = string.Empty; f.CategoryId = string.Empty; f.SubCategory = string.Empty;
+        f.Brand = string.Empty;
         f.Tags?.Clear(); f.ImageUrls?.Clear(); f.VideoUrl = null;
         f.Variants?.Clear(); f.IsFeatured = false; f.IsActive = true;
     }
@@ -1205,26 +1209,27 @@ private void OpenEditProductModal(ProductViewModel product)
 
     public class ProductFormData
     {
-        public int     Id              { get; set; }
-        public string  Name            { get; set; } = string.Empty;
-        public string  Description     { get; set; } = string.Empty;
-        public string  LongDescription { get; set; } = string.Empty;
-        public bool    IsOwnedByStore  { get; set; } = true;
-        public string? PartnerIdString { get; set; }
-        public decimal Price           { get; set; }
-        public decimal? OriginalPrice  { get; set; }
-        public decimal BaseWeight      { get; set; } = 1.0m;
-        public decimal BaseShippingCost { get; set; } = 2000m;
-        public bool    HasFreeShipping { get; set; } = false;
-        public string  Sku             { get; set; } = string.Empty;
-        public string  CategoryId      { get; set; } = string.Empty;
-        public string  Brand           { get; set; } = string.Empty;
-        public List<string>?                        Tags      { get; set; }
-        public List<string>?                        ImageUrls { get; set; }
-        public string?                              VideoUrl  { get; set; }
-        public Dictionary<string, ProductVariant>?  Variants  { get; set; }
-        public bool    IsFeatured      { get; set; }
-        public bool    IsActive        { get; set; } = true;
+        public int      Id               { get; set; }
+        public string   Name             { get; set; } = string.Empty;
+        public string   Description      { get; set; } = string.Empty;
+        public string   LongDescription  { get; set; } = string.Empty;
+        public bool     IsOwnedByStore   { get; set; } = true;
+        public string?  PartnerIdString  { get; set; }
+        public decimal  Price            { get; set; }
+        public decimal? OriginalPrice    { get; set; }
+        public decimal  BaseWeight       { get; set; } = 1.0m;
+        public decimal  BaseShippingCost { get; set; } = 2000m;
+        public bool     HasFreeShipping  { get; set; } = false;
+        public string   Sku              { get; set; } = string.Empty;
+        public string   CategoryId       { get; set; } = string.Empty;
+        public string   SubCategory      { get; set; } = string.Empty;
+        public string   Brand            { get; set; } = string.Empty;
+        public List<string>?                       Tags      { get; set; }
+        public List<string>?                       ImageUrls { get; set; }
+        public string?                             VideoUrl  { get; set; }
+        public Dictionary<string, ProductVariant>? Variants  { get; set; }
+        public bool     IsFeatured       { get; set; }
+        public bool     IsActive         { get; set; } = true;
 
         private string _tagsRaw = string.Empty;
 
