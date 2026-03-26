@@ -268,7 +268,7 @@ public class ProductService : IProductService
                     WishlistToCartRate     = 0,
                     WishlistToPurchaseRate = 0,
                     IsTrending             = false,
-                    IsBestSeller          = false,
+                    IsBestSeller           = false,
                     NeedsAttention         = false,
                     CreatedAt              = now,
                     UpdatedAt              = now
@@ -306,12 +306,12 @@ public class ProductService : IProductService
                 return false;
             }
 
-            if (request.Name           != null) existing.Name           = request.Name;
-            if (request.Description    != null) existing.Description    = request.Description;
+            if (request.Name            != null) existing.Name            = request.Name;
+            if (request.Description     != null) existing.Description     = request.Description;
             if (request.LongDescription != null) existing.LongDescription = request.LongDescription;
 
             if (request.IsOwnedByStore.HasValue) existing.IsOwnedByStore = request.IsOwnedByStore.Value;
-            if (request.PartnerId.HasValue)      existing.PartnerId      = request.PartnerId;
+            if (request.PartnerId.HasValue)      existing.PartnerId       = request.PartnerId;
 
             if (request.Price.HasValue)         existing.Price         = request.Price.Value;
             if (request.OriginalPrice.HasValue) existing.OriginalPrice = request.OriginalPrice;
@@ -336,6 +336,10 @@ public class ProductService : IProductService
                         $"✓ Category updated: {request.CategoryId} → {cat.Name}", LogLevel.Info);
                 }
             }
+
+            // SubCategory — null means "leave as is", empty string means "clear it"
+            if (request.SubCategory != null)
+                existing.SubCategory = string.IsNullOrEmpty(request.SubCategory) ? null : request.SubCategory;
 
             if (request.Brand != null) existing.Brand = request.Brand;
             if (request.Tags  != null) existing.Tags  = request.Tags;
@@ -448,9 +452,9 @@ public class ProductService : IProductService
 
             if (!product.Variants.TryGetValue(variantKey, out var variant)) return false;
 
-            variant.Stock                  = newStock;
-            product.Variants[variantKey]   = variant;
-            product.UpdatedAt              = DateTime.UtcNow;
+            variant.Stock                = newStock;
+            product.Variants[variantKey] = variant;
+            product.UpdatedAt            = DateTime.UtcNow;
 
             var result = await _database.UpdateAsync(product);
             return result != null && result.Any();
@@ -595,15 +599,15 @@ public class ProductService : IProductService
 
             if (analytics.TotalViews > 0)
             {
-                analytics.ViewToCartRate          = (decimal)analytics.TotalAddToCart / analytics.TotalViews * 100;
-                analytics.OverallConversionRate   = (decimal)analytics.TotalPurchases / analytics.TotalViews * 100;
+                analytics.ViewToCartRate         = (decimal)analytics.TotalAddToCart / analytics.TotalViews * 100;
+                analytics.OverallConversionRate  = (decimal)analytics.TotalPurchases / analytics.TotalViews * 100;
             }
             if (analytics.TotalAddToCart > 0)
-                analytics.CartToPurchaseRate      = (decimal)analytics.TotalPurchases / analytics.TotalAddToCart * 100;
+                analytics.CartToPurchaseRate     = (decimal)analytics.TotalPurchases / analytics.TotalAddToCart * 100;
             if (analytics.TotalWishlistAdds > 0)
             {
-                analytics.WishlistToCartRate      = (decimal)analytics.TotalAddToCart  / analytics.TotalWishlistAdds * 100;
-                analytics.WishlistToPurchaseRate  = (decimal)analytics.TotalPurchases  / analytics.TotalWishlistAdds * 100;
+                analytics.WishlistToCartRate     = (decimal)analytics.TotalAddToCart  / analytics.TotalWishlistAdds * 100;
+                analytics.WishlistToPurchaseRate = (decimal)analytics.TotalPurchases  / analytics.TotalWishlistAdds * 100;
             }
 
             analytics.UpdatedAt = DateTime.UtcNow;
