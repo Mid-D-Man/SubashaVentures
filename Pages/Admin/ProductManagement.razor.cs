@@ -298,6 +298,82 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+
+    /// <summary>
+    /// Called when the category dropdown changes in the product form.
+    /// Loads subcategories for the selected category.
+    /// </summary>
+    private async Task OnCategoryChanged()
+    {
+        availableSubCategories.Clear();
+        productForm.SubCategory = string.Empty;
+
+        if (string.IsNullOrEmpty(productForm.CategoryId))
+        {
+            StateHasChanged();
+            return;
+        }
+
+        isLoadingSubCategories = true;
+        StateHasChanged();
+
+        try
+        {
+            availableSubCategories = await CategoryService.GetSubCategoriesAsync(productForm.CategoryId);
+
+            // Auto-select default subcategory when creating a new product
+            if (!isEditMode && availableSubCategories.Any())
+            {
+                var defaultSub = availableSubCategories.FirstOrDefault(s => s.IsDefault)
+                              ?? availableSubCategories.First();
+                productForm.SubCategory = defaultSub.Name;
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"✓ Loaded {availableSubCategories.Count} subcategories for category {productForm.CategoryId}",
+                LogLevel.Debug);
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "OnCategoryChanged");
+            availableSubCategories = new List<SubCategoryViewModel>();
+        }
+        finally
+        {
+            isLoadingSubCategories = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Called when opening the edit modal — pre-loads subcategories
+    /// for the product's existing category without resetting the value.
+    /// </summary>
+    private async Task LoadSubCategoriesForEdit(string categoryId, string? currentSubCategory)
+    {
+        if (string.IsNullOrEmpty(categoryId)) return;
+
+        isLoadingSubCategories = true;
+        StateHasChanged();
+
+        try
+        {
+            availableSubCategories = await CategoryService.GetSubCategoriesAsync(categoryId);
+            // Keep the existing subcategory value — don't auto-reset on edit
+            if (!string.IsNullOrEmpty(currentSubCategory))
+                productForm.SubCategory = currentSubCategory;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "LoadSubCategoriesForEdit");
+            availableSubCategories = new List<SubCategoryViewModel>();
+        }
+        finally
+        {
+            isLoadingSubCategories = false;
+            StateHasChanged();
+        }
+    }
     // ==================== FILTERING & SORTING ====================
 
     private void ApplyFiltersAndSort()
