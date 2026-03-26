@@ -486,22 +486,25 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
 
     private void OpenCreateProductModal()
     {
-        isEditMode = false;
-        productForm = new ProductFormData();
+        isEditMode             = false;
+        productForm            = new ProductFormData();
+        availableSubCategories = new List<SubCategoryViewModel>();
         validationErrors.Clear();
         isProductModalOpen = true;
         StateHasChanged();
     }
-
-    private void OpenEditProductModal(ProductViewModel product)
+private void OpenEditProductModal(ProductViewModel product)
     {
-        isEditMode = true;
-        productForm = MapToFormData(product);
+        isEditMode   = true;
+        productForm  = MapToFormData(product);
         validationErrors.Clear();
+        availableSubCategories.Clear();
         isProductModalOpen = true;
         StateHasChanged();
-    }
 
+        // Load subcategories asynchronously without blocking the modal open
+        _ = LoadSubCategoriesForEdit(product.CategoryId, product.SubCategory);
+    }
     private void CloseProductModal()
     {
         isProductModalOpen = false;
