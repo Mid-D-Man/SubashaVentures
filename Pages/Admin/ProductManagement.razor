@@ -11,10 +11,10 @@
 @layout AdminLayout
 
 <div class="product-management">
-    <!-- Notification Component -->
-    <NotificationComponent @ref="notificationComponent" 
-                          Position="NotificationPosition.TopRight"
-                          AutoDismissTime="5000" />
+
+    <NotificationComponent @ref="notificationComponent"
+                           Position="NotificationPosition.TopRight"
+                           AutoDismissTime="5000" />
 
     <!-- Header -->
     <div class="pm-header">
@@ -24,21 +24,21 @@
         </div>
         <div class="pm-header-right">
             <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                           Size="SecondaryButton.ButtonSize.Medium"
-                           Icon="⬇"
-                           OnClick="HandleExport">
+                             Size="SecondaryButton.ButtonSize.Medium"
+                             Icon="⬇"
+                             OnClick="HandleExport">
                 Export
             </SecondaryButton>
             <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
-                          Size="PrimaryButton.ButtonSize.Medium"
-                          Icon="➕"
-                          OnClick="OpenCreateProductModal">
+                           Size="PrimaryButton.ButtonSize.Medium"
+                           Icon="➕"
+                           OnClick="OpenCreateProductModal">
                 Add Product
             </PrimaryButton>
         </div>
     </div>
 
-    <!-- Stats Cards -->
+    <!-- Stats -->
     <div class="pm-stats">
         <div class="stat-card">
             <div class="stat-icon">📦</div>
@@ -47,7 +47,6 @@
                 <span class="stat-value">@totalProducts</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">✅</div>
             <div class="stat-info">
@@ -55,7 +54,6 @@
                 <span class="stat-value">@activeProducts</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">🤝</div>
             <div class="stat-info">
@@ -63,7 +61,6 @@
                 <span class="stat-value">@partnerProducts</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">📉</div>
             <div class="stat-info">
@@ -91,8 +88,8 @@
             <div class="potd-actions">
                 <span class="potd-date">Last updated: @(potdLastUpdate?.ToString("MMM dd, HH:mm") ?? "Never")</span>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="RefreshProductOfTheDay">
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 OnClick="RefreshProductOfTheDay">
                     🔄 Refresh POTD
                 </SecondaryButton>
             </div>
@@ -155,37 +152,25 @@
             {
                 <span class="selection-count">@selectedProducts.Count selected</span>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="HandleBulkActivate">
-                    Activate
-                </SecondaryButton>
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 OnClick="HandleBulkActivate">Activate</SecondaryButton>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="HandleBulkDeactivate">
-                    Deactivate
-                </SecondaryButton>
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 OnClick="HandleBulkDeactivate">Deactivate</SecondaryButton>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                OnClick="HandleBulkDelete"
-                                CssClass="btn-danger">
-                    Delete
-                </SecondaryButton>
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 OnClick="HandleBulkDelete"
+                                 CssClass="btn-danger">Delete</SecondaryButton>
             }
 
-            <button class="view-toggle @(viewMode == "grid" ? "active" : "")" 
-                    @onclick="@(() => viewMode = "grid")"
-                    title="Grid View">
-                ▦
-            </button>
-            <button class="view-toggle @(viewMode == "list" ? "active" : "")" 
-                    @onclick="@(() => viewMode = "list")"
-                    title="List View">
-                ☰
-            </button>
+            <button class="view-toggle @(viewMode == "grid" ? "active" : "")"
+                    @onclick="@(() => viewMode = "grid")" title="Grid View">▦</button>
+            <button class="view-toggle @(viewMode == "list" ? "active" : "")"
+                    @onclick="@(() => viewMode = "list")" title="List View">☰</button>
         </div>
     </div>
 
-    <!-- Content Area -->
+    <!-- Content -->
     @if (isLoading)
     {
         <div class="pm-loading">
@@ -199,9 +184,7 @@
             <div class="empty-icon">📦</div>
             <h3>No products found</h3>
             <p>@(string.IsNullOrEmpty(searchQuery) ? "Start by adding your first product" : "Try adjusting your search or filters")</p>
-            <PrimaryButton OnClick="OpenCreateProductModal">
-                Add Product
-            </PrimaryButton>
+            <PrimaryButton OnClick="OpenCreateProductModal">Add Product</PrimaryButton>
         </div>
     }
     else
@@ -212,20 +195,22 @@
                 @foreach (var product in paginatedProducts)
                 {
                     <AdminProductCard Product="@product"
-                        AllowSelection="true"
-                        IsSelected="@selectedProducts.Contains(product.Id)"
-                        LowStockThreshold="@lowStockThreshold"
-                        OnEdit="@((p) => OpenEditProductModal(p))"
-                        OnDelete="@((p) => HandleDeleteProduct(p))"
-                        OnDuplicate="@((p) => HandleDuplicateProduct(p))"
-                        OnPreview="@((p) => HandlePreviewProduct(p))"
-                        OnManageStock="@((p) => OpenStockModal(p))"
-                        OnToggleActive="@((args) => HandleToggleActive(args.product, args.isActive))"
-                        OnToggleFeatured="@((args) => HandleToggleFeatured(args.product, args.isFeatured))"
-                        OnSelectionChanged="@((args) => HandleSelectionChanged(args.productId, args.isSelected))"
-                        OnCardClick="@((p) => OpenEditProductModal(p))">
+                                      AllowSelection="true"
+                                      IsSelected="@selectedProducts.Contains(product.Id)"
+                                      LowStockThreshold="@lowStockThreshold"
+                                      OnEdit="@((p) => OpenEditProductModal(p))"
+                                      OnDelete="@((p) => HandleDeleteProduct(p))"
+                                      OnDuplicate="@((p) => HandleDuplicateProduct(p))"
+                                      OnPreview="@((p) => HandlePreviewProduct(p))"
+                                      OnManageStock="@((p) => OpenStockModal(p))"
+                                      OnToggleActive="@((args) => HandleToggleActive(args.product, args.isActive))"
+                                      OnToggleFeatured="@((args) => HandleToggleFeatured(args.product, args.isFeatured))"
+                                      OnSelectionChanged="@((args) => HandleSelectionChanged(args.productId, args.isSelected))"
+                                      OnCardClick="@((p) => OpenEditProductModal(p))">
                         <ContextMenuContent>
-                            <button class="context-menu-item" @onclick="@(() => SetAsProductOfTheDay(product))" @onclick:stopPropagation="true">
+                            <button class="context-menu-item"
+                                    @onclick="@(() => SetAsProductOfTheDay(product))"
+                                    @onclick:stopPropagation="true">
                                 🌟 Set as Product of the Day
                             </button>
                         </ContextMenuContent>
@@ -240,13 +225,14 @@
                     <thead>
                         <tr>
                             <th>
-                                <input type="checkbox" 
+                                <input type="checkbox"
                                        @onchange="HandleSelectAll"
                                        checked="@(selectedProducts.Count == paginatedProducts.Count && paginatedProducts.Any())" />
                             </th>
                             <th>Product</th>
                             <th>Owner</th>
                             <th>Category</th>
+                            <th>Subcategory</th>
                             <th>Price</th>
                             <th>Stock</th>
                             <th>Variants</th>
@@ -262,7 +248,7 @@
                                 <td>
                                     <input type="checkbox"
                                            checked="@selectedProducts.Contains(product.Id)"
-                                           @onchange="@((e) => HandleSelectionChanged(product.Id, (bool)e.Value))" />
+                                           @onchange="@((e) => HandleSelectionChanged(product.Id, (bool)e.Value!))" />
                                 </td>
                                 <td>
                                     <div class="table-product-info">
@@ -278,12 +264,22 @@
                                     {
                                         <span class="owner-badge store">🏪 Our Store</span>
                                     }
-                                    else if (product.PartnerId.HasValue)
+                                    else
                                     {
                                         <span class="owner-badge partner">🤝 @(product.PartnerName ?? "Partner")</span>
                                     }
                                 </td>
                                 <td>@product.Category</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(product.SubCategory))
+                                    {
+                                        <span class="sub-category-badge">@product.SubCategory</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
                                 <td>
                                     @if (product.IsOnSale && product.OriginalPrice.HasValue)
                                     {
@@ -298,9 +294,7 @@
                                     }
                                 </td>
                                 <td>
-                                    <span class="stock-badge @GetStockClass(product.Stock)">
-                                        @product.Stock
-                                    </span>
+                                    <span class="stock-badge @GetStockClass(product.Stock)">@product.Stock</span>
                                 </td>
                                 <td>
                                     <span class="variant-count">@(product.Variants?.Count ?? 0) variants</span>
@@ -313,18 +307,10 @@
                                 <td>@product.CreatedAt.ToString("MMM dd, yyyy")</td>
                                 <td>
                                     <div class="table-actions">
-                                        <button class="action-btn" @onclick="@(() => SetAsProductOfTheDay(product))" title="Set as POTD">
-                                            🌟
-                                        </button>
-                                        <button class="action-btn" @onclick="@(() => OpenEditProductModal(product))" title="Edit">
-                                            ✏️
-                                        </button>
-                                        <button class="action-btn" @onclick="@(() => HandleDuplicateProduct(product))" title="Duplicate">
-                                            📋
-                                        </button>
-                                        <button class="action-btn danger" @onclick="@(() => HandleDeleteProduct(product))" title="Delete">
-                                            🗑️
-                                        </button>
+                                        <button class="action-btn" @onclick="@(() => SetAsProductOfTheDay(product))" title="Set as POTD">🌟</button>
+                                        <button class="action-btn" @onclick="@(() => OpenEditProductModal(product))" title="Edit">✏️</button>
+                                        <button class="action-btn" @onclick="@(() => HandleDuplicateProduct(product))" title="Duplicate">📋</button>
+                                        <button class="action-btn danger" @onclick="@(() => HandleDeleteProduct(product))" title="Delete">🗑️</button>
                                     </div>
                                 </td>
                             </tr>
@@ -337,29 +323,17 @@
         <!-- Pagination -->
         <div class="pm-pagination">
             <div class="pagination-info">
-                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredProducts.Count) of @filteredProducts.Count products
+                Showing @((currentPage - 1) * pageSize + 1)–@Math.Min(currentPage * pageSize, filteredProducts.Count) of @filteredProducts.Count products
             </div>
             <div class="pagination-controls">
-                <button class="page-btn" 
-                        @onclick="PreviousPage" 
-                        disabled="@(currentPage == 1)">
-                    ← Previous
-                </button>
-                
+                <button class="page-btn" @onclick="PreviousPage" disabled="@(currentPage == 1)">← Previous</button>
                 @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
                 {
                     var pageNumber = i;
-                    <button class="page-btn @(pageNumber == currentPage ? "active" : "")" 
-                            @onclick="@(() => GoToPage(pageNumber))">
-                        @pageNumber
-                    </button>
+                    <button class="page-btn @(pageNumber == currentPage ? "active" : "")"
+                            @onclick="@(() => GoToPage(pageNumber))">@pageNumber</button>
                 }
-                
-                <button class="page-btn" 
-                        @onclick="NextPage" 
-                        disabled="@(currentPage == totalPages)">
-                    Next →
-                </button>
+                <button class="page-btn" @onclick="NextPage" disabled="@(currentPage == totalPages)">Next →</button>
             </div>
         </div>
     }
@@ -375,49 +349,40 @@
               OnClose="CloseProductModal">
     <BodyContent>
         <div class="product-form">
+
             <!-- Basic Information -->
             <div class="form-section">
                 <h3 class="section-title">Basic Information</h3>
-                
                 <InputField @bind-Value="productForm.Name"
-                           Label="Product Name"
-                           Placeholder="Enter product name"
-                           IsRequired="true"
-                           HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
-                           ErrorMessage="@validationErrors.GetValueOrDefault("Name")" />
-
+                            Label="Product Name"
+                            Placeholder="Enter product name"
+                            IsRequired="true"
+                            HasError="@(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Name")))"
+                            ErrorMessage="@validationErrors.GetValueOrDefault("Name")" />
                 <InputField @bind-Value="productForm.Description"
-                           Label="Short Description"
-                           Placeholder="Brief product description"
-                           IsRequired="true" />
-
+                            Label="Short Description"
+                            Placeholder="Brief product description"
+                            IsRequired="true" />
                 <div class="form-group">
                     <label class="form-label">Long Description</label>
-                    <textarea class="form-textarea"
-                             @bind="productForm.LongDescription"
-                             placeholder="Detailed product description"
-                             rows="6"></textarea>
+                    <textarea class="form-textarea" @bind="productForm.LongDescription"
+                              placeholder="Detailed product description" rows="6"></textarea>
                 </div>
             </div>
 
-            <!-- Partnership Section -->
+            <!-- Partnership -->
             <div class="form-section partnership-section">
                 <h3 class="section-title">Product Ownership</h3>
-                
                 <div class="partnership-toggle">
                     <label class="toggle-switch">
-                        <input type="checkbox"
-                               checked="@productForm.IsOwnedByStore"
+                        <input type="checkbox" checked="@productForm.IsOwnedByStore"
                                @onchange="HandleOwnershipChange" />
                         <span class="toggle-slider"></span>
                         <span class="toggle-label">This product belongs to our store</span>
                     </label>
-                    
                     @if (!productForm.IsOwnedByStore)
                     {
-                        <p class="partnership-info">
-                            ℹ️ This is a partner product. Select the partner who owns this product.
-                        </p>
+                        <p class="partnership-info">ℹ️ This is a partner product. Select the partner below.</p>
                     }
                 </div>
 
@@ -431,28 +396,13 @@
                             @foreach (var partner in partners)
                             {
                                 <option value="@partner.Id">
-                                    @partner.Name (@partner.UniquePartnerId) - @partner.CommissionRate% commission
+                                    @partner.Name (@partner.UniquePartnerId) — @partner.CommissionRate% commission
                                 </option>
                             }
                         </select>
                         @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("PartnerId")))
                         {
                             <span class="error-message">@validationErrors.GetValueOrDefault("PartnerId")</span>
-                        }
-                        
-                        @if (!string.IsNullOrEmpty(productForm.PartnerIdString) && productForm.PartnerIdString != Guid.Empty.ToString())
-                        {
-                            var selectedPartner = partners.FirstOrDefault(p => p.Id.ToString() == productForm.PartnerIdString);
-                            if (selectedPartner != null)
-                            {
-                                <div class="partner-details">
-                                    <strong>Partner Details:</strong><br/>
-                                    Name: @selectedPartner.Name<br/>
-                                    Email: @selectedPartner.Email<br/>
-                                    Commission Rate: @selectedPartner.CommissionRate%<br/>
-                                    Verification: @selectedPartner.VerificationStatus
-                                </div>
-                            }
                         }
                     </div>
                 }
@@ -461,76 +411,50 @@
             <!-- Pricing -->
             <div class="form-section">
                 <h3 class="section-title">Pricing</h3>
-                
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Price (₦) *</label>
-                        <input type="number" 
-                               class="form-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")) ? "has-error" : "")"
-                               @bind="productForm.Price"
-                               @bind:event="oninput"
-                               placeholder="0.00"
-                               step="0.01"
-                               min="0" />
+                        <input type="number" class="form-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")) ? "has-error" : "")"
+                               @bind="productForm.Price" @bind:event="oninput"
+                               placeholder="0.00" step="0.01" min="0" />
                         @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Price")))
                         {
                             <span class="error-message">@validationErrors.GetValueOrDefault("Price")</span>
                         }
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">
                             Original Price (₦)
                             <span class="helper-text-inline">(Leave empty if not on sale)</span>
                         </label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="productForm.OriginalPrice"
-                               @bind:event="oninput"
-                               placeholder="0.00"
-                               step="0.01"
-                               min="0" />
+                        <input type="number" class="form-input"
+                               @bind="productForm.OriginalPrice" @bind:event="oninput"
+                               placeholder="0.00" step="0.01" min="0" />
                     </div>
                 </div>
-
                 @if (productForm.OriginalPrice.HasValue && productForm.OriginalPrice > productForm.Price && productForm.Price > 0)
                 {
                     <div class="discount-preview">
-                        💰 @CalculateDiscount()% discount - Save ₦@((productForm.OriginalPrice.Value - productForm.Price).ToString("N0"))
+                        💰 @CalculateDiscount()% discount — Save ₦@((productForm.OriginalPrice!.Value - productForm.Price).ToString("N0"))
                     </div>
                 }
             </div>
 
-            <!-- Shipping Information -->
+            <!-- Shipping -->
             <div class="form-section">
                 <h3 class="section-title">Shipping Information</h3>
-                
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Base Weight (kg)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="productForm.BaseWeight"
-                               @bind:event="oninput"
-                               placeholder="1.0"
-                               step="0.1"
-                               min="0" />
-                        <span class="helper-text">Default weight for shipping calculations</span>
+                        <input type="number" class="form-input" @bind="productForm.BaseWeight"
+                               @bind:event="oninput" placeholder="1.0" step="0.1" min="0" />
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">Base Shipping Cost (₦)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="productForm.BaseShippingCost"
-                               @bind:event="oninput"
-                               placeholder="2000"
-                               step="100"
-                               min="0" />
-                        <span class="helper-text">Default shipping cost</span>
+                        <input type="number" class="form-input" @bind="productForm.BaseShippingCost"
+                               @bind:event="oninput" placeholder="2000" step="100" min="0" />
                     </div>
                 </div>
-
                 <label class="toggle-switch">
                     <input type="checkbox" @bind="productForm.HasFreeShipping" />
                     <span class="toggle-slider"></span>
@@ -541,53 +465,41 @@
             <!-- Inventory -->
             <div class="form-section">
                 <h3 class="section-title">Inventory</h3>
-                
                 <div class="form-group">
-                    <label class="form-label">
-                        SKU (Product Identifier) *
-                    </label>
+                    <label class="form-label">SKU *</label>
                     <div class="sku-input-group">
-                        <input type="text" 
+                        <input type="text"
                                class="form-input sku-input @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Sku")) ? "has-error" : "")"
-                               @bind="productForm.Sku"
-                               @bind:event="oninput"
+                               @bind="productForm.Sku" @bind:event="oninput"
                                placeholder="PROD-20250115-XXXX"
                                readonly="@(!isEditMode)" />
                         @if (!isEditMode)
                         {
                             <SecondaryButton OnClick="GenerateSku"
-                                            Variant="SecondaryButton.ButtonVariant.Outline"
-                                            Size="SecondaryButton.ButtonSize.Small"
-                                            CssClass="generate-sku-btn">
-                                🎲 Generate
-                            </SecondaryButton>
+                                             Variant="SecondaryButton.ButtonVariant.Outline"
+                                             Size="SecondaryButton.ButtonSize.Small"
+                                             CssClass="generate-sku-btn">🎲 Generate</SecondaryButton>
                         }
                     </div>
                     @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("Sku")))
                     {
                         <span class="error-message">@validationErrors.GetValueOrDefault("Sku")</span>
                     }
-                    <span class="helper-text">@(isEditMode ? "SKU cannot be changed after creation" : "Click 'Generate' to create a unique SKU")</span>
+                    <span class="helper-text">@(isEditMode ? "SKU cannot be changed after creation" : "Click Generate to create a unique SKU")</span>
                 </div>
-
                 <div class="variant-stock-info">
-                    <p class="info-message">
-                        ℹ️ <strong>Stock is auto-calculated from variants.</strong> 
-                        Total stock will be the sum of all variant stock levels.
-                    </p>
+                    <p class="info-message">ℹ️ <strong>Stock is auto-calculated from variants.</strong> Total stock is the sum of all variant stock levels.</p>
                 </div>
             </div>
 
-            <!-- Variants Management -->
+            <!-- Variants -->
             <div class="form-section">
                 <h3 class="section-title">
                     Product Variants
                     <span class="variant-count-badge">@(productForm.Variants?.Count ?? 0) variants</span>
                 </h3>
-                
                 <p class="section-description">
-                    Variants allow you to offer different combinations of size, color, or other attributes.
-                    Each variant has its own stock, pricing adjustments, and shipping details.
+                    Each variant has its own stock, pricing adjustment, and shipping details.
                 </p>
 
                 @if (productForm.Variants != null && productForm.Variants.Any())
@@ -608,7 +520,7 @@
                                             <span class="variant-tag color">
                                                 @if (!string.IsNullOrEmpty(variant.Value.ColorHex))
                                                 {
-                                                    <span class="color-dot" style="background: @variant.Value.ColorHex"></span>
+                                                    <span class="color-dot" style="background:@variant.Value.ColorHex"></span>
                                                 }
                                                 @variant.Value.Color
                                             </span>
@@ -620,21 +532,13 @@
                                     </div>
                                     <div class="variant-item-actions">
                                         <span class="variant-stock">Stock: @variant.Value.Stock</span>
-                                        <button class="variant-btn edit" @onclick="() => EditVariant(variant.Key)" title="Edit">
-                                            ✏️
-                                        </button>
-                                        <button class="variant-btn delete" @onclick="() => DeleteVariant(variant.Key)" title="Delete">
-                                            🗑️
-                                        </button>
+                                        <button class="variant-btn edit" @onclick="() => EditVariant(variant.Key)" title="Edit">✏️</button>
+                                        <button class="variant-btn delete" @onclick="() => DeleteVariant(variant.Key)" title="Delete">🗑️</button>
                                     </div>
                                 </div>
                                 <div class="variant-item-details">
                                     <span>SKU: @variant.Value.Sku</span>
                                     <span>Price Adj: ₦@variant.Value.PriceAdjustment.ToString("N0")</span>
-                                    @if (variant.Value.Weight.HasValue)
-                                    {
-                                        <span>Weight: @variant.Value.Weight.Value kg</span>
-                                    }
                                     @if (variant.Value.HasFreeShipping)
                                     {
                                         <span class="free-shipping">Free Shipping</span>
@@ -656,26 +560,28 @@
                 }
 
                 <SecondaryButton OnClick="OpenVariantModal"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                Icon="➕"
-                                CssClass="add-variant-btn">
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 Icon="➕"
+                                 CssClass="add-variant-btn">
                     Add Variant
                 </SecondaryButton>
             </div>
 
-            <!-- Categories & Classification -->
+            <!-- ==================== CATEGORIES & CLASSIFICATION ==================== -->
             <div class="form-section">
                 <h3 class="section-title">Categories & Classification</h3>
-                
+
                 <div class="form-row">
+                    <!-- Category -->
                     <div class="form-group">
                         <label class="form-label">Category *</label>
-                        <select class="form-select @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")) ? "has-error" : "")" 
-                                @bind="productForm.CategoryId">
+                        <select class="form-select @(!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")) ? "has-error" : "")"
+                                @bind="productForm.CategoryId"
+                                @bind:after="OnCategoryChanged">
                             <option value="">Select Category</option>
-                            @foreach (var category in categories)
+                            @foreach (var cat in categories)
                             {
-                                <option value="@category.Id">@category.Name</option>
+                                <option value="@cat.Id">@cat.Name</option>
                             }
                         </select>
                         @if (!string.IsNullOrEmpty(validationErrors.GetValueOrDefault("CategoryId")))
@@ -684,6 +590,36 @@
                         }
                     </div>
 
+                    <!-- Subcategory — populated after category is chosen -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            Subcategory
+                            @if (isLoadingSubCategories)
+                            {
+                                <span class="loading-inline">⏳</span>
+                            }
+                        </label>
+                        <select class="form-select"
+                                @bind="productForm.SubCategory"
+                                disabled="@(!availableSubCategories.Any() || isLoadingSubCategories)">
+                            <option value="">
+                                @(string.IsNullOrEmpty(productForm.CategoryId)
+                                    ? "Select a category first"
+                                    : (availableSubCategories.Any() ? "Select Subcategory (optional)" : "No subcategories"))
+                            </option>
+                            @foreach (var sub in availableSubCategories)
+                            {
+                                <option value="@sub.Name">
+                                    @sub.Name @(sub.IsDefault ? "(default)" : "")
+                                </option>
+                            }
+                        </select>
+                        <span class="helper-text">Optional — leave blank to use the category default</span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <!-- Brand -->
                     <div class="form-group">
                         <label class="form-label">Brand</label>
                         <select class="form-select" @bind="productForm.Brand">
@@ -693,35 +629,33 @@
                                 <option value="@brand.Name">@brand.Name</option>
                             }
                         </select>
-                        <span class="helper-text">Select a brand or leave empty</span>
                     </div>
-                </div>
 
-                <div class="form-section">
-                    <InputField @bind-Value="productForm.TagsInput"
-                                Label="Tags"
-                                Placeholder="summer, cotton, casual, comfortable"
-                                HelperText="Enter tags separated by commas" />
-
-                    @if (productForm.Tags != null && productForm.Tags.Any())
-                    {
-                        <div class="tag-preview-container">
-                            <span class="tag-preview-label">Preview:</span>
-                            <div class="tag-preview-list">
-                                @foreach (var tag in productForm.Tags)
-                                {
-                                    <span class="tag-preview-item">@tag</span>
-                                }
+                    <!-- Tags -->
+                    <div class="form-group">
+                        <InputField @bind-Value="productForm.TagsInput"
+                                    Label="Tags"
+                                    Placeholder="summer, cotton, casual"
+                                    HelperText="Comma-separated tags" />
+                        @if (productForm.Tags != null && productForm.Tags.Any())
+                        {
+                            <div class="tag-preview-container">
+                                <span class="tag-preview-label">Preview:</span>
+                                <div class="tag-preview-list">
+                                    @foreach (var tag in productForm.Tags)
+                                    {
+                                        <span class="tag-preview-item">@tag</span>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
             </div>
 
             <!-- Images -->
             <div class="form-section">
                 <h3 class="section-title">Product Images</h3>
-                
                 <div class="image-upload-area">
                     @if (productForm.ImageUrls?.Any() == true)
                     {
@@ -730,44 +664,34 @@
                             {
                                 <div class="image-preview">
                                     <img src="@imageUrl" alt="Product image" />
-                                    <button class="remove-image" 
-                                            @onclick="@(() => RemoveImage(imageUrl))"
-                                            type="button"
-                                            title="Remove image">
-                                        ✕
-                                    </button>
+                                    <button class="remove-image" @onclick="@(() => RemoveImage(imageUrl))"
+                                            type="button" title="Remove">✕</button>
                                 </div>
                             }
                         </div>
                     }
-                    
                     <SecondaryButton OnClick="OpenImageSelector"
-                                    Variant="SecondaryButton.ButtonVariant.Outline"
-                                    Icon="🖼️">
+                                     Variant="SecondaryButton.ButtonVariant.Outline"
+                                     Icon="🖼️">
                         @(productForm.ImageUrls?.Any() == true ? "Add More Images" : "Select Images")
                     </SecondaryButton>
-                    
-                    <p class="helper-text">
-                        Select product images from your library. First image will be the main display image.
-                    </p>
+                    <p class="helper-text">First image will be the main display image.</p>
                 </div>
             </div>
 
             <!-- Settings -->
             <div class="form-section">
                 <h3 class="section-title">Product Settings</h3>
-                
                 <div class="toggle-group">
                     <label class="toggle-switch">
                         <input type="checkbox" @bind="productForm.IsFeatured" />
                         <span class="toggle-slider"></span>
                         <span class="toggle-label">Featured Product</span>
                     </label>
-
                     <label class="toggle-switch">
                         <input type="checkbox" @bind="productForm.IsActive" />
                         <span class="toggle-slider"></span>
-                        <span class="toggle-label">Active (Visible to customers)</span>
+                        <span class="toggle-label">Active (visible to customers)</span>
                     </label>
                 </div>
             </div>
@@ -775,14 +699,12 @@
             <!-- Form Actions -->
             <div class="form-actions">
                 <SecondaryButton OnClick="CloseProductModal"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                Size="SecondaryButton.ButtonSize.Large">
-                    Cancel
-                </SecondaryButton>
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 Size="SecondaryButton.ButtonSize.Large">Cancel</SecondaryButton>
                 <PrimaryButton OnClick="HandleSaveProduct"
-                              Size="PrimaryButton.ButtonSize.Large"
-                              IsLoading="@isSaving"
-                              IsDisabled="@isSaving">
+                               Size="PrimaryButton.ButtonSize.Large"
+                               IsLoading="@isSaving"
+                               IsDisabled="@isSaving">
                     @(isEditMode ? "Update Product" : "Create Product")
                 </PrimaryButton>
             </div>
@@ -790,7 +712,7 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Variant Management Modal -->
+<!-- Variant Modal -->
 <DynamicModal @ref="variantModal"
               Title="@(isEditingVariant ? "Edit Variant" : "Add Variant")"
               Size="DynamicModal.ModalSize.Large"
@@ -800,211 +722,137 @@
               OnClose="CloseVariantModal">
     <BodyContent>
         <div class="variant-form">
-            <!-- Variant Identification -->
+
             <div class="form-section">
                 <h3 class="section-title">Variant Details</h3>
-                
                 <div class="form-group">
                     <label class="form-label">Variant SKU *</label>
                     <div class="sku-input-group">
-                        <input type="text" 
-                               class="form-input sku-input"
-                               @bind="variantForm.Sku"
-                               @bind:event="oninput"
+                        <input type="text" class="form-input sku-input"
+                               @bind="variantForm.Sku" @bind:event="oninput"
                                placeholder="PROD-VARIANT-001" />
                         <SecondaryButton OnClick="GenerateVariantSku"
-                                        Variant="SecondaryButton.ButtonVariant.Outline"
-                                        Size="SecondaryButton.ButtonSize.Small"
-                                        CssClass="generate-sku-btn">
-                            🎲 Generate
-                        </SecondaryButton>
+                                         Variant="SecondaryButton.ButtonVariant.Outline"
+                                         Size="SecondaryButton.ButtonSize.Small"
+                                         CssClass="generate-sku-btn">🎲 Generate</SecondaryButton>
                     </div>
-                    <span class="helper-text">Click 'Generate' to auto-create SKU based on main product + size/color</span>
                 </div>
-
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Size</label>
-                        <input type="text" 
-                               class="form-input"
-                               @bind="variantForm.Size"
-                               @bind:event="oninput"
-                               placeholder="e.g., M, L, XL" />
+                        <input type="text" class="form-input" @bind="variantForm.Size"
+                               @bind:event="oninput" placeholder="M, L, XL" />
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">Color</label>
-                        <input type="text" 
-                               class="form-input"
-                               @bind="variantForm.Color"
-                               @bind:event="oninput"
-                               placeholder="e.g., Red, Blue" />
+                        <input type="text" class="form-input" @bind="variantForm.Color"
+                               @bind:event="oninput" placeholder="Red, Blue" />
                     </div>
                 </div>
-
                 <div class="form-group">
-                    <label class="form-label">Color Hex Code</label>
+                    <label class="form-label">Colour Hex Code</label>
                     <div class="color-input-group">
-                        <input type="color" 
-                               class="form-color-picker"
-                               @bind="variantForm.ColorHex"
-                               @bind:event="oninput" />
-                        <input type="text" 
-                               class="form-input color-input"
-                               @bind="variantForm.ColorHex"
-                               @bind:event="oninput"
+                        <input type="color" class="form-color-picker"
+                               @bind="variantForm.ColorHex" @bind:event="oninput" />
+                        <input type="text" class="form-input color-input"
+                               @bind="variantForm.ColorHex" @bind:event="oninput"
                                placeholder="#FF0000" />
                         @if (!string.IsNullOrEmpty(variantForm.ColorHex))
                         {
-                            <div class="color-preview" style="background: @variantForm.ColorHex"></div>
+                            <div class="color-preview" style="background:@variantForm.ColorHex"></div>
                         }
                     </div>
-                    <span class="helper-text">Use color picker or enter hex code manually</span>
                 </div>
             </div>
 
-            <!-- Stock & Pricing -->
             <div class="form-section">
                 <h3 class="section-title">Stock & Pricing</h3>
-                
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Stock Quantity *</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="variantForm.Stock"
-                               @bind:event="oninput"
-                               placeholder="0"
-                               min="0" />
+                        <input type="number" class="form-input" @bind="variantForm.Stock"
+                               @bind:event="oninput" placeholder="0" min="0" />
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">Price Adjustment (₦)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="variantForm.PriceAdjustment"
-                               @bind:event="oninput"
-                               placeholder="0.00"
-                               step="0.01" />
-                        <span class="helper-text">Add to or subtract from base price</span>
+                        <input type="number" class="form-input" @bind="variantForm.PriceAdjustment"
+                               @bind:event="oninput" placeholder="0.00" step="0.01" />
+                        <span class="helper-text">Added to or subtracted from base price</span>
                     </div>
                 </div>
-
                 @if (variantForm.PriceAdjustment != 0)
                 {
                     <div class="price-calculation">
-                        Base Price: ₦@productForm.Price.ToString("N0") + Adjustment: ₦@variantForm.PriceAdjustment.ToString("N0") 
+                        Base ₦@productForm.Price.ToString("N0") + Adj ₦@variantForm.PriceAdjustment.ToString("N0")
                         = <strong>₦@((productForm.Price + variantForm.PriceAdjustment).ToString("N0"))</strong>
                     </div>
                 }
             </div>
 
-            <!-- Dimensions & Weight -->
             <div class="form-section">
-                <h3 class="section-title">Dimensions & Weight (Optional - Inherits from main product if empty)</h3>
-                
+                <h3 class="section-title">Dimensions & Weight (inherits from product if empty)</h3>
                 <div class="form-group">
                     <label class="form-label">Weight (kg)</label>
-                    <input type="number" 
-                           class="form-input"
-                           @bind="variantForm.Weight"
-                           @bind:event="oninput"
-                           placeholder="@productForm.BaseWeight"
-                           step="0.1"
-                           min="0" />
-                    <span class="helper-text">Leave empty to use base product weight (@productForm.BaseWeight kg)</span>
+                    <input type="number" class="form-input" @bind="variantForm.Weight"
+                           @bind:event="oninput" placeholder="@productForm.BaseWeight" step="0.1" min="0" />
                 </div>
-
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Length (cm)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="variantForm.Length"
-                               @bind:event="oninput"
-                               placeholder="30"
-                               step="0.1"
-                               min="0" />
+                        <input type="number" class="form-input" @bind="variantForm.Length"
+                               @bind:event="oninput" placeholder="30" step="0.1" min="0" />
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">Width (cm)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="variantForm.Width"
-                               @bind:event="oninput"
-                               placeholder="20"
-                               step="0.1"
-                               min="0" />
+                        <input type="number" class="form-input" @bind="variantForm.Width"
+                               @bind:event="oninput" placeholder="20" step="0.1" min="0" />
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">Height (cm)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="variantForm.Height"
-                               @bind:event="oninput"
-                               placeholder="10"
-                               step="0.1"
-                               min="0" />
+                        <input type="number" class="form-input" @bind="variantForm.Height"
+                               @bind:event="oninput" placeholder="10" step="0.1" min="0" />
                     </div>
                 </div>
             </div>
 
-            <!-- Shipping -->
             <div class="form-section">
-                <h3 class="section-title">Shipping (Optional - Inherits from main product if empty)</h3>
-                
+                <h3 class="section-title">Shipping (inherits from product if empty)</h3>
                 <label class="toggle-switch">
                     <input type="checkbox" @bind="variantForm.HasFreeShipping" />
                     <span class="toggle-slider"></span>
                     <span class="toggle-label">Free Shipping for this variant</span>
                 </label>
-
                 @if (!variantForm.HasFreeShipping)
                 {
                     <div class="form-group">
                         <label class="form-label">Shipping Cost (₦)</label>
-                        <input type="number" 
-                               class="form-input"
-                               @bind="variantForm.ShippingCost"
-                               @bind:event="oninput"
-                               placeholder="@productForm.BaseShippingCost"
-                               step="100"
-                               min="0" />
-                        <span class="helper-text">Leave empty to use base shipping cost (₦@productForm.BaseShippingCost.ToString("N0"))</span>
+                        <input type="number" class="form-input" @bind="variantForm.ShippingCost"
+                               @bind:event="oninput" placeholder="@productForm.BaseShippingCost" step="100" min="0" />
                     </div>
                 }
             </div>
 
-            <!-- Variant Image -->
             <div class="form-section">
                 <h3 class="section-title">Variant Image (Optional)</h3>
-                
                 @if (productForm.ImageUrls != null && productForm.ImageUrls.Any())
                 {
                     <div class="form-group">
                         <label class="form-label">Select from Product Images</label>
-                        <select class="form-select variant-image-select" 
-                                @onchange="HandleVariantImageSelection">
+                        <select class="form-select variant-image-select" @onchange="HandleVariantImageSelection">
                             <option value="">Choose an image...</option>
                             @for (int i = 0; i < productForm.ImageUrls.Count; i++)
                             {
-                                var index = i;
-                                var imageUrl = productForm.ImageUrls[i];
-                                var isSelected = imageUrl == variantForm.ImageUrl;
-                                <option value="@imageUrl" selected="@isSelected">
+                                var url = productForm.ImageUrls[i];
+                                <option value="@url" selected="@(url == variantForm.ImageUrl)">
                                     Image @(i + 1) @(i == 0 ? "(Main)" : "")
                                 </option>
                             }
                         </select>
-                        <span class="helper-text">Select one of the product images for this variant</span>
                     </div>
-
                     @if (!string.IsNullOrEmpty(variantForm.ImageUrl))
                     {
                         <div class="variant-image-preview-section">
-                            <label class="form-label">Selected Image Preview</label>
+                            <label class="form-label">Selected Image</label>
                             <div class="variant-image-preview">
                                 <img src="@variantForm.ImageUrl" alt="Variant image" />
                             </div>
@@ -1014,45 +862,31 @@
                 else
                 {
                     <div class="no-product-images-warning">
-                        <p>⚠️ No product images added yet. Add product images first to select a variant image.</p>
+                        <p>⚠️ No product images added yet. Add product images first.</p>
                     </div>
                 }
-
-                <!-- Fallback URL Input -->
                 <div class="form-group">
-                    <label class="form-label">
-                        Or Enter Custom Image URL
-                        <span class="helper-text-inline">(Fallback option)</span>
-                    </label>
-                    <input type="text" 
-                           class="form-input"
-                           @bind="variantForm.ImageUrl"
-                           @bind:event="oninput"
-                           placeholder="https://example.com/image.jpg" />
-                    <span class="helper-text">Use this if you need a different image not in the product gallery</span>
+                    <label class="form-label">Or Enter Custom Image URL</label>
+                    <input type="text" class="form-input" @bind="variantForm.ImageUrl"
+                           @bind:event="oninput" placeholder="https://example.com/image.jpg" />
                 </div>
             </div>
 
-            <!-- Availability -->
             <div class="form-section">
                 <h3 class="section-title">Availability</h3>
-                
                 <label class="toggle-switch">
                     <input type="checkbox" @bind="variantForm.IsAvailable" />
                     <span class="toggle-slider"></span>
-                    <span class="toggle-label">Variant is available for purchase</span>
+                    <span class="toggle-label">Available for purchase</span>
                 </label>
             </div>
 
-            <!-- Variant Actions -->
             <div class="form-actions">
                 <SecondaryButton OnClick="CloseVariantModal"
-                                Variant="SecondaryButton.ButtonVariant.Outline"
-                                Size="SecondaryButton.ButtonSize.Large">
-                    Cancel
-                </SecondaryButton>
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 Size="SecondaryButton.ButtonSize.Large">Cancel</SecondaryButton>
                 <PrimaryButton OnClick="HandleSaveVariant"
-                              Size="PrimaryButton.ButtonSize.Large">
+                               Size="PrimaryButton.ButtonSize.Large">
                     @(isEditingVariant ? "Update Variant" : "Add Variant")
                 </PrimaryButton>
             </div>
@@ -1060,16 +894,16 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Image Selector Popup -->
+<!-- Image Selector -->
 <ImageSelectorPopup @ref="imageSelectorPopup"
-                   IsOpen="@isImageSelectorOpen"
-                   AllowMultiple="true"
-                   MaxSelection="10"
-                   PreSelectedUrls="@(productForm.ImageUrls ?? new List<string>())"
-                   OnImagesSelected="HandleImagesSelected"
-                   OnClose="CloseImageSelector" />
+                    IsOpen="@isImageSelectorOpen"
+                    AllowMultiple="true"
+                    MaxSelection="10"
+                    PreSelectedUrls="@(productForm.ImageUrls ?? new List<string>())"
+                    OnImagesSelected="HandleImagesSelected"
+                    OnClose="CloseImageSelector" />
 
-<!-- Stock Management Modal -->
+<!-- Stock Modal -->
 <DynamicModal @ref="stockModal"
               Title="Manage Stock"
               Size="DynamicModal.ModalSize.Small"
@@ -1083,7 +917,6 @@
                     <span class="label">Current Stock:</span>
                     <span class="value">@selectedProductForStock.Stock units</span>
                 </div>
-
                 <p class="info-message">
                     ℹ️ This product has @(selectedProductForStock.Variants?.Count ?? 0) variant(s).
                     Stock is calculated from all variants.
@@ -1093,41 +926,32 @@
     </BodyContent>
     <FooterContent>
         <div class="modal-actions">
-            <SecondaryButton OnClick="CloseStockModal"
-                            Variant="SecondaryButton.ButtonVariant.Outline">
-                Close
-            </SecondaryButton>
+            <SecondaryButton OnClick="CloseStockModal" Variant="SecondaryButton.ButtonVariant.Outline">Close</SecondaryButton>
         </div>
     </FooterContent>
 </DynamicModal>
 
-<!-- Delete Confirmation Popup -->
+<!-- Delete Confirmation -->
 <ConfirmationPopup @ref="deleteConfirmationPopup"
-                  IsOpen="@showDeleteConfirmation"
-                  Title="@(productsToDelete != null ? "Delete Multiple Products?" : "Delete Product?")"
-                  Message="@GetDeleteMessage()"
-                  WarningText="This action cannot be undone. The product(s) will be moved to trash."
-                  Variant="ConfirmationPopup.ConfirmationVariant.Danger"
-                  ConfirmButtonText="Delete"
-                  CancelButtonText="Cancel"
-                  IsProcessing="@isSaving"
-                  OnConfirm="@(productsToDelete != null ? ConfirmBulkDelete : ConfirmDeleteProduct)"
-                  OnCancel="@(() => { showDeleteConfirmation = false; productToDelete = null; productsToDelete = null; })"
-                  OnClose="@(() => { showDeleteConfirmation = false; productToDelete = null; productsToDelete = null; })" />
+                   IsOpen="@showDeleteConfirmation"
+                   Title="@(productsToDelete != null ? "Delete Multiple Products?" : "Delete Product?")"
+                   Message="@GetDeleteMessage()"
+                   WarningText="This action cannot be undone."
+                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
+                   ConfirmButtonText="Delete"
+                   CancelButtonText="Cancel"
+                   IsProcessing="@isSaving"
+                   OnConfirm="@(productsToDelete != null ? ConfirmBulkDelete : ConfirmDeleteProduct)"
+                   OnCancel="@(() => { showDeleteConfirmation = false; productToDelete = null; productsToDelete = null; })"
+                   OnClose="@(() => { showDeleteConfirmation = false; productToDelete = null; productsToDelete = null; })" />
 
 @code {
     private string GetDeleteMessage()
     {
-        if (productsToDelete != null && productsToDelete.Any())
-        {
+        if (productsToDelete?.Any() == true)
             return $"Are you sure you want to delete {productsToDelete.Count} product(s)?";
-        }
-        
         if (productToDelete != null)
-        {
             return $"Are you sure you want to delete '{productToDelete.Name}'?";
-        }
-        
         return "Are you sure you want to proceed?";
     }
 }
