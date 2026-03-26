@@ -140,6 +140,7 @@ public class UpdateProductRequest
     
     // Classification
     public string? CategoryId { get; set; }
+    public string? SubCategory { get; set; }   // ← ADDED
     public string? Brand { get; set; }
     public List<string>? Tags { get; set; }
     
