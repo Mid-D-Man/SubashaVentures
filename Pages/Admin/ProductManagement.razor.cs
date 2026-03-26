@@ -107,7 +107,9 @@ public partial class ProductManagement : ComponentBase, IAsyncDisposable
     private NotificationComponent? notificationComponent;
 
     private int totalPages => (int)Math.Ceiling(filteredProducts.Count / (double)pageSize);
-
+// ── Subcategory state (product form) ─────────────────────────────────
+    private List<SubCategoryViewModel> availableSubCategories = new();
+    private bool isLoadingSubCategories = false;
     // ==================== LIFECYCLE ====================
 
     protected override async Task OnInitializedAsync()
