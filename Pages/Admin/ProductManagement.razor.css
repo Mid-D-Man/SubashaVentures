@@ -484,7 +484,32 @@
     border-color: var(--danger-color);
     filter: brightness(1);
 }
+/* ===== SUBCATEGORY ADDITIONS ===== */
+.loading-inline {
+    font-size: 0.75rem;
+    margin-left: 0.375rem;
+    opacity: 0.7;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
 
+.sub-category-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.625rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+[data-theme="dark"] .sub-category-badge {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border-color: rgba(139, 92, 246, 0.3);
+}
 /* ===== LOADING & EMPTY STATES ===== */
 .pm-loading,
 .pm-empty {
