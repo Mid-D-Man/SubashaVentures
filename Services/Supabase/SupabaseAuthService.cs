@@ -2,7 +2,6 @@
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Services.Storage;
-using SubashaVentures.Services.Newsletter;
 using Supabase.Gotrue;
 using Supabase.Gotrue.Exceptions;
 using Microsoft.AspNetCore.Components;
@@ -19,7 +18,6 @@ public class SupabaseAuthService : ISupabaseAuthService
     private readonly Client _supabase;
     private readonly SessionManager _sessionManager;
     private readonly NavigationManager _navigationManager;
-    private readonly INewsletterService _newsletterService;
     private readonly ILogger<SupabaseAuthService> _logger;
 
     private const string PkceVerifierKey = "supabase_pkce_verifier";
@@ -28,13 +26,11 @@ public class SupabaseAuthService : ISupabaseAuthService
         Client supabase,
         SessionManager sessionManager,
         NavigationManager navigationManager,
-        INewsletterService newsletterService,
         ILogger<SupabaseAuthService> logger)
     {
         _supabase = supabase;
         _sessionManager = sessionManager;
         _navigationManager = navigationManager;
-        _newsletterService = newsletterService;
         _logger = logger;
     }
 
@@ -47,7 +43,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             await MID_HelperFunctions.DebugMessageAsync("🔐 Initializing SupabaseAuthService...", LogLevel.Info);
 
             var storedSession = await _sessionManager.GetStoredSessionAsync();
-            
+
             if (storedSession != null)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -161,21 +157,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             }
 
             await EnsureUserProfileExistsAsync(session.User, userData);
-
-            // ✅ NEW: Remove user from newsletter subscribers since they now have a full account
-            try
-            {
-                await _newsletterService.RemoveOnUserSignUpAsync(email);
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ Removed {email} from newsletter_subscribers (converted to user account)",
-                    LogLevel.Info
-                );
-            }
-            catch (Exception ex)
-            {
-                // Non-fatal - log and continue
-                _logger.LogWarning(ex, "Failed to remove user from newsletter on signup: {Email}", email);
-            }
 
             await MID_HelperFunctions.DebugMessageAsync($"✅ User signed up successfully: {email}", LogLevel.Info);
 
@@ -338,19 +319,7 @@ public class SupabaseAuthService : ISupabaseAuthService
             await _sessionManager.StoreSessionAsync(session);
 
             if (session.User != null)
-            {
                 await EnsureUserProfileExistsAsync(session.User);
-                
-                // ✅ NEW: Remove from newsletter on OAuth signup too
-                try
-                {
-                    await _newsletterService.RemoveOnUserSignUpAsync(session.User.Email ?? "");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to remove OAuth user from newsletter");
-                }
-            }
 
             return new SupabaseAuthResult
             {
@@ -595,8 +564,7 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"MFA enroll: using otpauth URI (len={otpauthUri.Length}) for QR generation",
-                LogLevel.Info
-            );
+                LogLevel.Info);
 
             return new MfaEnrollmentResult
             {
@@ -847,14 +815,14 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         return errorCode switch
         {
-            "user_already_exists" => "An account with this email already exists. Please sign in instead.",
-            "weak_password" => "Password is too weak. Please use at least 8 characters with uppercase, lowercase, and numbers.",
-            "invalid_credentials" => "Invalid email or password. Please try again.",
-            "email_not_confirmed" => "Please verify your email before signing in. Check your inbox for the verification link.",
-            "same_password" => "The new password must be different from your current password.",
-            "over_email_send_rate_limit" => "Too many requests. Please wait a moment before trying again.",
-            "over_request_rate_limit" => "Too many requests. Please wait a moment before trying again.",
-            _ => "An error occurred. Please try again."
+            "user_already_exists"           => "An account with this email already exists. Please sign in instead.",
+            "weak_password"                 => "Password is too weak. Please use at least 8 characters with uppercase, lowercase, and numbers.",
+            "invalid_credentials"           => "Invalid email or password. Please try again.",
+            "email_not_confirmed"           => "Please verify your email before signing in. Check your inbox for the verification link.",
+            "same_password"                 => "The new password must be different from your current password.",
+            "over_email_send_rate_limit"    => "Too many requests. Please wait a moment before trying again.",
+            "over_request_rate_limit"       => "Too many requests. Please wait a moment before trying again.",
+            _                               => "An error occurred. Please try again."
         };
     }
 
