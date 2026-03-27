@@ -4,24 +4,32 @@
     flex-direction: column;
     min-height: 100vh;
     background: var(--bg-primary);
-    margin: 0;
-    padding: 0;
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
 }
 
-/* ===== SHOP CONTAINER ===== */
-/* Sits directly under the fixed nav — zero padding so content bleeds edge to edge */
-.shop-container {
-    display: flex;
+/* ===== CONTENT AREA (below fixed ShopTop nav) ===== */
+.shop-content-area {
     flex: 1;
     width: 100%;
     max-width: 100%;
-    margin: 0;
-    margin-top: 60px; /* height of ShopTop nav */
-    padding: 0;       /* NO horizontal padding here */
+    margin-top: 60px;
+    padding: 0;
     box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1023px) {
+    .shop-content-area {
+        margin-top: 56px;
+    }
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] .shop-layout-wrapper {
+    background: var(--bg-primary);
 }
 
 /* ===== DESKTOP SIDEBAR ===== */
