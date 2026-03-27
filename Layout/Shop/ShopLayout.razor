@@ -9,24 +9,13 @@
 
 <div class="shop-layout-wrapper">
     <ShopTop CartItemCount="@CartItemCount" OnSearchChanged="HandleSearchFromNav" />
-
-    <div class="shop-container">
-
-        @* Desktop Filter Sidebar — hidden on mobile *@
-        <aside class="shop-sidebar desktop-only">
-            <ShopFilterPanel OnFiltersChanged="HandleFiltersFromSidebar" />
-        </aside>
-
-        @* Main content *@
-        <main class="shop-content">
-            @Body
-        </main>
-    </div>
+    <main class="shop-content-area">
+        @Body
+    </main>
 </div>
 
 @code {
     private int CartItemCount { get; set; } = 0;
-    private string? currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -40,8 +29,7 @@
             var user = await AuthService.GetCurrentUserAsync();
             if (user != null)
             {
-                currentUserId = user.Id;
-                CartItemCount = await CartService.GetCartItemCountAsync(currentUserId);
+                CartItemCount = await CartService.GetCartItemCountAsync(user.Id);
             }
         }
         catch (Exception ex)
@@ -53,52 +41,5 @@
     private async Task HandleSearchFromNav(string query)
     {
         await ShopState.NotifySearchChanged(query);
-    }
-
-    // Sidebar filter changes push to URL via Shop.razor — 
-    // ShopLayout just forwards the event upward to the page
-    private async Task HandleFiltersFromSidebar(FilterState filters)
-    {
-        // The Shop page subscribes to URL changes so we just navigate
-        // Build URL from the filter state the sidebar emitted
-        var queryParams = new Dictionary<string, string?>();
-
-        if (filters.Categories.Any())
-            queryParams["category"] = string.Join(",",
-                filters.Categories.Select(Uri.EscapeDataString));
-
-        if (filters.SubCategories.Any())
-            queryParams["sub"] = string.Join(",",
-                filters.SubCategories.Select(Uri.EscapeDataString));
-
-        if (filters.Brands.Any())
-            queryParams["brand"] = string.Join(",",
-                filters.Brands.Select(Uri.EscapeDataString));
-
-        if (!string.IsNullOrEmpty(filters.SearchQuery))
-            queryParams["q"] = Uri.EscapeDataString(filters.SearchQuery);
-
-        if (filters.SortBy != "default")
-            queryParams["sort"] = filters.SortBy;
-
-        if (filters.MinRating > 0)
-            queryParams["rating"] = filters.MinRating.ToString();
-
-        if (filters.MinPrice > 0)
-            queryParams["minPrice"] = filters.MinPrice.ToString();
-
-        if (filters.MaxPrice < 1000000)
-            queryParams["maxPrice"] = filters.MaxPrice.ToString();
-
-        if (filters.OnSale)
-            queryParams["sale"] = "true";
-
-        if (filters.FreeShipping)
-            queryParams["shipping"] = "true";
-
-        var url = Microsoft.AspNetCore.WebUtilities.QueryHelpers
-            .AddQueryString("shop", queryParams);
-
-        NavigationManager.NavigateTo(url, replace: true);
     }
 }
