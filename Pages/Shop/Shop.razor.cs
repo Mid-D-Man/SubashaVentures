@@ -20,7 +20,6 @@ public partial class Shop : ComponentBase, IDisposable
     private List<ProductViewModel> AllProducts { get; set; } = new();
     private List<ProductViewModel> FilteredProducts { get; set; } = new();
     private List<ProductViewModel> CurrentPageProducts { get; set; } = new();
-
     private List<string> AvailableCategories { get; set; } = new();
     private List<string> AvailableBrands { get; set; } = new();
 
@@ -31,6 +30,13 @@ public partial class Shop : ComponentBase, IDisposable
     private bool HasError { get; set; } = false;
     private string ErrorMessage { get; set; } = "";
     private bool ShowMobileFilters { get; set; } = false;
+
+    /// <summary>
+    /// Set to true immediately before any NavigateTo call we trigger ourselves.
+    /// OnLocationChanged checks this flag and skips re-parsing so filters are
+    /// never applied twice (once from the handler, once from the location event).
+    /// </summary>
+    private bool _isSelfNavigating = false;
 
     private FilterState CurrentFilters { get; set; } = FilterState.CreateDefault();
     private string SelectedSort { get; set; } = "default";
@@ -72,10 +78,7 @@ public partial class Shop : ComponentBase, IDisposable
 
         await LoadProducts();
         ExtractFilterOptions();
-
-        // FIX: await the now-async ParseUrlToFilters
         await ParseUrlToFilters();
-
         await ApplyFilters();
 
         IsInitialized = true;
@@ -86,7 +89,14 @@ public partial class Shop : ComponentBase, IDisposable
     {
         if (!e.Location.Contains("/shop")) return;
 
-        // FIX: await the now-async ParseUrlToFilters
+        // This navigation was triggered by PushFiltersToUrl — we already applied
+        // filters in the calling handler, so skip to avoid double-application.
+        if (_isSelfNavigating)
+        {
+            _isSelfNavigating = false;
+            return;
+        }
+
         await ParseUrlToFilters();
         await ApplyFilters();
         await InvokeAsync(StateHasChanged);
@@ -100,10 +110,6 @@ public partial class Shop : ComponentBase, IDisposable
 
     // ==================== URL HANDLING ====================
 
-    /// <summary>
-    /// FIX: Changed from void to async Task so await inside is valid.
-    /// Reads the current URL query string and populates CurrentFilters.
-    /// </summary>
     private async Task ParseUrlToFilters()
     {
         var uri = new Uri(NavigationManager.Uri);
@@ -165,10 +171,13 @@ public partial class Shop : ComponentBase, IDisposable
         await MID_HelperFunctions.DebugMessageAsync(
             $"📍 URL parsed → categories:[{string.Join(",", filters.Categories)}] " +
             $"subs:[{string.Join(",", filters.SubCategories)}] q:'{filters.SearchQuery}'",
-            LogLevel.Debug
-        );
+            LogLevel.Debug);
     }
 
+    /// <summary>
+    /// Serialises CurrentFilters to the URL without triggering a double-apply.
+    /// Always sets _isSelfNavigating before calling NavigateTo.
+    /// </summary>
     private void PushFiltersToUrl()
     {
         var queryParams = new Dictionary<string, string?>();
@@ -207,6 +216,8 @@ public partial class Shop : ComponentBase, IDisposable
             queryParams["shipping"] = "true";
 
         var url = QueryHelpers.AddQueryString("shop", queryParams);
+
+        _isSelfNavigating = true;
         NavigationManager.NavigateTo(url, replace: true);
     }
 
@@ -356,8 +367,8 @@ public partial class Shop : ComponentBase, IDisposable
     {
         CurrentFilters = filters.Clone();
         SelectedSort = CurrentFilters.SortBy;
-        PushFiltersToUrl();
-        await ApplyFilters();
+        PushFiltersToUrl();      // sets _isSelfNavigating = true
+        await ApplyFilters();    // apply once here; OnLocationChanged will skip
         CloseMobileFilters();
     }
 
@@ -380,6 +391,7 @@ public partial class Shop : ComponentBase, IDisposable
     {
         CurrentFilters = FilterState.CreateDefault();
         SelectedSort = "default";
+        _isSelfNavigating = true;
         NavigationManager.NavigateTo("shop", replace: true);
         await ApplyFilters();
     }
@@ -410,21 +422,13 @@ public partial class Shop : ComponentBase, IDisposable
     {
         var pages = new List<int>();
         if (TotalPages <= 5)
-        {
             for (int i = 1; i <= TotalPages; i++) pages.Add(i);
-        }
         else if (CurrentPage <= 3)
-        {
             for (int i = 1; i <= 5; i++) pages.Add(i);
-        }
         else if (CurrentPage >= TotalPages - 2)
-        {
             for (int i = TotalPages - 4; i <= TotalPages; i++) pages.Add(i);
-        }
         else
-        {
             for (int i = CurrentPage - 2; i <= CurrentPage + 2; i++) pages.Add(i);
-        }
         return pages;
     }
 
