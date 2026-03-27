@@ -168,7 +168,7 @@ public partial class ShopFilterPanel : ComponentBase
         {
             SelectedCategories.Remove(category);
 
-            // Remove subcategory selections that belonged to this category
+            // Clear any subcategory selections that belonged to this category
             var removedCat = CategoriesWithSubs
                 .FirstOrDefault(c => c.Name.Equals(category, StringComparison.OrdinalIgnoreCase));
 
@@ -181,19 +181,8 @@ public partial class ShopFilterPanel : ComponentBase
         else
         {
             SelectedCategories.Add(category);
-
-            // Auto-select default subcategory for this category
-            var cat = CategoriesWithSubs
-                .FirstOrDefault(c => c.Name.Equals(category, StringComparison.OrdinalIgnoreCase));
-
-            var defaultSub = cat?.SubCategories.FirstOrDefault(s => s.IsDefault)
-                          ?? cat?.SubCategories.FirstOrDefault();
-
-            if (defaultSub != null &&
-                !SelectedSubCategories.Contains(defaultSub.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                SelectedSubCategories.Add(defaultSub.Name);
-            }
+            // NOTE: No auto-selection of default subcategory — user picks subcategories manually.
+            // Auto-selection was causing "No Products Found" for products without a subcategory set.
         }
 
         StateHasChanged();
