@@ -200,7 +200,7 @@
     }
 </div>
 
-{{/* ==================== CATEGORY MODAL ==================== */}}
+@* ==================== CATEGORY MODAL ==================== *@
 <DynamicModal @ref="categoryModal"
               Title="@(isEditMode ? "Edit Category" : "Add Category")"
               Size="DynamicModal.ModalSize.Medium"
@@ -295,7 +295,7 @@
     </BodyContent>
 </DynamicModal>
 
-{{/* ==================== SUBCATEGORY MODAL ==================== */}}
+@* ==================== SUBCATEGORY MODAL ==================== *@
 <DynamicModal @ref="subCategoryModal"
               Title="@(isEditSubMode ? $"Edit Subcategory — {activeParentCategory?.Name}" : $"Add Subcategory — {activeParentCategory?.Name}")"
               Size="DynamicModal.ModalSize.Medium"
