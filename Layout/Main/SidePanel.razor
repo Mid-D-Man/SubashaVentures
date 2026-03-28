@@ -2,6 +2,7 @@
 @using System.Security.Claims
 @using System.Security.Cryptography
 @using System.Text
+@using Microsoft.AspNetCore.WebUtilities
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.VisualElements
 @using SubashaVentures.Services.Users
@@ -222,26 +223,21 @@
     [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
     [Parameter] public EventCallback<string>     OnNavigate    { get; set; }
 
-    // ── Auth / user state ────────────────────────────────────────────────
+    // ── Auth / user state ────────────────────────────────────────────────────
     private bool   isAuthenticated = false;
     private string userName  = "";
     private string userEmail = "";
 
-    // ── Avatar ───────────────────────────────────────────────────────────
-    /// <summary>Avatar URL from the user_data profile table.</summary>
+    // ── Avatar ───────────────────────────────────────────────────────────────
     private string _profileAvatarUrl = string.Empty;
-    /// <summary>Gravatar URL derived from the user's email (MD5 hash).</summary>
     private string _gravatarUrl = string.Empty;
-    /// <summary>Set to true when the browser fires onerror on the img tag.</summary>
     private bool   _avatarLoadFailed = false;
-    /// <summary>Tracks which userId's avatar is currently cached, to avoid redundant fetches.</summary>
     private string _avatarCachedForUserId = string.Empty;
 
-    /// <summary>Returns profile avatar if present, otherwise Gravatar URL.</summary>
     private string DisplayAvatarUrl =>
         !string.IsNullOrEmpty(_profileAvatarUrl) ? _profileAvatarUrl : _gravatarUrl;
 
-    // ── Categories ───────────────────────────────────────────────────────
+    // ── Categories ───────────────────────────────────────────────────────────
     private List<CategoryViewModel> TopCategories      = new();
     private bool                    IsLoadingCategories = true;
     private bool                    HasMoreCategories   = false;
@@ -305,16 +301,15 @@
                     ? $"{firstName} {lastName}".Trim()
                     : userEmail.Split('@')[0];
 
-                // Load avatar for this user (skipped if already cached for same userId)
                 await LoadAvatarAsync(userId, userEmail);
             }
             else
             {
-                userName              = "";
-                userEmail             = "";
-                _profileAvatarUrl     = string.Empty;
-                _gravatarUrl          = string.Empty;
-                _avatarLoadFailed     = false;
+                userName               = "";
+                userEmail              = "";
+                _profileAvatarUrl      = string.Empty;
+                _gravatarUrl           = string.Empty;
+                _avatarLoadFailed      = false;
                 _avatarCachedForUserId = string.Empty;
             }
         }
@@ -327,17 +322,11 @@
         }
     }
 
-    /// <summary>
-    /// Fetches the profile avatar once per userId (cached in _avatarCachedForUserId).
-    /// Falls back to Gravatar when no profile avatar is set.
-    /// </summary>
     private async Task LoadAvatarAsync(string userId, string email)
     {
-        // Compute Gravatar URL from email — always cheap, no network needed for the URL itself
         if (!string.IsNullOrEmpty(email))
             _gravatarUrl = BuildGravatarUrl(email, size: 200);
 
-        // If we already loaded for this user, nothing more to do
         if (!string.IsNullOrEmpty(userId) && userId == _avatarCachedForUserId)
             return;
 
@@ -355,16 +344,9 @@
         catch (Exception ex)
         {
             Console.WriteLine($"SidePanel: could not load profile avatar: {ex.Message}");
-            // Graceful fallback — Gravatar will be used via DisplayAvatarUrl
         }
     }
 
-    /// <summary>
-    /// Builds a Gravatar URL using the MD5 hash of the normalised email.
-    /// <paramref name="size"/> is the pixel dimension (default 200).
-    /// The <c>d=404</c> parameter tells Gravatar to return a 404 if no avatar
-    /// exists, so our onerror handler can fall back to initials cleanly.
-    /// </summary>
     private static string BuildGravatarUrl(string email, int size = 200)
     {
         if (string.IsNullOrWhiteSpace(email)) return string.Empty;
@@ -470,21 +452,26 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
-{
-    try
     {
-        await ClosePanel();
-        await Task.Delay(80);
-        var url = $"shop?category={Uri.EscapeDataString(category.Name)}";
-        NavigationManager.NavigateTo(url, forceLoad: false);
+        try
+        {
+            await ClosePanel();
+            await Task.Delay(80);
+
+            // Use QueryHelpers so it handles encoding exactly once — no manual
+            // Uri.EscapeDataString here, which would cause double-encoding.
+            var url = QueryHelpers.AddQueryString("shop",
+                new Dictionary<string, string?> { ["category"] = category.Name.Trim() });
+
+            NavigationManager.NavigateTo(url, forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SidePanel: error navigating with category: {ex.Message}");
+            await ClosePanel();
+            NavigationManager.NavigateTo("shop");
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"SidePanel: error navigating with category: {ex.Message}");
-        await ClosePanel();
-        NavigationManager.NavigateTo("shop");
-    }
-}
 
     private async Task ClosePanel()
     {
