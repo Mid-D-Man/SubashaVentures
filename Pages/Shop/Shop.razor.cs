@@ -117,11 +117,15 @@ public partial class Shop : ComponentBase, IDisposable
 
         var filters = FilterState.CreateDefault();
 
+        // QueryHelpers.ParseQuery already decodes percent-encoding,
+        // so we only need to Trim() — never call Uri.UnescapeDataString here.
+
         if (query.TryGetValue("category", out var cats) && !string.IsNullOrEmpty(cats))
         {
             filters.Categories = cats.ToString()
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(c => Uri.UnescapeDataString(c.Trim()))
+                .Select(c => c.Trim())
+                .Where(c => !string.IsNullOrEmpty(c))
                 .ToList();
         }
 
@@ -129,7 +133,8 @@ public partial class Shop : ComponentBase, IDisposable
         {
             filters.SubCategories = subs.ToString()
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => Uri.UnescapeDataString(s.Trim()))
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
         }
 
@@ -137,12 +142,13 @@ public partial class Shop : ComponentBase, IDisposable
         {
             filters.Brands = brands.ToString()
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(b => Uri.UnescapeDataString(b.Trim()))
+                .Select(b => b.Trim())
+                .Where(b => !string.IsNullOrEmpty(b))
                 .ToList();
         }
 
         if (query.TryGetValue("q", out var q) && !string.IsNullOrEmpty(q))
-            filters.SearchQuery = Uri.UnescapeDataString(q.ToString().Trim());
+            filters.SearchQuery = q.ToString().Trim();
 
         if (query.TryGetValue("sort", out var sort) && !string.IsNullOrEmpty(sort))
             filters.SortBy = sort.ToString();
@@ -176,26 +182,23 @@ public partial class Shop : ComponentBase, IDisposable
 
     /// <summary>
     /// Serialises CurrentFilters to the URL without triggering a double-apply.
-    /// Always sets _isSelfNavigating before calling NavigateTo.
+    /// Let QueryHelpers.AddQueryString handle all encoding — never pre-encode values.
     /// </summary>
     private void PushFiltersToUrl()
     {
         var queryParams = new Dictionary<string, string?>();
 
         if (CurrentFilters.Categories.Any())
-            queryParams["category"] = string.Join(",",
-                CurrentFilters.Categories.Select(Uri.EscapeDataString));
+            queryParams["category"] = string.Join(",", CurrentFilters.Categories);
 
         if (CurrentFilters.SubCategories.Any())
-            queryParams["sub"] = string.Join(",",
-                CurrentFilters.SubCategories.Select(Uri.EscapeDataString));
+            queryParams["sub"] = string.Join(",", CurrentFilters.SubCategories);
 
         if (CurrentFilters.Brands.Any())
-            queryParams["brand"] = string.Join(",",
-                CurrentFilters.Brands.Select(Uri.EscapeDataString));
+            queryParams["brand"] = string.Join(",", CurrentFilters.Brands);
 
         if (!string.IsNullOrEmpty(CurrentFilters.SearchQuery))
-            queryParams["q"] = Uri.EscapeDataString(CurrentFilters.SearchQuery);
+            queryParams["q"] = CurrentFilters.SearchQuery;
 
         if (CurrentFilters.SortBy != "default")
             queryParams["sort"] = CurrentFilters.SortBy;
@@ -297,7 +300,7 @@ public partial class Shop : ComponentBase, IDisposable
             FilteredProducts = FilteredProducts.Where(p =>
                 !string.IsNullOrEmpty(p.Category) &&
                 CurrentFilters.Categories.Any(fc =>
-                    p.Category.Equals(fc, StringComparison.OrdinalIgnoreCase))
+                    p.Category.Trim().Equals(fc.Trim(), StringComparison.OrdinalIgnoreCase))
             ).ToList();
         }
 
@@ -306,7 +309,7 @@ public partial class Shop : ComponentBase, IDisposable
             FilteredProducts = FilteredProducts.Where(p =>
                 !string.IsNullOrEmpty(p.SubCategory) &&
                 CurrentFilters.SubCategories.Any(fs =>
-                    p.SubCategory.Equals(fs, StringComparison.OrdinalIgnoreCase))
+                    p.SubCategory.Trim().Equals(fs.Trim(), StringComparison.OrdinalIgnoreCase))
             ).ToList();
         }
 
@@ -315,7 +318,7 @@ public partial class Shop : ComponentBase, IDisposable
             FilteredProducts = FilteredProducts.Where(p =>
                 !string.IsNullOrEmpty(p.Brand) &&
                 CurrentFilters.Brands.Any(fb =>
-                    p.Brand.Equals(fb, StringComparison.OrdinalIgnoreCase))
+                    p.Brand.Trim().Equals(fb.Trim(), StringComparison.OrdinalIgnoreCase))
             ).ToList();
         }
 
