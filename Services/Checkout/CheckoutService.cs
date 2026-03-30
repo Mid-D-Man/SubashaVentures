@@ -453,82 +453,78 @@ public class CheckoutService : ICheckoutService
         }
     }
 
-    public async Task<OrderPlacementResult> PlaceOrderAsync(CheckoutViewModel checkout, string userId)
+    // Replace your existing PlaceOrderAsync in CheckoutService.cs with this:
+
+public async Task<OrderPlacementResult> PlaceOrderAsync(CheckoutViewModel checkout, string userId)
 {
     try
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            "📦 Placing order...",
-            LogLevel.Info
-        );
+        await MID_HelperFunctions.DebugMessageAsync("📦 Placing order...", LogLevel.Info);
 
-        // Validate first
         var validation = await ValidateCheckoutAsync(checkout);
         if (!validation.IsValid)
         {
             return new OrderPlacementResult
             {
-                Success = false,
-                Message = string.Join(", ", validation.Errors),
+                Success   = false,
+                Message   = string.Join(", ", validation.Errors),
                 ErrorCode = "VALIDATION_FAILED"
             };
         }
 
-        // ✅ FIX: Build edge function request with CORRECT userId
         var edgeRequest = new CreateOrderEdgeRequest
         {
-            UserId = userId, // ✅ Use actual user ID, not address ID!
-            CustomerName = checkout.ShippingAddress?.FullName ?? "",
-            CustomerEmail = checkout.ShippingAddress?.Email ?? "",
-            CustomerPhone = checkout.ShippingAddress?.PhoneNumber ?? "",
-            Items = checkout.Items.Select(i => new OrderItemEdgeRequest
+            UserId          = userId,
+            CustomerName    = checkout.ShippingAddress?.FullName    ?? "",
+            CustomerEmail   = checkout.ShippingAddress?.Email       ?? "",
+            CustomerPhone   = checkout.ShippingAddress?.PhoneNumber ?? "",
+            Items           = checkout.Items.Select(i => new OrderItemEdgeRequest
             {
-                ProductId = i.ProductId,
+                ProductId   = i.ProductId,
                 ProductName = i.Name,
-                ProductSku = i.Sku,
-                ImageUrl = i.ImageUrl,
-                Price = i.Price,
-                Quantity = i.Quantity,
-                Size = i.Size,
-                Color = i.Color
+                ProductSku  = i.Sku,
+                ImageUrl    = i.ImageUrl,
+                Price       = i.Price,
+                Quantity    = i.Quantity,
+                Size        = i.Size,
+                Color       = i.Color
             }).ToList(),
-            Subtotal = checkout.Subtotal,
-            ShippingCost = checkout.ShippingCost,
-            Discount = checkout.PromoDiscount,
-            Tax = 0,
-            Total = checkout.Total,
+            Subtotal          = checkout.Subtotal,
+            ShippingCost      = checkout.ShippingCost,
+            Discount          = checkout.PromoDiscount,
+            Tax               = 0,
+            Total             = checkout.Total,
             ShippingAddressId = checkout.ShippingAddress?.Id ?? "",
-            ShippingAddress = FormatAddress(checkout.ShippingAddress),
-            ShippingMethod = checkout.ShippingMethod,
-            PaymentMethod = checkout.PaymentMethod.ToString()
+            ShippingAddress   = FormatAddress(checkout.ShippingAddress),
+            ShippingMethod    = checkout.ShippingMethod,
+            PaymentMethod     = checkout.PaymentMethod.ToString(),
         };
 
-        // Call edge function to create order
         var result = await _edgeFunctions.CreateOrderAsync(edgeRequest);
 
         if (result.Success && result.Data != null)
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Order created successfully: {result.Data.OrderNumber}",
-                LogLevel.Info
-            );
+                $"✅ Order created: {result.Data.OrderNumber}", LogLevel.Info);
 
             return new OrderPlacementResult
             {
-                Success = true,
-                OrderId = result.Data.OrderId,
-                OrderNumber = result.Data.OrderNumber,
-                Message = "Order placed successfully",
-                PaymentStatus = checkout.PaymentMethod == PaymentMethod.Wallet 
-                    ? PaymentStatus.Paid 
-                    : PaymentStatus.Pending
+                Success          = true,
+                OrderId          = result.Data.OrderId,
+                OrderNumber      = result.Data.OrderNumber,
+                Message          = "Order placed successfully",
+                PaymentStatus    = checkout.PaymentMethod == Domain.Order.PaymentMethod.Wallet
+                                    ? Services.Checkout.PaymentStatus.Paid
+                                    : Services.Checkout.PaymentStatus.Pending,
+                CollectionQrUrl  = result.Data.CollectionQrUrl,
+                IsPickup         = result.Data.IsPickup,
             };
         }
 
         return new OrderPlacementResult
         {
-            Success = false,
-            Message = result.Message,
+            Success   = false,
+            Message   = result.Message,
             ErrorCode = result.ErrorCode ?? "ORDER_CREATION_FAILED"
         };
     }
@@ -537,13 +533,12 @@ public class CheckoutService : ICheckoutService
         await MID_HelperFunctions.LogExceptionAsync(ex, "Placing order");
         return new OrderPlacementResult
         {
-            Success = false,
-            Message = "Failed to place order",
+            Success   = false,
+            Message   = "Failed to place order",
             ErrorCode = "SYSTEM_ERROR"
         };
     }
 }
-
     public async Task<OrderPlacementResult> ProcessPaymentAndCreateOrderAsync(
         string userId,
         CheckoutViewModel checkout,
