@@ -1,0 +1,341 @@
+@page "/admin/collection-scanner"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Services.Collection
+@using SubashaVentures.Domain.Order
+@using SubashaVentures.Components.Shared.Loading
+@layout AdminLayout
+@inject ICollectionService CollectionService
+@inject IJSRuntime JSRuntime
+@inject ILogger<CollectionScanner> Logger
+@implements IAsyncDisposable
+
+<div class="collection-scanner-page">
+
+    <div class="scanner-header">
+        <h1 class="scanner-title">Store Collection Scanner</h1>
+        <p class="scanner-subtitle">Scan the customer's pickup QR code to validate and hand over their order</p>
+    </div>
+
+    @if (!_scannerReady && !_isProcessing)
+    {
+        <div class="scanner-start-area">
+            <div class="scanner-icon-wrap">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 7V5C3 3.9 3.9 3 5 3H7M17 3H19C20.1 3 21 3.9 21 5V7M21 17V19C21 20.1 20.1 21 19 21H17M7 21H5C3.9 21 3 20.1 3 19V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <rect x="7" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="13" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="7" y="13" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M13 13H14V14H13V13ZM16 13H17V14H16V13ZM13 16H14V17H13V16ZM15 15H16V16H15V15ZM16 16H17V17H16V16Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <button class="btn-start-scanner" @onclick="StartScanner">
+                Start Camera Scanner
+            </button>
+        </div>
+    }
+
+    @if (_scannerReady || _isProcessing)
+    {
+        <div class="scanner-container @(_scannerReady && !_isProcessing ? "active" : "")">
+            <video id="@_videoId" class="scanner-video" autoplay playsinline muted></video>
+
+            @if (_isProcessing)
+            {
+                <div class="scanner-processing-overlay">
+                    <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                                    Message="Validating QR code..." />
+                </div>
+            }
+        </div>
+
+        @if (_errorMessage is not null)
+        {
+            <div class="scanner-error-banner">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 8V12M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span>@_errorMessage</span>
+                <button @onclick="DismissError">✕</button>
+            </div>
+        }
+
+        @if (!_isProcessing)
+        {
+            <div class="scanner-controls">
+                <button class="control-btn camera" @onclick="SwitchCamera" title="Switch camera">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M20 7L16 3L12 7M4 17L8 21L12 17M4 7H8C9.1 7 10 7.9 10 9V10M20 17H16C14.9 17 14 16.1 14 15V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Switch Camera
+                </button>
+                <button class="control-btn stop" @onclick="StopScanner">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Stop Scanner
+                </button>
+            </div>
+        }
+    }
+
+    @* Receipt Modal *@
+    @if (_receipt is not null)
+    {
+        <div class="receipt-modal-overlay" @onclick="CloseReceipt">
+            <div class="receipt-modal" @onclick:stopPropagation="true">
+
+                <div class="receipt-header">
+                    <div class="receipt-success-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="#22c55e" stroke-width="2"/>
+                            <path d="M8 12L11 15L16 9" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h2 class="receipt-title">Order Verified ✓</h2>
+                    <p class="receipt-collected-at">
+                        Collected: @_receipt.CollectedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm")
+                    </p>
+                </div>
+
+                <div class="receipt-body" id="printable-receipt">
+                    <div class="receipt-store-header">
+                        <h3>SubashaVentures</h3>
+                        <p>Store Collection Receipt</p>
+                        <hr />
+                    </div>
+
+                    <div class="receipt-section">
+                        <div class="receipt-row">
+                            <span class="receipt-label">Order No.</span>
+                            <span class="receipt-value bold">@_receipt.OrderNumber</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-label">Customer</span>
+                            <span class="receipt-value">@_receipt.CustomerName</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-label">Phone</span>
+                            <span class="receipt-value">@_receipt.CustomerPhone</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-label">Email</span>
+                            <span class="receipt-value">@_receipt.CustomerEmail</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-label">Payment</span>
+                            <span class="receipt-value">@_receipt.PaymentMethod</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-label">Ordered</span>
+                            <span class="receipt-value">@_receipt.OrderedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
+                        </div>
+                    </div>
+
+                    <div class="receipt-items-section">
+                        <h4 class="receipt-items-title">Items</h4>
+                        @foreach (var item in _receipt.Items)
+                        {
+                            <div class="receipt-item">
+                                <div class="receipt-item-name">
+                                    @item.ProductName
+                                    @if (!string.IsNullOrEmpty(item.Size) || !string.IsNullOrEmpty(item.Color))
+                                    {
+                                        <span class="receipt-item-variant">
+                                            (@(item.Size) @(item.Color))
+                                        </span>
+                                    }
+                                </div>
+                                <div class="receipt-item-right">
+                                    <span class="receipt-item-qty">x@item.Quantity</span>
+                                    <span class="receipt-item-price">@item.DisplaySubtotal</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="receipt-totals">
+                        <div class="receipt-row">
+                            <span class="receipt-label">Subtotal</span>
+                            <span class="receipt-value">@_receipt.DisplaySubtotal</span>
+                        </div>
+                        @if (_receipt.Discount > 0)
+                        {
+                            <div class="receipt-row">
+                                <span class="receipt-label">Discount</span>
+                                <span class="receipt-value green">-@_receipt.DisplayDiscount</span>
+                            </div>
+                        }
+                        <div class="receipt-row total-row">
+                            <span class="receipt-label bold">Total Paid</span>
+                            <span class="receipt-value bold large">@_receipt.DisplayTotal</span>
+                        </div>
+                    </div>
+
+                    <div class="receipt-footer-text">
+                        <p>Thank you for shopping at SubashaVentures!</p>
+                        <p>www.mysubasha.com</p>
+                    </div>
+                </div>
+
+                <div class="receipt-actions">
+                    <button class="btn-print" @onclick="PrintReceipt">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M6 9V2H18V9M6 18H4C2.9 18 2 17.1 2 16V11C2 9.9 2.9 9 4 9H20C21.1 9 22 9.9 22 11V16C22 17.1 21.1 18 20 18H18M6 14H18V22H6V14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Print Receipt
+                    </button>
+                    <button class="btn-close-receipt" @onclick="CloseReceipt">
+                        Done — Scan Next
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private readonly string _videoId = "collection-scanner-video";
+    private DotNetObjectReference<CollectionScanner>? _dotNetRef;
+
+    private bool _scannerReady  = false;
+    private bool _isProcessing  = false;
+    private string? _errorMessage;
+    private CollectionReceiptViewModel? _receipt;
+
+    protected override void OnInitialized()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    private async Task StartScanner()
+    {
+        _errorMessage = null;
+        StateHasChanged();
+
+        // Let Blazor render the video element first
+        await Task.Delay(50);
+
+        var ok = await JSRuntime.InvokeAsync<bool>(
+            "collectionScanner.start", _videoId, _dotNetRef);
+
+        if (ok)
+        {
+            _scannerReady = true;
+        }
+        else
+        {
+            _errorMessage = "Could not start camera. Please check permissions and try again.";
+        }
+        StateHasChanged();
+    }
+
+    private async Task StopScanner()
+    {
+        await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
+        _scannerReady = false;
+        StateHasChanged();
+    }
+
+    private async Task SwitchCamera()
+    {
+        await JSRuntime.InvokeAsync<bool>("collectionScanner.switchCamera", _videoId);
+    }
+
+    [JSInvokable]
+    public async Task OnQrScanned(string scannedValue)
+    {
+        if (_isProcessing || _receipt is not null) return;
+
+        _isProcessing = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Pause scanner while we validate
+            await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
+
+            var result = await CollectionService.ValidateScannedUrlAsync(scannedValue);
+
+            if (result.Success && result.Receipt is not null)
+            {
+                _receipt      = result.Receipt;
+                _scannerReady = false;
+            }
+            else
+            {
+                _errorMessage = result.Error ?? "Invalid QR code.";
+                // Resume scanning so they can try again
+                await JSRuntime.InvokeAsync<bool>(
+                    "collectionScanner.start", _videoId, _dotNetRef);
+                _scannerReady = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "OnQrScanned failed");
+            _errorMessage = "An error occurred. Please try again.";
+            _scannerReady = false;
+        }
+        finally
+        {
+            _isProcessing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task PrintReceipt()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", @"
+            const el = document.getElementById('printable-receipt');
+            const clone = el.cloneNode(true);
+            const win = window.open('', '_blank', 'width=600,height=800');
+            win.document.write(`
+                <html><head><title>Collection Receipt</title>
+                <style>
+                    body { font-family: monospace; font-size: 13px; padding: 20px; color: #000; }
+                    h3   { text-align: center; margin: 0; font-size: 16px; }
+                    p    { text-align: center; margin: 2px 0; }
+                    hr   { border: 1px dashed #000; margin: 8px 0; }
+                    .receipt-row { display: flex; justify-content: space-between; margin: 4px 0; }
+                    .receipt-label { color: #555; }
+                    .receipt-item { display: flex; justify-content: space-between; margin: 4px 0; }
+                    .receipt-item-variant { color: #666; font-size: 11px; }
+                    .receipt-item-right { display: flex; gap: 12px; }
+                    .receipt-items-title { font-size: 13px; border-bottom: 1px dashed #000; padding-bottom: 4px; }
+                    .receipt-totals { border-top: 1px dashed #000; padding-top: 8px; margin-top: 8px; }
+                    .total-row { font-weight: bold; font-size: 15px; }
+                    .green { color: green; }
+                    .bold  { font-weight: bold; }
+                    .large { font-size: 15px; }
+                    .receipt-footer-text { text-align: center; margin-top: 16px; font-size: 11px; }
+                </style></head><body>`
+                + clone.innerHTML +
+                `</body></html>`);
+            win.document.close();
+            win.focus();
+            setTimeout(() => { win.print(); win.close(); }, 300);
+        ");
+    }
+
+    private async Task CloseReceipt()
+    {
+        _receipt = null;
+        await StartScanner();
+    }
+
+    private void DismissError()
+    {
+        _errorMessage = null;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("collectionScanner.destroy", _videoId);
+        _dotNetRef?.Dispose();
+    }
+}
