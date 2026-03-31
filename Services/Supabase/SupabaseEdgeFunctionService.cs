@@ -1,8 +1,10 @@
-// Services/Supabase/SupabaseEdgeFunctionService.cs - FIXED
+// Services/Supabase/SupabaseEdgeFunctionService.cs
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SubashaVentures.Domain.Order;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Payment;
 using SubashaVentures.Utilities.HelperScripts;
@@ -19,16 +21,18 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly ILogger<SupabaseEdgeFunctionService> _logger;
 
-    // Edge function names
-    private const string ANALYTICS_FUNCTION = "update-product-analytics";
-    private const string SERVER_TIME_FUNCTION = "get-server-time";
-    private const string HEALTH_CHECK_FUNCTION = "health-check";
-    private const string CREATE_WALLET_FUNCTION = "create-wallet";
-    private const string VERIFY_CREDIT_WALLET_FUNCTION = "verify-and-credit-wallet";
-    private const string DEDUCT_WALLET_FUNCTION = "deduct-from-wallet";
-    private const string GET_CARD_AUTH_FUNCTION = "get-card-authorization";
-    private const string VERIFY_CARD_TOKEN_FUNCTION = "verify-card-token";
-    private const string CREATE_ORDER_FUNCTION = "create-order";
+    // ── Edge function names ───────────────────────────────────────────────────
+    private const string ANALYTICS_FUNCTION             = "update-product-analytics";
+    private const string SERVER_TIME_FUNCTION           = "get-server-time";
+    private const string HEALTH_CHECK_FUNCTION          = "health-check";
+    private const string CREATE_WALLET_FUNCTION         = "create-wallet";
+    private const string VERIFY_CREDIT_WALLET_FUNCTION  = "verify-and-credit-wallet";
+    private const string DEDUCT_WALLET_FUNCTION         = "deduct-from-wallet";
+    private const string GET_CARD_AUTH_FUNCTION         = "get-card-authorization";
+    private const string VERIFY_CARD_TOKEN_FUNCTION     = "verify-card-token";
+    private const string CREATE_ORDER_FUNCTION          = "create-order";
+    private const string GENERATE_COLLECTION_FUNCTION   = "generate-collection-token";
+    private const string VALIDATE_COLLECTION_FUNCTION   = "validate-collection-token";
 
     public SupabaseEdgeFunctionService(
         HttpClient httpClient,
@@ -36,17 +40,17 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
         IConfiguration configuration,
         ILogger<SupabaseEdgeFunctionService> logger)
     {
-        _httpClient = httpClient;
-        _authService = authService;
-        _supabaseUrl = configuration["Supabase:Url"] ?? "https://wbwmovtewytjibxutssk.supabase.co";
+        _httpClient      = httpClient;
+        _authService     = authService;
+        _supabaseUrl     = configuration["Supabase:Url"] ?? string.Empty;
         _supabaseAnonKey = configuration["Supabase:AnonKey"] ?? string.Empty;
-        _logger = logger;
+        _logger          = logger;
 
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            PropertyNameCaseInsensitive = true
+            PropertyNamingPolicy        = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNameCaseInsensitive = true,
         };
     }
 
@@ -58,9 +62,7 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Sending analytics batch: {batch.Interactions.Count} interactions",
-                LogLevel.Info
-            );
+                $"Sending analytics batch: {batch.Interactions.Count} interactions", LogLevel.Info);
 
             var response = await SendEdgeFunctionRequestAsync(ANALYTICS_FUNCTION, batch);
             return await ProcessEdgeFunctionResponse<ProductAnalyticsUpdateResult>(response);
@@ -81,20 +83,16 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
                 $"{SERVER_TIME_FUNCTION}?type={timeType}",
                 null,
                 HttpMethod.Get,
-                requiresAuth: false
-            );
+                requiresAuth: false);
 
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
+                var content     = await response.Content.ReadAsStringAsync();
                 var timeResponse = JsonSerializer.Deserialize<ServerTimeResponse>(content, _jsonOptions);
-
                 if (timeResponse != null)
                 {
                     await MID_HelperFunctions.DebugMessageAsync(
-                        $"Server time retrieved: {timeResponse.Time}",
-                        LogLevel.Debug
-                    );
+                        $"Server time retrieved: {timeResponse.Time}", LogLevel.Debug);
                     return timeResponse.Time;
                 }
             }
@@ -105,7 +103,6 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Getting server time");
-            _logger.LogError(ex, "Failed to get server time, using local time");
             return DateTime.UtcNow;
         }
     }
@@ -117,122 +114,264 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
         try
         {
             var response = await SendEdgeFunctionRequestAsync(
-                HEALTH_CHECK_FUNCTION,
-                null,
-                HttpMethod.Get,
-                requiresAuth: false
-            );
+                HEALTH_CHECK_FUNCTION, null, HttpMethod.Get, requiresAuth: false);
 
             var isHealthy = response.IsSuccessStatusCode;
-
             await MID_HelperFunctions.DebugMessageAsync(
                 $"Edge function health check: {(isHealthy ? "Healthy" : "Unhealthy")}",
-                isHealthy ? LogLevel.Info : LogLevel.Warning
-            );
+                isHealthy ? LogLevel.Info : LogLevel.Warning);
 
             return isHealthy;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Edge function health check");
-            _logger.LogError(ex, "Edge function health check failed");
             return false;
         }
     }
 
     // ==================== ORDER CREATION ====================
 
-    public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(CreateOrderEdgeRequest request)
+    public async Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(
+        CreateOrderEdgeRequest request)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Creating order via edge function for user: {request.UserId}",
-                LogLevel.Info
-            );
+                $"Creating order via edge function for user: {request.UserId}", LogLevel.Info);
 
-            // Validate request
             if (string.IsNullOrWhiteSpace(request.UserId))
-            {
                 return new EdgeFunctionResponse<OrderCreationResult>
-                {
-                    Success = false,
-                    Message = "User ID is required",
-                    ErrorCode = "INVALID_USER_ID"
-                };
-            }
+                    { Success = false, Message = "User ID is required", ErrorCode = "INVALID_USER_ID" };
 
             if (!request.Items.Any())
-            {
                 return new EdgeFunctionResponse<OrderCreationResult>
-                {
-                    Success = false,
-                    Message = "Order must contain at least one item",
-                    ErrorCode = "NO_ITEMS"
-                };
-            }
+                    { Success = false, Message = "Order must contain at least one item", ErrorCode = "NO_ITEMS" };
 
-            // Prepare edge function request
             var edgeRequest = new
             {
-                userId = request.UserId,
-                customerName = request.CustomerName,
-                customerEmail = request.CustomerEmail,
-                customerPhone = request.CustomerPhone,
-                items = request.Items.Select(i => new
+                userId           = request.UserId,
+                customerName     = request.CustomerName,
+                customerEmail    = request.CustomerEmail,
+                customerPhone    = request.CustomerPhone,
+                items            = request.Items.Select(i => new
                 {
-                    productId = i.ProductId,
+                    productId   = i.ProductId,
                     productName = i.ProductName,
-                    productSku = i.ProductSku,
-                    imageUrl = i.ImageUrl,
-                    price = i.Price,
-                    quantity = i.Quantity,
-                    size = i.Size,
-                    color = i.Color
+                    productSku  = i.ProductSku,
+                    imageUrl    = i.ImageUrl,
+                    price       = i.Price,
+                    quantity    = i.Quantity,
+                    size        = i.Size,
+                    color       = i.Color,
                 }).ToList(),
-                subtotal = request.Subtotal,
-                shippingCost = request.ShippingCost,
-                discount = request.Discount,
-                tax = request.Tax,
-                total = request.Total,
+                subtotal          = request.Subtotal,
+                shippingCost      = request.ShippingCost,
+                discount          = request.Discount,
+                tax               = request.Tax,
+                total             = request.Total,
                 shippingAddressId = request.ShippingAddressId,
-                shippingAddress = request.ShippingAddress,
-                shippingMethod = request.ShippingMethod,
-                paymentMethod = request.PaymentMethod,
-                paymentReference = request.PaymentReference
+                shippingAddress   = request.ShippingAddress,
+                shippingMethod    = request.ShippingMethod,
+                paymentMethod     = request.PaymentMethod,
+                paymentReference  = request.PaymentReference,
             };
 
             var response = await SendEdgeFunctionRequestAsync(CREATE_ORDER_FUNCTION, edgeRequest);
-            var result = await ProcessEdgeFunctionResponse<OrderCreationResult>(response);
+            var raw      = await response.Content.ReadAsStringAsync();
 
-            if (result.Success)
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"create-order response ({(int)response.StatusCode}): {raw[..Math.Min(raw.Length, 400)]}",
+                LogLevel.Info);
+
+            if (!response.IsSuccessStatusCode)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Order created: {result.Data?.OrderNumber}",
-                    LogLevel.Info
-                );
-            }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Order creation failed: {result.Message}",
-                    LogLevel.Error
-                );
+                try
+                {
+                    var err = JsonSerializer.Deserialize<EdgeFunctionResponse<OrderCreationResult>>(raw, _jsonOptions);
+                    if (err is not null) return err;
+                }
+                catch { }
+                return new EdgeFunctionResponse<OrderCreationResult>
+                {
+                    Success     = false,
+                    Message     = $"HTTP {response.StatusCode}",
+                    ErrorCode   = "HTTP_ERROR",
+                    ErrorDetails = raw,
+                };
             }
 
-            return result;
+            // The create-order function wraps its result in { success, data: { orderId, orderNumber, total, collectionQrUrl, isPickup } }
+            try
+            {
+                var doc     = JsonDocument.Parse(raw).RootElement;
+                var success = doc.TryGetProperty("success", out var sv) && sv.GetBoolean();
+
+                if (!success)
+                {
+                    return new EdgeFunctionResponse<OrderCreationResult>
+                    {
+                        Success   = false,
+                        Message   = doc.TryGetProperty("message", out var mv) ? mv.GetString() ?? "Unknown" : "Unknown",
+                        ErrorCode = doc.TryGetProperty("errorCode", out var ev) ? ev.GetString() : null,
+                    };
+                }
+
+                var data = doc.GetProperty("data");
+                return new EdgeFunctionResponse<OrderCreationResult>
+                {
+                    Success = true,
+                    Message = "Order created successfully",
+                    Data    = new OrderCreationResult
+                    {
+                        OrderId         = GetStr(data, "orderId"),
+                        OrderNumber     = GetStr(data, "orderNumber"),
+                        Total           = data.TryGetProperty("total",           out var t)  ? t.GetDecimal()   : 0m,
+                        CollectionQrUrl = data.TryGetProperty("collectionQrUrl", out var qr) ? qr.GetString()   : null,
+                        IsPickup        = data.TryGetProperty("isPickup",        out var ip) && ip.GetBoolean(),
+                    },
+                };
+            }
+            catch (Exception parseEx)
+            {
+                _logger.LogError(parseEx, "Failed to parse create-order response");
+                return new EdgeFunctionResponse<OrderCreationResult>
+                {
+                    Success      = false,
+                    Message      = "Failed to parse order response",
+                    ErrorCode    = "PARSE_ERROR",
+                    ErrorDetails = raw,
+                };
+            }
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Creating order via edge function");
-            _logger.LogError(ex, "Failed to create order via edge function");
+            return HandleEdgeFunctionError<OrderCreationResult>(ex, "Creating order via edge function");
+        }
+    }
 
-            return new EdgeFunctionResponse<OrderCreationResult>
+    // ==================== COLLECTION TOKEN ====================
+
+    public async Task<string?> GenerateCollectionTokenAsync(string orderId)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Generating collection token for order: {orderId}", LogLevel.Info);
+
+            var response = await SendEdgeFunctionRequestAsync(
+                GENERATE_COLLECTION_FUNCTION, new { orderId });
+
+            var raw = await response.Content.ReadAsStringAsync();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"generate-collection-token ({(int)response.StatusCode}): {raw[..Math.Min(raw.Length, 300)]}",
+                LogLevel.Info);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("generate-collection-token HTTP {Status}", response.StatusCode);
+                return null;
+            }
+
+            var doc = JsonDocument.Parse(raw).RootElement;
+
+            if (doc.TryGetProperty("success", out var sv) && sv.GetBoolean()
+                && doc.TryGetProperty("qrUrl", out var qv))
+            {
+                return qv.GetString();
+            }
+
+            var errMsg = doc.TryGetProperty("error", out var em) ? em.GetString() : "Unknown error";
+            _logger.LogWarning("generate-collection-token failed: {Error}", errMsg);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GenerateCollectionTokenAsync failed for order {OrderId}", orderId);
+            return null;
+        }
+    }
+
+    public async Task<CollectionValidationResult> ValidateCollectionTokenAsync(string t, string s)
+    {
+        try
+        {
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Validating collection token via edge function", LogLevel.Info);
+
+            var response = await SendEdgeFunctionRequestAsync(
+                VALIDATE_COLLECTION_FUNCTION, new { t, s });
+
+            var raw = await response.Content.ReadAsStringAsync();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"validate-collection-token ({(int)response.StatusCode}): {raw[..Math.Min(raw.Length, 400)]}",
+                LogLevel.Info);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errBody = TryGetErrorMessage(raw);
+                return new CollectionValidationResult { Success = false, Error = errBody };
+            }
+
+            var doc     = JsonDocument.Parse(raw).RootElement;
+            var success = doc.TryGetProperty("success", out var sv) && sv.GetBoolean();
+
+            if (!success)
+            {
+                var errMsg = doc.TryGetProperty("error", out var em)
+                    ? em.GetString() ?? "Validation failed"
+                    : "Validation failed";
+                return new CollectionValidationResult { Success = false, Error = errMsg };
+            }
+
+            // Parse receipt
+            var r       = doc.GetProperty("receipt");
+            var receipt = new CollectionReceiptViewModel
+            {
+                OrderNumber    = GetStr(r, "orderNumber"),
+                CustomerName   = GetStr(r, "customerName"),
+                CustomerPhone  = GetStr(r, "customerPhone"),
+                CustomerEmail  = GetStr(r, "customerEmail"),
+                PaymentMethod  = GetStr(r, "paymentMethod"),
+                ShippingMethod = GetStr(r, "shippingMethod"),
+                Subtotal       = GetDec(r, "subtotal"),
+                ShippingCost   = GetDec(r, "shippingCost"),
+                Discount       = GetDec(r, "discount"),
+                Tax            = GetDec(r, "tax"),
+                Total          = GetDec(r, "total"),
+                OrderedAt      = r.TryGetProperty("orderedAt",   out var oa) ? oa.GetDateTime()  : default,
+                CollectedAt    = r.TryGetProperty("collectedAt", out var ca) ? ca.GetDateTime()  : DateTime.UtcNow,
+            };
+
+            if (r.TryGetProperty("items", out var itemsEl))
+            {
+                foreach (var item in itemsEl.EnumerateArray())
+                {
+                    receipt.Items.Add(new CollectionReceiptItemViewModel
+                    {
+                        ProductName = GetStr(item, "product_name"),
+                        ProductSku  = GetStr(item, "product_sku"),
+                        Quantity    = item.TryGetProperty("quantity", out var q)  ? q.GetInt32()   : 0,
+                        Price       = GetDec(item, "price"),
+                        Size        = item.TryGetProperty("size",  out var sz)    ? sz.GetString() : null,
+                        Color       = item.TryGetProperty("color", out var cl)    ? cl.GetString() : null,
+                        Subtotal    = GetDec(item, "subtotal"),
+                        ImageUrl    = GetStr(item, "image_url"),
+                    });
+                }
+            }
+
+            return new CollectionValidationResult { Success = true, Receipt = receipt };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ValidateCollectionTokenAsync failed");
+            return new CollectionValidationResult
             {
                 Success = false,
-                Message = $"Order creation failed: {ex.Message}",
-                ErrorCode = "EDGE_FUNCTION_ERROR",
-                ErrorDetails = ex.ToString()
+                Error   = "Failed to validate QR code. Please try again.",
             };
         }
     }
@@ -244,13 +383,9 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Creating wallet via edge function for user: {userId}",
-                LogLevel.Info
-            );
+                $"Creating wallet for user: {userId}", LogLevel.Info);
 
-            var payload = new { userId };
-            var response = await SendEdgeFunctionRequestAsync(CREATE_WALLET_FUNCTION, payload);
-            
+            var response = await SendEdgeFunctionRequestAsync(CREATE_WALLET_FUNCTION, new { userId });
             return await ProcessEdgeFunctionResponse<WalletData>(response);
         }
         catch (Exception ex)
@@ -260,29 +395,22 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     }
 
     public async Task<EdgeFunctionResponse<WalletCreditResult>> VerifyAndCreditWalletAsync(
-        string reference, 
-        string provider)
+        string reference, string provider)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Verifying and crediting wallet: Reference={reference}, Provider={provider}",
-                LogLevel.Info
-            );
+                $"Verifying and crediting wallet: ref={reference}, provider={provider}", LogLevel.Info);
 
-            var payload = new { reference, provider };
-            var response = await SendEdgeFunctionRequestAsync(VERIFY_CREDIT_WALLET_FUNCTION, payload);
-            
+            var response = await SendEdgeFunctionRequestAsync(
+                VERIFY_CREDIT_WALLET_FUNCTION, new { reference, provider });
+
             var result = await ProcessEdgeFunctionResponse<WalletCreditResult>(response);
-            
+
             if (result.Success)
-            {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Wallet credited successfully: {result.Data?.Reference}",
-                    LogLevel.Info
-                );
-            }
-            
+                    $"Wallet credited: {result.Data?.Reference}", LogLevel.Info);
+
             return result;
         }
         catch (Exception ex)
@@ -292,17 +420,12 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     }
 
     public async Task<EdgeFunctionResponse<WalletDeductionResult>> DeductFromWalletAsync(
-        string userId,
-        decimal amount,
-        string description,
-        string? orderId = null)
+        string userId, decimal amount, string description, string? orderId = null)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Deducting from wallet: User={userId}, Amount={amount:N0}",
-                LogLevel.Info
-            );
+                $"Deducting from wallet: user={userId}, amount={amount:N0}", LogLevel.Info);
 
             var payload = new
             {
@@ -310,14 +433,10 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
                 amount,
                 description,
                 orderId,
-                metadata = new Dictionary<string, object>
-                {
-                    { "description", description }
-                }
+                metadata = new Dictionary<string, object> { { "description", description } },
             };
 
             var response = await SendEdgeFunctionRequestAsync(DEDUCT_WALLET_FUNCTION, payload);
-            
             return await ProcessEdgeFunctionResponse<WalletDeductionResult>(response);
         }
         catch (Exception ex)
@@ -329,19 +448,16 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     // ==================== PAYMENT METHODS ====================
 
     public async Task<EdgeFunctionResponse<CardAuthorizationData>> GetCardAuthorizationAsync(
-        string reference,
-        string email)
+        string reference, string email)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Getting card authorization: Reference={reference}",
-                LogLevel.Info
-            );
+                $"Getting card authorization: ref={reference}", LogLevel.Info);
 
-            var payload = new { reference, email };
-            var response = await SendEdgeFunctionRequestAsync(GET_CARD_AUTH_FUNCTION, payload);
-            
+            var response = await SendEdgeFunctionRequestAsync(
+                GET_CARD_AUTH_FUNCTION, new { reference, email });
+
             return await ProcessEdgeFunctionResponse<CardAuthorizationData>(response);
         }
         catch (Exception ex)
@@ -351,21 +467,15 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     }
 
     public async Task<EdgeFunctionResponse<CardVerificationData>> VerifyCardTokenAsync(
-        string userId,
-        string provider,
-        string authorizationCode,
-        string email)
+        string userId, string provider, string authorizationCode, string email)
     {
         try
         {
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Verifying card token: User={userId}, Provider={provider}",
-                LogLevel.Info
-            );
+                $"Verifying card token: user={userId}, provider={provider}", LogLevel.Info);
 
-            var payload = new { userId, provider, authorizationCode, email };
+            var payload  = new { userId, provider, authorizationCode, email };
             var response = await SendEdgeFunctionRequestAsync(VERIFY_CARD_TOKEN_FUNCTION, payload);
-            
             return await ProcessEdgeFunctionResponse<CardVerificationData>(response);
         }
         catch (Exception ex)
@@ -374,106 +484,88 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
         }
     }
 
-    // ==================== PRIVATE HELPER METHODS ====================
+    // ==================== PRIVATE HELPERS ====================
 
     private async Task<HttpResponseMessage> SendEdgeFunctionRequestAsync(
         string functionName,
-        object? payload = null,
-        HttpMethod? method = null,
-        bool requiresAuth = true)
+        object? payload     = null,
+        HttpMethod? method  = null,
+        bool requiresAuth   = true)
     {
         method ??= HttpMethod.Post;
 
         var requestUrl = $"{_supabaseUrl}/functions/v1/{functionName}";
-        var request = new HttpRequestMessage(method, requestUrl);
+        var request    = new HttpRequestMessage(method, requestUrl);
 
-        // Add authorization header
         if (requiresAuth)
         {
             var session = await _authService.GetCurrentSessionAsync();
-            if (session == null || string.IsNullOrEmpty(session.AccessToken))
-            {
+            if (session is null || string.IsNullOrEmpty(session.AccessToken))
                 throw new Exception("No active session found. Please sign in again.");
-            }
-            
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", session.AccessToken);
         }
-        
-        // Add API key header
+
         request.Headers.Add("apikey", _supabaseAnonKey);
 
-        // Add content for POST requests
-        if (payload != null && method == HttpMethod.Post)
+        if (payload is not null && method == HttpMethod.Post)
         {
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
-            
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Edge function request payload: {json}",
-                LogLevel.Debug
-            );
-
-            request.Content = JsonContent.Create(payload, options: _jsonOptions);
+                $"Edge function payload preview: {json[..Math.Min(json.Length, 300)]}", LogLevel.Debug);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
         }
 
         return await _httpClient.SendAsync(request);
     }
 
-    private async Task<EdgeFunctionResponse<T>> ProcessEdgeFunctionResponse<T>(HttpResponseMessage response)
+    private async Task<EdgeFunctionResponse<T>> ProcessEdgeFunctionResponse<T>(
+        HttpResponseMessage response)
     {
         var content = await response.Content.ReadAsStringAsync();
 
         await MID_HelperFunctions.DebugMessageAsync(
-            $"Edge function response ({response.StatusCode}): {content}",
-            response.IsSuccessStatusCode ? LogLevel.Debug : LogLevel.Error
-        );
+            $"Edge function response ({response.StatusCode}): {content[..Math.Min(content.Length, 400)]}",
+            response.IsSuccessStatusCode ? LogLevel.Debug : LogLevel.Error);
 
         if (!response.IsSuccessStatusCode)
         {
             try
             {
-                var errorResponse = JsonSerializer.Deserialize<EdgeFunctionResponse<T>>(content, _jsonOptions);
-                if (errorResponse != null)
-                {
-                    return errorResponse;
-                }
+                var errResp = JsonSerializer.Deserialize<EdgeFunctionResponse<T>>(content, _jsonOptions);
+                if (errResp is not null) return errResp;
             }
             catch { }
 
             return new EdgeFunctionResponse<T>
             {
-                Success = false,
-                Message = $"HTTP {response.StatusCode}: {content}",
-                ErrorCode = "HTTP_ERROR",
-                ErrorDetails = content
+                Success      = false,
+                Message      = $"HTTP {response.StatusCode}: {content}",
+                ErrorCode    = "HTTP_ERROR",
+                ErrorDetails = content,
             };
         }
 
         try
         {
             var result = JsonSerializer.Deserialize<EdgeFunctionResponse<T>>(content, _jsonOptions);
-            
-            if (result != null)
+            return result ?? new EdgeFunctionResponse<T>
             {
-                return result;
-            }
-
-            return new EdgeFunctionResponse<T>
-            {
-                Success = false,
-                Message = "Failed to parse edge function response",
-                ErrorCode = "PARSE_ERROR"
+                Success   = false,
+                Message   = "Failed to parse edge function response",
+                ErrorCode = "PARSE_ERROR",
             };
         }
         catch (JsonException ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Parsing edge function response");
-            
             return new EdgeFunctionResponse<T>
             {
-                Success = false,
-                Message = "Invalid response format from server",
-                ErrorCode = "PARSE_ERROR",
-                ErrorDetails = ex.ToString()
+                Success      = false,
+                Message      = "Invalid response format from server",
+                ErrorCode    = "PARSE_ERROR",
+                ErrorDetails = ex.ToString(),
             };
         }
     }
@@ -481,28 +573,45 @@ public class SupabaseEdgeFunctionService : ISupabaseEdgeFunctionService
     private EdgeFunctionResponse<T> HandleEdgeFunctionError<T>(Exception ex, string operation)
     {
         MID_HelperFunctions.LogExceptionAsync(ex, operation).Wait();
-        _logger.LogError(ex, "Edge function error: {Operation}", operation);
-
+        _logger.LogError(ex, "Edge function error in: {Operation}", operation);
         return new EdgeFunctionResponse<T>
         {
-            Success = false,
-            Message = $"An error occurred: {ex.Message}",
-            ErrorCode = "UNEXPECTED_ERROR",
-            ErrorDetails = ex.ToString()
+            Success      = false,
+            Message      = $"An error occurred: {ex.Message}",
+            ErrorCode    = "UNEXPECTED_ERROR",
+            ErrorDetails = ex.ToString(),
         };
+    }
+
+    private static string GetStr(JsonElement el, string prop)
+        => el.TryGetProperty(prop, out var v) ? v.GetString() ?? "" : "";
+
+    private static decimal GetDec(JsonElement el, string prop)
+        => el.TryGetProperty(prop, out var v) ? v.GetDecimal() : 0m;
+
+    private static string TryGetErrorMessage(string raw)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(raw).RootElement;
+            if (doc.TryGetProperty("error",   out var e)) return e.GetString() ?? "Unknown error";
+            if (doc.TryGetProperty("message", out var m)) return m.GetString() ?? "Unknown error";
+        }
+        catch { }
+        return "Request failed";
     }
 }
 
-// ==================== RESPONSE MODEL ====================
+// ==================== INTERNAL RESPONSE MODEL ====================
 
 public class ServerTimeResponse
 {
     [JsonPropertyName("time")]
     public DateTime Time { get; set; }
-    
+
     [JsonPropertyName("timezone")]
     public string Timezone { get; set; } = "UTC";
-    
+
     [JsonPropertyName("utc_offset")]
     public string UtcOffset { get; set; } = "+00:00";
 }
