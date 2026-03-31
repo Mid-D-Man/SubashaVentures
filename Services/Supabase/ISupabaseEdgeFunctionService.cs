@@ -1,52 +1,68 @@
 // Services/Supabase/ISupabaseEdgeFunctionService.cs
+using SubashaVentures.Domain.Order;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Payment;
-using SubashaVentures.Domain.Checkout;
 
 namespace SubashaVentures.Services.Supabase;
 
 public interface ISupabaseEdgeFunctionService
 {
     // ==================== PRODUCT ANALYTICS ====================
-    
+
     Task<EdgeFunctionResponse<ProductAnalyticsUpdateResult>> UpdateProductAnalyticsAsync(ProductInteractionBatch batch);
-    
+
     // ==================== SERVER TIME ====================
-    
+
     Task<DateTime> GetServerTimeAsync(string timeType = "utc");
-    
+
     // ==================== HEALTH CHECK ====================
-    
+
     Task<bool> HealthCheckAsync();
-    
+
     // ==================== WALLET OPERATIONS ====================
-    
+
     Task<EdgeFunctionResponse<WalletData>> CreateWalletAsync(string userId);
     Task<EdgeFunctionResponse<WalletCreditResult>> VerifyAndCreditWalletAsync(string reference, string provider);
     Task<EdgeFunctionResponse<WalletDeductionResult>> DeductFromWalletAsync(
-        string userId, 
-        decimal amount, 
-        string description, 
+        string userId,
+        decimal amount,
+        string description,
         string? orderId = null);
-    
+
     // ==================== PAYMENT METHODS ====================
-    
+
     Task<EdgeFunctionResponse<CardAuthorizationData>> GetCardAuthorizationAsync(string reference, string email);
     Task<EdgeFunctionResponse<CardVerificationData>> VerifyCardTokenAsync(
         string userId,
         string provider,
         string authorizationCode,
         string email);
-    
+
     // ==================== ORDER CREATION ====================
-    
+
     /// <summary>
-    /// Create order via edge function (bypasses RLS, handles transactions)
+    /// Create order via edge function (bypasses RLS, handles transactions).
+    /// Returns collectionQrUrl and isPickup for store-pickup orders.
     /// </summary>
     Task<EdgeFunctionResponse<OrderCreationResult>> CreateOrderAsync(CreateOrderEdgeRequest request);
+
+    // ==================== COLLECTION TOKEN ====================
+
+    /// <summary>
+    /// Calls generate-collection-token edge function.
+    /// Returns the signed QR URL for pickup orders. Idempotent — safe to call multiple times.
+    /// </summary>
+    Task<string?> GenerateCollectionTokenAsync(string orderId);
+
+    /// <summary>
+    /// Calls validate-collection-token edge function.
+    /// Atomically invalidates the token and returns full receipt data.
+    /// Admin-only — requires superior_admin JWT.
+    /// </summary>
+    Task<CollectionValidationResult> ValidateCollectionTokenAsync(string t, string s);
 }
 
-// ==================== ORDER REQUEST/RESPONSE MODELS ====================
+// ==================== ORDER REQUEST / RESPONSE MODELS ====================
 
 public class CreateOrderEdgeRequest
 {
@@ -54,19 +70,15 @@ public class CreateOrderEdgeRequest
     public string CustomerName { get; set; } = string.Empty;
     public string CustomerEmail { get; set; } = string.Empty;
     public string CustomerPhone { get; set; } = string.Empty;
-    
     public List<OrderItemEdgeRequest> Items { get; set; } = new();
-    
     public decimal Subtotal { get; set; }
     public decimal ShippingCost { get; set; }
     public decimal Discount { get; set; }
     public decimal Tax { get; set; }
     public decimal Total { get; set; }
-    
     public string ShippingAddressId { get; set; } = string.Empty;
     public string ShippingAddress { get; set; } = string.Empty;
     public string ShippingMethod { get; set; } = string.Empty;
-    
     public string PaymentMethod { get; set; } = string.Empty;
     public string? PaymentReference { get; set; }
 }
@@ -88,9 +100,25 @@ public class OrderCreationResult
     public string OrderId { get; set; } = string.Empty;
     public string OrderNumber { get; set; } = string.Empty;
     public decimal Total { get; set; }
+
+    /// <summary>Null for non-pickup orders. Signed QR URL for pickup orders.</summary>
+    public string? CollectionQrUrl { get; set; }
+
+    /// <summary>True when the shipping method is a store pickup.</summary>
+    public bool IsPickup { get; set; }
 }
 
-// Keep existing response models...
+// ==================== COLLECTION TOKEN MODELS ====================
+
+public class CollectionValidationResult
+{
+    public bool Success { get; set; }
+    public string? Error { get; set; }
+    public CollectionReceiptViewModel? Receipt { get; set; }
+}
+
+// ==================== SHARED EDGE FUNCTION RESPONSE ====================
+
 public class EdgeFunctionResponse<T>
 {
     public bool Success { get; set; }
@@ -101,6 +129,8 @@ public class EdgeFunctionResponse<T>
     public bool AlreadyProcessed { get; set; }
 }
 
+// ==================== ANALYTICS MODELS ====================
+
 public class ProductAnalyticsUpdateResult
 {
     public int ProcessedCount { get; set; }
@@ -109,6 +139,8 @@ public class ProductAnalyticsUpdateResult
     public List<string> Errors { get; set; } = new();
     public DateTime ProcessedAt { get; set; }
 }
+
+// ==================== WALLET MODELS ====================
 
 public class WalletData
 {
@@ -138,6 +170,8 @@ public class WalletDeductionResult
     public decimal BalanceBefore { get; set; }
     public decimal BalanceAfter { get; set; }
 }
+
+// ==================== PAYMENT MODELS ====================
 
 public class CardAuthorizationData
 {
