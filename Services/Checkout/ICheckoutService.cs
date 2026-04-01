@@ -55,8 +55,10 @@ public class OrderPlacementResult
     public string? ErrorCode { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
 
-    // Populated for pickup orders — the QR URL to show the user
+    /// <summary>Signed QR URL for store-pickup orders. Null for shipped orders.</summary>
     public string? CollectionQrUrl { get; set; }
+
+    /// <summary>True when the chosen shipping method is store pickup.</summary>
     public bool IsPickup { get; set; }
 }
 
