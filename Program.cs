@@ -1,4 +1,4 @@
-// Program.cs - UPDATED SERVICES REGISTRATION WITH VISUAL ELEMENTS INITIALIZATION
+// Program.cs
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -37,6 +37,7 @@ using SubashaVentures.Services.Cryptography;
 using SubashaVentures.Services.Newsletter;
 using SubashaVentures.Services.Notifications;
 using SubashaVentures.Services.AppStats;
+using SubashaVentures.Services.Collection;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -44,10 +45,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient 
-{  
+builder.Services.AddScoped(sp => new HttpClient
+{
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress),
-    Timeout = TimeSpan.FromSeconds(30)
+    Timeout     = TimeSpan.FromSeconds(30)
 });
 
 builder.Logging.SetMinimumLevel(LogLevel.Information);
@@ -58,7 +59,7 @@ builder.Services.AddSingleton<IMid_Logger, Mid_Logger>();
 
 builder.Services.AddBlazoredLocalStorage(config =>
 {
-    config.JsonSerializerOptions.WriteIndented = false;
+    config.JsonSerializerOptions.WriteIndented          = false;
     config.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
 builder.Services.AddBlazoredToast();
@@ -67,25 +68,23 @@ builder.Services.AddBlazoredToast();
 builder.Services.AddScoped<Client>(sp =>
 {
     var config = builder.Configuration;
-    var url = config["Supabase:Url"];
-    var key = config["Supabase:AnonKey"];
-    
+    var url    = config["Supabase:Url"];
+    var key    = config["Supabase:AnonKey"];
+
     if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(key))
-    {
         throw new InvalidOperationException(
             "Supabase configuration is missing. Please check appsettings.json");
-    }
-    
+
     Console.WriteLine($"✓ Supabase URL: {url}");
     Console.WriteLine($"✓ Supabase Key (first 20 chars): {key.Substring(0, Math.Min(20, key.Length))}...");
-    
+
     var options = new SupabaseOptions
     {
         AutoConnectRealtime = false,
-        AutoRefreshToken = true,
-        SessionHandler = new DefaultSupabaseSessionHandler()
+        AutoRefreshToken    = true,
+        SessionHandler      = new DefaultSupabaseSessionHandler()
     };
-  
+
     return new Client(url, key, options);
 });
 
@@ -94,15 +93,12 @@ builder.Services.AddAuthorizationCore(options =>
 {
     options.AddPolicy("SuperiorAdminOnly", policy =>
         policy.RequireRole("superior_admin"));
-    
     options.AddPolicy("AuthenticatedUser", policy =>
         policy.RequireAuthenticatedUser());
-    
     options.AddPolicy("AnyRole", policy =>
         policy.RequireRole("superior_admin", "user"));
 });
 builder.Services.AddScoped<CustomSupabaseClaimsFactory>();
-// Add SessionManager to DI container
 builder.Services.AddScoped<SessionManager>();
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 builder.Services.AddScoped<SupabaseAuthService>();
@@ -117,22 +113,23 @@ builder.Services.AddScoped<IBlazorAppLocalStorageService, BlazorAppLocalStorageS
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IImageCacheService, ImageCacheService>();
 
-// ==================== VISUAL ELEMENTS SERVICE ====================
-// IMPORTANT: Register as Scoped so it can be initialized once and reused
+// ==================== VISUAL ELEMENTS ====================
 builder.Services.AddScoped<IVisualElementsService, VisualElementsService>();
 
+// ==================== FIREBASE ====================
 builder.Services.AddScoped<IFirebaseConfigService, FirebaseConfigService>();
 builder.Services.AddScoped<IFirestoreService, FirestoreService>();
 
+// ==================== SUPABASE SERVICES ====================
 builder.Services.AddScoped<ISupabaseConfigService, SupabaseConfigService>();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 builder.Services.AddScoped<ISupabaseEdgeFunctionService, SupabaseEdgeFunctionService>();
 
-// ==================== SHOP SERVICES - SIMPLIFIED ====================
-builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>(); // SINGLE SERVICE NOW
+// ==================== SHOP ====================
+builder.Services.AddScoped<SubashaVentures.Services.Shop.ShopStateService>();
 
-// ==================== PRODUCT & CATALOG SERVICES ====================
+// ==================== PRODUCT & CATALOG ====================
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IProductService, ProductService>();
@@ -146,60 +143,66 @@ builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IPartnerService, PartnerService>();
 
 // ==================== CART & WISHLIST ====================
-builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService, SubashaVentures.Services.Cart.CartService>();
-builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService, SubashaVentures.Services.Wishlist.WishlistService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<IGeolocationService, GeolocationService>();
+builder.Services.AddScoped<SubashaVentures.Services.Cart.ICartService,
+                            SubashaVentures.Services.Cart.CartService>();
+builder.Services.AddScoped<SubashaVentures.Services.Wishlist.IWishlistService,
+                            SubashaVentures.Services.Wishlist.WishlistService>();
 
-// ==================== PRODUCT INTERACTION & TRACKING ====================
+// ==================== ORDERS & COLLECTION ====================
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICollectionService, CollectionService>();
+
+// ==================== GEOLOCATION & TRACKING ====================
+builder.Services.AddScoped<IGeolocationService, GeolocationService>();
 builder.Services.AddScoped<IProductInteractionService, ProductInteractionService>();
 builder.Services.AddScoped<ProductViewTracker>();
 
 // ==================== PAYMENT & CHECKOUT ====================
-builder.Services.AddScoped<SubashaVentures.Services.Payment.IPaymentService, SubashaVentures.Services.Payment.PaymentService>();
-builder.Services.AddScoped<SubashaVentures.Services.Payment.IWalletService, SubashaVentures.Services.Payment.WalletService>();
-builder.Services.AddScoped<SubashaVentures.Services.Checkout.ICheckoutService, SubashaVentures.Services.Checkout.CheckoutService>();
+builder.Services.AddScoped<SubashaVentures.Services.Payment.IPaymentService,
+                            SubashaVentures.Services.Payment.PaymentService>();
+builder.Services.AddScoped<SubashaVentures.Services.Payment.IWalletService,
+                            SubashaVentures.Services.Payment.WalletService>();
+builder.Services.AddScoped<SubashaVentures.Services.Checkout.ICheckoutService,
+                            SubashaVentures.Services.Checkout.CheckoutService>();
 
-builder.Services.AddScoped<IUserSegmentationService,UserSegmentationService>();
-builder.Services.AddScoped<IMessagingService,MessagingService>();
-// Add after other service registrations
+// ==================== MESSAGING & SEGMENTATION ====================
+builder.Services.AddScoped<IUserSegmentationService, UserSegmentationService>();
+builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<ICryptographyService, CryptographyService>();
-
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// ==================== NEWSLETTER ====================
+// ==================== NEWSLETTER & NOTIFICATIONS ====================
 builder.Services.AddScoped<SubashaVentures.Services.Newsletter.INewsletterService,
                             SubashaVentures.Services.Newsletter.NewsletterService>();
-
-// ==================== NOTIFICATIONS (simplified) ====================
 builder.Services.AddScoped<SubashaVentures.Services.Notifications.INotificationService,
                             SubashaVentures.Services.Notifications.NotificationService>();
 builder.Services.AddScoped<SubashaVentures.Services.AppStats.IAppStatsService,
                             SubashaVentures.Services.AppStats.AppStatsService>();
+
 var host = builder.Build();
 
 try
 {
-    // ==================== INITIALIZE VISUAL ELEMENTS SERVICE ====================
+    // ==================== INITIALIZE VISUAL ELEMENTS ====================
     Console.WriteLine("🎨 Initializing VisualElementsService...");
     var visualElementsService = host.Services.GetRequiredService<IVisualElementsService>();
     await visualElementsService.InitializeAsync();
-    
+
     var (iconsCached, svgsCached, totalCached) = visualElementsService.GetCacheStats();
     Console.WriteLine($"✓ VisualElementsService initialized");
     Console.WriteLine($"   📊 Preloaded: {iconsCached} icons, {svgsCached} SVGs ({totalCached} total assets)");
-    
-    // ==================== INITIALIZE PRODUCT INTERACTION SERVICE ====================
+
+    // ==================== INITIALIZE PRODUCT TRACKING ====================
     var interactionService = host.Services.GetRequiredService<IProductInteractionService>();
     interactionService.StartAutoFlush();
-    
+
     // ==================== INITIALIZE LOGGING ====================
-    var midLogger = host.Services.GetRequiredService<IMid_Logger>();
-    var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
-    
+    var midLogger  = host.Services.GetRequiredService<IMid_Logger>();
+    var jsRuntime  = host.Services.GetRequiredService<IJSRuntime>();
+
     midLogger.Initialize(host.Services.GetRequiredService<ILogger<IMid_Logger>>(), jsRuntime);
     MID_HelperFunctions.Initialize(midLogger);
-    
+
     Console.WriteLine("✓ Mid_Logger initialized");
 }
 catch (Exception ex)
@@ -213,7 +216,6 @@ try
     // ==================== INITIALIZE FIREBASE ====================
     var firebaseConfig = host.Services.GetRequiredService<IFirebaseConfigService>();
     await firebaseConfig.InitializeAsync();
-    
     Console.WriteLine("✓ Firebase initialized");
 }
 catch (Exception ex)
@@ -223,7 +225,9 @@ catch (Exception ex)
 
 Console.WriteLine("========================================");
 Console.WriteLine("✓ All services initialized successfully");
-Console.WriteLine("   ✓ VisualElementsService: SVGs preloaded and ready");
+Console.WriteLine("   ✓ VisualElementsService: SVGs preloaded");
+Console.WriteLine("   ✓ ISupabaseEdgeFunctionService: registered");
+Console.WriteLine("   ✓ ICollectionService: registered");
 Console.WriteLine("   ✓ Product tracking enabled");
 Console.WriteLine("   ✓ Firebase connected");
 Console.WriteLine("   ✓ Supabase configured");
