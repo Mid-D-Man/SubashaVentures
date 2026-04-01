@@ -9,8 +9,8 @@
     @if (IsLoading)
     {
         <div class="details-loading">
-            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large" 
-                          Message="Loading order details..." />
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                            Message="Loading order details..." />
         </div>
     }
     else if (Order == null)
@@ -27,7 +27,7 @@
     }
     else
     {
-        @* Page Header *@
+        @* ── Page Header ── *@
         <div class="details-header">
             <button class="btn-back-nav" @onclick="NavigateToOrders">
                 <div class="icon" @ref="navBackIconRef"></div>
@@ -39,7 +39,7 @@
             </div>
         </div>
 
-        @* Order Status Card *@
+        @* ── Status Card ── *@
         <div class="status-card">
             <div class="status-header">
                 <div class="status-info">
@@ -61,24 +61,107 @@
             </div>
         </div>
 
-        @* Order Items Section *@
+        @* ── Store Pickup Section ── *@
+        @if (IsPickupOrder &&
+             Order.Status != OrderStatus.Delivered &&
+             Order.Status != OrderStatus.Cancelled &&
+             Order.Status != OrderStatus.Refunded)
+        {
+            <div class="pickup-section">
+                <h2>🏪 Store Collection</h2>
+                <div class="pickup-card">
+                    <div class="pickup-layout">
+
+                        @* QR Code Side *@
+                        <div class="pickup-qr-side">
+                            <h3>Your Collection QR Code</h3>
+                            <p class="qr-hint">Show this at the store counter to collect your order.</p>
+
+                            @if (IsLoadingQr)
+                            {
+                                <div class="qr-loading">
+                                    <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Medium"
+                                                    Message="Loading QR..." />
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(_qrSvg))
+                            {
+                                <div class="qr-code-wrapper">
+                                    @((MarkupString)_qrSvg)
+                                </div>
+                                <p class="qr-order-ref">
+                                    Order: <strong>@Order.OrderNumber</strong>
+                                </p>
+                            }
+                            else
+                            {
+                                <div class="qr-unavailable">
+                                    <p>QR code temporarily unavailable.</p>
+                                    <p>Quote your order number at the counter:</p>
+                                    <strong>@Order.OrderNumber</strong>
+                                </div>
+                            }
+                        </div>
+
+                        @* Store Info Side *@
+                        <div class="pickup-details-side">
+
+                            <div class="pickup-info-block">
+                                <h4>📍 Store Location</h4>
+                                <p>@StoreAddress</p>
+                            </div>
+
+                            <div class="pickup-info-block">
+                                <h4>🕒 Collection Hours</h4>
+                                <p>@StoreHours</p>
+                                <p class="pickup-note">Closed on Sundays &amp; Public Holidays</p>
+                            </div>
+
+                            <div class="pickup-info-block">
+                                <h4>📞 Contact Us</h4>
+                                <p>
+                                    <a href="tel:@StorePhone" class="contact-link">@StorePhone</a>
+                                </p>
+                                <p>
+                                    <a href="mailto:@StoreEmail" class="contact-link">@StoreEmail</a>
+                                </p>
+                                <p class="pickup-note">Call ahead to confirm your order is ready.</p>
+                            </div>
+
+                            <div class="pickup-info-block instructions">
+                                <h4>📋 How to Collect</h4>
+                                <ol class="collection-steps">
+                                    <li>Arrive during collection hours with a valid ID.</li>
+                                    <li>Open your QR code on this page, or note your order number: <strong>@Order.OrderNumber</strong></li>
+                                    <li>Show the QR code (or quote the order number) to a staff member at the counter.</li>
+                                    <li>Sign the collection receipt and collect your items.</li>
+                                </ol>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* ── Order Items ── *@
         <div class="items-section">
             <h2>Order Items (@Order.Items.Count)</h2>
             <div class="items-list">
                 @foreach (var item in Order.Items)
                 {
                     <div class="item-wrapper">
-                        <OrderItemCard Item="@item" 
-                                     ShowActions="true"
-                                     CanReview="@(Order.Status == OrderStatus.Delivered && CanReviewProduct(item.ProductId))"
-                                     OnViewProduct="@ViewProduct"
-                                     OnReviewProduct="@ReviewProduct" />
+                        <OrderItemCard Item="@item"
+                                       ShowActions="true"
+                                       CanReview="@(Order.Status == OrderStatus.Delivered && CanReviewProduct(item.ProductId))"
+                                       OnViewProduct="@ViewProduct"
+                                       OnReviewProduct="@ReviewProduct" />
                     </div>
                 }
             </div>
         </div>
 
-        @* Pricing Summary *@
+        @* ── Pricing Summary ── *@
         <div class="pricing-section">
             <h2>Order Summary</h2>
             <div class="pricing-card">
@@ -111,7 +194,7 @@
             </div>
         </div>
 
-        @* Shipping Information *@
+        @* ── Shipping Information ── *@
         <div class="shipping-section">
             <h2>Shipping Information</h2>
             <div class="shipping-card">
@@ -142,7 +225,7 @@
             </div>
         </div>
 
-        @* Payment Information *@
+        @* ── Payment Information ── *@
         <div class="payment-section">
             <h2>Payment Information</h2>
             <div class="payment-card">
@@ -177,7 +260,7 @@
             </div>
         </div>
 
-        @* Customer Information *@
+        @* ── Customer Information ── *@
         <div class="customer-section">
             <h2>Customer Information</h2>
             <div class="customer-card">
@@ -205,7 +288,7 @@
             </div>
         </div>
 
-        @* Action Buttons *@
+        @* ── Action Buttons ── *@
         <div class="actions-section">
             @if (Order.CanCancel)
             {
