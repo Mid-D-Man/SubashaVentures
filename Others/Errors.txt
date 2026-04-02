@@ -1,67 +1,95 @@
- fail: SubashaVentures.Pages.Admin.AdminNewsletter[0]
-      Failed to load newsletter stats
-Supabase.Postgrest.Exceptions.PostgrestException: Unknown criterion type, is it of type `string`, `int`, `long`, `float`, `List`, `DateTime`, `DateTimeOffset`, `Dictionary<string, object>`, `FullTextSearchConfig`, or `Range`?
-   at Supabase.Postgrest.Table`1[[SubashaVentures.Models.Supabase.UserModel, SubashaVentures, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]].Filter[Boolean](String columnName, Operator op, Boolean criterion)
-   at SubashaVentures.Pages.Admin.AdminNewsletter.LoadStats() _bound_js_globalThis_console_error:7:5
-19:04:34.670 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:04:34.668] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":6,"total":6} _bound_js_globalThis_console_debug:7:5
-19:04:34.674 [2026-02-25 18:04:34.668] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":6,"total":6} blazor.webassembly.js:1:3337
-19:04:34.695 info: SubashaVentures.Pages.Admin.AdminNewsletter[0]
-      Newsletter sent: 0 success, 6 failed _bound_js_globalThis_console_info:7:5
-19:04:34.701 fail: SubashaVentures.Pages.Admin.AdminNewsletter[0]
-      Failed to load newsletter stats
-Supabase.Postgrest.Exceptions.PostgrestException: Unknown criterion type, is it of type `string`, `int`, `long`, `float`, `List`, `DateTime`, `DateTimeOffset`, `Dictionary<string, object>`, `FullTextSearchConfig`, or `Range`?
-   at Supabase.Postgrest.Table`1[[SubashaVentures.Models.Supabase.UserModel, SubashaVentures, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]].Filter[Boolean](String columnName, Operator op, Boolean criterion)
-   at SubashaVentures.Pages.Admin.AdminNewsletter.LoadStats() _bound_js_globalThis_console_error:7:5
-19:05:03.861 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.833] [Info] Creating claims principal for user: subashaventures.dev@gmail.com _bound_js_globalThis_console_info:7:5
-19:05:03.863 [2026-02-25 18:05:03.833] [Info] Creating claims principal for user: subashaventures.dev@gmail.com blazor.webassembly.js:1:3337
-19:05:03.865 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.864] [Info] 🔍 Getting role from JWT token... _bound_js_globalThis_console_info:7:5
-19:05:03.866 [2026-02-25 18:05:03.864] [Info] 🔍 Getting role from JWT token... blazor.webassembly.js:1:3337
-19:05:03.873 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.872] [Info] ✅ Role found in JWT custom claim (from hook): superior_admin _bound_js_globalThis_console_info:7:5
-19:05:03.873 [2026-02-25 18:05:03.872] [Info] ✅ Role found in JWT custom claim (from hook): superior_admin blazor.webassembly.js:1:3337
-19:05:03.875 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.875] [Info] ➕ Added role claim: superior_admin _bound_js_globalThis_console_info:7:5
-19:05:03.876 [2026-02-25 18:05:03.875] [Info] ➕ Added role claim: superior_admin blazor.webassembly.js:1:3337
-19:05:03.885 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.877] [Info] ✅ Claims principal created for subashaventures.dev@gmail.com with role: superior_admin _bound_js_globalThis_console_info:7:5
-19:05:03.886 [2026-02-25 18:05:03.877] [Info] ✅ Claims principal created for subashaventures.dev@gmail.com with role: superior_admin blazor.webassembly.js:1:3337
-19:05:03.888 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.888] [Info] ✅ User authenticated: subashaventures.dev@gmail.com with roles: superior_admin _bound_js_globalThis_console_info:7:5
-19:05:03.890 [2026-02-25 18:05:03.888] [Info] ✅ User authenticated: subashaventures.dev@gmail.com with roles: superior_admin blazor.webassembly.js:1:3337
-19:05:03.891 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.891] [Info] 🔍 Role check 'superior_admin': ✅ HAS ROLE | User role: superior_admin _bound_js_globalThis_console_info:7:5
-19:05:03.892 [2026-02-25 18:05:03.891] [Info] 🔍 Role check 'superior_admin': ✅ HAS ROLE | User role: superior_admin blazor.webassembly.js:1:3337
-19:05:03.895 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:03.894] [Info] Segmenting users with multiple criteria _bound_js_globalThis_console_info:7:5
-19:05:03.897 [2026-02-25 18:05:03.894] [Info] Segmenting users with multiple criteria blazor.webassembly.js:1:3337
-19:05:04.886 info: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:04.880] [Info] Segmentation complete: 6 users matched _bound_js_globalThis_console_info:7:5
-19:05:04.889 [2026-02-25 18:05:04.880] [Info] Segmentation complete: 6 users matched blazor.webassembly.js:1:3337
-19:05:05.738 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:05.738] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
-19:05:05.740 [2026-02-25 18:05:05.738] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
-19:05:06.229 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:06.229] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
-19:05:06.230 [2026-02-25 18:05:06.229] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
-19:05:06.826 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:06.826] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
-19:05:06.827 [2026-02-25 18:05:06.826] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
-19:05:07.437 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:07.436] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
-19:05:07.438 [2026-02-25 18:05:07.436] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
-19:05:08.052 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:08.050] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
-19:05:08.053 [2026-02-25 18:05:08.050] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
-19:05:08.676 dbug: SubashaVentures.Utilities.Logging.IMid_Logger[0]
-      [2026-02-25 18:05:08.676] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} _bound_js_globalThis_console_debug:7:5
-19:05:08.677 [2026-02-25 18:05:08.676] [Debug] send-email response (OK): {"success":true,"type":"newsletter","sent":0,"failed":1,"total":1} blazor.webassembly.js:1:3337
-19:05:08.678 info: SubashaVentures.Pages.Admin.AdminNewsletter[0]
-      Newsletter sent: 6 success, 0 failed _bound_js_globalThis_console_info:7:5
-19:05:08.684 fail: SubashaVentures.Pages.Admin.AdminNewsletter[0]
-      Failed to load newsletter stats
-Supabase.Postgrest.Exceptions.PostgrestException: Unknown criterion type, is it of type `string`, `int`, `long`, `float`, `List`, `DateTime`, `DateTimeOffset`, `Dictionary<string, object>`, `FullTextSearchConfig`, or `Range`?
-   at Supabase.Postgrest.Table`1[[SubashaVentures.Models.Supabase.UserModel, SubashaVentures, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]].Filter[Boolean](String columnName, Operator op, Boolean criterion)
-   at SubashaVentures.Pages.Admin.AdminNewsletter.LoadStats()
+04:02:32.102 [CollectionScanner] Video element #collection-scanner-video not found collectionScanner.js:21:21
+    init https://mysubasha.com/js/collectionScanner.js:21
+    start https://mysubasha.com/js/collectionScanner.js:131
+    s https://mysubasha.com/_framework/blazor.webassembly.js:1
+    beginInvokeJSFromDotNet https://mysubasha.com/_framework/blazor.webassembly.js:1
+    Gt https://mysubasha.com/_framework/blazor.webassembly.js:1
+    Ii https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    _mono_wasm_invoke_js_blazor https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:14
+    <anonymous> source260:0
+    <anonymous> source260:120504
+    <anonymous> source260:117478
+    <anonymous> source260:1706126
+    <anonymous> source260:117387
+    <anonymous> source260:57814
+    <anonymous> source260:116146
+    <anonymous> source260:57695
+    <anonymous> source260:53318
+    <anonymous> source260:1713021
+    <anonymous> source260:547647
+    <anonymous> source260:549287
+    <anonymous> source260:1815907
+    _mono_set_timeout_exec https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:14
+    mono_wasm_set_timeout_exec https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    (Async: setTimeout handler)
+    ya https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    _mono_set_timeout https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:14
+    <anonymous> source260:1816043
+    <anonymous> source260:120265
+    <anonymous> source260:117478
+    <anonymous> source260:1706126
+    <anonymous> source260:117387
+    <anonymous> source260:57814
+    <anonymous> source260:116146
+    <anonymous> source260:57695
+    <anonymous> source260:53318
+    <anonymous> source260:1713021
+    <anonymous> source260:547647
+    <anonymous> source260:547509
+    <anonymous> source260:428179
+    <anonymous> source260:120433
+    <anonymous> source260:117478
+    <anonymous> source260:1706126
+    <anonymous> source260:117387
+    <anonymous> source260:57814
+    <anonymous> source260:116146
+    <anonymous> source260:57695
+    <anonymous> source260:53318
+    <anonymous> source260:1713021
+    <anonymous> source260:547647
+    <anonymous> source260:549287
+    <anonymous> source260:557683
+    <anonymous> source260:40322
+    _mono_wasm_invoke_method_ref https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:14
+    _Microsoft_AspNetCore_Components_WebAssembly__Microsoft_AspNetCore_Components_WebAssembly_Services_DefaultWebAssemblyJSRuntime_BeginInvokeDotNet https://dotnet.generated.invalid/_Microsoft_AspNetCore_Components_WebAssembly__Microsoft_AspNetCore_Components_WebAssembly_Services_DefaultWebAssemblyJSRuntime_BeginInvokeDotNet:29
+    beginInvokeDotNetFromJS https://mysubasha.com/_framework/blazor.webassembly.js:1
+    b https://mysubasha.com/_framework/blazor.webassembly.js:1
+    invokeMethodAsync https://mysubasha.com/_framework/blazor.webassembly.js:1
+    A https://mysubasha.com/_framework/blazor.webassembly.js:1
+    invokeWhenHeapUnlocked https://mysubasha.com/_framework/blazor.webassembly.js:1
+    S https://mysubasha.com/_framework/blazor.webassembly.js:1
+    A https://mysubasha.com/_framework/blazor.webassembly.js:1
+    dispatchGlobalEventToAllElements https://mysubasha.com/_framework/blazor.webassembly.js:1
+    onGlobalEvent https://mysubasha.com/_framework/blazor.webassembly.js:1
+    (Async: EventListener.handleEvent)
+    addGlobalListener https://mysubasha.com/_framework/blazor.webassembly.js:1
+    notifyAfterClick https://mysubasha.com/_framework/blazor.webassembly.js:1
+    se https://mysubasha.com/_framework/blazor.webassembly.js:1
+    me https://mysubasha.com/_framework/blazor.webassembly.js:1
+    attachRootComponentToElement https://mysubasha.com/_framework/blazor.webassembly.js:1
+    attachRootComponentToElement https://mysubasha.com/_framework/blazor.webassembly.js:1
+    invokeJSFromDotNet https://mysubasha.com/_framework/blazor.webassembly.js:1
+    Gt https://mysubasha.com/_framework/blazor.webassembly.js:1
+    Ii https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    _mono_wasm_invoke_js_blazor https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:14
+    <anonymous> source260:0
+    <anonymous> source260:120504
+    <anonymous> source260:117478
+    <anonymous> source260:57814
+    <anonymous> source260:116146
+    <anonymous> source260:57695
+    <anonymous> source260:53318
+    <anonymous> source260:1713021
+    <anonymous> source260:547647
+    <anonymous> source260:549287
+    <anonymous> source260:557683
+    <anonymous> source260:40322
+    _mono_wasm_invoke_method_ref https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:14
+    BINDINGS_SetTaskSourceResultRef https://dotnet.generated.invalid/BINDINGS_SetTaskSourceResultRef:27
+    r https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    __dotnet_runtime https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    (Async: promise callback)
+    si https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    Qs https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    Xs https://mysubasha.com/_framework/dotnet.7.0.20.dwptlzpfyy.js:5
+    getSatelliteAssemblies https://mysubasha.com/_framework/blazor.webassembly.js:1
