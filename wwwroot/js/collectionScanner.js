@@ -124,16 +124,24 @@ class CollectionScannerManager {
 const _scanners = new Map();
 
 window.collectionScanner = {
+
+    // Always destroy any existing scanner instance before creating a new one.
+    // This is critical because Blazor re-renders create a NEW <video> element
+    // with the same ID each time _scannerReady toggles. If we reused the old
+    // CollectionScannerManager it would hold a reference to the now-detached
+    // (old) video element and QrScanner.start() would silently fail.
     async start(videoId, dotNetRef) {
-        let scanner = _scanners.get(videoId);
-        if (!scanner) {
-            scanner = new CollectionScannerManager(videoId);
-            const ok = await scanner.init(dotNetRef);
-            if (!ok) return false;
-            _scanners.set(videoId, scanner);
-        } else {
-            scanner.dotNetRef = dotNetRef;
+        const existing = _scanners.get(videoId);
+        if (existing) {
+            existing.destroy();
+            _scanners.delete(videoId);
         }
+
+        const scanner = new CollectionScannerManager(videoId);
+        const ok = await scanner.init(dotNetRef);
+        if (!ok) return false;
+
+        _scanners.set(videoId, scanner);
         return scanner.start();
     },
 
