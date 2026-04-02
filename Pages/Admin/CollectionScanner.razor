@@ -211,27 +211,24 @@
     }
 
     private async Task StartScanner()
+{
+    _errorMessage = null;
+    _scannerReady = true; // Render the video element into DOM first
+    StateHasChanged();
+
+    // Give Blazor time to actually commit the render
+    await Task.Delay(100);
+
+    var ok = await JSRuntime.InvokeAsync<bool>(
+        "collectionScanner.start", _videoId, _dotNetRef);
+
+    if (!ok)
     {
-        _errorMessage = null;
-        StateHasChanged();
-
-        // Let Blazor render the video element first
-        await Task.Delay(50);
-
-        var ok = await JSRuntime.InvokeAsync<bool>(
-            "collectionScanner.start", _videoId, _dotNetRef);
-
-        if (ok)
-        {
-            _scannerReady = true;
-        }
-        else
-        {
-            _errorMessage = "Could not start camera. Please check permissions and try again.";
-        }
-        StateHasChanged();
+        _scannerReady = false;
+        _errorMessage = "Could not start camera. Please check permissions and try again.";
     }
-
+    StateHasChanged();
+}
     private async Task StopScanner()
     {
         await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
