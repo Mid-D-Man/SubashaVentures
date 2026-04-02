@@ -1,3 +1,4 @@
+@* Pages/Admin/CollectionScanner.razor *@
 @page "/admin/collection-scanner"
 @using SubashaVentures.Layout.Admin
 @using SubashaVentures.Services.Collection
@@ -200,8 +201,9 @@
     private readonly string _videoId = "collection-scanner-video";
     private DotNetObjectReference<CollectionScanner>? _dotNetRef;
 
-    private bool _scannerReady  = false;
-    private bool _isProcessing  = false;
+    private bool _scannerReady      = false;
+    private bool _isProcessing      = false;
+    private bool _pendingScannerStart = false;
     private string? _errorMessage;
     private CollectionReceiptViewModel? _receipt;
 
@@ -210,25 +212,36 @@
         _dotNetRef = DotNetObjectReference.Create(this);
     }
 
-    private async Task StartScanner()
-{
-    _errorMessage = null;
-    _scannerReady = true; // Render the video element into DOM first
-    StateHasChanged();
-
-    // Give Blazor time to actually commit the render
-    await Task.Delay(100);
-
-    var ok = await JSRuntime.InvokeAsync<bool>(
-        "collectionScanner.start", _videoId, _dotNetRef);
-
-    if (!ok)
+    // OnAfterRenderAsync is the correct Blazor hook for JS that depends on DOM elements.
+    // It is guaranteed to fire AFTER the DOM is fully committed for this render cycle.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _scannerReady = false;
-        _errorMessage = "Could not start camera. Please check permissions and try again.";
+        if (!_pendingScannerStart) return;
+
+        _pendingScannerStart = false;
+
+        var ok = await JSRuntime.InvokeAsync<bool>(
+            "collectionScanner.start", _videoId, _dotNetRef);
+
+        if (!ok)
+        {
+            _scannerReady = false;
+            _errorMessage = "Could not start camera. Please check permissions and try again.";
+            await InvokeAsync(StateHasChanged);
+        }
     }
-    StateHasChanged();
-}
+
+    // StartScanner is now synchronous — it sets state and raises a render,
+    // then OnAfterRenderAsync picks up _pendingScannerStart and calls JS.
+    private Task StartScanner()
+    {
+        _errorMessage       = null;
+        _scannerReady       = true;
+        _pendingScannerStart = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private async Task StopScanner()
     {
         await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
@@ -252,7 +265,7 @@
 
         try
         {
-            // Pause scanner while we validate
+            // Stop JS scanner while we validate
             await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
 
             var result = await CollectionService.ValidateScannedUrlAsync(scannedValue);
@@ -265,10 +278,9 @@
             else
             {
                 _errorMessage = result.Error ?? "Invalid QR code.";
-                // Resume scanning so they can try again
-                await JSRuntime.InvokeAsync<bool>(
-                    "collectionScanner.start", _videoId, _dotNetRef);
-                _scannerReady = true;
+                // Resume scanner via the same safe pattern — OnAfterRenderAsync will fire JS
+                _scannerReady        = true;
+                _pendingScannerStart = true;
             }
         }
         catch (Exception ex)
@@ -318,10 +330,10 @@
         ");
     }
 
-    private async Task CloseReceipt()
+    private Task CloseReceipt()
     {
         _receipt = null;
-        await StartScanner();
+        return StartScanner();
     }
 
     private void DismissError()
