@@ -17,68 +17,60 @@
         <p class="scanner-subtitle">Scan the customer's pickup QR code to validate and hand over their order</p>
     </div>
 
-    @if (!_scannerReady && !_isProcessing)
+    @* Video is ALWAYS in the DOM — we only show/hide the container *@
+    <div class="scanner-container @(_isScanning ? "active" : "")">
+        <video id="@_videoId" class="scanner-video" autoplay playsinline muted></video>
+
+        @if (_isProcessing)
+        {
+            <div class="scanner-processing-overlay">
+                <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                                Message="Validating QR code..." />
+            </div>
+        }
+    </div>
+
+    @if (_errorMessage is not null)
     {
-        <div class="scanner-start-area">
-            <div class="scanner-icon-wrap">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+        <div class="scanner-error-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 8V12M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span>@_errorMessage</span>
+            <button @onclick="DismissError">✕</button>
+        </div>
+    }
+
+    <div class="scanner-controls">
+        @if (_isScanning)
+        {
+            <button class="control-btn camera" @onclick="SwitchCamera" disabled="@_isProcessing" title="Switch camera">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 7L16 3L12 7M4 17L8 21L12 17M4 7H8C9.1 7 10 7.9 10 9V10M20 17H16C14.9 17 14 16.1 14 15V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Switch Camera
+            </button>
+            <button class="control-btn stop" @onclick="StopScanning" disabled="@_isProcessing">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Stop Scanner
+            </button>
+        }
+        else
+        {
+            <button class="control-btn start" @onclick="StartScanning">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M3 7V5C3 3.9 3.9 3 5 3H7M17 3H19C20.1 3 21 3.9 21 5V7M21 17V19C21 20.1 20.1 21 19 21H17M7 21H5C3.9 21 3 20.1 3 19V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     <rect x="7" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
                     <rect x="13" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
                     <rect x="7" y="13" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M13 13H14V14H13V13ZM16 13H17V14H16V13ZM13 16H14V17H13V16ZM15 15H16V16H15V15ZM16 16H17V17H16V16Z" fill="currentColor"/>
                 </svg>
-            </div>
-            <button class="btn-start-scanner" @onclick="StartScanner">
                 Start Camera Scanner
             </button>
-        </div>
-    }
-
-    @if (_scannerReady || _isProcessing)
-    {
-        <div class="scanner-container @(_scannerReady && !_isProcessing ? "active" : "")">
-            <video id="@_videoId" class="scanner-video" autoplay playsinline muted></video>
-
-            @if (_isProcessing)
-            {
-                <div class="scanner-processing-overlay">
-                    <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
-                                    Message="Validating QR code..." />
-                </div>
-            }
-        </div>
-
-        @if (_errorMessage is not null)
-        {
-            <div class="scanner-error-banner">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                    <path d="M12 8V12M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                <span>@_errorMessage</span>
-                <button @onclick="DismissError">✕</button>
-            </div>
         }
-
-        @if (!_isProcessing)
-        {
-            <div class="scanner-controls">
-                <button class="control-btn camera" @onclick="SwitchCamera" title="Switch camera">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M20 7L16 3L12 7M4 17L8 21L12 17M4 7H8C9.1 7 10 7.9 10 9V10M20 17H16C14.9 17 14 16.1 14 15V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Switch Camera
-                </button>
-                <button class="control-btn stop" @onclick="StopScanner">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <rect x="6" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                    Stop Scanner
-                </button>
-            </div>
-        }
-    }
+    </div>
 
     @* Receipt Modal *@
     @if (_receipt is not null)
@@ -201,9 +193,8 @@
     private readonly string _videoId = "collection-scanner-video";
     private DotNetObjectReference<CollectionScanner>? _dotNetRef;
 
-    private bool _scannerReady      = false;
-    private bool _isProcessing      = false;
-    private bool _pendingScannerStart = false;
+    private bool _isScanning   = false;
+    private bool _isProcessing = false;
     private string? _errorMessage;
     private CollectionReceiptViewModel? _receipt;
 
@@ -212,46 +203,61 @@
         _dotNetRef = DotNetObjectReference.Create(this);
     }
 
-    // OnAfterRenderAsync is the correct Blazor hook for JS that depends on DOM elements.
-    // It is guaranteed to fire AFTER the DOM is fully committed for this render cycle.
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task StartScanning()
     {
-        if (!_pendingScannerStart) return;
-
-        _pendingScannerStart = false;
-
-        var ok = await JSRuntime.InvokeAsync<bool>(
-            "collectionScanner.start", _videoId, _dotNetRef);
-
-        if (!ok)
+        try
         {
-            _scannerReady = false;
-            _errorMessage = "Could not start camera. Please check permissions and try again.";
-            await InvokeAsync(StateHasChanged);
+            _errorMessage = null;
+            var ok = await JSRuntime.InvokeAsync<bool>(
+                "collectionScanner.start", _videoId, _dotNetRef);
+
+            if (ok)
+            {
+                _isScanning = true;
+            }
+            else
+            {
+                _errorMessage = "Could not start camera. Please check permissions and try again.";
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "StartScanning failed");
+            _errorMessage = "Failed to start camera.";
+            _isScanning = false;
+            StateHasChanged();
         }
     }
 
-    // StartScanner is now synchronous — it sets state and raises a render,
-    // then OnAfterRenderAsync picks up _pendingScannerStart and calls JS.
-    private Task StartScanner()
+    private async Task StopScanning()
     {
-        _errorMessage       = null;
-        _scannerReady       = true;
-        _pendingScannerStart = true;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    private async Task StopScanner()
-    {
-        await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
-        _scannerReady = false;
-        StateHasChanged();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "StopScanning failed");
+        }
+        finally
+        {
+            _isScanning   = false;
+            _isProcessing = false;
+            StateHasChanged();
+        }
     }
 
     private async Task SwitchCamera()
     {
-        await JSRuntime.InvokeAsync<bool>("collectionScanner.switchCamera", _videoId);
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("collectionScanner.switchCamera", _videoId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "SwitchCamera failed");
+        }
     }
 
     [JSInvokable]
@@ -261,33 +267,32 @@
 
         _isProcessing = true;
         _errorMessage = null;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
 
         try
         {
-            // Stop JS scanner while we validate
             await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
 
             var result = await CollectionService.ValidateScannedUrlAsync(scannedValue);
 
             if (result.Success && result.Receipt is not null)
             {
-                _receipt      = result.Receipt;
-                _scannerReady = false;
+                _receipt    = result.Receipt;
+                _isScanning = false;
             }
             else
             {
                 _errorMessage = result.Error ?? "Invalid QR code.";
-                // Resume scanner via the same safe pattern — OnAfterRenderAsync will fire JS
-                _scannerReady        = true;
-                _pendingScannerStart = true;
+                var ok = await JSRuntime.InvokeAsync<bool>(
+                    "collectionScanner.start", _videoId, _dotNetRef);
+                _isScanning = ok;
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "OnQrScanned failed");
             _errorMessage = "An error occurred. Please try again.";
-            _scannerReady = false;
+            _isScanning   = false;
         }
         finally
         {
@@ -330,10 +335,10 @@
         ");
     }
 
-    private Task CloseReceipt()
+    private async Task CloseReceipt()
     {
         _receipt = null;
-        return StartScanner();
+        await StartScanning();
     }
 
     private void DismissError()
