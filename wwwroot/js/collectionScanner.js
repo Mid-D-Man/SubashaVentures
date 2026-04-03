@@ -14,13 +14,13 @@ class CollectionScannerManager {
         this.dotNetRef = dotNetObject;
 
         if (!this.video) {
-            console.error(`[CollectionScanner] Video element ${this.videoId} not found`);
+            console.error(`Video element ${this.videoId} not found`);
             return false;
         }
 
         try {
             this.cameras = await QrScanner.listCameras(true);
-            console.log(`[CollectionScanner] Found ${this.cameras.length} cameras:`, this.cameras);
+            console.log(`Found ${this.cameras.length} cameras:`, this.cameras);
 
             const envCameraIndex = this.cameras.findIndex(cam =>
                 cam.label.toLowerCase().includes('back') ||
@@ -51,7 +51,7 @@ class CollectionScannerManager {
 
             return true;
         } catch (error) {
-            console.error('[CollectionScanner] Init failed:', error);
+            console.error('CollectionScanner init failed:', error);
             return false;
         }
     }
@@ -63,7 +63,7 @@ class CollectionScannerManager {
             this.isScanning = true;
             return true;
         } catch (error) {
-            console.error('[CollectionScanner] Start failed:', error);
+            console.error('CollectionScanner start failed:', error);
             this.isScanning = false;
             return false;
         }
@@ -75,7 +75,7 @@ class CollectionScannerManager {
                 this.qrScanner.stop();
                 this.isScanning = false;
             } catch (error) {
-                console.error('[CollectionScanner] Stop error:', error);
+                console.error('CollectionScanner stop error:', error);
             }
         }
     }
@@ -86,12 +86,15 @@ class CollectionScannerManager {
                 this.dotNetRef.invokeMethodAsync('OnQrScanned', result.data);
             }
         } catch (error) {
-            console.error('[CollectionScanner] Result handling error:', error);
+            console.error('CollectionScanner result handling error:', error);
         }
     }
 
     async switchCamera() {
-        if (!this.qrScanner || this.cameras.length <= 1) return false;
+        if (!this.qrScanner || this.cameras.length <= 1) {
+            console.log('Camera switch not possible:', this.cameras.length);
+            return false;
+        }
         try {
             const wasScanning = this.isScanning;
             if (wasScanning) {
@@ -101,16 +104,16 @@ class CollectionScannerManager {
 
             this.currentCameraIndex = (this.currentCameraIndex + 1) % this.cameras.length;
             const nextCamera = this.cameras[this.currentCameraIndex];
+            console.log(`Switching to camera: ${nextCamera.label}`);
             await this.qrScanner.setCamera(nextCamera.id);
 
             if (wasScanning) {
                 await this.qrScanner.start();
                 this.isScanning = true;
             }
-
             return true;
         } catch (error) {
-            console.error('[CollectionScanner] Camera switch failed:', error);
+            console.error('CollectionScanner camera switch failed:', error);
             return false;
         }
     }
@@ -123,88 +126,68 @@ class CollectionScannerManager {
                 this.qrScanner = null;
             }
         } catch (error) {
-            console.error('[CollectionScanner] Destroy error:', error);
+            console.error('CollectionScanner destroy error:', error);
         }
     }
 }
 
 const _scannerInstances = new Map();
 
-// Explicitly request camera permission first — this is what actually
-// triggers the browser permission dialog. Without this call the browser
-// may silently deny access or never show the prompt at all.
-async function requestCameraPermission() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        // Permission granted — stop the temporary stream immediately,
-        // the QrScanner will open its own stream when start() is called.
-        stream.getTracks().forEach(track => track.stop());
-        return true;
-    } catch (error) {
-        console.error('[CollectionScanner] Camera permission denied:', error);
-        return false;
-    }
-}
-
 window.collectionScanner = {
-    async start(videoId, dotNetRef) {
+    async startScanWithId(videoId, dotNetObject) {
         try {
-            // Step 1: explicitly prompt for permission
-            const permitted = await requestCameraPermission();
-            if (!permitted) {
-                console.error('[CollectionScanner] Camera permission not granted');
-                return false;
+            let scanner = _scannerInstances.get(videoId);
+
+            if (!scanner) {
+                scanner = new CollectionScannerManager(videoId);
+                const initSuccess = await scanner.init(dotNetObject);
+                if (!initSuccess) {
+                    console.error(`Failed to initialize collection scanner for ${videoId}`);
+                    return false;
+                }
+                _scannerInstances.set(videoId, scanner);
+            } else {
+                scanner.dotNetRef = dotNetObject;
             }
 
-            // Step 2: destroy any stale instance
-            const existing = _scannerInstances.get(videoId);
-            if (existing) {
-                existing.destroy();
-                _scannerInstances.delete(videoId);
-            }
-
-            // Step 3: init and start
-            const scanner = new CollectionScannerManager(videoId);
-            const initSuccess = await scanner.init(dotNetRef);
-            if (!initSuccess) return false;
-
-            _scannerInstances.set(videoId, scanner);
             return await scanner.start();
         } catch (error) {
-            console.error(`[CollectionScanner] start error for ${videoId}:`, error);
+            console.error(`CollectionScanner startScanWithId error for ${videoId}:`, error);
             return false;
         }
     },
 
-    stop(videoId) {
+    stopScanWithId(videoId) {
         try {
             _scannerInstances.get(videoId)?.stop();
         } catch (error) {
-            console.error(`[CollectionScanner] stop error for ${videoId}:`, error);
+            console.error(`CollectionScanner stopScanWithId error for ${videoId}:`, error);
         }
     },
 
-    async switchCamera(videoId) {
+    async switchCameraWithId(videoId) {
         try {
             return await _scannerInstances.get(videoId)?.switchCamera() ?? false;
         } catch (error) {
-            console.error(`[CollectionScanner] switchCamera error for ${videoId}:`, error);
+            console.error(`CollectionScanner switchCameraWithId error for ${videoId}:`, error);
             return false;
         }
     },
 
-    destroy(videoId) {
-        const s = _scannerInstances.get(videoId);
-        if (s) {
-            s.destroy();
-            _scannerInstances.delete(videoId);
+    cleanup() {
+        try {
+            _scannerInstances.forEach((scanner, videoId) => {
+                try {
+                    scanner.destroy();
+                } catch (error) {
+                    console.error(`CollectionScanner cleanup error for ${videoId}:`, error);
+                }
+            });
+            _scannerInstances.clear();
+        } catch (error) {
+            console.error('CollectionScanner global cleanup error:', error);
         }
-    },
-
-    destroyAll() {
-        _scannerInstances.forEach(s => s.destroy());
-        _scannerInstances.clear();
     }
 };
 
-window.addEventListener('beforeunload', () => window.collectionScanner.destroyAll());
+window.addEventListener('beforeunload', () => window.collectionScanner.cleanup());
