@@ -17,17 +17,8 @@
         <p class="scanner-subtitle">Scan the customer's pickup QR code to validate and hand over their order</p>
     </div>
 
-    @* Video is ALWAYS in the DOM — we only show/hide the container *@
-    <div class="scanner-container @(_isScanning ? "active" : "")">
-        <video id="@_videoId" class="scanner-video" autoplay playsinline muted></video>
-
-        @if (_isProcessing)
-        {
-            <div class="scanner-processing-overlay">
-                <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
-                                Message="Validating QR code..." />
-            </div>
-        }
+    <div class="scanner-video-wrap">
+        <video id="@_videoId" autoplay muted playsinline></video>
     </div>
 
     @if (_errorMessage is not null)
@@ -42,12 +33,21 @@
         </div>
     }
 
+    @if (_isProcessing)
+    {
+        <div class="scanner-processing-overlay">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                            Message="Validating QR code..." />
+        </div>
+    }
+
     <div class="scanner-controls">
         @if (_isScanning)
         {
             <button class="control-btn camera" @onclick="SwitchCamera" disabled="@_isProcessing" title="Switch camera">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 7L16 3L12 7M4 17L8 21L12 17M4 7H8C9.1 7 10 7.9 10 9V10M20 17H16C14.9 17 14 16.1 14 15V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20 7L16 3L12 7M4 17L8 21L12 17M4 7H8C9.1 7 10 7.9 10 9V10M20 17H16C14.9 17 14 16.1 14 15V14"
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 Switch Camera
             </button>
@@ -62,7 +62,8 @@
         {
             <button class="control-btn start" @onclick="StartScanning">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 7V5C3 3.9 3.9 3 5 3H7M17 3H19C20.1 3 21 3.9 21 5V7M21 17V19C21 20.1 20.1 21 19 21H17M7 21H5C3.9 21 3 20.1 3 19V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M3 7V5C3 3.9 3.9 3 5 3H7M17 3H19C20.1 3 21 3.9 21 5V7M21 17V19C21 20.1 20.1 21 19 21H17M7 21H5C3.9 21 3 20.1 3 19V17"
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     <rect x="7" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
                     <rect x="13" y="7" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
                     <rect x="7" y="13" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/>
@@ -72,7 +73,6 @@
         }
     </div>
 
-    @* Receipt Modal *@
     @if (_receipt is not null)
     {
         <div class="receipt-modal-overlay" @onclick="CloseReceipt">
@@ -82,7 +82,8 @@
                     <div class="receipt-success-icon">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="10" stroke="#22c55e" stroke-width="2"/>
-                            <path d="M8 12L11 15L16 9" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M8 12L11 15L16 9" stroke="#22c55e" stroke-width="2"
+                                  stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </div>
                     <h2 class="receipt-title">Order Verified ✓</h2>
@@ -174,7 +175,8 @@
                 <div class="receipt-actions">
                     <button class="btn-print" @onclick="PrintReceipt">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <path d="M6 9V2H18V9M6 18H4C2.9 18 2 17.1 2 16V11C2 9.9 2.9 9 4 9H20C21.1 9 22 9.9 22 11V16C22 17.1 21.1 18 20 18H18M6 14H18V22H6V14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6 9V2H18V9M6 18H4C2.9 18 2 17.1 2 16V11C2 9.9 2.9 9 4 9H20C21.1 9 22 9.9 22 11V16C22 17.1 21.1 18 20 18H18M6 14H18V22H6V14Z"
+                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         Print Receipt
                     </button>
@@ -203,13 +205,18 @@
         _dotNetRef = DotNetObjectReference.Create(this);
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Nothing needed - video is always in DOM, user triggers start manually
+    }
+
     private async Task StartScanning()
     {
         try
         {
             _errorMessage = null;
             var ok = await JSRuntime.InvokeAsync<bool>(
-                "collectionScanner.start", _videoId, _dotNetRef);
+                "collectionScanner.startScanWithId", _videoId, _dotNetRef);
 
             if (ok)
             {
@@ -234,7 +241,7 @@
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
+            await JSRuntime.InvokeVoidAsync("collectionScanner.stopScanWithId", _videoId);
         }
         catch (Exception ex)
         {
@@ -252,7 +259,7 @@
     {
         try
         {
-            await JSRuntime.InvokeAsync<bool>("collectionScanner.switchCamera", _videoId);
+            await JSRuntime.InvokeAsync<bool>("collectionScanner.switchCameraWithId", _videoId);
         }
         catch (Exception ex)
         {
@@ -271,7 +278,7 @@
 
         try
         {
-            await JSRuntime.InvokeVoidAsync("collectionScanner.stop", _videoId);
+            await JSRuntime.InvokeVoidAsync("collectionScanner.stopScanWithId", _videoId);
 
             var result = await CollectionService.ValidateScannedUrlAsync(scannedValue);
 
@@ -284,7 +291,7 @@
             {
                 _errorMessage = result.Error ?? "Invalid QR code.";
                 var ok = await JSRuntime.InvokeAsync<bool>(
-                    "collectionScanner.start", _videoId, _dotNetRef);
+                    "collectionScanner.startScanWithId", _videoId, _dotNetRef);
                 _isScanning = ok;
             }
         }
@@ -349,7 +356,11 @@
 
     public async ValueTask DisposeAsync()
     {
-        await JSRuntime.InvokeVoidAsync("collectionScanner.destroy", _videoId);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("collectionScanner.cleanup");
+        }
+        catch { }
         _dotNetRef?.Dispose();
     }
 }
