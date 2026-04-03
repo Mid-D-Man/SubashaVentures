@@ -1,60 +1,57 @@
 // wwwroot/js/collectionScanner.js
-// Nimiq qr-scanner adapted for SubashaVentures admin collection scanning.
-// Requires qr-scanner.umd.min.js and qr-scanner-worker.min.js in wwwroot/js/
-
 class CollectionScannerManager {
     constructor(videoId) {
-        this.videoId       = videoId;
-        this.video         = null;
-        this.qrScanner     = null;
-        this.isScanning    = false;
-        this.dotNetRef     = null;
-        this.cameras       = [];
-        this.currentCamIdx = 0;
+        this.videoId = videoId;
+        this.video = document.getElementById(videoId);
+        this.qrScanner = null;
+        this.isScanning = false;
+        this.dotNetRef = null;
+        this.cameras = [];
+        this.currentCameraIndex = 0;
     }
 
     async init(dotNetObject) {
         this.dotNetRef = dotNetObject;
-        this.video     = document.getElementById(this.videoId);
 
         if (!this.video) {
-            console.error(`[CollectionScanner] Video element #${this.videoId} not found`);
+            console.error(`Video element ${this.videoId} not found`);
             return false;
         }
 
         try {
             this.cameras = await QrScanner.listCameras(true);
-            console.log(`[CollectionScanner] Found ${this.cameras.length} camera(s)`);
+            console.log(`Found ${this.cameras.length} cameras:`, this.cameras);
 
-            const backIdx = this.cameras.findIndex(c =>
-                /back|rear|environment/i.test(c.label)
+            const envCameraIndex = this.cameras.findIndex(cam =>
+                cam.label.toLowerCase().includes('back') ||
+                cam.label.toLowerCase().includes('environment')
             );
-            this.currentCamIdx = backIdx >= 0 ? backIdx : 0;
+            this.currentCameraIndex = envCameraIndex >= 0 ? envCameraIndex : 0;
 
             this.qrScanner = new QrScanner(
                 this.video,
-                result => this._onResult(result),
+                result => this.handleScanResult(result),
                 {
-                    preferredCamera:          this.cameras[this.currentCamIdx]?.id ?? 'environment',
-                    highlightScanRegion:      true,
-                    highlightCodeOutline:     true,
+                    preferredCamera: this.cameras[this.currentCameraIndex]?.id || 'environment',
+                    highlightScanRegion: false,
+                    highlightCodeOutline: false,
                     returnDetailedScanResult: true,
-                    maxScansPerSecond:        5,
-                    calculateScanRegion: (v) => {
-                        const size = Math.min(v.videoWidth, v.videoHeight) * 0.75;
+                    maxScansPerSecond: 5,
+                    calculateScanRegion: (video) => {
+                        const scanSize = Math.min(video.videoWidth, video.videoHeight) * 0.8;
                         return {
-                            x: Math.round((v.videoWidth  - size) / 2),
-                            y: Math.round((v.videoHeight - size) / 2),
-                            width:  Math.round(size),
-                            height: Math.round(size),
+                            x: Math.round((video.videoWidth - scanSize) / 2),
+                            y: Math.round((video.videoHeight - scanSize) / 2),
+                            width: Math.round(scanSize),
+                            height: Math.round(scanSize),
                         };
-                    },
+                    }
                 }
             );
 
             return true;
-        } catch (err) {
-            console.error('[CollectionScanner] Init error:', err);
+        } catch (error) {
+            console.error('CollectionScanner init failed:', error);
             return false;
         }
     }
@@ -65,8 +62,8 @@ class CollectionScannerManager {
             await this.qrScanner.start();
             this.isScanning = true;
             return true;
-        } catch (err) {
-            console.error('[CollectionScanner] Start error:', err);
+        } catch (error) {
+            console.error('Scanner start failed:', error);
             this.isScanning = false;
             return false;
         }
@@ -76,11 +73,20 @@ class CollectionScannerManager {
         if (this.qrScanner && this.isScanning) {
             try {
                 this.qrScanner.stop();
-            } catch (err) {
-                console.error('[CollectionScanner] Stop error:', err);
-            } finally {
                 this.isScanning = false;
+            } catch (error) {
+                console.error('Scanner stop error:', error);
             }
+        }
+    }
+
+    handleScanResult(result) {
+        try {
+            if (this.dotNetRef && result?.data) {
+                this.dotNetRef.invokeMethodAsync('OnQrScanned', result.data);
+            }
+        } catch (error) {
+            console.error('Scan result handling error:', error);
         }
     }
 
@@ -88,80 +94,92 @@ class CollectionScannerManager {
         if (!this.qrScanner || this.cameras.length <= 1) return false;
         try {
             const wasScanning = this.isScanning;
-            if (wasScanning) { this.qrScanner.stop(); this.isScanning = false; }
+            if (wasScanning) {
+                this.qrScanner.stop();
+                this.isScanning = false;
+            }
 
-            this.currentCamIdx = (this.currentCamIdx + 1) % this.cameras.length;
-            await this.qrScanner.setCamera(this.cameras[this.currentCamIdx].id);
+            this.currentCameraIndex = (this.currentCameraIndex + 1) % this.cameras.length;
+            const nextCamera = this.cameras[this.currentCameraIndex];
+            await this.qrScanner.setCamera(nextCamera.id);
 
-            if (wasScanning) { await this.qrScanner.start(); this.isScanning = true; }
+            if (wasScanning) {
+                await this.qrScanner.start();
+                this.isScanning = true;
+            }
+
             return true;
-        } catch (err) {
-            console.error('[CollectionScanner] switchCamera error:', err);
+        } catch (error) {
+            console.error('Camera switch failed:', error);
             return false;
         }
     }
 
     destroy() {
-        this.stop();
-        if (this.qrScanner) {
-            try { this.qrScanner.destroy(); } catch (_) {}
-            this.qrScanner = null;
-        }
-    }
-
-    _onResult(result) {
-        if (!result?.data || !this.dotNetRef) return;
         try {
-            this.dotNetRef.invokeMethodAsync('OnQrScanned', result.data);
-        } catch (err) {
-            console.error('[CollectionScanner] invokeMethodAsync error:', err);
+            this.stop();
+            if (this.qrScanner) {
+                this.qrScanner.destroy();
+                this.qrScanner = null;
+            }
+        } catch (error) {
+            console.error('Scanner destroy error:', error);
         }
     }
 }
 
-// ── Global registry ──────────────────────────────────────────────────────────
-
-const _scanners = new Map();
+const _scannerInstances = new Map();
 
 window.collectionScanner = {
-
-    // Always destroy any existing scanner instance before creating a new one.
-    // This is critical because Blazor re-renders create a NEW <video> element
-    // with the same ID each time _scannerReady toggles. If we reused the old
-    // CollectionScannerManager it would hold a reference to the now-detached
-    // (old) video element and QrScanner.start() would silently fail.
     async start(videoId, dotNetRef) {
-        const existing = _scanners.get(videoId);
-        if (existing) {
-            existing.destroy();
-            _scanners.delete(videoId);
+        try {
+            const existing = _scannerInstances.get(videoId);
+            if (existing) {
+                existing.destroy();
+                _scannerInstances.delete(videoId);
+            }
+
+            const scanner = new CollectionScannerManager(videoId);
+            const initSuccess = await scanner.init(dotNetRef);
+            if (!initSuccess) return false;
+
+            _scannerInstances.set(videoId, scanner);
+            return await scanner.start();
+        } catch (error) {
+            console.error(`CollectionScanner start error for ${videoId}:`, error);
+            return false;
         }
-
-        const scanner = new CollectionScannerManager(videoId);
-        const ok = await scanner.init(dotNetRef);
-        if (!ok) return false;
-
-        _scanners.set(videoId, scanner);
-        return scanner.start();
     },
 
     stop(videoId) {
-        _scanners.get(videoId)?.stop();
+        try {
+            _scannerInstances.get(videoId)?.stop();
+        } catch (error) {
+            console.error(`CollectionScanner stop error for ${videoId}:`, error);
+        }
     },
 
     async switchCamera(videoId) {
-        return _scanners.get(videoId)?.switchCamera() ?? false;
+        try {
+            return await _scannerInstances.get(videoId)?.switchCamera() ?? false;
+        } catch (error) {
+            console.error(`CollectionScanner switchCamera error for ${videoId}:`, error);
+            return false;
+        }
     },
 
     destroy(videoId) {
-        const s = _scanners.get(videoId);
-        if (s) { s.destroy(); _scanners.delete(videoId); }
+        const s = _scannerInstances.get(videoId);
+        if (s) {
+            s.destroy();
+            _scannerInstances.delete(videoId);
+        }
     },
 
     destroyAll() {
-        _scanners.forEach(s => s.destroy());
-        _scanners.clear();
-    },
+        _scannerInstances.forEach(s => s.destroy());
+        _scannerInstances.clear();
+    }
 };
 
 window.addEventListener('beforeunload', () => window.collectionScanner.destroyAll());
