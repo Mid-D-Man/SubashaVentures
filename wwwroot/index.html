@@ -69,7 +69,8 @@
 
 <!-- PWA Manager — must load before Blazor so the beforeinstallprompt is never missed -->
 <script src="js/pwaManager.js"></script>
-
+<script src="js/gpuPerformance.js"></script>
+<script src="js/cameraUtilities.js"></script>
 <!-- Payment Providers -->
 <script src="https://js.paystack.co/v2/inline.js"></script>
 <script src="https://checkout.flutterwave.com/v3.js"></script>
@@ -78,6 +79,42 @@
 <!-- Collection scanner — Nimiq UMD build + helper (must precede Blazor) -->
 <script src="js/qr-scanner.umd.min.js"></script>
 <script src="js/collectionScanner.js"></script>
+<script>
+    window.getCameraStream = async (constraints) => {
+        try {
+            // Use our enhanced camera utilities if available
+            if (window.CameraUtilities) {
+                return await window.CameraUtilities.getQualityCameraStream();
+            }
+            // Fallback to standard getUserMedia
+            return await navigator.mediaDevices.getUserMedia(constraints || {
+                video: {
+                    width: { ideal: 1920, min: 1280 },
+                    height: { ideal: 1080, min: 720 },
+                    facingMode: 'environment'
+                }
+            });
+        } catch (error) {
+            console.error('Camera access error:', error);
+            throw error;
+        }
+    };
+
+    window.stopMediaStream = (stream) => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    };
+
+    window.checkCameraPermission = async () => {
+        try {
+            const result = await navigator.permissions.query({ name: 'camera' });
+            return result.state;
+        } catch (error) {
+            return 'unknown';
+        }
+    };
+</script>
 
 <!-- Blazor -->
 <script src="_framework/blazor.webassembly.js"></script>
