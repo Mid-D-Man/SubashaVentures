@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Wed Apr  8 09:13:51 UTC 2026
+Generated: Wed Apr  8 09:14:19 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 5bf618a0eab2d2c474ed5182d7093c3e6e26c362
+Commit: 5ac6a9887c059bdac8f42925c2cc6dbb79aa7c2b
 Branch: master
 ==================================
 
@@ -413,6 +413,7 @@ wwwroot/js/paymentHandler.js
 wwwroot/js/pwaManager.js
 wwwroot/js/qr-scanner-worker.min.js
 wwwroot/js/qr-scanner.min.js
+wwwroot/js/qr-scanner.umd.min.js
 wwwroot/js/qrCodeModule.js
 wwwroot/js/supabaseOAuth.js
 wwwroot/js/theme.js
@@ -541,5 +542,5 @@ File Count Summary:
 .sln      : 1 files
 .json     : 8 files
 .css      : 86 files
-.js       : 31 files
+.js       : 32 files
 .html     : 1 files
