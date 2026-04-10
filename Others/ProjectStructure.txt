@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Fri Apr 10 20:28:30 UTC 2026
+Generated: Fri Apr 10 20:31:49 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 809ea1ed91a4c82c1c6f521afd57a988464ed324
+Commit: ab1f64adcc40b22695206b190b85523bcfb10096
 Branch: master
 ==================================
 
@@ -546,6 +546,8 @@ Directory Structure:
 ./  Logging
 ./  ObjectPooling
 ./  Tracking
+./workers
+./  r2-proxy
 ./wwwroot
 ./  css
 ./  icons
