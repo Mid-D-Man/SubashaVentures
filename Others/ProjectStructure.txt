@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Fri Apr 10 13:36:29 UTC 2026
+Generated: Fri Apr 10 13:37:41 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 140dbf68accd1f5817179c0eaa4f546409aff685
+Commit: 95521586ace7ef5a247e02052e2ef353369b945d
 Branch: master
 ==================================
 
@@ -352,6 +352,7 @@ Services/Statistics/IStatisticsService.cs
 Services/Statistics/StatisticsService.cs
 Services/Storage/BlazorAppLocalStorageService.cs
 Services/Storage/IBlazorAppLocalStorageService.cs
+Services/Storage/ICloudflareR2Service.cs
 Services/Storage/IImageCacheService.cs
 Services/Storage/IImageCompressionService.cs
 Services/Storage/ImageCacheService.cs
@@ -547,7 +548,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 205 files
+.cs       : 206 files
 .razor    : 87 files
 .csproj   : 1 files
 .sln      : 1 files
