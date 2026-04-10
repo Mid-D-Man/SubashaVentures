@@ -1,122 +1,120 @@
 // Services/Storage/ImageCompressionService.cs
+// WebP-first image compression using Blazor's RequestImageFileAsync.
+// The browser's Canvas API encodes WebP natively (97 % market share, 25-34 % smaller than JPEG).
+
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Storage;
 
-/// <summary>
-/// Image compression service using native Blazor RequestImageFileAsync
-/// This is Microsoft's recommended approach for Blazor WASM
-/// </summary>
 public class ImageCompressionService : IImageCompressionService
 {
     private readonly ILogger<ImageCompressionService> _logger;
-    
+
     private const long MaxFileSizeBytes = 50L * 1024L * 1024L;
-    
-    private static readonly HashSet<string> SupportedFormats = new()
+
+    private static readonly HashSet<string> SupportedFormats = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"
     };
+
+    // RequestImageFileAsync maps to these MIME types:
+    private const string MimeWebP = "image/webp";
+    private const string MimeJpeg = "image/jpeg";
+    private const string MimePng  = "image/png";
 
     public ImageCompressionService(ILogger<ImageCompressionService> logger)
     {
         _logger = logger;
     }
 
+    // ─── Public API ──────────────────────────────────────────────────────────
+
     public async Task<ImageCompressionResult> CompressImageAsync(
         IBrowserFile browserFile,
-        int maxWidth = 2000,
-        int maxHeight = 2000,
-        int quality = 80,
-        bool enableCompression = true)
+        int maxWidth     = 2000,
+        int maxHeight    = 2000,
+        int quality      = 85,
+        bool enableCompression = true,
+        ImageOutputFormat outputFormat = ImageOutputFormat.WebP)
     {
         try
         {
             var originalSize = browserFile.Size;
-            
+            var targetMime   = ResolveMime(outputFormat, browserFile.ContentType);
+
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Starting compression for {browserFile.Name} ({originalSize / 1024}KB). Compression enabled: {enableCompression}",
-                LogLevel.Info
-            );
+                $"[Compression] {browserFile.Name} ({FormatBytes(originalSize)}) → {targetMime} " +
+                $"[compression={enableCompression}]",
+                LogLevel.Info);
 
             if (!enableCompression)
             {
-                // Skip compression - return original
-                var originalStream = browserFile.OpenReadStream(MaxFileSizeBytes);
-                
                 return new ImageCompressionResult
                 {
-                    Success = true,
-                    CompressedStream = originalStream,
-                    OriginalSize = originalSize,
-                    CompressedSize = originalSize,
-                    CompressionRatio = 0,
-                    ContentType = browserFile.ContentType,
-                    ErrorMessage = "Compression disabled - using original file"
+                    Success          = true,
+                    CompressedStream = browserFile.OpenReadStream(MaxFileSizeBytes),
+                    OriginalSize     = originalSize,
+                    CompressedSize   = originalSize,
+                    CompressionRatio = 0f,
+                    ContentType      = browserFile.ContentType,
+                    ErrorMessage     = "Compression disabled — original file returned"
                 };
             }
 
-            // Use Blazor's built-in RequestImageFileAsync - this is the recommended way
-            var resizedImageFile = await browserFile.RequestImageFileAsync(
-                browserFile.ContentType == "image/png" ? "image/png" : "image/jpeg",
-                maxWidth,
-                maxHeight);
+            // Use Blazor's built-in browser-native resize/compress.
+            // Passing 'image/webp' tells the underlying Canvas API to encode as WebP.
+            var resized = await browserFile.RequestImageFileAsync(targetMime, maxWidth, maxHeight);
 
-            var compressedSize = resizedImageFile.Size;
-            var compressedStream = resizedImageFile.OpenReadStream(MaxFileSizeBytes);
+            var compressedSize   = resized.Size;
+            var compressedStream = resized.OpenReadStream(MaxFileSizeBytes);
 
-            var result = new ImageCompressionResult
-            {
-                Success = true,
-                CompressedStream = compressedStream,
-                OriginalSize = originalSize,
-                CompressedSize = compressedSize,
-                CompressionRatio = originalSize > 0 
-                    ? Math.Max(0, (float)(originalSize - compressedSize) / originalSize)
-                    : 0,
-                ContentType = resizedImageFile.ContentType,
-                Width = maxWidth,
-                Height = maxHeight
-            };
+            var ratio = originalSize > 0
+                ? Math.Max(0f, (float)(originalSize - compressedSize) / originalSize)
+                : 0f;
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"✓ Compression successful: {originalSize / 1024}KB → {compressedSize / 1024}KB ({result.CompressionRatio * 100:F1}% reduction)",
-                LogLevel.Info
-            );
+                $"[Compression] ✓ {FormatBytes(originalSize)} → {FormatBytes(compressedSize)} " +
+                $"({ratio * 100:F1}% saved) [{targetMime}]",
+                LogLevel.Info);
 
-            return result;
+            return new ImageCompressionResult
+            {
+                Success          = true,
+                CompressedStream = compressedStream,
+                OriginalSize     = originalSize,
+                CompressedSize   = compressedSize,
+                CompressionRatio = ratio,
+                ContentType      = resized.ContentType,
+                Width            = maxWidth,
+                Height           = maxHeight
+            };
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Compressing image: {browserFile.Name}");
-            
-            // Fallback: return original file
-            _logger.LogWarning("Compression failed, returning original file");
-            
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"CompressImageAsync: {browserFile.Name}");
+            _logger.LogWarning("Compression failed — returning original file as fallback");
+
             try
             {
-                var fallbackStream = browserFile.OpenReadStream(MaxFileSizeBytes);
-                
                 return new ImageCompressionResult
                 {
-                    Success = true,
-                    CompressedStream = fallbackStream,
-                    OriginalSize = browserFile.Size,
-                    CompressedSize = browserFile.Size,
-                    CompressionRatio = 0,
-                    ContentType = browserFile.ContentType,
-                    ErrorMessage = $"Compression failed, using original: {ex.Message}"
+                    Success          = true,
+                    CompressedStream = browserFile.OpenReadStream(MaxFileSizeBytes),
+                    OriginalSize     = browserFile.Size,
+                    CompressedSize   = browserFile.Size,
+                    CompressionRatio = 0f,
+                    ContentType      = browserFile.ContentType,
+                    ErrorMessage     = $"Compression failed (original used): {ex.Message}"
                 };
             }
             catch (Exception fallbackEx)
             {
-                await MID_HelperFunctions.LogExceptionAsync(fallbackEx, "Fallback also failed");
-                
+                await MID_HelperFunctions.LogExceptionAsync(fallbackEx, "Fallback stream open failed");
                 return new ImageCompressionResult
                 {
-                    Success = false,
+                    Success      = false,
                     ErrorMessage = $"Complete failure: {fallbackEx.Message}"
                 };
             }
@@ -126,56 +124,32 @@ public class ImageCompressionService : IImageCompressionService
     public async Task<ImageCompressionResult> CompressImageFromStreamAsync(
         Stream imageStream,
         string fileName,
-        int maxWidth = 2000,
+        int maxWidth  = 2000,
         int maxHeight = 2000,
-        bool enableCompression = true)
+        bool enableCompression = true,
+        ImageOutputFormat outputFormat = ImageOutputFormat.WebP)
     {
-        try
-        {
-            var originalSize = imageStream.Length;
-            
-            if (!enableCompression)
-            {
-                return new ImageCompressionResult
-                {
-                    Success = true,
-                    CompressedStream = imageStream,
-                    OriginalSize = originalSize,
-                    CompressedSize = originalSize,
-                    CompressionRatio = 0,
-                    ContentType = "image/jpeg",
-                    ErrorMessage = "Compression disabled - using original stream"
-                };
-            }
+        // Stream-based path cannot invoke RequestImageFileAsync.
+        // We return as-is and warn — callers should prefer the IBrowserFile overload.
+        await MID_HelperFunctions.DebugMessageAsync(
+            "[Compression] WARNING: stream-based path — no conversion performed. " +
+            "Use the IBrowserFile overload for WebP conversion.",
+            LogLevel.Warning);
 
-            // Note: This method is less reliable than using IBrowserFile
-            // It's provided as a fallback but may not work properly
-            await MID_HelperFunctions.DebugMessageAsync(
-                "WARNING: Using stream-based compression (less reliable). Consider using IBrowserFile instead.",
-                LogLevel.Warning
-            );
+        var targetMime = outputFormat == ImageOutputFormat.Original
+            ? MimeJpeg
+            : ResolveMime(outputFormat, MimeJpeg);
 
-            return new ImageCompressionResult
-            {
-                Success = true,
-                CompressedStream = imageStream,
-                OriginalSize = originalSize,
-                CompressedSize = originalSize,
-                CompressionRatio = 0,
-                ContentType = "image/jpeg",
-                ErrorMessage = "Stream-based compression not fully implemented - using original"
-            };
-        }
-        catch (Exception ex)
+        return new ImageCompressionResult
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Stream-based compression");
-            
-            return new ImageCompressionResult
-            {
-                Success = false,
-                ErrorMessage = ex.Message
-            };
-        }
+            Success          = true,
+            CompressedStream = imageStream,
+            OriginalSize     = imageStream.Length,
+            CompressedSize   = imageStream.Length,
+            CompressionRatio = 0f,
+            ContentType      = targetMime,
+            ErrorMessage     = "Stream-based path — no conversion; use IBrowserFile overload for WebP"
+        };
     }
 
     public async Task<ImageValidationResult> ValidateImageAsync(
@@ -185,87 +159,91 @@ public class ImageCompressionService : IImageCompressionService
         try
         {
             var fileSize = browserFile.Size;
-            
+
             if (fileSize > maxSizeBytes)
             {
                 return new ImageValidationResult
                 {
-                    IsValid = false,
+                    IsValid      = false,
                     ErrorMessage = $"File size {FormatBytes(fileSize)} exceeds limit of {FormatBytes(maxSizeBytes)}",
-                    FileSize = fileSize
+                    FileSize     = fileSize
                 };
             }
 
-            var contentType = browserFile.ContentType.ToLower();
-            
+            var contentType = browserFile.ContentType.ToLowerInvariant();
+
             if (!SupportedFormats.Contains(contentType))
             {
                 return new ImageValidationResult
                 {
-                    IsValid = false,
-                    ErrorMessage = $"Unsupported format: {contentType}. Supported: JPG, PNG, WebP, GIF",
-                    FileSize = fileSize,
-                    Format = contentType
+                    IsValid      = false,
+                    ErrorMessage = $"Unsupported format '{contentType}'. Accepted: JPEG, PNG, WebP, GIF",
+                    FileSize     = fileSize,
+                    Format       = contentType
                 };
             }
 
             return new ImageValidationResult
             {
-                IsValid = true,
-                Format = contentType,
+                IsValid  = true,
+                Format   = contentType,
                 FileSize = fileSize
             };
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Validating image");
-            
-            return new ImageValidationResult
-            {
-                IsValid = false,
-                ErrorMessage = ex.Message
-            };
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ValidateImageAsync");
+            return new ImageValidationResult { IsValid = false, ErrorMessage = ex.Message };
         }
     }
 
     public async Task<ImageDimensions?> GetImageDimensionsAsync(IBrowserFile browserFile)
     {
-        try
-        {
-            // Request image at original size to get dimensions
-            var imageFile = await browserFile.RequestImageFileAsync(
-                browserFile.ContentType,
-                int.MaxValue,
-                int.MaxValue);
-
-            // Note: Blazor doesn't expose dimensions directly
-            // This is a limitation of the current API
-            await MID_HelperFunctions.DebugMessageAsync(
-                "WARNING: Exact dimensions not available via Blazor API",
-                LogLevel.Warning
-            );
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting image dimensions");
-            return null;
-        }
+        // Blazor's IBrowserFile API does not expose exact pixel dimensions.
+        await MID_HelperFunctions.DebugMessageAsync(
+            "[Compression] Exact dimensions unavailable via Blazor IBrowserFile API",
+            LogLevel.Warning);
+        return null;
     }
 
-    private string FormatBytes(long bytes)
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resolve the target MIME type from the requested <see cref="ImageOutputFormat"/>.
+    /// WebP is chosen by default; falls back to JPEG when the format is Original or
+    /// when the input is already JPEG.
+    /// </summary>
+    private static string ResolveMime(ImageOutputFormat format, string originalMime)
+    {
+        return format switch
+        {
+            ImageOutputFormat.WebP     => MimeWebP,
+            ImageOutputFormat.Jpeg     => MimeJpeg,
+            ImageOutputFormat.Png      => MimePng,
+            ImageOutputFormat.Original => originalMime,
+            _                          => MimeWebP
+        };
+    }
+
+    /// <summary>
+    /// Map a MIME type to the correct file extension (used when naming upload files).
+    /// </summary>
+    public static string MimeToExtension(string mimeType) => mimeType.ToLowerInvariant() switch
+    {
+        MimeWebP      => ".webp",
+        "image/jpg"   => ".jpg",
+        MimeJpeg      => ".jpg",
+        MimePng       => ".png",
+        "image/gif"   => ".gif",
+        _             => ".webp"   // default to WebP for unknown types
+    };
+
+    private static string FormatBytes(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB" };
         double len = bytes;
         int order = 0;
-        
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len = len / 1024;
-        }
-        
+        while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
         return $"{len:0.##} {sizes[order]}";
     }
 }
