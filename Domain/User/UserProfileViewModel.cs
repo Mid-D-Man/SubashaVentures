@@ -140,6 +140,9 @@ public DateTime? PartnerAppliedAt { get; set; }
             MembershipTier = tierEnum,
             UpdatedAt = model.UpdatedAt,
             LastLoginAt = model.LastLoginAt,
+            IsPartner        = model.IsPartner,
+   PartnerId        = model.PartnerId?.ToString(),
+  PartnerAppliedAt = model.PartnerAppliedAt,
             Role = model.Role
         };
     }
