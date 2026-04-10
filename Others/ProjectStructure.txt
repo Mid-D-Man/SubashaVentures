@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Fri Apr 10 14:47:28 UTC 2026
+Generated: Fri Apr 10 14:48:15 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: 8b2711579b1eb3aad5eec7d7e239fdf8568c7204
+Commit: 24d79a53b19b6a456cee17298c07feb8d35ed34a
 Branch: master
 ==================================
 
@@ -335,6 +335,7 @@ Services/Orders/IOrderService.cs
 Services/Orders/OrderService.cs
 Services/Partners/IPartnerApplicationService.cs
 Services/Partners/IPartnerService.cs
+Services/Partners/IPartnerStoreService.cs
 Services/Partners/IPartnerTemplateService.cs
 Services/Partners/PartnerApplicationService.cs
 Services/Partners/PartnerService.cs
@@ -553,7 +554,7 @@ Directory Structure:
 
 File Count Summary:
 ==================
-.cs       : 211 files
+.cs       : 212 files
 .razor    : 87 files
 .csproj   : 1 files
 .sln      : 1 files
