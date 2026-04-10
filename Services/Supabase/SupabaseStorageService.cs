@@ -1,4 +1,7 @@
 // Services/Supabase/SupabaseStorageService.cs
+// WebP-aware upload service. Derives the file extension from the compressed content type
+// so uploaded files are named *.webp rather than keeping the original *.jpg / *.png.
+
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
@@ -16,13 +19,12 @@ public class SupabaseStorageService : ISupabaseStorageService
 
     private const long MaxFileSizeBytes = 50L * 1024L * 1024L;
 
-    // FIX: Added "avatars" as an alias for "user-avatars" so callers can use either.
     private readonly Dictionary<string, string> _buckets = new()
     {
-        { "products",  "product-images" },
-        { "users",     "user-avatars" },
-        { "avatars",   "user-avatars" },   // ← alias used by Settings page
-        { "reviews",   "review-images" }
+        { "products", "product-images" },
+        { "users",    "user-avatars"   },
+        { "avatars",  "user-avatars"   },
+        { "reviews",  "review-images"  }
     };
 
     public SupabaseStorageService(
@@ -30,197 +32,145 @@ public class SupabaseStorageService : ISupabaseStorageService
         IImageCompressionService compressionService,
         ILogger<SupabaseStorageService> logger)
     {
-        _supabaseClient = supabaseClient;
+        _supabaseClient     = supabaseClient;
         _compressionService = compressionService;
-        _logger = logger;
+        _logger             = logger;
     }
 
-    /// <summary>
-    /// Upload image with optional compression (RECOMMENDED METHOD)
-    /// </summary>
+    // ─── Upload (IBrowserFile — recommended) ─────────────────────────────────
+
     public async Task<StorageUploadResult> UploadImageAsync(
         IBrowserFile browserFile,
-        string bucketName = "products",
-        string? folder = null,
-        bool enableCompression = true)
+        string bucketName        = "products",
+        string? folder           = null,
+        bool enableCompression   = true)
     {
         try
         {
             var validation = await _compressionService.ValidateImageAsync(browserFile);
             if (!validation.IsValid)
             {
-                _logger.LogWarning("Image validation failed: {Error}", validation.ErrorMessage);
-                return new StorageUploadResult
-                {
-                    Success = false,
-                    ErrorMessage = validation.ErrorMessage
-                };
+                _logger.LogWarning("Validation failed: {Err}", validation.ErrorMessage);
+                return new StorageUploadResult { Success = false, ErrorMessage = validation.ErrorMessage };
             }
 
+            // Compress + convert to WebP (default)
             var compression = await _compressionService.CompressImageAsync(
                 browserFile,
-                maxWidth: 2000,
-                maxHeight: 2000,
-                quality: 80,
-                enableCompression: enableCompression
-            );
+                maxWidth          : 2000,
+                maxHeight         : 2000,
+                quality           : 85,
+                enableCompression : enableCompression,
+                outputFormat      : ImageOutputFormat.WebP);
 
             if (!compression.Success || compression.CompressedStream == null)
             {
-                _logger.LogError("Compression failed: {Error}", compression.ErrorMessage);
                 return new StorageUploadResult
                 {
-                    Success = false,
+                    Success      = false,
                     ErrorMessage = compression.ErrorMessage ?? "Compression failed"
                 };
             }
 
-            var bucketId = GetBucketId(bucketName);
-            var sanitizedName = SanitizeFileName(Path.GetFileNameWithoutExtension(browserFile.Name));
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            var extension = Path.GetExtension(browserFile.Name);
-            var uniqueFileName = $"{sanitizedName}_{timestamp}{extension}";
+            // Derive extension from the actual output content type (may be .webp, .jpg, .png …)
+            var outputExt    = ImageCompressionService.MimeToExtension(compression.ContentType);
+            var baseName     = SanitizeFileName(Path.GetFileNameWithoutExtension(browserFile.Name));
+            var timestamp    = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var uniqueFileName = $"{baseName}_{timestamp}{outputExt}";
 
             var filePath = string.IsNullOrEmpty(folder)
                 ? uniqueFileName
                 : $"{folder}/{uniqueFileName}";
 
-            _logger.LogInformation("Uploading to: {BucketId}/{FilePath}", bucketId, filePath);
-
             byte[] fileBytes;
-            using (var memoryStream = new MemoryStream())
+            using (var ms = new MemoryStream())
             {
-                await compression.CompressedStream.CopyToAsync(memoryStream);
-                fileBytes = memoryStream.ToArray();
+                await compression.CompressedStream.CopyToAsync(ms);
+                fileBytes = ms.ToArray();
             }
 
-            _logger.LogDebug("File size: {Size}KB, Compression: {Status}",
-                fileBytes.Length / 1024,
-                enableCompression ? "Enabled" : "Disabled");
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[Storage] Uploading {filePath} ({fileBytes.Length / 1024} KB) [{compression.ContentType}]",
+                LogLevel.Info);
 
             var uploadedPath = await _supabaseClient.Storage
-                .From(bucketId)
-                .Upload(
-                    fileBytes,
-                    filePath,
-                    new FileOptions
-                    {
-                        ContentType = validation.Format ?? "image/jpeg",
-                        Upsert = false
-                    });
+                .From(GetBucketId(bucketName))
+                .Upload(fileBytes, filePath, new FileOptions
+                {
+                    ContentType = compression.ContentType,
+                    Upsert      = false
+                });
 
             if (string.IsNullOrEmpty(uploadedPath))
             {
-                _logger.LogError("Supabase returned empty path");
-                return new StorageUploadResult
-                {
-                    Success = false,
-                    ErrorMessage = "Upload failed - no path returned"
-                };
+                return new StorageUploadResult { Success = false, ErrorMessage = "Supabase returned empty path" };
             }
 
             var publicUrl = GetPublicUrl(filePath, bucketName);
 
-            _logger.LogInformation(
-                "✓ Upload successful: {FileName} ({Original}KB → {Final}KB, {Ratio}% reduction)",
-                uniqueFileName,
-                compression.OriginalSize / 1024,
-                compression.CompressedSize / 1024,
-                (compression.CompressionRatio * 100).ToString("F1")
-            );
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[Storage] ✓ Uploaded: {uniqueFileName} " +
+                $"({compression.OriginalSize / 1024} KB → {compression.CompressedSize / 1024} KB, " +
+                $"{compression.CompressionRatio * 100:F1}% saved) [{compression.ContentType}]",
+                LogLevel.Info);
 
             return new StorageUploadResult
             {
-                Success = true,
-                FilePath = filePath,
-                PublicUrl = publicUrl,
-                FileSize = compression.CompressedSize,
-                ContentType = validation.Format
+                Success     = true,
+                FilePath    = filePath,
+                PublicUrl   = publicUrl,
+                FileSize    = compression.CompressedSize,
+                ContentType = compression.ContentType
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Upload failed for: {FileName}", browserFile.Name);
-
-            if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
-            {
-                return new StorageUploadResult
-                {
-                    Success = false,
-                    ErrorMessage = "Permission denied. Check bucket permissions in Supabase."
-                };
-            }
-
-            if (ex.Message.Contains("404") || ex.Message.Contains("Not Found"))
-            {
-                return new StorageUploadResult
-                {
-                    Success = false,
-                    ErrorMessage = "Bucket does not exist. Create it in Supabase Dashboard."
-                };
-            }
-
-            return new StorageUploadResult
-            {
-                Success = false,
-                ErrorMessage = ex.Message
-            };
+            _logger.LogError(ex, "Upload failed: {Name}", browserFile.Name);
+            return new StorageUploadResult { Success = false, ErrorMessage = BuildUploadErrorMessage(ex) };
         }
     }
 
-    /// <summary>
-    /// Upload from stream (LEGACY)
-    /// </summary>
+    // ─── Upload (Stream — legacy) ─────────────────────────────────────────────
+
     public async Task<StorageUploadResult> UploadImageAsync(
         Stream fileStream,
         string fileName,
         string bucketName = "products",
-        string? folder = null)
+        string? folder    = null)
     {
         try
         {
-            _logger.LogWarning("Using legacy stream upload – IBrowserFile method is preferred");
+            _logger.LogWarning("[Storage] Legacy stream upload — IBrowserFile method preferred");
 
-            var bucketId = GetBucketId(bucketName);
-            var sanitizedName = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            var extension = Path.GetExtension(fileName);
-            var uniqueFileName = $"{sanitizedName}_{timestamp}{extension}";
-
-            var filePath = string.IsNullOrEmpty(folder)
-                ? uniqueFileName
-                : $"{folder}/{uniqueFileName}";
+            var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
+            var timestamp      = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var ext            = Path.GetExtension(fileName).ToLowerInvariant();
+            // Keep original extension for stream uploads (no conversion possible here)
+            var uniqueFileName = $"{baseName}_{timestamp}{ext}";
+            var filePath       = string.IsNullOrEmpty(folder) ? uniqueFileName : $"{folder}/{uniqueFileName}";
+            var mimeType       = ExtToMime(ext);
 
             byte[] fileBytes;
-            using (var memoryStream = new MemoryStream())
+            using (var ms = new MemoryStream())
             {
-                await fileStream.CopyToAsync(memoryStream);
-                fileBytes = memoryStream.ToArray();
+                await fileStream.CopyToAsync(ms);
+                fileBytes = ms.ToArray();
             }
 
             var uploadedPath = await _supabaseClient.Storage
-                .From(bucketId)
-                .Upload(
-                    fileBytes,
-                    filePath,
-                    new FileOptions
-                    {
-                        ContentType = "image/jpeg",
-                        Upsert = false
-                    });
+                .From(GetBucketId(bucketName))
+                .Upload(fileBytes, filePath, new FileOptions { ContentType = mimeType, Upsert = false });
 
             if (string.IsNullOrEmpty(uploadedPath))
-            {
                 return new StorageUploadResult { Success = false, ErrorMessage = "Upload failed" };
-            }
 
             return new StorageUploadResult
             {
-                Success = true,
-                FilePath = filePath,
-                PublicUrl = GetPublicUrl(filePath, bucketName),
-                FileSize = fileBytes.Length,
-                ContentType = "image/jpeg"
+                Success     = true,
+                FilePath    = filePath,
+                PublicUrl   = GetPublicUrl(filePath, bucketName),
+                FileSize    = fileBytes.Length,
+                ContentType = mimeType
             };
         }
         catch (Exception ex)
@@ -233,7 +183,7 @@ public class SupabaseStorageService : ISupabaseStorageService
     public async Task<List<StorageUploadResult>> UploadImagesAsync(
         List<(Stream stream, string fileName)> files,
         string bucketName = "products",
-        string? folder = null)
+        string? folder    = null)
     {
         var results = new List<StorageUploadResult>();
         foreach (var (stream, fileName) in files)
@@ -244,45 +194,27 @@ public class SupabaseStorageService : ISupabaseStorageService
         return results;
     }
 
+    // ─── Delete ───────────────────────────────────────────────────────────────
+
     public async Task<bool> DeleteImageAsync(string filePath, string bucketName = "products")
     {
         try
         {
-            if (string.IsNullOrEmpty(filePath))
-            {
-                _logger.LogWarning("Cannot delete: filePath is null or empty");
-                return false;
-            }
-
+            if (string.IsNullOrEmpty(filePath)) return false;
             var bucketId = GetBucketId(bucketName);
-            _logger.LogInformation("Attempting to delete: {BucketId}/{FilePath}", bucketId, filePath);
-
-            var response = await _supabaseClient.Storage
-                .From(bucketId)
-                .Remove(new List<string> { filePath });
-
-            if (response == null)
-            {
-                _logger.LogError("Delete failed: No response from Supabase");
-                return false;
-            }
-
-            _logger.LogInformation("✓ Successfully deleted: {FilePath}", filePath);
+            var response = await _supabaseClient.Storage.From(bucketId).Remove(new List<string> { filePath });
+            if (response == null) return false;
+            _logger.LogInformation("[Storage] ✓ Deleted: {Path}", filePath);
             return true;
         }
-        catch (HttpRequestException ex)
+        catch (HttpRequestException ex) when (ex.Message.Contains("404") || ex.Message.Contains("not found"))
         {
-            _logger.LogError(ex, "HTTP error deleting {FilePath}: {Message}", filePath, ex.Message);
-            if (ex.Message.Contains("404") || ex.Message.Contains("not found"))
-            {
-                _logger.LogWarning("File not found (treating as success): {FilePath}", filePath);
-                return true;
-            }
-            return false;
+            _logger.LogWarning("[Storage] File not found (treating as success): {Path}", filePath);
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error deleting: {FilePath}", filePath);
+            _logger.LogError(ex, "Delete failed: {Path}", filePath);
             return false;
         }
     }
@@ -291,51 +223,29 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            if (filePaths == null || !filePaths.Any())
-            {
-                _logger.LogWarning("Cannot delete: filePaths is null or empty");
-                return false;
-            }
-
-            var validPaths = filePaths.Where(p => !string.IsNullOrEmpty(p)).ToList();
-            if (!validPaths.Any()) return false;
-
-            var bucketId = GetBucketId(bucketName);
-            _logger.LogInformation("Deleting {Count} files from {BucketId}", validPaths.Count, bucketId);
-
-            var response = await _supabaseClient.Storage
-                .From(bucketId)
-                .Remove(validPaths);
-
-            if (response == null)
-            {
-                _logger.LogError("Batch delete failed: No response from Supabase");
-                return false;
-            }
-
-            _logger.LogInformation("✓ Successfully deleted {Count} files", validPaths.Count);
-            return true;
+            var valid = filePaths?.Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (valid == null || !valid.Any()) return false;
+            var response = await _supabaseClient.Storage.From(GetBucketId(bucketName)).Remove(valid);
+            return response != null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during batch delete");
+            _logger.LogError(ex, "Batch delete failed");
             return false;
         }
     }
+
+    // ─── URL helpers ──────────────────────────────────────────────────────────
 
     public string GetPublicUrl(string filePath, string bucketName = "products")
     {
         try
         {
-            var bucketId = GetBucketId(bucketName);
-            var publicUrl = _supabaseClient.Storage.From(bucketId).GetPublicUrl(filePath);
-            if (string.IsNullOrEmpty(publicUrl))
-                _logger.LogWarning("GetPublicUrl returned empty for: {FilePath}", filePath);
-            return publicUrl ?? string.Empty;
+            return _supabaseClient.Storage.From(GetBucketId(bucketName)).GetPublicUrl(filePath) ?? string.Empty;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting public URL for: {FilePath}", filePath);
+            _logger.LogError(ex, "GetPublicUrl failed: {Path}", filePath);
             return string.Empty;
         }
     }
@@ -344,35 +254,35 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            var bucketId = GetBucketId(bucketName);
-            var signedUrl = await _supabaseClient.Storage.From(bucketId).CreateSignedUrl(filePath, expiresIn);
-            return signedUrl ?? string.Empty;
+            return await _supabaseClient.Storage.From(GetBucketId(bucketName))
+                       .CreateSignedUrl(filePath, expiresIn) ?? string.Empty;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating signed URL: {FilePath}", filePath);
+            _logger.LogError(ex, "GetSignedUrl failed: {Path}", filePath);
             return string.Empty;
         }
     }
+
+    // ─── List / metadata ─────────────────────────────────────────────────────
 
     public async Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products")
     {
         try
         {
-            var bucketId = GetBucketId(bucketName);
-            var files = await _supabaseClient.Storage.From(bucketId).List(folder);
+            var files = await _supabaseClient.Storage.From(GetBucketId(bucketName)).List(folder);
             return files.Select(f => new StorageFile
             {
-                Name = f.Name ?? string.Empty,
-                Id = f.Id ?? Guid.NewGuid().ToString(),
-                UpdatedAt = f.UpdatedAt ?? DateTime.UtcNow,
-                Size = 0,
+                Name        = f.Name        ?? string.Empty,
+                Id          = f.Id          ?? Guid.NewGuid().ToString(),
+                UpdatedAt   = f.UpdatedAt   ?? DateTime.UtcNow,
+                Size        = 0,
                 ContentType = string.Empty
             }).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "List failed for folder: {Folder}", folder);
+            _logger.LogError(ex, "ListFiles failed: {Folder}", folder);
             return new List<StorageFile>();
         }
     }
@@ -381,97 +291,96 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            var bucketId = GetBucketId(bucketName);
-            var directoryPath = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
-            var files = await _supabaseClient.Storage.From(bucketId).List(directoryPath);
+            var dir      = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
+            var files    = await _supabaseClient.Storage.From(GetBucketId(bucketName)).List(dir);
             var fileName = Path.GetFileName(filePath);
-            var file = files.FirstOrDefault(f => f.Name == fileName);
+            var file     = files.FirstOrDefault(f => f.Name == fileName);
             if (file == null) return null;
 
             return new StorageFileMetadata
             {
-                Name = file.Name ?? string.Empty,
-                Size = 0,
-                CreatedAt = file.CreatedAt ?? DateTime.UtcNow,
-                UpdatedAt = file.UpdatedAt ?? DateTime.UtcNow,
+                Name        = file.Name ?? string.Empty,
+                Size        = 0,
+                CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
                 ContentType = string.Empty
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Metadata failed: {FilePath}", filePath);
+            _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath);
             return null;
         }
     }
 
+    // ─── Capacity ─────────────────────────────────────────────────────────────
+
     public async Task<StorageCapacityInfo> GetStorageCapacityAsync(string bucketName = "products")
     {
-        try
+        return new StorageCapacityInfo
         {
-            var usedBytes = await GetBucketSizeAsync(bucketName);
-            return new StorageCapacityInfo
-            {
-                TotalCapacityBytes = 100L * 1024L * 1024L * 1024L,
-                UsedCapacityBytes = usedBytes,
-                MaxFileSizeBytes = MaxFileSizeBytes,
-                BucketName = bucketName
-            };
-        }
-        catch
-        {
-            return new StorageCapacityInfo
-            {
-                TotalCapacityBytes = 100L * 1024L * 1024L * 1024L,
-                UsedCapacityBytes = 0,
-                MaxFileSizeBytes = MaxFileSizeBytes,
-                BucketName = bucketName
-            };
-        }
+            TotalCapacityBytes = 100L * 1024L * 1024L * 1024L,
+            UsedCapacityBytes  = await GetBucketSizeAsync(bucketName),
+            MaxFileSizeBytes   = MaxFileSizeBytes,
+            BucketName         = bucketName
+        };
     }
 
     public async Task<StorageCapacityCheckResult> CanUploadFileAsync(long fileSizeBytes, string bucketName = "products")
     {
-        try
+        if (fileSizeBytes > MaxFileSizeBytes)
         {
-            var capacityInfo = await GetStorageCapacityAsync(bucketName);
-            if (fileSizeBytes > MaxFileSizeBytes)
+            var info = await GetStorageCapacityAsync(bucketName);
+            return new StorageCapacityCheckResult
             {
-                return new StorageCapacityCheckResult
-                {
-                    CanUpload = false,
-                    ErrorMessage = $"File exceeds {capacityInfo.FormattedMaxFileSize} limit",
-                    CapacityInfo = capacityInfo
-                };
-            }
-            return new StorageCapacityCheckResult { CanUpload = true, CapacityInfo = capacityInfo };
+                CanUpload    = false,
+                ErrorMessage = $"File exceeds {info.FormattedMaxFileSize} limit",
+                CapacityInfo = info
+            };
         }
-        catch
-        {
-            return new StorageCapacityCheckResult { CanUpload = false, ErrorMessage = "Unable to verify capacity" };
-        }
+        return new StorageCapacityCheckResult { CanUpload = true };
     }
 
-    public async Task<long> GetBucketSizeAsync(string bucketName = "products") => 0;
+    public Task<long> GetBucketSizeAsync(string bucketName = "products") =>
+        Task.FromResult(0L);
 
-    // ─── Helpers ───────────────────────────────────────────────────────────────
+    // ─── Private helpers ──────────────────────────────────────────────────────
 
     private string GetBucketId(string bucketName)
     {
-        if (!_buckets.TryGetValue(bucketName.ToLower(), out var bucketId))
+        if (!_buckets.TryGetValue(bucketName.ToLowerInvariant(), out var id))
             throw new ArgumentException($"Unknown bucket: {bucketName}");
-        return bucketId;
+        return id;
     }
 
-    private string SanitizeFileName(string fileName)
+    private static string SanitizeFileName(string fileName)
     {
-        var invalidChars = Path.GetInvalidFileNameChars();
-        return string.Join("_", fileName.Split(invalidChars)).Replace(" ", "_");
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Join("_", fileName.Split(invalid)).Replace(" ", "_");
+    }
+
+    private static string ExtToMime(string ext) => ext.ToLowerInvariant() switch
+    {
+        ".webp" => "image/webp",
+        ".jpg"  => "image/jpeg",
+        ".jpeg" => "image/jpeg",
+        ".png"  => "image/png",
+        ".gif"  => "image/gif",
+        _       => "image/jpeg"
+    };
+
+    private static string BuildUploadErrorMessage(Exception ex)
+    {
+        if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
+            return "Permission denied. Check bucket permissions in Supabase.";
+        if (ex.Message.Contains("404") || ex.Message.Contains("Not Found"))
+            return "Bucket does not exist. Create it in Supabase Dashboard.";
+        return ex.Message;
     }
 
     /// <summary>
     /// Extracts the storage file path from a Supabase public URL.
     /// URL format: https://[ref].supabase.co/storage/v1/object/public/[bucket-id]/[file-path]
-    /// Returns null if the URL doesn't match the expected format.
     /// </summary>
     public string? ExtractFilePathFromUrl(string publicUrl, string bucketName)
     {
@@ -479,8 +388,8 @@ public class SupabaseStorageService : ISupabaseStorageService
         {
             if (string.IsNullOrWhiteSpace(publicUrl)) return null;
             var bucketId = GetBucketId(bucketName);
-            var marker = $"/object/public/{bucketId}/";
-            var idx = publicUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            var marker   = $"/object/public/{bucketId}/";
+            var idx      = publicUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
             return idx >= 0 ? Uri.UnescapeDataString(publicUrl[(idx + marker.Length)..]) : null;
         }
         catch
