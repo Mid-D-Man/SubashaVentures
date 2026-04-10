@@ -49,7 +49,23 @@ public class UserProfileViewModel
     public DateTime? LastLoginAt { get; set; }
     
     public string Role { get; set; } = "user";
-    
+
+    // ── Partner Fields ─────────────────────────────────────────
+/// <summary>
+/// TRUE once the user's partner application has been approved.
+/// Drives conditional rendering of partner dashboard nav link.
+/// </summary>
+public bool IsPartner { get; set; } = false;
+
+/// <summary>
+/// FK to partners.id as string. NULL until approved.
+/// </summary>
+public string? PartnerId { get; set; }
+
+/// <summary>
+/// Timestamp of most recent partner application submission.
+/// </summary>
+public DateTime? PartnerAppliedAt { get; set; }
     // ==================== COMPUTED PROPERTIES ====================
     
     public string FullName => $"{FirstName} {LastName}".Trim();
