@@ -1,356 +1,273 @@
-// wwwroot/js/imageCompressor.js - FIXED BLOB URL LOADING
+// wwwroot/js/imageCompressor.js - WebP-first compression
 // Browser-native image compression using Canvas API
+// WebP is now the default output format (25-34% smaller than JPEG, 97% browser support)
+
+const WEBP_SUPPORTED = (() => {
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        return canvas.toDataURL('image/webp').startsWith('data:image/webp');
+    } catch {
+        return false;
+    }
+})();
+
+console.log(`[ImageCompressor] WebP support: ${WEBP_SUPPORTED}`);
 
 window.imageCompressor = {
+
     /**
      * Compress an image from base64 string using Canvas API
-     * @param {string} base64 - Base64 encoded image
-     * @param {number} quality - Quality 0-100 (default: 80)
-     * @param {number} maxWidth - Max width in pixels (default: 2000)
-     * @param {number} maxHeight - Max height in pixels (default: 2000)
-     * @param {string} outputFormat - Output MIME type (default: image/jpeg)
+     * WebP is used by default when supported (25-34% smaller than JPEG for ecommerce)
+     *
+     * @param {string} base64           - Base64 encoded image
+     * @param {number} quality          - Quality 0-100 (default: 85)
+     * @param {number} maxWidth         - Max width in pixels (default: 2000)
+     * @param {number} maxHeight        - Max height in pixels (default: 2000)
+     * @param {string} outputFormat     - MIME type, e.g. 'image/webp' or 'image/jpeg'.
+     *                                    Pass 'auto' (default) to use WebP when supported,
+     *                                    else fall back to JPEG.
      * @returns {Promise<Object>} Compression result
      */
-    async compressImage(base64, quality = 80, maxWidth = 2000, maxHeight = 2000, outputFormat = 'image/jpeg') {
+    async compressImage(
+        base64,
+        quality      = 85,
+        maxWidth     = 2000,
+        maxHeight    = 2000,
+        outputFormat = 'auto'
+    ) {
         try {
-            console.log('Starting image compression...');
-            
-            // FIXED: Better base64 to blob conversion
-            const blob = this._base64ToBlob(base64);
+            // Resolve format
+            const format = this._resolveFormat(outputFormat);
+            console.log(`[ImageCompressor] Compressing → ${format} @ quality ${quality}`);
+
+            const blob        = this._base64ToBlob(base64);
             const originalSize = blob.size;
-            
-            console.log('Original blob size:', originalSize, 'bytes');
-            
-            // FIXED: Load image with proper error handling
-            const img = await this._loadImageSafe(blob);
-            
-            console.log('Image loaded successfully:', img.width, 'x', img.height);
-            
-            // Calculate new dimensions
-            const dimensions = this._calculateDimensions(
-                img.width,
-                img.height,
-                maxWidth,
-                maxHeight
-            );
-            
-            console.log('Target dimensions:', dimensions.width, 'x', dimensions.height);
-            
-            // Create canvas and draw resized image
-            const canvas = document.createElement('canvas');
-            canvas.width = dimensions.width;
-            canvas.height = dimensions.height;
-            
+
+            const img        = await this._loadImageSafe(blob);
+            const dimensions = this._calculateDimensions(img.width, img.height, maxWidth, maxHeight);
+
+            const canvas     = document.createElement('canvas');
+            canvas.width     = dimensions.width;
+            canvas.height    = dimensions.height;
+
             const ctx = canvas.getContext('2d');
-            
-            // Use better image smoothing
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
-            
-            // Draw image
             ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
-            
-            // Convert canvas to blob with quality
-            const compressedBlob = await this._canvasToBlob(
-                canvas, 
-                outputFormat, 
-                quality / 100
-            );
-            
-            console.log('Compressed blob size:', compressedBlob.size, 'bytes');
-            
-            // Convert blob back to base64
+
+            const compressedBlob   = await this._canvasToBlob(canvas, format, quality / 100);
             const compressedBase64 = await this._blobToBase64(compressedBlob);
-            
-            const result = {
-                success: true,
-                base64Data: compressedBase64,
-                compressedSize: compressedBlob.size,
-                originalSize: originalSize,
-                compressionRatio: Math.max(0, (originalSize - compressedBlob.size) / originalSize),
-                dimensions: {
-                    width: dimensions.width,
-                    height: dimensions.height,
-                    original: {
-                        width: img.width,
-                        height: img.height
-                    }
-                },
-                format: outputFormat,
-                errorMessage: null
-            };
-            
-            console.log('Compression successful:', result);
-            return result;
-        }
-        catch (error) {
-            console.error('Image compression error:', error);
+
+            const ratio = Math.max(0, (originalSize - compressedBlob.size) / originalSize);
+
+            console.log(
+                `[ImageCompressor] ✓ ${this._formatBytes(originalSize)} → ` +
+                `${this._formatBytes(compressedBlob.size)} (${(ratio * 100).toFixed(1)}% saved) [${format}]`
+            );
+
             return {
-                success: false,
-                errorMessage: error.message || 'Unknown compression error',
-                base64Data: null,
-                compressedSize: 0,
-                originalSize: 0,
-                compressionRatio: 0
+                success          : true,
+                base64Data       : compressedBase64,
+                compressedSize   : compressedBlob.size,
+                originalSize     : originalSize,
+                compressionRatio : ratio,
+                dimensions       : {
+                    width    : dimensions.width,
+                    height   : dimensions.height,
+                    original : { width: img.width, height: img.height }
+                },
+                format           : format,
+                isWebP           : format === 'image/webp',
+                errorMessage     : null
+            };
+        } catch (error) {
+            console.error('[ImageCompressor] Error:', error);
+            return {
+                success          : false,
+                errorMessage     : error.message || 'Unknown compression error',
+                base64Data       : null,
+                compressedSize   : 0,
+                originalSize     : 0,
+                compressionRatio : 0
             };
         }
     },
 
     /**
-     * Get image dimensions without full processing
-     * @param {string} base64 - Base64 encoded image
-     * @returns {Promise<Object|null>} Image dimensions or null
+     * Convert an existing JPEG/PNG/GIF blob or base64 to WebP.
+     * Falls back to JPEG when WebP is not supported.
+     *
+     * @param {string} base64  - Source image in any browser-renderable format
+     * @param {number} quality - Quality 0-100
+     * @returns {Promise<Object>} Conversion result
+     */
+    async convertToWebP(base64, quality = 85) {
+        return this.compressImage(base64, quality, 4096, 4096, 'image/webp');
+    },
+
+    /**
+     * Check whether the current browser can encode WebP via Canvas.
+     */
+    canEncodeWebP() {
+        return WEBP_SUPPORTED;
+    },
+
+    /**
+     * Get image dimensions without full processing.
      */
     async getImageDimensions(base64) {
         try {
             const blob = this._base64ToBlob(base64);
-            const img = await this._loadImageSafe(blob);
-            
-            return {
-                width: img.width,
-                height: img.height,
-                naturalWidth: img.naturalWidth,
-                naturalHeight: img.naturalHeight
-            };
-        }
-        catch (error) {
-            console.error('Error getting image dimensions:', error);
+            const img  = await this._loadImageSafe(blob);
+            return { width: img.width, height: img.height };
+        } catch (error) {
+            console.error('[ImageCompressor] getImageDimensions error:', error);
             return null;
         }
     },
 
     /**
-     * Create thumbnail from base64 image
-     * @param {string} base64 - Base64 encoded image
-     * @param {number} size - Thumbnail size (default: 300)
-     * @param {number} quality - Quality 0-100 (default: 85)
-     * @returns {Promise<Object>} Thumbnail compression result
+     * Create a thumbnail (square crop, WebP by default).
      */
     async createThumbnail(base64, size = 300, quality = 85) {
-        return this.compressImage(base64, quality, size, size, 'image/jpeg');
+        return this.compressImage(base64, quality, size, size, 'auto');
     },
 
     /**
-     * Validate image and get info
-     * @param {string} base64 - Base64 encoded image
-     * @param {number} maxSizeBytes - Max file size in bytes (default: 50MB)
-     * @returns {Promise<Object>} Validation result
+     * Validate image and return metadata.
      */
     async validateImage(base64, maxSizeBytes = 50 * 1024 * 1024) {
         try {
             const blob = this._base64ToBlob(base64);
             const size = blob.size;
-            
+
             if (size > maxSizeBytes) {
                 return {
-                    isValid: false,
-                    errorMessage: `File size ${this._formatBytes(size)} exceeds limit of ${this._formatBytes(maxSizeBytes)}`,
-                    fileSize: size
+                    isValid      : false,
+                    errorMessage : `File size ${this._formatBytes(size)} exceeds limit of ${this._formatBytes(maxSizeBytes)}`,
+                    fileSize     : size
                 };
             }
-            
-            // Try to load image to verify format
-            try {
-                const img = await this._loadImageSafe(blob);
-                
-                return {
-                    isValid: true,
-                    fileSize: size,
-                    format: blob.type,
-                    width: img.width,
-                    height: img.height,
-                    errorMessage: null
-                };
-            }
-            catch (imgError) {
-                return {
-                    isValid: false,
-                    errorMessage: 'Invalid or corrupted image file',
-                    fileSize: size
-                };
-            }
-        }
-        catch (error) {
-            console.error('Error validating image:', error);
+
+            const img = await this._loadImageSafe(blob);
             return {
-                isValid: false,
-                errorMessage: error.message,
-                fileSize: 0
+                isValid      : true,
+                fileSize     : size,
+                format       : blob.type,
+                width        : img.width,
+                height       : img.height,
+                errorMessage : null
             };
+        } catch (error) {
+            return { isValid: false, errorMessage: error.message, fileSize: 0 };
         }
     },
 
     /**
-     * Convert file input to base64
-     * @param {File} file - File object from input
-     * @returns {Promise<string>} Base64 string (without data URL prefix)
+     * Convert a File object to base64 string (without data-URL prefix).
      */
     async fileToBase64(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => {
-                // Extract base64 part (after data:image/...;base64,)
-                const result = reader.result.split(',')[1];
-                resolve(result);
-            };
+            reader.onload  = () => resolve(reader.result.split(',')[1]);
             reader.onerror = reject;
             reader.readAsDataURL(file);
         });
     },
 
-    // ========== PRIVATE HELPER METHODS ==========
+    // ─── Private helpers ────────────────────────────────────────────────────
 
-    /**
-     * FIXED: Convert base64 string to Blob with better error handling
-     * @private
-     */
-    _base64ToBlob(base64) {
-        try {
-            // Handle both with and without data URL prefix
-            let mimeType = 'image/jpeg';
-            let base64Data = base64;
-            
-            if (base64.includes(',')) {
-                const parts = base64.split(',');
-                const mimeMatch = parts[0].match(/:(.*?);/);
-                if (mimeMatch) {
-                    mimeType = mimeMatch[1];
-                }
-                base64Data = parts[1];
-            }
-            
-            // Decode base64
-            const binaryString = atob(base64Data);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            return new Blob([bytes], { type: mimeType });
+    _resolveFormat(requested) {
+        if (requested === 'auto' || requested === 'image/webp') {
+            return WEBP_SUPPORTED ? 'image/webp' : 'image/jpeg';
         }
-        catch (error) {
-            console.error('Error converting base64 to blob:', error);
-            throw new Error('Failed to convert base64 to blob: ' + error.message);
-        }
+        return requested || 'image/jpeg';
     },
 
-    /**
-     * Convert Blob to base64 string (without prefix)
-     * @private
-     */
+    _base64ToBlob(base64) {
+        let mimeType  = 'image/jpeg';
+        let base64Data = base64;
+
+        if (base64.includes(',')) {
+            const parts    = base64.split(',');
+            const mimeMatch = parts[0].match(/:(.*?);/);
+            if (mimeMatch) mimeType = mimeMatch[1];
+            base64Data = parts[1];
+        }
+
+        const binary = atob(base64Data);
+        const bytes  = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mimeType });
+    },
+
     async _blobToBase64(blob) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => {
-                // Remove data URL prefix
-                const result = reader.result.split(',')[1];
-                resolve(result);
-            };
+            reader.onload  = () => resolve(reader.result.split(',')[1]);
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
     },
 
-    /**
-     * Load image from blob with better error handling and timeout
-     * @private
-     */
     _loadImageSafe(blob) {
         return new Promise((resolve, reject) => {
-            const img = new Image();
+            const img      = new Image();
             const objectUrl = URL.createObjectURL(blob);
-            
-            // Set timeout for loading
+
             const timeout = setTimeout(() => {
                 URL.revokeObjectURL(objectUrl);
-                reject(new Error('Image load timeout'));
-            }, 30000); // 30 second timeout
-            
+                reject(new Error('Image load timeout (30s)'));
+            }, 30_000);
+
             img.onload = () => {
                 clearTimeout(timeout);
                 URL.revokeObjectURL(objectUrl);
-                
-                // Validate image loaded properly
                 if (img.width === 0 || img.height === 0) {
                     reject(new Error('Invalid image dimensions'));
                     return;
                 }
-                
                 resolve(img);
             };
-            
-            img.onerror = (error) => {
+
+            img.onerror = (e) => {
                 clearTimeout(timeout);
                 URL.revokeObjectURL(objectUrl);
-                console.error('Image load error:', error);
-                reject(new Error('Failed to load image - may be corrupted or unsupported format'));
+                reject(new Error('Failed to load image — may be corrupted or unsupported format'));
             };
-            
-            // CRITICAL: Set crossOrigin before src
+
             img.crossOrigin = 'anonymous';
             img.src = objectUrl;
         });
     },
 
-    /**
-     * Convert canvas to blob with quality
-     * @private
-     */
     _canvasToBlob(canvas, mimeType, quality) {
         return new Promise((resolve, reject) => {
-            // Ensure quality is between 0 and 1
-            const normalizedQuality = Math.max(0, Math.min(1, quality));
-            
             canvas.toBlob(
-                (blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Failed to create blob from canvas'));
-                    }
-                },
+                (blob) => blob ? resolve(blob) : reject(new Error('canvas.toBlob returned null')),
                 mimeType,
-                normalizedQuality
+                Math.max(0, Math.min(1, quality))
             );
         });
     },
 
-    /**
-     * Calculate dimensions maintaining aspect ratio
-     * @private
-     */
     _calculateDimensions(width, height, maxWidth, maxHeight) {
-        let newWidth = width;
-        let newHeight = height;
-
-        // Constrain to maxWidth
-        if (newWidth > maxWidth) {
-            newHeight = Math.round((newHeight * maxWidth) / newWidth);
-            newWidth = maxWidth;
-        }
-
-        // Constrain to maxHeight
-        if (newHeight > maxHeight) {
-            newWidth = Math.round((newWidth * maxHeight) / newHeight);
-            newHeight = maxHeight;
-        }
-
-        return { width: newWidth, height: newHeight };
+        let w = width, h = height;
+        if (w > maxWidth)  { h = Math.round(h * maxWidth / w);  w = maxWidth; }
+        if (h > maxHeight) { w = Math.round(w * maxHeight / h); h = maxHeight; }
+        return { width: w, height: h };
     },
 
-    /**
-     * Format bytes to human readable format
-     * @private
-     */
     _formatBytes(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        if (bytes === 0) return '0 B';
+        const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
     }
 };
 
-console.log('✓ Image Compressor (Canvas API - Fixed) loaded successfully');
+console.log('✅ ImageCompressor loaded — WebP-first mode:', WEBP_SUPPORTED ? 'ENABLED' : 'FALLBACK→JPEG');
