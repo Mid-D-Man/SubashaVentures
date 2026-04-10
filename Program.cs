@@ -40,7 +40,8 @@ using SubashaVentures.Services.AppStats;
 using SubashaVentures.Services.Collection;
 using Supabase;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
-
+using SubashaVentures.Services.Storage;
+using SubashaVentures.Services.Partners;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
@@ -178,7 +179,11 @@ builder.Services.AddScoped<SubashaVentures.Services.Notifications.INotificationS
                             SubashaVentures.Services.Notifications.NotificationService>();
 builder.Services.AddScoped<SubashaVentures.Services.AppStats.IAppStatsService,
                             SubashaVentures.Services.AppStats.AppStatsService>();
-
+// ==================== PARTNER SERVICES ====================
+builder.Services.AddScoped<ICloudflareR2Service, CloudflareR2Service>();
+builder.Services.AddScoped<IPartnerApplicationService, PartnerApplicationService>();
+builder.Services.AddScoped<IPartnerTemplateService, PartnerTemplateService>();
+builder.Services.AddScoped<IPartnerStoreService, PartnerStoreService>();
 var host = builder.Build();
 
 try
