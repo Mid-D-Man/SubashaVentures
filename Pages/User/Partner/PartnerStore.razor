@@ -1,0 +1,190 @@
+@page "/user/partner/store"
+@layout UserLayout
+@using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Domain.Partner
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject IPartnerStoreService PartnerStoreService
+@inject ICloudflareR2Service R2Service
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="partner-store">
+
+    <NotificationComponent @ref="notificationComponent"
+                           Position="NotificationPosition.TopRight"
+                           AutoDismissTime="4000" />
+
+    <div class="ps-header">
+        <div>
+            <h1>Store Profile</h1>
+            <p>Customise how your store appears to customers.</p>
+        </div>
+        @if (store != null)
+        {
+            <a href="@store.PublicStoreUrl" target="_blank" class="ps-view-link">
+                View Public Store →
+            </a>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="ps-loading">
+            <LoadingSpinner />
+        </div>
+    }
+    else if (store == null)
+    {
+        <div class="ps-error">
+            <span>⚠️</span>
+            <p>Store profile not found. It may not have been created yet.</p>
+            <PrimaryButton OnClick="LoadStore">Retry</PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <div class="ps-form-layout">
+
+            <!-- Banner -->
+            <div class="ps-banner-section">
+                <div class="ps-banner-wrapper"
+                     style="@(!string.IsNullOrEmpty(form.BannerUrl) ? $"background-image: url('{form.BannerUrl}')" : "")">
+                    @if (string.IsNullOrEmpty(form.BannerUrl))
+                    {
+                        <span class="banner-placeholder">No banner image</span>
+                    }
+                    <div class="banner-overlay">
+                        <label class="banner-upload-btn">
+                            <InputFile OnChange="HandleBannerUpload"
+                                       accept="image/jpeg,image/png,image/webp"
+                                       class="hidden-input" />
+                            @if (isUploadingBanner)
+                            {
+                                <span>Uploading...</span>
+                            }
+                            else
+                            {
+                                <span>📷 Change Banner</span>
+                            }
+                        </label>
+                        @if (!string.IsNullOrEmpty(form.BannerUrl))
+                        {
+                            <button class="banner-remove-btn" @onclick="RemoveBanner">Remove</button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Logo -->
+                <div class="ps-logo-wrapper">
+                    <div class="ps-logo-circle">
+                        @if (!string.IsNullOrEmpty(form.LogoUrl))
+                        {
+                            <img src="@form.LogoUrl" alt="Store logo" />
+                        }
+                        else
+                        {
+                            <span class="logo-placeholder">🏪</span>
+                        }
+                        <label class="logo-upload-btn">
+                            <InputFile OnChange="HandleLogoUpload"
+                                       accept="image/jpeg,image/png,image/webp"
+                                       class="hidden-input" />
+                            @if (isUploadingLogo)
+                            {
+                                <span>...</span>
+                            }
+                            else
+                            {
+                                <span>📷</span>
+                            }
+                        </label>
+                    </div>
+                    <div class="ps-store-name-preview">@(form.StoreName.Length > 0 ? form.StoreName : store.StoreName)</div>
+                    <div class="ps-store-slug">mysubasha.com/store/@store.StoreSlug</div>
+                </div>
+            </div>
+
+            <!-- Form Fields -->
+            <div class="ps-fields">
+                <div class="ps-fields-section">
+                    <h2>Store Information</h2>
+
+                    <InputField @bind-Value="form.StoreName"
+                               Label="Store Name"
+                               Placeholder="Your store display name"
+                               IsRequired="true"
+                               HasError="@HasError("StoreName")"
+                               ErrorMessage="@GetError("StoreName")" />
+
+                    <InputField @bind-Value="form.Tagline"
+                               Label="Tagline"
+                               Placeholder="A short catchy description of your store" />
+
+                    <div class="form-group">
+                        <label class="form-label">Store Description</label>
+                        <textarea class="form-textarea"
+                                  @bind="form.Description"
+                                  placeholder="Tell customers about your store, what you sell, and what makes you unique."
+                                  rows="5"></textarea>
+                    </div>
+                </div>
+
+                <div class="ps-fields-section">
+                    <h2>Public Contact</h2>
+                    <p class="section-desc">Optional — shown on your public store page.</p>
+
+                    <div class="form-row">
+                        <InputField @bind-Value="form.PublicPhone"
+                                   Label="Public Phone"
+                                   Placeholder="+234 XXX XXX XXXX" />
+
+                        <InputField @bind-Value="form.PublicEmail"
+                                   Label="Public Email"
+                                   Placeholder="store@example.com" />
+                    </div>
+                </div>
+
+                <!-- Store Stats (read only) -->
+                <div class="ps-fields-section">
+                    <h2>Store Stats</h2>
+                    <div class="ps-stats-row">
+                        <div class="ps-stat">
+                            <span class="ps-stat-value">@store.TotalProducts</span>
+                            <span class="ps-stat-label">Products</span>
+                        </div>
+                        <div class="ps-stat">
+                            <span class="ps-stat-value">@store.TotalOrders</span>
+                            <span class="ps-stat-label">Orders</span>
+                        </div>
+                        <div class="ps-stat">
+                            <span class="ps-stat-value">@store.DisplayTotalSales</span>
+                            <span class="ps-stat-label">Total Sales</span>
+                        </div>
+                        <div class="ps-stat">
+                            <span class="ps-stat-value">@store.CreatedAtDisplay</span>
+                            <span class="ps-stat-label">Member Since</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save -->
+                <div class="ps-save-row">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                    OnClick="ResetForm">
+                        Discard Changes
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="HandleSave"
+                                  IsLoading="@isSaving"
+                                  IsDisabled="@isSaving">
+                        Save Changes
+                    </PrimaryButton>
+                </div>
+            </div>
+        </div>
+    }
+</div>
