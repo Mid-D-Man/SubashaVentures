@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using SubashaVentures.Services.Partners;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -7,15 +8,19 @@ namespace SubashaVentures.Layout.Admin;
 
 public partial class AdminNavMenu : ComponentBase
 {
+    [Inject] private IPartnerApplicationService PartnerApplicationService { get; set; } = default!;
+
     private ElementReference navElement;
-    private bool isExpanded  = false;
-    private bool isPinned    = false;
+    private bool isExpanded   = false;
+    private bool isPinned     = false;
     private bool isMobileOpen = false;
+    private int  pendingApplicationCount = 0;
+
     private HashSet<string> expandedGroups = new();
-    private IJSObjectReference? jsModule;
+    private IJSObjectReference?           jsModule;
     private DotNetObjectReference<AdminNavMenu>? dotNetRef;
 
-    private List<NavigationSection> NavigationSections = new()
+    private List<NavigationSection> NavigationSections => new()
     {
         new NavigationSection
         {
@@ -30,14 +35,15 @@ public partial class AdminNavMenu : ComponentBase
             Title = "Management",
             Items = new List<NavigationItem>
             {
-                new() { Id = "orders",     Label = "Order Management",    Path = "admin/orders",     Icon = "orders"    },
-                new() { Id = "users",      Label = "User Management",     Path = "admin/users",      Icon = "users"     },
-                new() { Id = "products",   Label = "Product Management",  Path = "admin/products",   Icon = "products"  },
-                new() { Id = "partners",   Label = "Partner Management",  Path = "admin/partners",   Icon = "partners"  },
-                new() { Id = "images",     Label = "Image Management",    Path = "admin/images",     Icon = "images"    },
-                new() { Id = "categories", Label = "Category Management", Path = "admin/categories", Icon = "category"  },
-                new() { Id = "reviews",    Label = "Review Management",   Path = "admin/reviews",    Icon = "reviews"   },
-                new() { Id = "misc",       Label = "Misc Management",     Path = "admin/misc",       Icon = "misc"      },
+                new() { Id = "orders",       Label = "Order Management",      Path = "admin/orders",               Icon = "orders"       },
+                new() { Id = "users",        Label = "User Management",       Path = "admin/users",                Icon = "users"        },
+                new() { Id = "products",     Label = "Product Management",    Path = "admin/products",             Icon = "products"     },
+                new() { Id = "partners",     Label = "Partner Management",    Path = "admin/partners",             Icon = "partners"     },
+                new() { Id = "applications", Label = "Partner Applications",  Path = "admin/partner-applications", Icon = "applications", Badge = pendingApplicationCount },
+                new() { Id = "images",       Label = "Image Management",      Path = "admin/images",               Icon = "images"       },
+                new() { Id = "categories",   Label = "Category Management",   Path = "admin/categories",           Icon = "category"     },
+                new() { Id = "reviews",      Label = "Review Management",     Path = "admin/reviews",              Icon = "reviews"      },
+                new() { Id = "misc",         Label = "Misc Management",       Path = "admin/misc",                 Icon = "misc"         },
             }
         },
         new NavigationSection
@@ -53,8 +59,8 @@ public partial class AdminNavMenu : ComponentBase
             Title = "Communications",
             Items = new List<NavigationItem>
             {
-                new() { Id = "messages",   Label = "Messages",   Path = "admin/messages",   Icon = "messages"   },
-                new() { Id = "newsletter", Label = "Newsletter",  Path = "admin/newsletter", Icon = "newsletter" },
+                new() { Id = "messages",   Label = "Messages",  Path = "admin/messages",   Icon = "messages"   },
+                new() { Id = "newsletter", Label = "Newsletter", Path = "admin/newsletter", Icon = "newsletter" },
             }
         },
         new NavigationSection
@@ -85,7 +91,20 @@ public partial class AdminNavMenu : ComponentBase
             catch (Exception ex)
             {
                 MID_HelperFunctions.DebugMessage(
-                    $"Failed to initialize AdminNavMenu: {ex.Message}", LogLevel.Error);
+                    $"Failed to initialize AdminNavMenu JS: {ex.Message}", LogLevel.Error);
+            }
+
+            // Load pending application badge count
+            try
+            {
+                var stats = await PartnerApplicationService.GetApplicationStatisticsAsync();
+                pendingApplicationCount = stats.Pending + stats.UnderReview;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                MID_HelperFunctions.DebugMessage(
+                    $"Failed to load application badge count: {ex.Message}", LogLevel.Warning);
             }
         }
     }
@@ -173,6 +192,8 @@ public partial class AdminNavMenu : ComponentBase
 
             "partners" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M13 7C13 8.66 11.66 10 10 10C8.34 10 7 8.66 7 7C7 5.34 8.34 4 10 4C11.66 4 13 5.34 13 7Z"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M3 18C3 15.79 4.79 14 7 14H13C15.21 14 17 15.79 17 18"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M17 7C17 8.1 16.1 9 15 9"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M3 7C3 8.1 3.9 9 5 9"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
 
+            "applications" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M4 2h9l4 4v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><path d=""M13 2v4h4"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><path d=""M7 9h6M7 12h6M7 15h4"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
+
             "images" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""3"" width=""16"" height=""14"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><circle cx=""7"" cy=""8"" r=""1.5"" fill=""currentColor""/><path d=""M2 13L6 9L10 13L14 9L18 13"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
 
             "category" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""5"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""9"" y=""2"" width=""9"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""2"" y=""9"" width=""9"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""13"" y=""9"" width=""5"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
@@ -221,11 +242,11 @@ public partial class AdminNavMenu : ComponentBase
 
     public class NavigationItem
     {
-        public string Id { get; set; } = "";
+        public string Id    { get; set; } = "";
         public string Label { get; set; } = "";
-        public string Path { get; set; } = "";
-        public string Icon { get; set; } = "";
-        public int Badge { get; set; }
+        public string Path  { get; set; } = "";
+        public string Icon  { get; set; } = "";
+        public int    Badge { get; set; }
         public List<NavigationItem>? Children { get; set; }
     }
 }
