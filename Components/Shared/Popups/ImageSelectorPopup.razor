@@ -1,4 +1,5 @@
 @* Components/Shared/Popups/ImageSelectorPopup.razor *@
+@using Microsoft.AspNetCore.Components.Web
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Admin.Images
@@ -14,6 +15,10 @@
                     @if (SelectedImages.Count > 0)
                     {
                         <span class="isp-count">@SelectedImages.Count selected</span>
+                    }
+                    else if (isLoading)
+                    {
+                        <span>Loading images…</span>
                     }
                     else
                     {
@@ -56,7 +61,6 @@
 
             <!-- Filters row -->
             <div class="isp-filters-row">
-                <!-- Category filter -->
                 <div class="isp-filter-group">
                     <label class="isp-filter-label">Category</label>
                     <div class="isp-select-wrap">
@@ -76,7 +80,6 @@
                     </div>
                 </div>
 
-                <!-- Sort -->
                 <div class="isp-filter-group">
                     <label class="isp-filter-label">Sort</label>
                     <div class="isp-select-wrap">
@@ -89,18 +92,17 @@
                     </div>
                 </div>
 
-                <!-- Reset all filters -->
                 @if (HasActiveFilters)
                 {
-                    <button class="isp-reset-btn" @onclick="ResetAllFilters" title="Clear all filters">
+                    <button class="isp-reset-btn" @onclick="ResetAllFilters">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <path d="M3 6H21M8 6V4H16V6M19 6L18.1 19.1C18 20.1 17.2 21 16.2 21H7.8C6.8 21 6 20.1 5.9 19.1L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12C21 16.97 16.97 21 12 21C9.17 21 6.66 19.64 5 17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M3 8V12H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         Reset filters
                     </button>
                 }
 
-                <!-- Grid size toggles -->
                 <div class="isp-view-toggles">
                     <button class="isp-view-btn @(viewSize == "small"  ? "active" : "")" @onclick='() => SetViewSize("small")'  title="Small grid">
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -144,18 +146,23 @@
             }
         </div>
 
-        <!-- ── Results info bar ── -->
-        @if (!isLoading)
+        <!-- ── Results bar (only once we have data) ── -->
+        @if (!isLoading || allImages.Any())
         {
             <div class="isp-results-bar">
                 <span class="isp-results-count">
-                    @if (filteredImages.Count == allImages.Count)
+                    @if (isLoadingMore)
                     {
-                        @($"{allImages.Count} image{(allImages.Count != 1 ? "s" : "")}")
+                        <span class="isp-loading-more-badge">
+                            <span class="isp-mini-spinner"></span>
+                            Loading more (@loadedFolderCount / @totalFolderCount categories)…
+                        </span>
                     }
-                    else
+                    else if (allImages.Count > 0)
                     {
-                        @($"{filteredImages.Count} of {allImages.Count} images")
+                        @(HasActiveFilters
+                            ? $"{filteredImages.Count} of {allImages.Count} images"
+                            : $"{allImages.Count} image{(allImages.Count != 1 ? "s" : "")}")
                     }
                 </span>
 
@@ -168,14 +175,21 @@
 
         <!-- ── Image Grid ── -->
         <div class="isp-content">
-            @if (isLoading)
+            @if (isLoading && !allImages.Any())
             {
                 <div class="isp-state-block">
                     <div class="isp-spinner"></div>
                     <p>Loading images…</p>
+                    @if (totalFolderCount > 0)
+                    {
+                        <div class="isp-load-progress">
+                            <div class="isp-load-bar" style="width: @loadingProgress%"></div>
+                        </div>
+                        <span class="isp-load-text">@loadedFolderCount of @totalFolderCount categories</span>
+                    }
                 </div>
             }
-            else if (!filteredImages.Any())
+            else if (!filteredImages.Any() && !isLoading && !isLoadingMore)
             {
                 <div class="isp-state-block">
                     <div class="isp-empty-icon">
@@ -184,7 +198,7 @@
                             <svg width="56" height="56" viewBox="0 0 24 24" fill="none">
                                 <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/>
                                 <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                <path d="M8 11H14M11 8V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <path d="M9 11H13M11 9V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                             </svg>
                         }
                         else
@@ -216,6 +230,21 @@
                                         OnClick="@(() => HandleImageSelect(image))"
                                         OnSelectionChanged="@(_ => HandleImageSelect(image))" />
                     }
+
+                    @* Skeleton placeholders while more batches load *@
+                    @if (isLoadingMore)
+                    {
+                        @for (int i = 0; i < 8; i++)
+                        {
+                            <div class="isp-skeleton-card">
+                                <div class="isp-skeleton-img"></div>
+                                <div class="isp-skeleton-info">
+                                    <div class="isp-skeleton-line"></div>
+                                    <div class="isp-skeleton-line short"></div>
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
             }
         </div>
@@ -243,7 +272,9 @@
                                OnClick="HandleConfirm"
                                IsDisabled="@(SelectedImages.Count == 0)">
                     @(AllowMultiple
-                        ? (SelectedImages.Count > 0 ? $"Select {SelectedImages.Count} image{(SelectedImages.Count != 1 ? "s" : "")}" : "Select Images")
+                        ? (SelectedImages.Count > 0
+                            ? $"Select {SelectedImages.Count} image{(SelectedImages.Count != 1 ? "s" : "")}"
+                            : "Select Images")
                         : "Select Image")
                 </PrimaryButton>
             </div>
