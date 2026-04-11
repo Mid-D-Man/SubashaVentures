@@ -1,0 +1,213 @@
+@page "/user/partner/dashboard"
+@layout UserLayout
+@using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Domain.Partner
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPartnerStoreService PartnerStoreService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="partner-dashboard">
+
+    @if (isLoading)
+    {
+        <div class="pd-loading">
+            <LoadingSpinner />
+        </div>
+    }
+    else if (dashboard == null)
+    {
+        <div class="pd-error">
+            <div class="pd-error-icon">⚠️</div>
+            <h2>Unable to Load Dashboard</h2>
+            <p>Something went wrong loading your partner dashboard. Please try again.</p>
+            <PrimaryButton OnClick="LoadDashboard">Retry</PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <!-- Alerts -->
+        @if (dashboard.Alerts.Any())
+        {
+            <div class="pd-alerts">
+                @foreach (var alert in dashboard.Alerts)
+                {
+                    <div class="pd-alert @alert.AlertClass">
+                        <p class="alert-message">@alert.Message</p>
+                        @if (!string.IsNullOrEmpty(alert.ActionUrl))
+                        {
+                            <a href="@alert.ActionUrl" class="alert-action">
+                                @alert.ActionLabel
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Header -->
+        <div class="pd-header">
+            <div class="pd-header-left">
+                <h1>Partner Dashboard</h1>
+                <p>Welcome back, <strong>@dashboard.PartnerName</strong></p>
+                <span class="partner-id-badge">@dashboard.UniquePartnerId</span>
+            </div>
+            <div class="pd-header-right">
+                <span class="verification-badge @dashboard.VerificationBadgeClass">
+                    @dashboard.VerificationStatus
+                </span>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="pd-stats">
+            <div class="pd-stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-info">
+                    <span class="stat-value">@dashboard.TotalApprovedProducts</span>
+                    <span class="stat-label">Live Products</span>
+                </div>
+            </div>
+
+            <div class="pd-stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-info">
+                    <span class="stat-value">@dashboard.TotalTemplates</span>
+                    <span class="stat-label">Templates</span>
+                </div>
+                @if (dashboard.TotalPendingTemplates > 0)
+                {
+                    <span class="stat-badge pending">@dashboard.TotalPendingTemplates pending</span>
+                }
+                @if (dashboard.TotalRejectedTemplates > 0)
+                {
+                    <span class="stat-badge rejected">@dashboard.TotalRejectedTemplates rejected</span>
+                }
+            </div>
+
+            <div class="pd-stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <span class="stat-value">@dashboard.DisplayPendingPayout</span>
+                    <span class="stat-label">Pending Payout</span>
+                </div>
+                @if (dashboard.CanRequestPayout)
+                {
+                    <span class="stat-badge ready">Ready to withdraw</span>
+                }
+            </div>
+
+            <div class="pd-stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-info">
+                    <span class="stat-value">@dashboard.DisplayTotalRevenue</span>
+                    <span class="stat-label">Total Revenue</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="pd-quick-actions">
+            <h2>Quick Actions</h2>
+            <div class="qa-grid">
+                <button class="qa-card" @onclick="@(() => Navigation.NavigateTo("user/partner/templates"))">
+                    <span class="qa-icon">➕</span>
+                    <span class="qa-label">Add Product</span>
+                    <span class="qa-desc">Create a new product template</span>
+                </button>
+
+                <button class="qa-card" @onclick="@(() => Navigation.NavigateTo("user/partner/store"))">
+                    <span class="qa-icon">🏪</span>
+                    <span class="qa-label">Edit Store</span>
+                    <span class="qa-desc">Update your store profile</span>
+                </button>
+
+                <button class="qa-card" @onclick="@(() => Navigation.NavigateTo("user/partner/financials"))">
+                    <span class="qa-icon">💳</span>
+                    <span class="qa-label">Financials</span>
+                    <span class="qa-desc">View earnings and request payout</span>
+                </button>
+
+                @if (dashboard.HasStore)
+                {
+                    <a class="qa-card" href="@dashboard.Store!.PublicStoreUrl" target="_blank">
+                        <span class="qa-icon">🔗</span>
+                        <span class="qa-label">View Store</span>
+                        <span class="qa-desc">See your public store page</span>
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Recent Templates -->
+        @if (dashboard.RecentTemplates.Any())
+        {
+            <div class="pd-section">
+                <div class="pd-section-header">
+                    <h2>Recent Templates</h2>
+                    <a href="user/partner/templates" class="view-all">View All →</a>
+                </div>
+                <div class="pd-template-list">
+                    @foreach (var template in dashboard.RecentTemplates)
+                    {
+                        <div class="pd-template-row">
+                            <div class="template-thumb">
+                                @if (!string.IsNullOrEmpty(template.ThumbnailUrl))
+                                {
+                                    <img src="@template.ThumbnailUrl" alt="@template.ProductName" />
+                                }
+                                else
+                                {
+                                    <span class="thumb-placeholder">📦</span>
+                                }
+                            </div>
+                            <div class="template-info">
+                                <span class="template-name">@template.ProductName</span>
+                                <span class="template-price">@template.DisplayProposedPrice</span>
+                            </div>
+                            <span class="template-status-badge @template.StatusBadgeClass">
+                                @template.StatusDisplay
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Recent Payouts -->
+        @if (dashboard.RecentPayouts.Any())
+        {
+            <div class="pd-section">
+                <div class="pd-section-header">
+                    <h2>Recent Payouts</h2>
+                    <a href="user/partner/financials" class="view-all">View All →</a>
+                </div>
+                <div class="pd-payout-list">
+                    @foreach (var payout in dashboard.RecentPayouts)
+                    {
+                        <div class="pd-payout-row">
+                            <div class="payout-info">
+                                <span class="payout-amount">@payout.DisplayAmount</span>
+                                <span class="payout-date">@payout.RequestedAtDisplay</span>
+                            </div>
+                            <span class="payout-status-badge @payout.StatusBadgeClass">
+                                @payout.StatusDisplay
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Commission Rate Info -->
+        <div class="pd-commission-info">
+            <span class="commission-label">Your Commission Rate</span>
+            <span class="commission-value">@dashboard.DisplayCommissionRate</span>
+            <span class="commission-desc">
+                You earn @dashboard.DisplayCommissionRate of each sale after platform costs.
+            </span>
+        </div>
+    }
+</div>
