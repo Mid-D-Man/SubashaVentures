@@ -1,0 +1,350 @@
+@page "/user/partner/apply"
+@layout UserLayout
+@using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Services.Partners
+@using SubashaVentures.Models.Supabase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPartnerApplicationService PartnerApplicationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="partner-apply">
+
+    @if (isLoading)
+    {
+        <div class="apply-loading">
+            <LoadingSpinner />
+        </div>
+    }
+    else if (existingApplication != null)
+    {
+        <div class="existing-application">
+            <div class="ea-icon">📋</div>
+            <h2>Application Already Submitted</h2>
+            <p>You have an existing application with status:</p>
+            <span class="status-badge @existingApplication.StatusBadgeClass">
+                @existingApplication.StatusDisplay
+            </span>
+
+            @if (existingApplication.IsInCooldown)
+            {
+                <div class="cooldown-notice">
+                    <span>⏳</span>
+                    <p>You can reapply in <strong>@existingApplication.CooldownRemainingDisplay</strong></p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(existingApplication.RejectionReason))
+            {
+                <div class="rejection-reason">
+                    <h4>Rejection Reason:</h4>
+                    <p>@existingApplication.RejectionReason</p>
+                </div>
+            }
+
+            <div class="ea-actions">
+                <PrimaryButton OnClick="@(() => Navigation.NavigateTo("user"))">
+                    Back to Dashboard
+                </PrimaryButton>
+            </div>
+        </div>
+    }
+    else if (!eligibility.IsEligible)
+    {
+        <div class="not-eligible">
+            <div class="ne-icon">🚫</div>
+            <h2>Not Eligible</h2>
+            <p>@eligibility.Reason</p>
+            <PrimaryButton OnClick="@(() => Navigation.NavigateTo("user"))">
+                Back to Dashboard
+            </PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <!-- Header -->
+        <div class="apply-header">
+            <h1>Become a Partner</h1>
+            <p>Join SubashaVentures as a vendor and start selling your products to customers in Abuja and Kaduna.</p>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="apply-steps">
+            <div class="step @(currentStep >= 1 ? "active" : "") @(currentStep > 1 ? "completed" : "")">
+                <span class="step-number">@(currentStep > 1 ? "✓" : "1")</span>
+                <span class="step-label">Business Info</span>
+            </div>
+            <div class="step-line @(currentStep > 1 ? "active" : "")"></div>
+            <div class="step @(currentStep >= 2 ? "active" : "") @(currentStep > 2 ? "completed" : "")">
+                <span class="step-number">@(currentStep > 2 ? "✓" : "2")</span>
+                <span class="step-label">Bank Details</span>
+            </div>
+            <div class="step-line @(currentStep > 2 ? "active" : "")"></div>
+            <div class="step @(currentStep >= 3 ? "active" : "")">
+                <span class="step-number">3</span>
+                <span class="step-label">Review & Submit</span>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <div class="apply-form-container">
+
+            <!-- Step 1: Business Info -->
+            @if (currentStep == 1)
+            {
+                <div class="form-step">
+                    <h2>Business Information</h2>
+
+                    <div class="form-row">
+                        <InputField @bind-Value="form.FullName"
+                                   Label="Full Name"
+                                   Placeholder="Your legal full name"
+                                   IsRequired="true"
+                                   HasError="@HasError("FullName")"
+                                   ErrorMessage="@GetError("FullName")" />
+
+                        <InputField @bind-Value="form.Phone"
+                                   Label="Phone Number"
+                                   Placeholder="+234 XXX XXX XXXX"
+                                   IsRequired="true"
+                                   HasError="@HasError("Phone")"
+                                   ErrorMessage="@GetError("Phone")" />
+                    </div>
+
+                    <InputField @bind-Value="form.Email"
+                               Label="Business Email"
+                               Placeholder="business@example.com"
+                               IsRequired="true"
+                               HasError="@HasError("Email")"
+                               ErrorMessage="@GetError("Email")" />
+
+                    <InputField @bind-Value="form.BusinessName"
+                               Label="Business Name"
+                               Placeholder="Your registered business name"
+                               IsRequired="true"
+                               HasError="@HasError("BusinessName")"
+                               ErrorMessage="@GetError("BusinessName")" />
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Business Type <span class="required">*</span></label>
+                            <select class="form-select @(HasError("BusinessType") ? "has-error" : "")"
+                                    @bind="form.BusinessType">
+                                <option value="">Select business type...</option>
+                                @foreach (var type in PartnerBusinessType.All)
+                                {
+                                    <option value="@type">@type</option>
+                                }
+                            </select>
+                            @if (HasError("BusinessType"))
+                            {
+                                <span class="error-text">@GetError("BusinessType")</span>
+                            }
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Location <span class="required">*</span></label>
+                            <select class="form-select @(HasError("Location") ? "has-error" : "")"
+                                    @bind="form.Location">
+                                <option value="">Select location...</option>
+                                <option value="Abuja">Abuja, FCT</option>
+                                <option value="Kaduna">Kaduna State</option>
+                            </select>
+                            @if (HasError("Location"))
+                            {
+                                <span class="error-text">@GetError("Location")</span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            Why do you want to become a partner?
+                            <span class="required">*</span>
+                            <span class="char-count">@form.Reason.Length / 50 min</span>
+                        </label>
+                        <textarea class="form-textarea @(HasError("Reason") ? "has-error" : "")"
+                                  @bind="form.Reason"
+                                  @bind:event="oninput"
+                                  placeholder="Tell us about your business, products you plan to sell, and why you want to partner with SubashaVentures. Minimum 50 characters."
+                                  rows="5"></textarea>
+                        @if (HasError("Reason"))
+                        {
+                            <span class="error-text">@GetError("Reason")</span>
+                        }
+                    </div>
+
+                    <div class="step-actions">
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="@(() => Navigation.NavigateTo("user"))">
+                            Cancel
+                        </SecondaryButton>
+                        <PrimaryButton OnClick="GoToStep2">
+                            Next: Bank Details →
+                        </PrimaryButton>
+                    </div>
+                </div>
+            }
+
+            <!-- Step 2: Bank Details -->
+            @if (currentStep == 2)
+            {
+                <div class="form-step">
+                    <h2>Bank Details</h2>
+                    <p class="step-description">
+                        Your earnings will be paid to this account. You can update these later with admin approval.
+                    </p>
+
+                    <InputField @bind-Value="form.BankAccountName"
+                               Label="Account Name"
+                               Placeholder="Name on the bank account"
+                               IsRequired="true"
+                               HasError="@HasError("BankAccountName")"
+                               ErrorMessage="@GetError("BankAccountName")" />
+
+                    <div class="form-row">
+                        <InputField @bind-Value="form.BankAccountNumber"
+                                   Label="Account Number"
+                                   Placeholder="10-digit account number"
+                                   IsRequired="true"
+                                   HasError="@HasError("BankAccountNumber")"
+                                   ErrorMessage="@GetError("BankAccountNumber")" />
+
+                        <InputField @bind-Value="form.BankName"
+                                   Label="Bank Name"
+                                   Placeholder="e.g. GTBank, Access Bank"
+                                   IsRequired="true"
+                                   HasError="@HasError("BankName")"
+                                   ErrorMessage="@GetError("BankName")" />
+                    </div>
+
+                    <InputField @bind-Value="form.BankCode"
+                               Label="Bank Code (Optional)"
+                               Placeholder="Bank sort code" />
+
+                    <div class="bank-notice">
+                        <span>🔒</span>
+                        <p>Your bank details are encrypted and only used for payout processing. We never share this information.</p>
+                    </div>
+
+                    <div class="step-actions">
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="@(() => currentStep = 1)">
+                            ← Back
+                        </SecondaryButton>
+                        <PrimaryButton OnClick="GoToStep3">
+                            Next: Review →
+                        </PrimaryButton>
+                    </div>
+                </div>
+            }
+
+            <!-- Step 3: Review & Submit -->
+            @if (currentStep == 3)
+            {
+                <div class="form-step">
+                    <h2>Review Your Application</h2>
+
+                    <div class="review-section">
+                        <h3>Business Information</h3>
+                        <div class="review-grid">
+                            <div class="review-item">
+                                <span class="review-label">Full Name</span>
+                                <span class="review-value">@form.FullName</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Phone</span>
+                                <span class="review-value">@form.Phone</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Email</span>
+                                <span class="review-value">@form.Email</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Business Name</span>
+                                <span class="review-value">@form.BusinessName</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Business Type</span>
+                                <span class="review-value">@form.BusinessType</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Location</span>
+                                <span class="review-value">@form.Location</span>
+                            </div>
+                        </div>
+                        <div class="review-reason">
+                            <span class="review-label">Reason</span>
+                            <p>@form.Reason</p>
+                        </div>
+                    </div>
+
+                    <div class="review-section">
+                        <h3>Bank Details</h3>
+                        <div class="review-grid">
+                            <div class="review-item">
+                                <span class="review-label">Account Name</span>
+                                <span class="review-value">@form.BankAccountName</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Account Number</span>
+                                <span class="review-value">@MaskAccountNumber(form.BankAccountNumber)</span>
+                            </div>
+                            <div class="review-item">
+                                <span class="review-label">Bank Name</span>
+                                <span class="review-value">@form.BankName</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="terms-notice">
+                        <p>By submitting this application you agree that:</p>
+                        <ul>
+                            <li>You are physically located in <strong>@form.Location</strong></li>
+                            <li>All information provided is accurate and truthful</li>
+                            <li>SubashaVentures will take a commission on all sales</li>
+                            <li>You will comply with all partner terms and policies</li>
+                        </ul>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(submitError))
+                    {
+                        <div class="submit-error">
+                            <span>⚠️</span>
+                            <p>@submitError</p>
+                        </div>
+                    }
+
+                    <div class="step-actions">
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="@(() => currentStep = 2)">
+                            ← Back
+                        </SecondaryButton>
+                        <PrimaryButton OnClick="HandleSubmit"
+                                      IsLoading="@isSubmitting"
+                                      IsDisabled="@isSubmitting">
+                            Submit Application
+                        </PrimaryButton>
+                    </div>
+                </div>
+            }
+
+            <!-- Success -->
+            @if (currentStep == 4)
+            {
+                <div class="apply-success">
+                    <div class="success-icon">🎉</div>
+                    <h2>Application Submitted!</h2>
+                    <p>Your partner application has been received. Our team will review it and contact you within <strong>3-5 business days</strong>.</p>
+                    <p>You can check the status of your application from your account dashboard.</p>
+                    <PrimaryButton OnClick="@(() => Navigation.NavigateTo("user"))">
+                        Back to Dashboard
+                    </PrimaryButton>
+                </div>
+            }
+        </div>
+    }
+</div>
