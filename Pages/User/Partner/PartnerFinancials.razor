@@ -1,0 +1,281 @@
+@page "/user/partner/financials"
+@layout UserLayout
+@using SubashaVentures.Layout.User
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Domain.Partner
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPartnerStoreService PartnerStoreService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="partner-financials">
+
+    <NotificationComponent @ref="notificationComponent"
+                           Position="NotificationPosition.TopRight"
+                           AutoDismissTime="4000" />
+
+    <!-- Header -->
+    <div class="pf-header">
+        <h1>Financials</h1>
+        <p>Track your earnings, request payouts, and manage your bank details.</p>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="pf-loading">
+            <LoadingSpinner />
+        </div>
+    }
+    else if (summary == null)
+    {
+        <div class="pf-error">
+            <span>⚠️</span>
+            <p>Unable to load financial data. Please try again.</p>
+            <PrimaryButton OnClick="LoadSummary">Retry</PrimaryButton>
+        </div>
+    }
+    else
+    {
+        <!-- Summary Cards -->
+        <div class="pf-summary-grid">
+            <div class="pf-summary-card primary">
+                <span class="summary-label">Pending Payout</span>
+                <span class="summary-value">@summary.DisplayPendingPayout</span>
+                <div class="payout-progress-bar">
+                    <div class="payout-progress-fill"
+                         style="width: @(summary.PayoutProgressPercent)%">
+                    </div>
+                </div>
+                <span class="summary-hint">
+                    @if (summary.CanRequestPayout)
+                    {
+                        <span class="hint-ready">✓ Ready to withdraw</span>
+                    }
+                    else
+                    {
+                        <span>@summary.DisplayAmountUntilThreshold more needed to reach @summary.DisplayMinimumThreshold threshold</span>
+                    }
+                </span>
+            </div>
+
+            <div class="pf-summary-card">
+                <span class="summary-label">Total Revenue</span>
+                <span class="summary-value">@summary.DisplayTotalRevenue</span>
+            </div>
+
+            <div class="pf-summary-card">
+                <span class="summary-label">Total Withdrawn</span>
+                <span class="summary-value">@summary.DisplayTotalWithdrawn</span>
+            </div>
+
+            <div class="pf-summary-card">
+                <span class="summary-label">This Month</span>
+                <span class="summary-value">@summary.DisplayThisMonthRevenue</span>
+            </div>
+        </div>
+
+        <!-- Payout Request -->
+        <div class="pf-section">
+            <div class="pf-section-header">
+                <h2>Request Payout</h2>
+            </div>
+
+            @if (summary.HasOpenPayoutRequest)
+            {
+                <div class="pf-notice info">
+                    <span>⏳</span>
+                    <p>You have an open payout request being processed. You cannot submit another until it is resolved.</p>
+                </div>
+            }
+            else if (!summary.CanRequestPayout)
+            {
+                <div class="pf-notice warning">
+                    <span>💡</span>
+                    <p>Minimum payout is @summary.DisplayMinimumThreshold. Your current balance is @summary.DisplayPendingPayout.</p>
+                </div>
+            }
+            else
+            {
+                <div class="pf-payout-form">
+                    <div class="payout-bank-preview">
+                        <span class="bank-label">Payout will be sent to:</span>
+                        <div class="bank-details">
+                            <span class="bank-name">@summary.CurrentBankName</span>
+                            <span class="bank-account">@summary.CurrentBankAccountName — @summary.MaskedCurrentAccountNumber</span>
+                        </div>
+                    </div>
+
+                    <div class="payout-amount-input">
+                        <label class="form-label">Amount to Withdraw (₦)</label>
+                        <input type="number"
+                               class="form-input"
+                               @bind="payoutAmount"
+                               min="10000"
+                               max="@summary.PendingPayout"
+                               step="1000"
+                               placeholder="10000" />
+                        <span class="amount-hint">
+                            Available: @summary.DisplayPendingPayout
+                        </span>
+                    </div>
+
+                    <PrimaryButton OnClick="HandleRequestPayout"
+                                  IsLoading="@isRequestingPayout"
+                                  IsDisabled="@isRequestingPayout">
+                        Request Payout
+                    </PrimaryButton>
+                </div>
+            }
+        </div>
+
+        <!-- Bank Details -->
+        <div class="pf-section">
+            <div class="pf-section-header">
+                <h2>Bank Details</h2>
+                @if (!summary.HasPendingBankUpdateRequest)
+                {
+                    <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                    Variant="SecondaryButton.ButtonVariant.Outline"
+                                    OnClick="OpenBankUpdateModal">
+                        Update Bank Details
+                    </SecondaryButton>
+                }
+            </div>
+
+            @if (summary.HasPendingBankUpdateRequest)
+            {
+                <div class="pf-notice warning">
+                    <span>⏳</span>
+                    <p>You have a pending bank detail update request awaiting admin approval.</p>
+                </div>
+            }
+
+            <div class="bank-info-grid">
+                <div class="bank-info-item">
+                    <span class="bank-info-label">Account Name</span>
+                    <span class="bank-info-value">@(summary.CurrentBankAccountName ?? "Not set")</span>
+                </div>
+                <div class="bank-info-item">
+                    <span class="bank-info-label">Account Number</span>
+                    <span class="bank-info-value">@(summary.MaskedCurrentAccountNumber.Length > 0 ? summary.MaskedCurrentAccountNumber : "Not set")</span>
+                </div>
+                <div class="bank-info-item">
+                    <span class="bank-info-label">Bank Name</span>
+                    <span class="bank-info-value">@(summary.CurrentBankName ?? "Not set")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payout History -->
+        <div class="pf-section">
+            <div class="pf-section-header">
+                <h2>Payout History</h2>
+            </div>
+
+            @if (!summary.RecentPayoutRequests.Any())
+            {
+                <div class="pf-empty-list">
+                    <p>No payout requests yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="pf-payout-table">
+                    <div class="payout-table-header">
+                        <span>Date</span>
+                        <span>Amount</span>
+                        <span>Bank</span>
+                        <span>Status</span>
+                        <span>Reference</span>
+                    </div>
+                    @foreach (var payout in summary.RecentPayoutRequests)
+                    {
+                        <div class="payout-table-row">
+                            <span class="payout-date">@payout.RequestedAtDisplay</span>
+                            <span class="payout-amount">@payout.DisplayAmount</span>
+                            <span class="payout-bank">@payout.BankName</span>
+                            <span class="payout-status @payout.StatusBadgeClass">
+                                @payout.StatusDisplay
+                            </span>
+                            <span class="payout-ref">
+                                @(payout.TransactionReference ?? "—")
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Bank Update Modal -->
+<DynamicModal @ref="bankModal"
+              Title="Update Bank Details"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isBankModalOpen"
+              ShowFooter="false"
+              OnClose="CloseBankModal">
+    <BodyContent>
+        <div class="bank-update-form">
+            <div class="pf-notice warning">
+                <span>⚠️</span>
+                <p>Bank detail changes require admin approval before taking effect. Your current details will remain active until approved.</p>
+            </div>
+
+            <InputField @bind-Value="bankForm.NewAccountName"
+                       Label="New Account Name"
+                       Placeholder="Name on the bank account"
+                       IsRequired="true"
+                       HasError="@HasBankError("NewAccountName")"
+                       ErrorMessage="@GetBankError("NewAccountName")" />
+
+            <div class="form-row">
+                <InputField @bind-Value="bankForm.NewAccountNumber"
+                           Label="New Account Number"
+                           Placeholder="10-digit account number"
+                           IsRequired="true"
+                           HasError="@HasBankError("NewAccountNumber")"
+                           ErrorMessage="@GetBankError("NewAccountNumber")" />
+
+                <InputField @bind-Value="bankForm.NewBankName"
+                           Label="New Bank Name"
+                           Placeholder="e.g. GTBank"
+                           IsRequired="true"
+                           HasError="@HasBankError("NewBankName")"
+                           ErrorMessage="@GetBankError("NewBankName")" />
+            </div>
+
+            <InputField @bind-Value="bankForm.NewBankCode"
+                       Label="Bank Code (Optional)"
+                       Placeholder="Sort code" />
+
+            <div class="form-group">
+                <label class="form-label">Reason for Change <span class="required">*</span></label>
+                <textarea class="form-textarea @(HasBankError("Reason") ? "has-error" : "")"
+                          @bind="bankForm.Reason"
+                          placeholder="Briefly explain why you are updating your bank details."
+                          rows="3"></textarea>
+                @if (HasBankError("Reason"))
+                {
+                    <span class="error-text">@GetBankError("Reason")</span>
+                }
+            </div>
+
+            <div class="bank-form-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="CloseBankModal">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="HandleBankUpdate"
+                              IsLoading="@isSubmittingBankUpdate"
+                              IsDisabled="@isSubmittingBankUpdate">
+                    Submit Request
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
