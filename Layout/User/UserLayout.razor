@@ -58,6 +58,48 @@
                 <span class="nav-icon">@((MarkupString)settingsSvg)</span>
                 <span class="nav-text">Settings</span>
             </a>
+
+            <!-- Partner Section -->
+            <div class="partner-nav-divider">
+                <span>Partner</span>
+            </div>
+
+            @if (IsPartner)
+            {
+                <a href="user/partner/dashboard"
+                   class="user-nav-item partner-nav-item @(IsActive("user/partner/dashboard") ? "active" : "")"
+                   @onclick="CloseMobileSidebar">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="user/partner/templates"
+                   class="user-nav-item partner-nav-item @(IsActive("user/partner/templates") ? "active" : "")"
+                   @onclick="CloseMobileSidebar">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-text">Products</span>
+                </a>
+                <a href="user/partner/financials"
+                   class="user-nav-item partner-nav-item @(IsActive("user/partner/financials") ? "active" : "")"
+                   @onclick="CloseMobileSidebar">
+                    <span class="nav-icon">💰</span>
+                    <span class="nav-text">Financials</span>
+                </a>
+                <a href="user/partner/store"
+                   class="user-nav-item partner-nav-item @(IsActive("user/partner/store") ? "active" : "")"
+                   @onclick="CloseMobileSidebar">
+                    <span class="nav-icon">🏪</span>
+                    <span class="nav-text">My Store</span>
+                </a>
+            }
+            else
+            {
+                <a href="user/partner/apply"
+                   class="user-nav-item partner-nav-item @(IsActive("user/partner/apply") ? "active" : "")"
+                   @onclick="CloseMobileSidebar">
+                    <span class="nav-icon">🤝</span>
+                    <span class="nav-text">Become a Partner</span>
+                </a>
+            }
         </nav>
     </div>
 
@@ -65,10 +107,10 @@
         <button class="mobile-menu-toggle" @onclick="ToggleMobileMenu" aria-label="Toggle menu">
             <span class="burger-icon">@((MarkupString)menuSvg)</span>
         </button>
-        
+
         @Body
     </div>
-    
+
     @if (isMobileSidebarOpen)
     {
         <div class="mobile-overlay" @onclick="CloseMobileSidebar"></div>
@@ -76,24 +118,24 @@
 </div>
 
 @code {
-    private string UserName = "Loading...";
+    private string UserName  = "Loading...";
     private string UserEmail = "";
     private string UserAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%2396994A' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='48' fill='white' text-anchor='middle' dy='.3em'%3EU%3C/text%3E%3C/svg%3E";
-    
+
     private bool isMobileSidebarOpen = false;
-    
-    // SVG markup for navigation icons (24x24)
-    private string userSvg = string.Empty;
-    private string addressSvg = string.Empty;
-    private string orderSvg = string.Empty;
+    private bool IsPartner           = false;
+
+    private string userSvg     = string.Empty;
+    private string addressSvg  = string.Empty;
+    private string orderSvg    = string.Empty;
     private string messagesSvg = string.Empty;
-    private string starSvg = string.Empty;
-    private string historySvg = string.Empty;
-    private string paymentSvg = string.Empty;
-    private string offerSvg = string.Empty;
-    private string helpSvg = string.Empty;
+    private string starSvg     = string.Empty;
+    private string historySvg  = string.Empty;
+    private string paymentSvg  = string.Empty;
+    private string offerSvg    = string.Empty;
+    private string helpSvg     = string.Empty;
     private string settingsSvg = string.Empty;
-    private string menuSvg = string.Empty;
+    private string menuSvg     = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,72 +147,39 @@
     {
         try
         {
-            // Load all navigation SVGs (24x24 for sidebar)
             userSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.User, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.User, width: 24, height: 24);
+
             addressSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Address, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.Address, width: 24, height: 24);
+
             orderSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Order, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.Order, width: 24, height: 24);
+
             messagesSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Messages, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.Messages, width: 24, height: 24);
+
             starSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Star, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.Star, width: 24, height: 24);
+
             historySvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.History, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.History, width: 24, height: 24);
+
             paymentSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Payment, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.Payment, width: 24, height: 24);
+
             offerSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Offer, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.Offer, width: 24, height: 24);
+
             helpSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.HelpCenter, 
-                width: 24, 
-                height: 24
-            );
-            
+                SvgType.HelpCenter, width: 24, height: 24);
+
             settingsSvg = await VisualElements.GetCustomSvgAsync(
-                SvgType.Settings, 
-                width: 24, 
-                height: 24
-            );
-            
-            // Create hamburger menu SVG
+                SvgType.Settings, width: 24, height: 24);
+
             menuSvg = VisualElements.GenerateSvg(
                 "<path stroke='currentColor' stroke-width='2' stroke-linecap='round' d='M4 6h16M4 12h16M4 18h16'/>",
-                24, 24, "0 0 24 24", "fill='none'"
-            );
+                24, 24, "0 0 24 24", "fill='none'");
         }
         catch (Exception ex)
         {
@@ -183,25 +192,32 @@
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
+            var user      = authState.User;
+
             if (user.Identity?.IsAuthenticated == true)
             {
                 UserEmail = user.Identity.Name ?? "";
-                
+
                 var firstName = user.FindFirst("first_name")?.Value ?? "";
-                var lastName = user.FindFirst("last_name")?.Value ?? "";
-                UserName = $"{firstName} {lastName}".Trim();
-                
+                var lastName  = user.FindFirst("last_name")?.Value  ?? "";
+                UserName      = $"{firstName} {lastName}".Trim();
+
                 if (string.IsNullOrEmpty(UserName))
-                {
                     UserName = "User";
-                }
-                
+
                 var avatarUrl = user.FindFirst("avatar_url")?.Value;
                 if (!string.IsNullOrEmpty(avatarUrl))
-                {
                     UserAvatar = avatarUrl;
+
+                // Partner status — read from JWT claims set by edge function
+                var isPartnerClaim = user.FindFirst("is_partner")?.Value;
+                IsPartner = isPartnerClaim == "true";
+
+                // Fallback: if partner_id claim exists the user is a partner
+                if (!IsPartner)
+                {
+                    var partnerIdClaim = user.FindFirst("partner_id")?.Value;
+                    IsPartner = !string.IsNullOrEmpty(partnerIdClaim);
                 }
             }
         }
@@ -214,14 +230,10 @@
     private bool IsActive(string path)
     {
         var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri);
-        
-        // Exact match for user (dashboard)
+
         if (path == "user")
-        {
             return currentPath == "user" || currentPath == "user/";
-        }
-        
-        // Contains match for sub-pages
+
         return currentPath.Contains(path);
     }
 
@@ -230,7 +242,7 @@
         isMobileSidebarOpen = !isMobileSidebarOpen;
         StateHasChanged();
     }
-    
+
     private void CloseMobileSidebar()
     {
         isMobileSidebarOpen = false;
