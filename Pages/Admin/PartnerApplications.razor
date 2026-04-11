@@ -1,0 +1,458 @@
+@page "/admin/partner-applications"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Domain.Partner
+@using SubashaVentures.Models.Supabase
+@layout AdminLayout
+
+<div class="partner-applications">
+
+    <NotificationComponent @ref="notificationComponent"
+                           Position="NotificationPosition.TopRight"
+                           AutoDismissTime="5000" />
+
+    <!-- Header -->
+    <div class="pa-header">
+        <div class="pa-header-left">
+            <h1 class="pa-title">Partner Applications</h1>
+            <p class="pa-subtitle">Review and manage vendor onboarding applications.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="pa-stats">
+        <div class="pa-stat-card">
+            <span class="pa-stat-value">@stats.Total</span>
+            <span class="pa-stat-label">Total</span>
+        </div>
+        <div class="pa-stat-card pending">
+            <span class="pa-stat-value">@stats.Pending</span>
+            <span class="pa-stat-label">Pending</span>
+        </div>
+        <div class="pa-stat-card review">
+            <span class="pa-stat-value">@stats.UnderReview</span>
+            <span class="pa-stat-label">Under Review</span>
+        </div>
+        <div class="pa-stat-card approved">
+            <span class="pa-stat-value">@stats.Approved</span>
+            <span class="pa-stat-label">Approved</span>
+        </div>
+        <div class="pa-stat-card rejected">
+            <span class="pa-stat-value">@stats.Rejected</span>
+            <span class="pa-stat-label">Rejected</span>
+        </div>
+        <div class="pa-stat-card location">
+            <span class="pa-stat-value">@stats.AbujaApplications</span>
+            <span class="pa-stat-label">Abuja</span>
+        </div>
+        <div class="pa-stat-card location">
+            <span class="pa-stat-value">@stats.KadunaApplications</span>
+            <span class="pa-stat-label">Kaduna</span>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="pa-toolbar">
+        <div class="pa-filters">
+            <InputField Value="@searchQuery"
+                        ValueChanged="@((v) => { searchQuery = v; ApplyFilter(); })"
+                        Placeholder="Search name, email, business..."
+                        PrefixIcon="🔍"
+                        ShowClearButton="true"
+                        CssClass="pa-search" />
+
+            <select class="pa-select" @onchange="HandleStatusFilter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="under_review">Under Review</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="permanently_rejected">Permanently Rejected</option>
+            </select>
+
+            <select class="pa-select" @onchange="HandleLocationFilter">
+                <option value="">All Locations</option>
+                <option value="Abuja">Abuja</option>
+                <option value="Kaduna">Kaduna</option>
+            </select>
+
+            <select class="pa-select" @onchange="HandleSortChange">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Content -->
+    @if (isLoading)
+    {
+        <div class="pa-loading">
+            <div class="pa-spinner"></div>
+            <p>Loading applications...</p>
+        </div>
+    }
+    else if (!filtered.Any())
+    {
+        <div class="pa-empty">
+            <div class="pa-empty-icon">📋</div>
+            <h3>No applications found</h3>
+            <p>@(string.IsNullOrEmpty(searchQuery) && string.IsNullOrEmpty(selectedStatus) ? "No partner applications have been submitted yet." : "Try adjusting your filters.")</p>
+        </div>
+    }
+    else
+    {
+        <div class="pa-list">
+            @foreach (var app in filtered)
+            {
+                <div class="pa-card @(selectedApplication?.Id == app.Id ? "selected" : "")"
+                     @onclick="@(() => SelectApplication(app))">
+                    <div class="pa-card-top">
+                        <div class="pa-card-identity">
+                            <span class="pa-card-name">@app.FullName</span>
+                            <span class="pa-card-business">@app.BusinessName</span>
+                            <span class="pa-card-type">@app.BusinessType</span>
+                        </div>
+                        <div class="pa-card-right">
+                            <span class="pa-status-badge @app.StatusBadgeClass">
+                                @app.StatusDisplay
+                            </span>
+                            <span class="pa-card-location">📍 @app.Location</span>
+                        </div>
+                    </div>
+                    <div class="pa-card-bottom">
+                        <span class="pa-card-email">✉️ @app.Email</span>
+                        <span class="pa-card-phone">📞 @app.Phone</span>
+                        <span class="pa-card-date">Submitted @app.SubmittedAtDisplay</span>
+                        @if (app.RejectionCount > 0)
+                        {
+                            <span class="pa-card-strikes">⚠️ @app.RejectionCount rejection(s)</span>
+                        }
+                        @if (app.IsInCooldown)
+                        {
+                            <span class="pa-card-cooldown">⏳ Cooldown: @app.CooldownRemainingDisplay</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Detail / Action Modal -->
+<DynamicModal @ref="detailModal"
+              Title="Application Detail"
+              Size="DynamicModal.ModalSize.Large"
+              IsOpen="@isDetailOpen"
+              ShowFooter="false"
+              IsScrollable="true"
+              OnClose="CloseDetail">
+    <BodyContent>
+        @if (selectedApplication != null)
+        {
+            <div class="pa-detail">
+
+                <!-- Status banner -->
+                <div class="pa-detail-status @selectedApplication.StatusBadgeClass">
+                    @selectedApplication.StatusDisplay
+                    @if (selectedApplication.IsPermanentlyRejected)
+                    {
+                        <span> — Permanently Rejected</span>
+                    }
+                </div>
+
+                <!-- Applicant Info -->
+                <div class="pa-detail-section">
+                    <h3>Applicant & Business</h3>
+                    <div class="pa-detail-grid">
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Full Name</span>
+                            <span class="detail-value">@selectedApplication.FullName</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Email</span>
+                            <span class="detail-value">@selectedApplication.Email</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Phone</span>
+                            <span class="detail-value">@selectedApplication.Phone</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Business Name</span>
+                            <span class="detail-value">@selectedApplication.BusinessName</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Business Type</span>
+                            <span class="detail-value">@selectedApplication.BusinessType</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Location</span>
+                            <span class="detail-value">@selectedApplication.Location</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Submitted</span>
+                            <span class="detail-value">@selectedApplication.SubmittedAtDisplay</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Rejection Count</span>
+                            <span class="detail-value">@selectedApplication.RejectionCount</span>
+                        </div>
+                    </div>
+                    <div class="pa-detail-reason">
+                        <span class="detail-label">Reason / Pitch</span>
+                        <p>@selectedApplication.Reason</p>
+                    </div>
+                </div>
+
+                <!-- Bank Details -->
+                <div class="pa-detail-section">
+                    <h3>Bank Details</h3>
+                    <div class="pa-detail-grid">
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Account Name</span>
+                            <span class="detail-value">@selectedApplication.BankAccountName</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Account Number</span>
+                            <span class="detail-value">@selectedApplication.MaskedAccountNumber</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Bank Name</span>
+                            <span class="detail-value">@selectedApplication.BankName</span>
+                        </div>
+                        <div class="pa-detail-item">
+                            <span class="detail-label">Bank Code</span>
+                            <span class="detail-value">@(selectedApplication.BankCode ?? "—")</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rejection History -->
+                @if (!string.IsNullOrEmpty(selectedApplication.RejectionReason))
+                {
+                    <div class="pa-detail-section">
+                        <h3>Latest Rejection Reason</h3>
+                        <div class="pa-rejection-box">
+                            <p>@selectedApplication.RejectionReason</p>
+                            @if (selectedApplication.IsInCooldown)
+                            {
+                                <span class="cooldown-tag">
+                                    Cooldown ends in @selectedApplication.CooldownRemainingDisplay
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Contact Logs -->
+                <div class="pa-detail-section">
+                    <div class="pa-detail-section-header">
+                        <h3>Contact Logs (@selectedApplication.ContactLogs.Count)</h3>
+                        <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                        Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="OpenContactLogModal">
+                            + Add Log
+                        </SecondaryButton>
+                    </div>
+
+                    @if (!selectedApplication.ContactLogs.Any())
+                    {
+                        <p class="pa-no-logs">No contact logs yet.</p>
+                    }
+                    else
+                    {
+                        <div class="pa-contact-logs">
+                            @foreach (var log in selectedApplication.ContactLogs.OrderByDescending(l => l.LoggedAt))
+                            {
+                                <div class="pa-log-row">
+                                    <div class="pa-log-header">
+                                        <span class="log-method">@log.ContactMethod</span>
+                                        <span class="log-outcome @GetOutcomeCss(log.Outcome)">@log.Outcome</span>
+                                        <span class="log-date">@log.LoggedAtDisplay</span>
+                                        <span class="log-by">by @log.LoggedByName</span>
+                                    </div>
+                                    <p class="log-notes">@log.Notes</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Actions -->
+                <div class="pa-detail-actions">
+                    @if (selectedApplication.Status == PartnerApplicationStatus.Pending)
+                    {
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="HandleMarkUnderReview"
+                                        IsLoading="@isActioning">
+                            Mark Under Review
+                        </SecondaryButton>
+                    }
+
+                    @if (selectedApplication.Status == PartnerApplicationStatus.Pending ||
+                         selectedApplication.Status == PartnerApplicationStatus.UnderReview)
+                    {
+                        <PrimaryButton OnClick="HandleApprove"
+                                      IsLoading="@isActioning"
+                                      IsDisabled="@isActioning">
+                            ✓ Approve Application
+                        </PrimaryButton>
+
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="OpenRejectModal"
+                                        CssClass="btn-danger-outline">
+                            ✕ Reject
+                        </SecondaryButton>
+                    }
+                </div>
+            </div>
+        }
+    </BodyContent>
+</DynamicModal>
+
+<!-- Contact Log Modal -->
+<DynamicModal @ref="contactLogModal"
+              Title="Add Contact Log"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isContactLogOpen"
+              ShowFooter="false"
+              OnClose="CloseContactLogModal">
+    <BodyContent>
+        <div class="pa-log-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Contact Method <span class="required">*</span></label>
+                    <select class="form-select @(HasLogError("ContactMethod") ? "has-error" : "")"
+                            @bind="logForm.ContactMethod">
+                        <option value="">Select...</option>
+                        <option value="phone">Phone</option>
+                        <option value="email">Email</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="in_person">In Person</option>
+                    </select>
+                    @if (HasLogError("ContactMethod"))
+                    {
+                        <span class="error-text">@GetLogError("ContactMethod")</span>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Contact Date <span class="required">*</span></label>
+                    <input type="date"
+                           class="form-input @(HasLogError("ContactDate") ? "has-error" : "")"
+                           @bind="logFormDate" />
+                    @if (HasLogError("ContactDate"))
+                    {
+                        <span class="error-text">@GetLogError("ContactDate")</span>
+                    }
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Outcome <span class="required">*</span></label>
+                <select class="form-select @(HasLogError("Outcome") ? "has-error" : "")"
+                        @bind="logForm.Outcome">
+                    <option value="">Select...</option>
+                    <option value="positive">Positive</option>
+                    <option value="negative">Negative</option>
+                    <option value="neutral">Neutral</option>
+                    <option value="no_response">No Response</option>
+                </select>
+                @if (HasLogError("Outcome"))
+                {
+                    <span class="error-text">@GetLogError("Outcome")</span>
+                }
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Notes <span class="required">*</span></label>
+                <textarea class="form-textarea @(HasLogError("Notes") ? "has-error" : "")"
+                          @bind="logForm.Notes"
+                          placeholder="What was discussed? Any commitments made?"
+                          rows="4"></textarea>
+                @if (HasLogError("Notes"))
+                {
+                    <span class="error-text">@GetLogError("Notes")</span>
+                }
+            </div>
+
+            <div class="log-form-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="CloseContactLogModal">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="HandleSaveContactLog"
+                              IsLoading="@isSavingLog"
+                              IsDisabled="@isSavingLog">
+                    Save Log
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Reject Modal -->
+<DynamicModal @ref="rejectModal"
+              Title="Reject Application"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isRejectOpen"
+              ShowFooter="false"
+              OnClose="CloseRejectModal">
+    <BodyContent>
+        <div class="pa-reject-form">
+            <div class="pa-reject-warning">
+                <span>⚠️</span>
+                <div>
+                    <p>You are about to reject <strong>@selectedApplication?.FullName</strong>'s application.</p>
+                    <p>Rejection count after this: <strong>@((selectedApplication?.RejectionCount ?? 0) + 1)</strong></p>
+                    @if ((selectedApplication?.RejectionCount ?? 0) + 1 >= 3)
+                    {
+                        <p class="permanent-warning">⛔ This will be a <strong>permanent rejection</strong> — the applicant will never be able to reapply.</p>
+                    }
+                    else
+                    {
+                        var cooldownDays = (selectedApplication?.RejectionCount ?? 0) + 1 == 1 ? 30 : 90;
+                        <p>Default cooldown: <strong>@cooldownDays days</strong></p>
+                    }
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Rejection Reason <span class="required">*</span></label>
+                <textarea class="form-textarea @(HasRejectError("Reason") ? "has-error" : "")"
+                          @bind="rejectForm.Reason"
+                          placeholder="Explain clearly why the application is being rejected. This will be shown to the applicant."
+                          rows="5"></textarea>
+                @if (HasRejectError("Reason"))
+                {
+                    <span class="error-text">@GetRejectError("Reason")</span>
+                }
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Cooldown Override (days) — optional</label>
+                <input type="number"
+                       class="form-input"
+                       @bind="rejectForm.CooldownDaysOverride"
+                       placeholder="Leave blank to use default logic"
+                       min="1" />
+                <span class="form-hint">Default: 1st rejection = 30 days, 2nd = 90 days, 3rd = permanent.</span>
+            </div>
+
+            <div class="reject-form-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="CloseRejectModal">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="HandleConfirmReject"
+                              IsLoading="@isActioning"
+                              IsDisabled="@isActioning"
+                              CssClass="btn-danger">
+                    Confirm Rejection
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
