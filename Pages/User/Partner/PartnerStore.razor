@@ -8,10 +8,6 @@
 @using SubashaVentures.Domain.Partner
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
-@inject IPartnerStoreService PartnerStoreService
-@inject ICloudflareR2Service R2Service
-@inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
 
 <div class="partner-store">
 
@@ -50,7 +46,6 @@
     {
         <div class="ps-form-layout">
 
-            <!-- Banner -->
             <div class="ps-banner-section">
                 <div class="ps-banner-wrapper"
                      style="@(!string.IsNullOrEmpty(form.BannerUrl) ? $"background-image: url('{form.BannerUrl}')" : "")">
@@ -79,7 +74,6 @@
                     </div>
                 </div>
 
-                <!-- Logo -->
                 <div class="ps-logo-wrapper">
                     <div class="ps-logo-circle">
                         @if (!string.IsNullOrEmpty(form.LogoUrl))
@@ -109,7 +103,6 @@
                 </div>
             </div>
 
-            <!-- Form Fields -->
             <div class="ps-fields">
                 <div class="ps-fields-section">
                     <h2>Store Information</h2>
@@ -149,7 +142,6 @@
                     </div>
                 </div>
 
-                <!-- Store Stats (read only) -->
                 <div class="ps-fields-section">
                     <h2>Store Stats</h2>
                     <div class="ps-stats-row">
@@ -172,7 +164,6 @@
                     </div>
                 </div>
 
-                <!-- Save -->
                 <div class="ps-save-row">
                     <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
                                     OnClick="ResetForm">
