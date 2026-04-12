@@ -7,9 +7,6 @@
 @using SubashaVentures.Services.Partners
 @using SubashaVentures.Models.Supabase
 @using Microsoft.AspNetCore.Components.Authorization
-@inject IPartnerApplicationService PartnerApplicationService
-@inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
 
 <div class="partner-apply">
 
@@ -65,13 +62,11 @@
     }
     else
     {
-        <!-- Header -->
         <div class="apply-header">
             <h1>Become a Partner</h1>
             <p>Join SubashaVentures as a vendor and start selling your products to customers in Abuja and Kaduna.</p>
         </div>
 
-        <!-- Progress Steps -->
         <div class="apply-steps">
             <div class="step @(currentStep >= 1 ? "active" : "") @(currentStep > 1 ? "completed" : "")">
                 <span class="step-number">@(currentStep > 1 ? "✓" : "1")</span>
@@ -89,10 +84,8 @@
             </div>
         </div>
 
-        <!-- Form -->
         <div class="apply-form-container">
 
-            <!-- Step 1: Business Info -->
             @if (currentStep == 1)
             {
                 <div class="form-step">
@@ -189,7 +182,6 @@
                 </div>
             }
 
-            <!-- Step 2: Bank Details -->
             @if (currentStep == 2)
             {
                 <div class="form-step">
@@ -242,7 +234,6 @@
                 </div>
             }
 
-            <!-- Step 3: Review & Submit -->
             @if (currentStep == 3)
             {
                 <div class="form-step">
@@ -332,7 +323,6 @@
                 </div>
             }
 
-            <!-- Success -->
             @if (currentStep == 4)
             {
                 <div class="apply-success">
