@@ -1,3 +1,4 @@
+// Services/Categories/CategoryService.cs
 namespace SubashaVentures.Services.Categories;
 
 using SubashaVentures.Domain.Product;
@@ -18,7 +19,7 @@ public class CategoryService : ICategoryService, IDisposable
     public CategoryService(IFirestoreService firestore, ILogger<CategoryService> logger)
     {
         _firestore = firestore;
-        _logger = logger;
+        _logger    = logger;
     }
 
     // ==================== CATEGORIES ====================
@@ -42,6 +43,13 @@ public class CategoryService : ICategoryService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Alias for GetAllCategoriesAsync — returns only active categories.
+    /// Added so callers can be explicit about intent without breaking existing code.
+    /// </summary>
+    public async Task<List<CategoryViewModel>> GetActiveCategoriesAsync()
+        => await GetAllCategoriesAsync();
+
     public async Task<List<CategoryViewModel>> GetTopLevelCategoriesAsync()
     {
         try
@@ -64,7 +72,7 @@ public class CategoryService : ICategoryService, IDisposable
         try
         {
             var categories = await GetAllCategoriesAsync();
-            var allSubs = await GetAllSubCategoriesRawAsync();
+            var allSubs    = await GetAllSubCategoriesRawAsync();
 
             foreach (var cat in categories)
             {
@@ -129,16 +137,16 @@ public class CategoryService : ICategoryService, IDisposable
 
             var model = new CategoryModel
             {
-                Id = Guid.NewGuid().ToString(),
-                Name = request.Name.Trim(),
-                Slug = GenerateSlug(request.Name),
-                Description = request.Description?.Trim(),
-                ImageUrl = request.ImageUrl?.Trim(),
-                IconSvgType = request.IconSvgType,
+                Id           = Guid.NewGuid().ToString(),
+                Name         = request.Name.Trim(),
+                Slug         = GenerateSlug(request.Name),
+                Description  = request.Description?.Trim(),
+                ImageUrl     = request.ImageUrl?.Trim(),
+                IconSvgType  = request.IconSvgType,
                 DisplayOrder = request.DisplayOrder,
-                IsActive = true,
+                IsActive     = true,
                 ProductCount = 0,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt    = DateTime.UtcNow
             };
 
             var id = await _firestore.AddDocumentAsync(CAT_COLLECTION, model, model.Id);
@@ -166,17 +174,17 @@ public class CategoryService : ICategoryService, IDisposable
 
             var updated = new CategoryModel
             {
-                Id = existing.Id,
-                Name = request.Name?.Trim() ?? existing.Name,
-                Slug = request.Name != null ? GenerateSlug(request.Name) : existing.Slug,
-                Description = request.Description ?? existing.Description,
-                ImageUrl = request.ImageUrl ?? existing.ImageUrl,
-                IconSvgType = request.IconSvgType ?? existing.IconSvgType,
-                DisplayOrder = request.DisplayOrder ?? existing.DisplayOrder,
-                IsActive = request.IsActive ?? existing.IsActive,
+                Id           = existing.Id,
+                Name         = request.Name?.Trim()                                    ?? existing.Name,
+                Slug         = request.Name != null ? GenerateSlug(request.Name)       : existing.Slug,
+                Description  = request.Description                                     ?? existing.Description,
+                ImageUrl     = request.ImageUrl                                         ?? existing.ImageUrl,
+                IconSvgType  = request.IconSvgType                                     ?? existing.IconSvgType,
+                DisplayOrder = request.DisplayOrder                                    ?? existing.DisplayOrder,
+                IsActive     = request.IsActive                                        ?? existing.IsActive,
                 ProductCount = existing.ProductCount,
-                CreatedAt = existing.CreatedAt,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt    = existing.CreatedAt,
+                UpdatedAt    = DateTime.UtcNow
             };
 
             return await _firestore.UpdateDocumentAsync(CAT_COLLECTION, categoryId, updated);
@@ -208,11 +216,11 @@ public class CategoryService : ICategoryService, IDisposable
             if (subs.Any(s => s.ProductCount > 0))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Cannot delete — a subcategory under {category.Name} has products", LogLevel.Warning);
+                    $"Cannot delete — a subcategory under {category.Name} has products",
+                    LogLevel.Warning);
                 return false;
             }
 
-            // Delete all subcategories first
             foreach (var sub in subs)
                 await _firestore.DeleteDocumentAsync(SUB_COLLECTION, sub.Id);
 
@@ -277,7 +285,8 @@ public class CategoryService : ICategoryService, IDisposable
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetSubCategoriesByParentNameAsync: {categoryName}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"GetSubCategoriesByParentNameAsync: {categoryName}");
             return new List<SubCategoryViewModel>();
         }
     }
@@ -287,12 +296,14 @@ public class CategoryService : ICategoryService, IDisposable
         try
         {
             if (string.IsNullOrEmpty(subCategoryId)) return null;
-            var model = await _firestore.GetDocumentAsync<SubCategoryModel>(SUB_COLLECTION, subCategoryId);
+            var model = await _firestore.GetDocumentAsync<SubCategoryModel>(
+                SUB_COLLECTION, subCategoryId);
             return model == null ? null : SubCategoryViewModel.FromCloudModel(model);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetSubCategoryByIdAsync: {subCategoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"GetSubCategoryByIdAsync: {subCategoryId}");
             return null;
         }
     }
@@ -306,7 +317,8 @@ public class CategoryService : ICategoryService, IDisposable
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetDefaultSubCategoryAsync: {categoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"GetDefaultSubCategoryAsync: {categoryId}");
             return null;
         }
     }
@@ -330,18 +342,18 @@ public class CategoryService : ICategoryService, IDisposable
 
             var model = new SubCategoryModel
             {
-                Id = Guid.NewGuid().ToString(),
-                CategoryId = request.CategoryId,
-                Name = request.Name.Trim(),
-                Slug = GenerateSlug($"{parent.Slug}-{request.Name}"),
-                Description = request.Description?.Trim(),
-                ImageUrl = request.ImageUrl?.Trim(),
-                IconSvgType = request.IconSvgType,
-                IsDefault = request.IsDefault,
+                Id           = Guid.NewGuid().ToString(),
+                CategoryId   = request.CategoryId,
+                Name         = request.Name.Trim(),
+                Slug         = GenerateSlug($"{parent.Slug}-{request.Name}"),
+                Description  = request.Description?.Trim(),
+                ImageUrl     = request.ImageUrl?.Trim(),
+                IconSvgType  = request.IconSvgType,
+                IsDefault    = request.IsDefault,
                 DisplayOrder = request.DisplayOrder,
-                IsActive = true,
+                IsActive     = true,
                 ProductCount = 0,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt    = DateTime.UtcNow
             };
 
             var id = await _firestore.AddDocumentAsync(SUB_COLLECTION, model, model.Id);
@@ -365,7 +377,8 @@ public class CategoryService : ICategoryService, IDisposable
         {
             if (string.IsNullOrEmpty(subCategoryId)) return false;
 
-            var existing = await _firestore.GetDocumentAsync<SubCategoryModel>(SUB_COLLECTION, subCategoryId);
+            var existing = await _firestore.GetDocumentAsync<SubCategoryModel>(
+                SUB_COLLECTION, subCategoryId);
             if (existing == null) return false;
 
             if (request.IsDefault == true)
@@ -373,26 +386,27 @@ public class CategoryService : ICategoryService, IDisposable
 
             var updated = new SubCategoryModel
             {
-                Id = existing.Id,
-                CategoryId = existing.CategoryId,
-                Name = request.Name?.Trim() ?? existing.Name,
-                Slug = request.Name != null ? GenerateSlug(request.Name) : existing.Slug,
-                Description = request.Description ?? existing.Description,
-                ImageUrl = request.ImageUrl ?? existing.ImageUrl,
-                IconSvgType = request.IconSvgType ?? existing.IconSvgType,
-                IsDefault = request.IsDefault ?? existing.IsDefault,
-                DisplayOrder = request.DisplayOrder ?? existing.DisplayOrder,
-                IsActive = request.IsActive ?? existing.IsActive,
+                Id           = existing.Id,
+                CategoryId   = existing.CategoryId,
+                Name         = request.Name?.Trim()                               ?? existing.Name,
+                Slug         = request.Name != null ? GenerateSlug(request.Name) : existing.Slug,
+                Description  = request.Description                                ?? existing.Description,
+                ImageUrl     = request.ImageUrl                                   ?? existing.ImageUrl,
+                IconSvgType  = request.IconSvgType                                ?? existing.IconSvgType,
+                IsDefault    = request.IsDefault                                  ?? existing.IsDefault,
+                DisplayOrder = request.DisplayOrder                               ?? existing.DisplayOrder,
+                IsActive     = request.IsActive                                   ?? existing.IsActive,
                 ProductCount = existing.ProductCount,
-                CreatedAt = existing.CreatedAt,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt    = existing.CreatedAt,
+                UpdatedAt    = DateTime.UtcNow
             };
 
             return await _firestore.UpdateDocumentAsync(SUB_COLLECTION, subCategoryId, updated);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"UpdateSubCategoryAsync: {subCategoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"UpdateSubCategoryAsync: {subCategoryId}");
             return false;
         }
     }
@@ -417,7 +431,8 @@ public class CategoryService : ICategoryService, IDisposable
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"DeleteSubCategoryAsync: {subCategoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"DeleteSubCategoryAsync: {subCategoryId}");
             return false;
         }
     }
@@ -431,17 +446,19 @@ public class CategoryService : ICategoryService, IDisposable
 
             await DemoteExistingDefaultAsync(categoryId);
 
-            var target = await _firestore.GetDocumentAsync<SubCategoryModel>(SUB_COLLECTION, subCategoryId);
+            var target = await _firestore.GetDocumentAsync<SubCategoryModel>(
+                SUB_COLLECTION, subCategoryId);
             if (target == null || target.CategoryId != categoryId) return false;
 
-            target.IsDefault = true;
-            target.UpdatedAt = DateTime.UtcNow;
+            target.IsDefault  = true;
+            target.UpdatedAt  = DateTime.UtcNow;
 
             return await _firestore.UpdateDocumentAsync(SUB_COLLECTION, subCategoryId, target);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"SetDefaultSubCategoryAsync: {subCategoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"SetDefaultSubCategoryAsync: {subCategoryId}");
             return false;
         }
     }
@@ -473,28 +490,26 @@ public class CategoryService : ICategoryService, IDisposable
 
             if (currentDefault == null) return;
 
-            currentDefault.IsDefault = false;
-            currentDefault.UpdatedAt = DateTime.UtcNow;
+            currentDefault.IsDefault  = false;
+            currentDefault.UpdatedAt  = DateTime.UtcNow;
             await _firestore.UpdateDocumentAsync(SUB_COLLECTION, currentDefault.Id, currentDefault);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"DemoteExistingDefaultAsync: {categoryId}");
+            await MID_HelperFunctions.LogExceptionAsync(
+                ex, $"DemoteExistingDefaultAsync: {categoryId}");
         }
     }
 
-    private string GenerateSlug(string name)
-    {
-        return name
-            .ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("'", "")
+    private static string GenerateSlug(string name) =>
+        name.ToLowerInvariant()
+            .Replace(" ",  "-")
+            .Replace("'",  "")
             .Replace("\"", "")
-            .Replace("&", "and")
-            .Replace("/", "-")
+            .Replace("&",  "and")
+            .Replace("/",  "-")
             .Replace("\\", "-")
             .Trim('-');
-    }
 
     public void Dispose() { }
 }
