@@ -9,10 +9,6 @@
 @using SubashaVentures.Domain.Partner
 @using SubashaVentures.Models.Supabase
 @using Microsoft.AspNetCore.Components.Authorization
-@inject IPartnerTemplateService PartnerTemplateService
-@inject ICloudflareR2Service R2Service
-@inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
 
 <div class="partner-templates">
 
@@ -20,7 +16,6 @@
                            Position="NotificationPosition.TopRight"
                            AutoDismissTime="4000" />
 
-    <!-- Header -->
     <div class="pt-header">
         <div class="pt-header-left">
             <h1>Product Templates</h1>
@@ -31,7 +26,6 @@
         </PrimaryButton>
     </div>
 
-    <!-- Filter Tabs -->
     <div class="pt-tabs">
         @foreach (var tab in tabs)
         {
@@ -46,7 +40,6 @@
         }
     </div>
 
-    <!-- Content -->
     @if (isLoading)
     {
         <div class="pt-loading">
@@ -71,7 +64,6 @@
             @foreach (var template in filteredTemplates)
             {
                 <div class="pt-card">
-                    <!-- Thumbnail -->
                     <div class="pt-card-thumb">
                         @if (!string.IsNullOrEmpty(template.ThumbnailUrl))
                         {
@@ -86,7 +78,6 @@
                         </span>
                     </div>
 
-                    <!-- Info -->
                     <div class="pt-card-body">
                         <h3 class="pt-card-name">@template.ProductName</h3>
                         <p class="pt-card-template-name">@template.TemplateName</p>
@@ -105,7 +96,6 @@
                         }
                     </div>
 
-                    <!-- Actions -->
                     <div class="pt-card-actions">
                         @if (template.CanEdit)
                         {
@@ -147,7 +137,6 @@
     }
 </div>
 
-<!-- Create / Edit Modal -->
 <DynamicModal @ref="templateModal"
               Title="@(isEditMode ? "Edit Template" : "New Product Template")"
               Size="DynamicModal.ModalSize.Large"
@@ -158,7 +147,6 @@
     <BodyContent>
         <div class="template-form">
 
-            <!-- Step indicator inside modal -->
             <div class="modal-steps">
                 <button class="modal-step @(modalStep == 1 ? "active" : "")" @onclick="@(() => modalStep = 1)">
                     1. Details
@@ -173,7 +161,6 @@
                 </button>
             </div>
 
-            <!-- Step 1: Details -->
             @if (modalStep == 1)
             {
                 <div class="modal-step-content">
@@ -283,7 +270,6 @@
                 </div>
             }
 
-            <!-- Step 2: Variants -->
             @if (modalStep == 2)
             {
                 <div class="modal-step-content">
@@ -307,7 +293,7 @@
 
                     @for (int i = 0; i < templateForm.Variants.Count; i++)
                     {
-                        var index = i;
+                        var index   = i;
                         var variant = templateForm.Variants[index];
 
                         <div class="variant-row">
@@ -325,44 +311,23 @@
                             <div class="variant-fields">
                                 <div class="form-group">
                                     <label class="form-label">SKU <span class="required">*</span></label>
-                                    <input type="text"
-                                           class="form-input"
-                                           @bind="variant.Sku"
-                                           placeholder="e.g. DRESS-RED-M" />
+                                    <input type="text" class="form-input" @bind="variant.Sku" placeholder="e.g. DRESS-RED-M" />
                                 </div>
-
                                 <div class="form-group">
                                     <label class="form-label">Size</label>
-                                    <input type="text"
-                                           class="form-input"
-                                           @bind="variant.Size"
-                                           placeholder="e.g. M" />
+                                    <input type="text" class="form-input" @bind="variant.Size" placeholder="e.g. M" />
                                 </div>
-
                                 <div class="form-group">
                                     <label class="form-label">Color</label>
-                                    <input type="text"
-                                           class="form-input"
-                                           @bind="variant.Color"
-                                           placeholder="e.g. Red" />
+                                    <input type="text" class="form-input" @bind="variant.Color" placeholder="e.g. Red" />
                                 </div>
-
                                 <div class="form-group">
                                     <label class="form-label">Stock <span class="required">*</span></label>
-                                    <input type="number"
-                                           class="form-input"
-                                           @bind="variant.Stock"
-                                           min="0"
-                                           placeholder="10" />
+                                    <input type="number" class="form-input" @bind="variant.Stock" min="0" placeholder="10" />
                                 </div>
-
                                 <div class="form-group">
                                     <label class="form-label">Price Adjustment (₦)</label>
-                                    <input type="number"
-                                           class="form-input"
-                                           @bind="variant.PriceAdjustment"
-                                           placeholder="0"
-                                           step="100" />
+                                    <input type="number" class="form-input" @bind="variant.PriceAdjustment" placeholder="0" step="100" />
                                 </div>
                             </div>
                         </div>
@@ -385,7 +350,6 @@
                 </div>
             }
 
-            <!-- Step 3: Images -->
             @if (modalStep == 3)
             {
                 <div class="modal-step-content">
@@ -393,7 +357,6 @@
                         Upload at least one product image. Max 10 images, 5MB each. JPEG, PNG or WebP only.
                     </p>
 
-                    <!-- Existing images -->
                     @if (templateForm.ImageUrls.Any())
                     {
                         <div class="image-grid">
@@ -403,16 +366,12 @@
                                 var url   = templateForm.ImageUrls[index];
                                 <div class="image-thumb-wrapper">
                                     <img src="@url" alt="Product image @(index+1)" class="image-thumb" />
-                                    <button class="image-remove"
-                                            @onclick="@(() => RemoveImage(index))">
-                                        ✕
-                                    </button>
+                                    <button class="image-remove" @onclick="@(() => RemoveImage(index))">✕</button>
                                 </div>
                             }
                         </div>
                     }
 
-                    <!-- Upload input -->
                     @if (templateForm.ImageUrls.Count < 10)
                     {
                         <div class="image-upload-area">
@@ -458,7 +417,6 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- Delete Confirmation -->
 <ConfirmationPopup @ref="deleteConfirmation"
                   IsOpen="@showDeleteConfirm"
                   Title="Delete Draft?"
