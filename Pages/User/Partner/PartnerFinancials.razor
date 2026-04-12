@@ -8,9 +8,6 @@
 @using SubashaVentures.Components.Shared.Notifications
 @using SubashaVentures.Domain.Partner
 @using Microsoft.AspNetCore.Components.Authorization
-@inject IPartnerStoreService PartnerStoreService
-@inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
 
 <div class="partner-financials">
 
@@ -18,7 +15,6 @@
                            Position="NotificationPosition.TopRight"
                            AutoDismissTime="4000" />
 
-    <!-- Header -->
     <div class="pf-header">
         <h1>Financials</h1>
         <p>Track your earnings, request payouts, and manage your bank details.</p>
@@ -40,15 +36,12 @@
     }
     else
     {
-        <!-- Summary Cards -->
         <div class="pf-summary-grid">
             <div class="pf-summary-card primary">
                 <span class="summary-label">Pending Payout</span>
                 <span class="summary-value">@summary.DisplayPendingPayout</span>
                 <div class="payout-progress-bar">
-                    <div class="payout-progress-fill"
-                         style="width: @(summary.PayoutProgressPercent)%">
-                    </div>
+                    <div class="payout-progress-fill" style="width: @(summary.PayoutProgressPercent)%"></div>
                 </div>
                 <span class="summary-hint">
                     @if (summary.CanRequestPayout)
@@ -78,7 +71,6 @@
             </div>
         </div>
 
-        <!-- Payout Request -->
         <div class="pf-section">
             <div class="pf-section-header">
                 <h2>Request Payout</h2>
@@ -118,9 +110,7 @@
                                max="@summary.PendingPayout"
                                step="1000"
                                placeholder="10000" />
-                        <span class="amount-hint">
-                            Available: @summary.DisplayPendingPayout
-                        </span>
+                        <span class="amount-hint">Available: @summary.DisplayPendingPayout</span>
                     </div>
 
                     <PrimaryButton OnClick="HandleRequestPayout"
@@ -132,7 +122,6 @@
             }
         </div>
 
-        <!-- Bank Details -->
         <div class="pf-section">
             <div class="pf-section-header">
                 <h2>Bank Details</h2>
@@ -170,7 +159,6 @@
             </div>
         </div>
 
-        <!-- Payout History -->
         <div class="pf-section">
             <div class="pf-section-header">
                 <h2>Payout History</h2>
@@ -198,12 +186,8 @@
                             <span class="payout-date">@payout.RequestedAtDisplay</span>
                             <span class="payout-amount">@payout.DisplayAmount</span>
                             <span class="payout-bank">@payout.BankName</span>
-                            <span class="payout-status @payout.StatusBadgeClass">
-                                @payout.StatusDisplay
-                            </span>
-                            <span class="payout-ref">
-                                @(payout.TransactionReference ?? "—")
-                            </span>
+                            <span class="payout-status @payout.StatusBadgeClass">@payout.StatusDisplay</span>
+                            <span class="payout-ref">@(payout.TransactionReference ?? "—")</span>
                         </div>
                     }
                 </div>
@@ -212,7 +196,6 @@
     }
 </div>
 
-<!-- Bank Update Modal -->
 <DynamicModal @ref="bankModal"
               Title="Update Bank Details"
               Size="DynamicModal.ModalSize.Medium"
