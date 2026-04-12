@@ -5,9 +5,6 @@
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Partner
 @using Microsoft.AspNetCore.Components.Authorization
-@inject IPartnerStoreService PartnerStoreService
-@inject AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager Navigation
 
 <div class="partner-dashboard">
 
@@ -28,7 +25,6 @@
     }
     else
     {
-        <!-- Alerts -->
         @if (dashboard.Alerts.Any())
         {
             <div class="pd-alerts">
@@ -47,7 +43,6 @@
             </div>
         }
 
-        <!-- Header -->
         <div class="pd-header">
             <div class="pd-header-left">
                 <h1>Partner Dashboard</h1>
@@ -61,7 +56,6 @@
             </div>
         </div>
 
-        <!-- Stats Grid -->
         <div class="pd-stats">
             <div class="pd-stat-card">
                 <div class="stat-icon">📦</div>
@@ -108,7 +102,6 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
         <div class="pd-quick-actions">
             <h2>Quick Actions</h2>
             <div class="qa-grid">
@@ -141,7 +134,6 @@
             </div>
         </div>
 
-        <!-- Recent Templates -->
         @if (dashboard.RecentTemplates.Any())
         {
             <div class="pd-section">
@@ -176,7 +168,6 @@
             </div>
         }
 
-        <!-- Recent Payouts -->
         @if (dashboard.RecentPayouts.Any())
         {
             <div class="pd-section">
@@ -201,7 +192,6 @@
             </div>
         }
 
-        <!-- Commission Rate Info -->
         <div class="pd-commission-info">
             <span class="commission-label">Your Commission Rate</span>
             <span class="commission-value">@dashboard.DisplayCommissionRate</span>
