@@ -7,6 +7,7 @@ using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
+using System.Net.Http.Json;          // ← FIX: JsonContent lives here
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Partners;
