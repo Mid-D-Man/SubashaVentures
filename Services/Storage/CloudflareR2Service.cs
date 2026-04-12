@@ -1,4 +1,6 @@
+// Services/Storage/CloudflareR2Service.cs
 using System.Net.Http.Headers;
+using System.Net.Http.Json;          // ← FIX: JsonContent lives here
 using System.Text.Json;
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Supabase;
@@ -189,7 +191,7 @@ public class CloudflareR2Service : ICloudflareR2Service
 
             request.Content = new ByteArrayContent(bytes);
             request.Content.Headers.ContentType =
-                new MediaTypeHeaderValue(contentType);
+                new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
 
             var response = await _http.SendAsync(request);
             var raw      = await response.Content.ReadAsStringAsync();
@@ -274,7 +276,6 @@ public class CloudflareR2Service : ICloudflareR2Service
     {
         try
         {
-            // List all objects under prefix then delete each
             var objects = await ListObjectsAsync(prefix);
 
             if (!objects.Any())
@@ -327,8 +328,7 @@ public class CloudflareR2Service : ICloudflareR2Service
         if (string.IsNullOrWhiteSpace(publicUrl))
             return null;
 
-        if (!publicUrl.StartsWith(_workerBaseUrl,
-            StringComparison.OrdinalIgnoreCase))
+        if (!publicUrl.StartsWith(_workerBaseUrl, StringComparison.OrdinalIgnoreCase))
             return null;
 
         var key = publicUrl[_workerBaseUrl.Length..].TrimStart('/');
@@ -453,12 +453,10 @@ public class CloudflareR2Service : ICloudflareR2Service
 
     private static string SanitizeFileName(string fileName)
     {
-        // Keep only alphanumeric, dots, dashes, underscores
         var sanitized = new string(fileName
             .Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_')
             .ToArray());
 
-        // Prevent empty result
         return string.IsNullOrEmpty(sanitized)
             ? $"file_{Guid.NewGuid():N}"
             : sanitized;
