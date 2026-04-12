@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Domain.Partner;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Partners;
-
+using System.Net.Http.Json;          // ← FIX: JsonContent lives here
 namespace SubashaVentures.Pages.User.Partner;
 
 public partial class PartnerApply : ComponentBase
