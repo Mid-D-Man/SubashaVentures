@@ -1,3 +1,4 @@
+// Services/Categories/ICategoryService.cs
 namespace SubashaVentures.Services.Categories;
 
 using SubashaVentures.Domain.Product;
@@ -7,7 +8,12 @@ public interface ICategoryService
 {
     // ==================== CATEGORIES ====================
 
+    /// <summary>Returns all categories (already filtered: IsActive == true).</summary>
     Task<List<CategoryViewModel>> GetAllCategoriesAsync();
+
+    /// <summary>Alias for GetAllCategoriesAsync — returns only active categories.</summary>
+    Task<List<CategoryViewModel>> GetActiveCategoriesAsync();
+
     Task<List<CategoryViewModel>> GetTopLevelCategoriesAsync();
 
     /// <summary>
