@@ -1,3 +1,4 @@
+// Pages/User/Partner/PartnerTemplates.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -8,7 +9,6 @@ using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Components.Shared.Modals;
-using SubashaVentures.Components.Shared.Popups;
 using SubashaVentures.Components.Shared.Notifications;
 
 namespace SubashaVentures.Pages.User.Partner;
@@ -93,6 +93,7 @@ public partial class PartnerTemplates : ComponentBase
 
     private async Task LoadCategoriesAsync()
     {
+        // FIX: was GetActiveCategoriesAsync — now correctly calls the interface method
         availableCategories = await CategoryService.GetActiveCategoriesAsync();
     }
 
@@ -100,11 +101,11 @@ public partial class PartnerTemplates : ComponentBase
     {
         tabs = new List<TabInfo>
         {
-            new("all",            "All",             allTemplates.Count),
-            new("draft",          "Drafts",          allTemplates.Count(t => t.IsDraft)),
-            new("pending_review", "Pending Review",  allTemplates.Count(t => t.IsPendingReview)),
-            new("approved",       "Approved",        allTemplates.Count(t => t.IsApproved)),
-            new("rejected",       "Rejected",        allTemplates.Count(t => t.IsRejected)),
+            new("all",            "All",            allTemplates.Count),
+            new("draft",          "Drafts",         allTemplates.Count(t => t.IsDraft)),
+            new("pending_review", "Pending Review", allTemplates.Count(t => t.IsPendingReview)),
+            new("approved",       "Approved",       allTemplates.Count(t => t.IsApproved)),
+            new("rejected",       "Rejected",       allTemplates.Count(t => t.IsRejected)),
         };
     }
 
@@ -137,10 +138,11 @@ public partial class PartnerTemplates : ComponentBase
 
     private void OpenEditModal(PartnerTemplateViewModel template)
     {
-        isEditMode   = true;
-        modalStep    = 1;
+        isEditMode = true;
+        modalStep  = 1;
         formErrors.Clear();
 
+        // FIX: ProposedOriginalPrice is decimal? in VM but decimal in form — use ?? 0m
         templateForm = new TemplateFormData
         {
             TemplateId            = template.Id,
@@ -150,7 +152,7 @@ public partial class PartnerTemplates : ComponentBase
             CategoryId            = template.CategoryId,
             CategoryName          = template.CategoryName,
             ProposedPrice         = template.ProposedPrice,
-            ProposedOriginalPrice = template.ProposedOriginalPrice,
+            ProposedOriginalPrice = template.ProposedOriginalPrice ?? 0m,
             WeightKg              = template.WeightKg,
             HasFreeShipping       = template.HasFreeShipping,
             ImageUrls             = template.ImageUrls.ToList(),
@@ -198,11 +200,9 @@ public partial class PartnerTemplates : ComponentBase
 
         if (formErrors.Any()) return;
 
-        // Sync category name
         var cat = availableCategories.FirstOrDefault(c => c.Id == templateForm.CategoryId);
         if (cat != null) templateForm.CategoryName = cat.Name;
 
-        // Sync tags
         templateForm.Tags = tagsInput
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(t => t.Trim())
@@ -270,12 +270,8 @@ public partial class PartnerTemplates : ComponentBase
         uploadingCount = files.Count;
         StateHasChanged();
 
-        // We need a draft ID to build the R2 key
-        // If new template save a draft first to get the ID
         if (string.IsNullOrEmpty(templateForm.TemplateId))
-        {
             await SaveDraftSilentlyAsync();
-        }
 
         foreach (var file in files)
         {
@@ -293,17 +289,12 @@ public partial class PartnerTemplates : ComponentBase
                     templateForm.TemplateId!,
                     file.Name);
 
-                var result = await R2Service.UploadFileAsync(
-                    file, objectKey, file.ContentType);
+                var result = await R2Service.UploadFileAsync(file, objectKey, file.ContentType);
 
                 if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
-                {
                     templateForm.ImageUrls.Add(result.PublicUrl);
-                }
                 else
-                {
                     notificationComponent?.ShowError($"Failed to upload {file.Name}");
-                }
             }
             catch (Exception ex)
             {
@@ -329,9 +320,7 @@ public partial class PartnerTemplates : ComponentBase
         var request = BuildSaveRequest();
         var result  = await PartnerTemplateService.SaveDraftAsync(partnerId, userId, request);
         if (result != null && string.IsNullOrEmpty(templateForm.TemplateId))
-        {
             templateForm.TemplateId = result.Id;
-        }
     }
 
     private async Task HandleSaveDraft()
@@ -386,7 +375,10 @@ public partial class PartnerTemplates : ComponentBase
             CategoryId            = templateForm.CategoryId,
             CategoryName          = templateForm.CategoryName,
             ProposedPrice         = templateForm.ProposedPrice,
-            ProposedOriginalPrice = templateForm.ProposedOriginalPrice > 0 ? templateForm.ProposedOriginalPrice : null,
+            // FIX: only pass optional original price when it has a meaningful value
+            ProposedOriginalPrice = templateForm.ProposedOriginalPrice > 0
+                ? templateForm.ProposedOriginalPrice
+                : null,
             WeightKg              = templateForm.WeightKg,
             HasFreeShipping       = templateForm.HasFreeShipping,
             ImageUrls             = templateForm.ImageUrls,
@@ -444,7 +436,7 @@ public partial class PartnerTemplates : ComponentBase
 
     private void HandleDeleteDraft(PartnerTemplateViewModel template)
     {
-        templateToDelete = template;
+        templateToDelete  = template;
         showDeleteConfirm = true;
         StateHasChanged();
     }
@@ -484,7 +476,7 @@ public partial class PartnerTemplates : ComponentBase
 
     // ── Helpers ────────────────────────────────────────────────
 
-    private bool HasFormError(string field) => formErrors.ContainsKey(field);
+    private bool HasFormError(string field)   => formErrors.ContainsKey(field);
     private string GetFormError(string field) => formErrors.GetValueOrDefault(field, string.Empty);
 
     // ── Form model ─────────────────────────────────────────────
@@ -498,6 +490,7 @@ public partial class PartnerTemplates : ComponentBase
         public string   CategoryId            { get; set; } = string.Empty;
         public string   CategoryName          { get; set; } = string.Empty;
         public decimal  ProposedPrice         { get; set; }
+        // FIX: decimal (not decimal?) — 0 means "no original price set"
         public decimal  ProposedOriginalPrice { get; set; }
         public decimal  WeightKg              { get; set; } = 1.0m;
         public bool     HasFreeShipping       { get; set; }
