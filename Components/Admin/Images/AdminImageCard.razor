@@ -1,20 +1,20 @@
+@* Components/Admin/Images/AdminImageCard.razor *@
 @using SubashaVentures.Components.Shared.Buttons
 
 <div class="admin-image-card @(IsSelected ? "selected" : "")" @onclick="HandleCardClick">
-    
-    <input type="checkbox" 
+
+    <input type="checkbox"
            class="image-checkbox"
            checked="@IsSelected"
            @onclick:stopPropagation="true"
            @onchange="HandleSelectionChange" />
 
     <div class="image-wrapper">
-        @*Uses Supabase image transformation for thumbnails *@
-        <img src="@GetOptimizedImageUrl()" 
-             alt="@Image.FileName" 
+        <img src="@GetOptimizedImageUrl()"
+             alt="@Image.FileName"
              loading="lazy"
              @onerror="HandleImageError" />
-        
+
         @if (Image.IsReferenced)
         {
             <span class="ref-badge" title="Used in @Image.ReferenceCount product(s)">
@@ -48,31 +48,48 @@
     @if (ShowActions)
     {
         <div class="image-actions">
-            <button class="action-btn" 
+            <button class="action-btn"
                     @onclick:stopPropagation="true"
                     @onclick="HandleCopyUrl"
                     title="Copy URL">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                     <path d="M8 8V5C8 4.46957 8.21071 3.96086 8.58579 3.58579C8.96086 3.21071 9.46957 3 10 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V14C21 14.5304 20.7893 15.0391 20.4142 15.4142C20.0391 15.7893 19.5304 16 19 16H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <rect x="3" y="8" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
-            <button class="action-btn" 
+            <button class="action-btn"
+                    @onclick:stopPropagation="true"
+                    @onclick="HandleConvert"
+                    title="Convert Format">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <button class="action-btn"
+                    @onclick:stopPropagation="true"
+                    @onclick="HandleMove"
+                    title="Move to Category">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 7C3 5.9 3.9 5 5 5H9L11 7H19C20.1 7 21 7.9 21 9V18C21 19.1 20.1 20 19 20H5C3.9 20 3 19.1 3 18V7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 12L15 15M15 15L12 18M15 15H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <button class="action-btn"
                     @onclick:stopPropagation="true"
                     @onclick="HandleDownload"
                     title="Download">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                     <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
-            <button class="action-btn danger" 
+            <button class="action-btn danger"
                     @onclick:stopPropagation="true"
                     @onclick="HandleDelete"
                     title="Delete"
                     disabled="@Image.IsReferenced">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                     <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
@@ -89,41 +106,34 @@
     [Parameter] public EventCallback<ImageItem> OnCopyUrl { get; set; }
     [Parameter] public EventCallback<ImageItem> OnDownload { get; set; }
     [Parameter] public EventCallback<ImageItem> OnDelete { get; set; }
+    [Parameter] public EventCallback<ImageItem> OnConvert { get; set; }
+    [Parameter] public EventCallback<ImageItem> OnMove { get; set; }
     [Parameter] public EventCallback<(string imageId, bool isSelected)> OnSelectionChanged { get; set; }
 
-    // ✅ NEW: Optimize images using Supabase transformations
     private string GetOptimizedImageUrl()
     {
         var baseUrl = Image.ThumbnailUrl;
-        
-        // Apply Supabase image transformation for thumbnails
-        // This reduces bandwidth by 80%+ and speeds up loading
         if (baseUrl.Contains("supabase.co"))
         {
             var separator = baseUrl.Contains("?") ? "&" : "?";
-            // Request 250x250 thumbnail with fit mode
             return $"{baseUrl}{separator}width=250&height=250&resize=contain&quality=80";
         }
-        
         return baseUrl;
     }
 
     private async Task HandleCardClick()
     {
-        if (OnClick.HasDelegate)
-            await OnClick.InvokeAsync(Image);
+        if (OnClick.HasDelegate) await OnClick.InvokeAsync(Image);
     }
 
     private async Task HandleCopyUrl()
     {
-        if (OnCopyUrl.HasDelegate)
-            await OnCopyUrl.InvokeAsync(Image);
+        if (OnCopyUrl.HasDelegate) await OnCopyUrl.InvokeAsync(Image);
     }
 
     private async Task HandleDownload()
     {
-        if (OnDownload.HasDelegate)
-            await OnDownload.InvokeAsync(Image);
+        if (OnDownload.HasDelegate) await OnDownload.InvokeAsync(Image);
     }
 
     private async Task HandleDelete()
@@ -132,32 +142,36 @@
             await OnDelete.InvokeAsync(Image);
     }
 
+    private async Task HandleConvert()
+    {
+        if (OnConvert.HasDelegate) await OnConvert.InvokeAsync(Image);
+    }
+
+    private async Task HandleMove()
+    {
+        if (OnMove.HasDelegate) await OnMove.InvokeAsync(Image);
+    }
+
     private async Task HandleSelectionChange(ChangeEventArgs e)
     {
         if (e.Value is bool isSelected && OnSelectionChanged.HasDelegate)
             await OnSelectionChanged.InvokeAsync((Image.Id, isSelected));
     }
 
-    private void HandleImageError()
-    {
-        // Placeholder for broken image handling
-    }
+    private void HandleImageError() { }
 
-    private string GetFolderDisplayName(string folder)
+    private string GetFolderDisplayName(string folder) => folder switch
     {
-        return folder switch
-        {
-            "products" => "General",
-            "products/mens" => "Men's",
-            "products/womens" => "Women's",
-            "products/children" => "Children's",
-            "products/baby" => "Baby",
-            "products/home" => "Home",
-            "banners" => "Banners",
-            "categories" => "Categories",
-            _ => folder
-        };
-    }
+        "products"          => "General",
+        "products/mens"     => "Men's",
+        "products/womens"   => "Women's",
+        "products/children" => "Children's",
+        "products/baby"     => "Baby",
+        "products/home"     => "Home",
+        "banners"           => "Banners",
+        "categories"        => "Categories",
+        _                   => folder
+    };
 
     public class ImageItem
     {
@@ -172,21 +186,18 @@
         public bool IsReferenced { get; set; }
         public int ReferenceCount { get; set; }
 
+        public string FileExtension =>
+            Path.GetExtension(FileName).TrimStart('.').ToUpperInvariant();
+
         public string FormattedSize
         {
             get
             {
-                if (FileSize == 0) return "0 B";
-                
+                if (FileSize <= 0) return "—";
                 string[] sizes = { "B", "KB", "MB", "GB" };
                 double len = FileSize;
                 int order = 0;
-                
-                while (len >= 1024 && order < sizes.Length - 1){
-                    order++;
-                    len = len / 1024;
-                }
- 
+                while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
                 return $"{len:0.##} {sizes[order]}";
             }
         }
