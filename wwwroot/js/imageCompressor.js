@@ -1,4 +1,4 @@
-// wwwroot/js/imageCompressor.js - WebP-first compression
+// wwwroot/js/imageCompressor.js - WebP-first compression + URL-based conversion
 // Browser-native image compression using Canvas API
 // WebP is now the default output format (25-34% smaller than JPEG, 97% browser support)
 
@@ -18,32 +18,74 @@ console.log(`[ImageCompressor] WebP support: ${WEBP_SUPPORTED}`);
 window.imageCompressor = {
 
     /**
-     * Compress an image from base64 string using Canvas API
-     * WebP is used by default when supported (25-34% smaller than JPEG for ecommerce)
+     * Compress an image from a URL — fetches, draws to canvas, re-encodes.
+     * This is the entry point for the conversion workflow in the admin panel.
      *
-     * @param {string} base64           - Base64 encoded image
-     * @param {number} quality          - Quality 0-100 (default: 85)
-     * @param {number} maxWidth         - Max width in pixels (default: 2000)
-     * @param {number} maxHeight        - Max height in pixels (default: 2000)
-     * @param {string} outputFormat     - MIME type, e.g. 'image/webp' or 'image/jpeg'.
-     *                                    Pass 'auto' (default) to use WebP when supported,
-     *                                    else fall back to JPEG.
-     * @returns {Promise<Object>} Compression result
+     * @param {string} imageUrl     - Public URL of the source image
+     * @param {number} quality      - Quality 0-100 (default 85)
+     * @param {number} maxWidth     - Max width in pixels
+     * @param {number} maxHeight    - Max height in pixels
+     * @param {string} outputFormat - 'auto' | 'image/webp' | 'image/jpeg' | 'image/png'
+     * @returns {Promise<Object>}   Compression result with base64Data field
      */
-    async compressImage(
-        base64,
-        quality      = 85,
-        maxWidth     = 2000,
-        maxHeight    = 2000,
-        outputFormat = 'auto'
-    ) {
+    async compressImageFromUrl(imageUrl, quality = 85, maxWidth = 2000, maxHeight = 2000, outputFormat = 'auto') {
         try {
-            // Resolve format
-            const format = this._resolveFormat(outputFormat);
-            console.log(`[ImageCompressor] Compressing → ${format} @ quality ${quality}`);
+            console.log(`[ImageCompressor] Fetching: ${imageUrl.substring(0, 80)}...`);
 
-            const blob        = this._base64ToBlob(base64);
+            // Fetch with CORS — Supabase public buckets allow cross-origin reads
+            const response = await fetch(imageUrl, {
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} fetching image`);
+            }
+
+            const blob   = await response.blob();
+            const base64 = await this._blobToBase64(blob);
+
+            const result = await this.compressImage(base64, quality, maxWidth, maxHeight, outputFormat);
+
+            if (result.success) {
+                console.log(
+                    `[ImageCompressor] ✓ URL conversion complete: ` +
+                    `${this._formatBytes(result.originalSize)} → ${this._formatBytes(result.compressedSize)} ` +
+                    `[${result.format}]`
+                );
+            }
+
+            return result;
+        } catch (error) {
+            console.error('[ImageCompressor] compressImageFromUrl error:', error);
+            return {
+                success      : false,
+                errorMessage : error.message || 'Failed to fetch/convert image',
+                base64Data   : null,
+                compressedSize: 0,
+                originalSize : 0
+            };
+        }
+    },
+
+    /**
+     * Compress an image from base64 string using Canvas API.
+     * WebP is used by default when supported.
+     *
+     * @param {string} base64           - Base64 encoded image (with or without data-URL prefix)
+     * @param {number} quality          - Quality 0-100 (default 85)
+     * @param {number} maxWidth         - Max width in pixels (default 2000)
+     * @param {number} maxHeight        - Max height in pixels (default 2000)
+     * @param {string} outputFormat     - MIME type or 'auto'
+     * @returns {Promise<Object>}       Compression result
+     */
+    async compressImage(base64, quality = 85, maxWidth = 2000, maxHeight = 2000, outputFormat = 'auto') {
+        try {
+            const format       = this._resolveFormat(outputFormat);
+            const blob         = this._base64ToBlob(base64);
             const originalSize = blob.size;
+
+            console.log(`[ImageCompressor] Compressing ${this._formatBytes(originalSize)} → ${format} @ q${quality}`);
 
             const img        = await this._loadImageSafe(blob);
             const dimensions = this._calculateDimensions(img.width, img.height, maxWidth, maxHeight);
@@ -59,8 +101,7 @@ window.imageCompressor = {
 
             const compressedBlob   = await this._canvasToBlob(canvas, format, quality / 100);
             const compressedBase64 = await this._blobToBase64(compressedBlob);
-
-            const ratio = Math.max(0, (originalSize - compressedBlob.size) / originalSize);
+            const ratio            = Math.max(0, (originalSize - compressedBlob.size) / originalSize);
 
             console.log(
                 `[ImageCompressor] ✓ ${this._formatBytes(originalSize)} → ` +
@@ -83,7 +124,7 @@ window.imageCompressor = {
                 errorMessage     : null
             };
         } catch (error) {
-            console.error('[ImageCompressor] Error:', error);
+            console.error('[ImageCompressor] compressImage error:', error);
             return {
                 success          : false,
                 errorMessage     : error.message || 'Unknown compression error',
@@ -96,15 +137,24 @@ window.imageCompressor = {
     },
 
     /**
-     * Convert an existing JPEG/PNG/GIF blob or base64 to WebP.
-     * Falls back to JPEG when WebP is not supported.
-     *
-     * @param {string} base64  - Source image in any browser-renderable format
-     * @param {number} quality - Quality 0-100
-     * @returns {Promise<Object>} Conversion result
+     * Convert from URL to WebP — convenience wrapper.
      */
-    async convertToWebP(base64, quality = 85) {
-        return this.compressImage(base64, quality, 4096, 4096, 'image/webp');
+    async convertToWebP(imageUrl, quality = 85) {
+        return this.compressImageFromUrl(imageUrl, quality, 4096, 4096, 'image/webp');
+    },
+
+    /**
+     * Convert from URL to JPEG — convenience wrapper.
+     */
+    async convertToJpeg(imageUrl, quality = 85) {
+        return this.compressImageFromUrl(imageUrl, quality, 4096, 4096, 'image/jpeg');
+    },
+
+    /**
+     * Convert from URL to PNG — lossless, larger files.
+     */
+    async convertToPng(imageUrl, quality = 100) {
+        return this.compressImageFromUrl(imageUrl, quality, 4096, 4096, 'image/png');
     },
 
     /**
@@ -177,17 +227,18 @@ window.imageCompressor = {
         });
     },
 
-    // ─── Private helpers ────────────────────────────────────────────────────
+    // ─── Private helpers ─────────────────────────────────────────────────────
 
     _resolveFormat(requested) {
         if (requested === 'auto' || requested === 'image/webp') {
             return WEBP_SUPPORTED ? 'image/webp' : 'image/jpeg';
         }
+        // Always honour explicit requests (jpeg / png)
         return requested || 'image/jpeg';
     },
 
     _base64ToBlob(base64) {
-        let mimeType  = 'image/jpeg';
+        let mimeType   = 'image/jpeg';
         let base64Data = base64;
 
         if (base64.includes(',')) {
@@ -199,9 +250,7 @@ window.imageCompressor = {
 
         const binary = atob(base64Data);
         const bytes  = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-        }
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         return new Blob([bytes], { type: mimeType });
     },
 
@@ -216,7 +265,7 @@ window.imageCompressor = {
 
     _loadImageSafe(blob) {
         return new Promise((resolve, reject) => {
-            const img      = new Image();
+            const img       = new Image();
             const objectUrl = URL.createObjectURL(blob);
 
             const timeout = setTimeout(() => {
@@ -234,10 +283,10 @@ window.imageCompressor = {
                 resolve(img);
             };
 
-            img.onerror = (e) => {
+            img.onerror = () => {
                 clearTimeout(timeout);
                 URL.revokeObjectURL(objectUrl);
-                reject(new Error('Failed to load image — may be corrupted or unsupported format'));
+                reject(new Error('Failed to load image — corrupted or unsupported format'));
             };
 
             img.crossOrigin = 'anonymous';
@@ -248,7 +297,9 @@ window.imageCompressor = {
     _canvasToBlob(canvas, mimeType, quality) {
         return new Promise((resolve, reject) => {
             canvas.toBlob(
-                (blob) => blob ? resolve(blob) : reject(new Error('canvas.toBlob returned null')),
+                (blob) => blob
+                    ? resolve(blob)
+                    : reject(new Error('canvas.toBlob returned null — format may not be supported')),
                 mimeType,
                 Math.max(0, Math.min(1, quality))
             );
@@ -257,13 +308,13 @@ window.imageCompressor = {
 
     _calculateDimensions(width, height, maxWidth, maxHeight) {
         let w = width, h = height;
-        if (w > maxWidth)  { h = Math.round(h * maxWidth / w);  w = maxWidth; }
+        if (w > maxWidth)  { h = Math.round(h * maxWidth / w);  w = maxWidth;  }
         if (h > maxHeight) { w = Math.round(w * maxHeight / h); h = maxHeight; }
         return { width: w, height: h };
     },
 
     _formatBytes(bytes) {
-        if (bytes === 0) return '0 B';
+        if (!bytes || bytes === 0) return '0 B';
         const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
