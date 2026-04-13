@@ -1,7 +1,4 @@
 // Pages/Admin/ImageManagement.razor.cs
-// WebP-aware upload: uses IBrowserFile path (not stream) so compression + WebP conversion fires.
-// Batch image loading: folders are fetched BATCH_SIZE at a time so the grid renders progressively.
-
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -14,7 +11,6 @@ using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Admin.Images;
 using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Models.Firebase;
-using SubashaVentures.Domain.Enums;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Admin;
@@ -31,10 +27,12 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     // ─── UI refs ──────────────────────────────────────────────────────────────
 
-    private List<CategoryModel>             categories         = new();
-    private NotificationComponent?          notificationComponent;
-    private DynamicModal?                   uploadModal;
-    private ConfirmationPopup?              confirmationPopup;
+    private List<CategoryModel>    categories             = new();
+    private NotificationComponent? notificationComponent;
+    private DynamicModal?          uploadModal;
+    private DynamicModal?          convertModal;
+    private DynamicModal?          moveModal;
+    private ConfirmationPopup?     confirmationPopup;
 
     // ─── Object pools ─────────────────────────────────────────────────────────
 
@@ -43,8 +41,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     // ─── Loading / batch state ────────────────────────────────────────────────
 
-    private bool isLoading        = true;
-    private bool isLoadingMore    = false;
+    private bool isLoading         = true;
+    private bool isLoadingMore     = false;
     private int  loadedFolderCount = 0;
     private int  totalFolderCount  = 0;
     private int  loadingProgress   =>
@@ -52,7 +50,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             ? (int)Math.Round(loadedFolderCount * 100.0 / totalFolderCount)
             : 0;
 
-    private const int BATCH_SIZE = 2;   // folders per concurrent batch
+    private const int BATCH_SIZE = 2;
 
     // ─── Upload state ─────────────────────────────────────────────────────────
 
@@ -68,6 +66,22 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private AdminImageCard.ImageItem?  imageToDelete      = null;
     private List<string>               imagesToDelete     = new();
 
+    // ─── Conversion state ─────────────────────────────────────────────────────
+
+    private AdminImageCard.ImageItem? conversionImage;
+    private bool   isConversionModalOpen = false;
+    private string conversionFormat      = "image/webp";
+    private int    conversionQuality     = 85;
+    private bool   replaceOriginal       = false;
+    private bool   isConverting          = false;
+
+    // ─── Move state ───────────────────────────────────────────────────────────
+
+    private AdminImageCard.ImageItem? moveImage;
+    private bool   isMoveModalOpen   = false;
+    private string moveTargetFolder  = "";
+    private bool   isMoving          = false;
+
     // ─── Filter / sort / view ─────────────────────────────────────────────────
 
     private string searchQuery    = "";
@@ -76,16 +90,21 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private string gridSize       = "medium";
     private string sortBy         = "newest";
 
+    private bool HasActiveFilters =>
+        !string.IsNullOrEmpty(searchQuery) || !string.IsNullOrEmpty(selectedFolder);
+
     // ─── Pagination ───────────────────────────────────────────────────────────
 
     private int currentPage = 1;
     private int pageSize    = 24;
-    private int totalPages  => (int)Math.Ceiling(filteredImages.Count / (double)pageSize);
+    private int totalPages  => filteredImages.Count > 0
+        ? (int)Math.Ceiling(filteredImages.Count / (double)pageSize)
+        : 0;
 
     // ─── Stats ────────────────────────────────────────────────────────────────
 
     private double storagePercentage = 0;
-    private string usedStorage       = "0 MB";
+    private string usedStorage       = "0 B";
     private string totalStorage      = "1 GB";
     private int    totalImages       = 0;
     private int    totalFolders      = 0;
@@ -127,6 +146,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             await MID_HelperFunctions.LogExceptionAsync(ex, "ImageManagement init");
             ShowError("Failed to initialise image management");
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -139,7 +159,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             var loaded = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
             categories = loaded?.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder).ToList()
                          ?? new List<CategoryModel>();
-
             totalFolders = categories.Count > 0 ? categories.Count : 3;
         }
         catch (Exception ex)
@@ -155,16 +174,15 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            // Try cache — skip all network calls
+            // Try cache first — instant render
             var cached = await LoadFromCacheAsync();
             if (cached != null)
             {
-                allImages = cached;
+                allImages   = cached;
                 totalImages = allImages.Count;
                 ApplyFiltersAndSort();
                 isLoading = false;
                 StateHasChanged();
-
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"[ImageMgmt] {allImages.Count} images from cache", LogLevel.Info);
                 return;
@@ -182,7 +200,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
             var allImageUrls = new List<string>();
 
-            // Process in batches of BATCH_SIZE so the grid updates incrementally
             for (int batchStart = 0; batchStart < folders.Length; batchStart += BATCH_SIZE)
             {
                 var batch = folders.Skip(batchStart).Take(BATCH_SIZE).ToArray();
@@ -196,7 +213,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 var batchImages = new List<AdminImageCard.ImageItem>();
                 var batchUrls   = new List<string>();
 
-                // Concurrent fetch for each folder in this batch
                 var tasks = batch.Select(folder =>
                     LoadImagesFromFolderAsync(folder, batchImages, batchUrls)).ToArray();
 
@@ -207,14 +223,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 loadedFolderCount += batch.Length;
                 totalImages        = allImages.Count;
 
-                ApplyFiltersAndSort();   // re-renders after each batch
+                ApplyFiltersAndSort();
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"[ImageMgmt] Batch done: {loadedFolderCount}/{totalFolderCount} folders, " +
                     $"{allImages.Count} total", LogLevel.Debug);
             }
 
-            // Background preload
             if (allImageUrls.Any())
             {
                 _ = Task.Run(async () =>
@@ -266,7 +281,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     PublicUrl      = publicUrl,
                     ThumbnailUrl   = publicUrl,
                     Folder         = folder,
-                    FileSize       = 0,   // deferred — per-image HEAD calls are too slow at scale
+                    FileSize       = file.Size,           // ← real size from metadata
                     Dimensions     = "",
                     UploadedAt     = file.UpdatedAt,
                     IsReferenced   = false,
@@ -345,6 +360,26 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
+    private void HandleSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        ApplyFiltersAndSort();
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = "";
+        ApplyFiltersAndSort();
+    }
+
+    private void ClearAllFilters()
+    {
+        searchQuery    = "";
+        selectedFolder = "";
+        sortBy         = "newest";
+        ApplyFiltersAndSort();
+    }
+
     private void HandleFolderFilterChange(ChangeEventArgs e)
     {
         selectedFolder = e.Value?.ToString() ?? "";
@@ -357,16 +392,42 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         ApplyFiltersAndSort();
     }
 
+    private void SetGridSize(string size) { gridSize = size; StateHasChanged(); }
+
+    // ─── Pagination ───────────────────────────────────────────────────────────
+
+    private void PreviousPage()
+    {
+        if (currentPage > 1) { currentPage--; UpdatePaginatedImages(); }
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages) { currentPage++; UpdatePaginatedImages(); }
+    }
+
+    private void GoToPage(int p)
+    {
+        if (p >= 1 && p <= totalPages) { currentPage = p; UpdatePaginatedImages(); }
+    }
+
+    private void HandlePageSizeChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            pageSize    = size;
+            currentPage = 1;
+            UpdatePaginatedImages();
+        }
+    }
+
     // ─── Image selection ──────────────────────────────────────────────────────
 
-    private void HandleImageSelect(string id, ChangeEventArgs e)
+    private void HandleImageSelect(string id, bool isChecked)
     {
-        if (e.Value is bool isChecked)
-        {
-            if (isChecked) { if (!selectedImages.Contains(id)) selectedImages.Add(id); }
-            else           { selectedImages.Remove(id); }
-            StateHasChanged();
-        }
+        if (isChecked) { if (!selectedImages.Contains(id)) selectedImages.Add(id); }
+        else           { selectedImages.Remove(id); }
+        StateHasChanged();
     }
 
     // ─── Copy / Download / Delete ─────────────────────────────────────────────
@@ -415,7 +476,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private async Task HandleDelete(AdminImageCard.ImageItem image)
     {
         if (image.IsReferenced) { ShowWarning("Cannot delete: image is used in products"); return; }
-        imageToDelete = image;
+        imageToDelete      = image;
         imagesToDelete.Clear();
         isConfirmationOpen = true;
         StateHasChanged();
@@ -439,10 +500,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             .Where(x => selectedImages.Contains(x.Id) && !x.IsReferenced)
             .ToList();
 
-        if (!toDelete.Any()) { ShowWarning("All selected images are in use"); return; }
+        if (!toDelete.Any()) { ShowWarning("All selected images are in use and cannot be deleted"); return; }
 
-        imageToDelete  = null;
-        imagesToDelete = toDelete.Select(x => $"{x.Folder}/{x.FileName}").ToList();
+        imageToDelete      = null;
+        imagesToDelete     = toDelete.Select(x => $"{x.Folder}/{x.FileName}").ToList();
         isConfirmationOpen = true;
         StateHasChanged();
     }
@@ -513,9 +574,194 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
+    // ─── Conversion ───────────────────────────────────────────────────────────
+
+    private Task HandleConvert(AdminImageCard.ImageItem image)
+    {
+        conversionImage      = image;
+        conversionFormat     = "image/webp";
+        conversionQuality    = 85;
+        replaceOriginal      = false;
+        isConversionModalOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CancelConvert()
+    {
+        isConversionModalOpen = false;
+        conversionImage       = null;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmConvert()
+    {
+        if (conversionImage == null || isConverting) return;
+
+        try
+        {
+            isConverting = true;
+            StateHasChanged();
+
+            // Call JS imageCompressor — fetches the public URL, canvas-encodes to target format
+            var jsResult = await JSRuntime.InvokeAsync<JsConversionResult>(
+                "imageCompressor.compressImageFromUrl",
+                conversionImage.PublicUrl,
+                conversionQuality,
+                4096,
+                4096,
+                conversionFormat);
+
+            if (!jsResult.Success || string.IsNullOrEmpty(jsResult.Base64Data))
+            {
+                ShowError($"Conversion failed: {jsResult.ErrorMessage ?? "Unknown JS error"}");
+                return;
+            }
+
+            // Decode base64 → bytes
+            byte[] bytes;
+            try { bytes = Convert.FromBase64String(jsResult.Base64Data); }
+            catch (Exception ex)
+            {
+                ShowError("Failed to decode converted image data");
+                await MID_HelperFunctions.LogExceptionAsync(ex, "Base64Decode");
+                return;
+            }
+
+            // Build a sensible new filename
+            var baseName    = Path.GetFileNameWithoutExtension(conversionImage.FileName);
+            var newExt      = GetFormatExtension(conversionFormat);
+            var newFileName = $"{baseName}_converted{newExt}";
+            var actualMime  = jsResult.Format ?? conversionFormat;
+
+            // Upload to same folder
+            var uploadResult = await StorageService.UploadImageBytesAsync(
+                bytes,
+                newFileName,
+                actualMime,
+                "products",
+                conversionImage.Folder);
+
+            if (!uploadResult.Success)
+            {
+                ShowError($"Upload failed: {uploadResult.ErrorMessage}");
+                return;
+            }
+
+            // Optionally delete the original
+            if (replaceOriginal)
+            {
+                var sourcePath = $"{conversionImage.Folder}/{conversionImage.FileName}";
+                var deleted    = await StorageService.DeleteImageAsync(sourcePath, "products");
+
+                if (deleted)
+                {
+                    allImages.Remove(conversionImage);
+                    await MID_HelperFunctions.DebugMessageAsync(
+                        $"[ImageMgmt] Original deleted: {sourcePath}", LogLevel.Info);
+                }
+                else
+                {
+                    ShowWarning("Converted successfully, but original could not be deleted");
+                }
+            }
+
+            // Refresh
+            await InvalidateCacheAsync();
+            await LoadImagesAsync();
+
+            var savedPct = (int)(jsResult.CompressionRatio * 100);
+            var label    = GetFormatLabel(conversionFormat);
+            ShowSuccess($"Converted to {label} successfully — {savedPct}% size change");
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ConfirmConvert");
+            ShowError("Conversion failed unexpectedly");
+        }
+        finally
+        {
+            isConverting          = false;
+            isConversionModalOpen = false;
+            conversionImage       = null;
+            StateHasChanged();
+        }
+    }
+
+    // ─── Move ─────────────────────────────────────────────────────────────────
+
+    private Task HandleMove(AdminImageCard.ImageItem image)
+    {
+        moveImage        = image;
+        moveTargetFolder = image.Folder;
+        isMoveModalOpen  = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CancelMove()
+    {
+        isMoveModalOpen = false;
+        moveImage       = null;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmMove()
+    {
+        if (moveImage == null || isMoving) return;
+
+        if (moveTargetFolder == moveImage.Folder)
+        {
+            ShowWarning("Image is already in that category");
+            isMoveModalOpen = false;
+            return;
+        }
+
+        try
+        {
+            isMoving = true;
+            StateHasChanged();
+
+            var sourcePath = $"{moveImage.Folder}/{moveImage.FileName}";
+            var destPath   = $"{moveTargetFolder}/{moveImage.FileName}";
+
+            var success = await StorageService.MoveImageAsync(sourcePath, destPath, "products");
+
+            if (success)
+            {
+                // Update local image list without full reload
+                allImages.Remove(moveImage);
+                moveImage.Folder       = moveTargetFolder;
+                moveImage.PublicUrl    = StorageService.GetPublicUrl(destPath, "products");
+                moveImage.ThumbnailUrl = moveImage.PublicUrl;
+                allImages.Add(moveImage);
+
+                await InvalidateCacheAsync();
+                ApplyFiltersAndSort();
+                await LoadStorageInfoAsync();
+
+                ShowSuccess($"Image moved to {GetCategoryDisplayName(moveTargetFolder)}");
+            }
+            else
+            {
+                ShowError("Failed to move image — check storage permissions");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ConfirmMove");
+            ShowError("Move operation failed unexpectedly");
+        }
+        finally
+        {
+            isMoving        = false;
+            isMoveModalOpen = false;
+            moveImage       = null;
+            StateHasChanged();
+        }
+    }
+
     // ─── File select / upload ─────────────────────────────────────────────────
-    // Uses IBrowserFile directly so RequestImageFileAsync runs WebP conversion
-    // inside the browser before the bytes reach Supabase.
 
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
@@ -533,7 +779,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     var validation = await CompressionService.ValidateImageAsync(file);
                     if (!validation.IsValid) { ShowWarning($"{file.Name}: {validation.ErrorMessage}"); continue; }
 
-                    // Build preview from the raw file (before WebP conversion, for display only)
                     var previewUrl = await BuildPreviewUrlAsync(file);
                     if (previewUrl == null) { ShowWarning($"{file.Name}: failed to read preview"); continue; }
 
@@ -543,7 +788,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                         PreviewUrl  = previewUrl,
                         FileSize    = file.Size,
                         Status      = "pending",
-                        BrowserFile = file,   // keep the IBrowserFile reference — used during upload
+                        BrowserFile = file,
                         ContentType = file.ContentType
                     });
 
@@ -568,9 +813,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Reads up to 2 MB from the file and returns a data-URL suitable for the preview thumbnail.
-    /// </summary>
     private async Task<string?> BuildPreviewUrlAsync(IBrowserFile file)
     {
         try
@@ -581,12 +823,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             using var stream = file.OpenReadStream(maxRead);
             using var ms     = new MemoryStream();
             await stream.CopyToAsync(ms);
-            var bytes      = ms.ToArray();
-            var previewSrc = bytes.Length > maxPreview
-                ? bytes.Take((int)maxPreview).ToArray()
-                : bytes;
+            var bytes = ms.ToArray();
+            var src   = bytes.Length > maxPreview ? bytes.Take((int)maxPreview).ToArray() : bytes;
 
-            return $"data:{file.ContentType};base64,{Convert.ToBase64String(previewSrc)}";
+            return $"data:{file.ContentType};base64,{Convert.ToBase64String(src)}";
         }
         catch { return null; }
     }
@@ -614,7 +854,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
                     if (item.BrowserFile != null)
                     {
-                        // ── IBrowserFile path → WebP compression + upload ──────
                         result = await StorageService.UploadImageAsync(
                             item.BrowserFile,
                             bucketName        : "products",
@@ -623,7 +862,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     }
                     else
                     {
-                        // ── Fallback: stream path (no WebP conversion) ────────
                         if (item.FileData == null)
                         {
                             item.Status       = "error";
@@ -643,9 +881,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     {
                         item.Status = "success";
                         successCount++;
-
                         await MID_HelperFunctions.DebugMessageAsync(
-                            $"[ImageMgmt] ✓ Uploaded: {item.FileName} → {result.ContentType}", LogLevel.Info);
+                            $"[ImageMgmt] ✓ Uploaded: {item.FileName} [{result.ContentType}]", LogLevel.Info);
                     }
                     else
                     {
@@ -668,13 +905,12 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 }
             }
 
-            // Refresh grid and cache
             await InvalidateCacheAsync();
             await LoadImagesAsync();
 
             uploadQueue.RemoveAll(x => x.Status == "success");
 
-            if      (successCount > 0 && failCount == 0) ShowSuccess($"Uploaded {successCount} image(s) as WebP");
+            if      (successCount > 0 && failCount == 0) ShowSuccess($"Uploaded {successCount} image(s)");
             else if (successCount > 0)                   ShowWarning($"Uploaded {successCount}, {failCount} failed");
             else                                         ShowError($"Failed to upload {failCount} image(s)");
 
@@ -694,12 +930,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     private void RemoveFromQueue(UploadQueueItem item) { uploadQueue.Remove(item); StateHasChanged(); }
     private void ClearQueue()                          { uploadQueue.Clear();       StateHasChanged(); }
-
-    // ─── Pagination ───────────────────────────────────────────────────────────
-
-    private void PreviousPage() { if (currentPage > 1)          { currentPage--; UpdatePaginatedImages(); } }
-    private void NextPage()     { if (currentPage < totalPages)  { currentPage++; UpdatePaginatedImages(); } }
-    private void GoToPage(int p){ if (p >= 1 && p <= totalPages) { currentPage = p; UpdatePaginatedImages(); } }
 
     // ─── Modal helpers ────────────────────────────────────────────────────────
 
@@ -755,10 +985,30 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private void ShowWarning(string m) => notificationComponent?.ShowNotification(m, NotificationType.Warning);
     private void ShowInfo(string m)    => notificationComponent?.ShowNotification(m, NotificationType.Info);
 
-    // ─── Utilities ────────────────────────────────────────────────────────────
+    // ─── Utility helpers ──────────────────────────────────────────────────────
+
+    private string GetCategoryDisplayName(string slug) =>
+        categories.FirstOrDefault(c => c.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))?.Name ?? slug;
+
+    private static string GetFormatLabel(string mime) => mime switch
+    {
+        "image/webp" => "WebP",
+        "image/jpeg" => "JPEG",
+        "image/png"  => "PNG",
+        _            => "WebP"
+    };
+
+    private static string GetFormatExtension(string mime) => mime switch
+    {
+        "image/webp" => ".webp",
+        "image/jpeg" => ".jpg",
+        "image/png"  => ".png",
+        _            => ".webp"
+    };
 
     private static string FormatBytes(long bytes)
     {
+        if (bytes <= 0) return "0 B";
         string[] sizes = { "B", "KB", "MB", "GB" };
         double len = bytes; int order = 0;
         while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
@@ -779,25 +1029,39 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     // ─── Inner types ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Matches the JS object returned by imageCompressor.compressImageFromUrl().
+    /// System.Text.Json (used by Blazor JS interop) deserialises camelCase automatically.
+    /// </summary>
+    private sealed class JsConversionResult
+    {
+        public bool    Success          { get; set; }
+        public string? Base64Data       { get; set; }
+        public long    CompressedSize   { get; set; }
+        public long    OriginalSize     { get; set; }
+        public float   CompressionRatio { get; set; }
+        public string? Format           { get; set; }
+        public string? ErrorMessage     { get; set; }
+    }
+
     public class UploadQueueItem
     {
-        public string      Id          { get; set; } = Guid.NewGuid().ToString();
-        public string      FileName    { get; set; } = "";
-        public string      PreviewUrl  { get; set; } = "";
-        public long        FileSize    { get; set; }
-        public string      Status      { get; set; } = "pending";
-        public int         Progress    { get; set; }
-        public string?     ErrorMessage{ get; set; }
-        /// <summary>IBrowserFile reference for WebP-aware upload path.</summary>
-        public IBrowserFile? BrowserFile { get; set; }
-        /// <summary>Fallback byte array for the legacy stream path.</summary>
-        public byte[]?     FileData    { get; set; }
-        public string      ContentType { get; set; } = "image/jpeg";
+        public string        Id           { get; set; } = Guid.NewGuid().ToString();
+        public string        FileName     { get; set; } = "";
+        public string        PreviewUrl   { get; set; } = "";
+        public long          FileSize     { get; set; }
+        public string        Status       { get; set; } = "pending";
+        public int           Progress     { get; set; }
+        public string?       ErrorMessage { get; set; }
+        public IBrowserFile? BrowserFile  { get; set; }
+        public byte[]?       FileData     { get; set; }
+        public string        ContentType  { get; set; } = "image/jpeg";
 
         public string FormattedSize
         {
             get
             {
+                if (FileSize <= 0) return "—";
                 string[] sizes = { "B", "KB", "MB", "GB" };
                 double len = FileSize; int order = 0;
                 while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
