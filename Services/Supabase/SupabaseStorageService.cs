@@ -1,7 +1,6 @@
 // Services/Supabase/SupabaseStorageService.cs
-// Fix: private helpers now take Dictionary<string,object>? instead of
-// Supabase.Storage.FileObject — that type reference ambiguated with our own
-// namespace (SubashaVentures.Services.Supabase) causing the build error.
+// Fix 1: f.MetaData (capital D, public field) not f.Metadata
+// Fix 2: pass Dictionary<string,object> directly — no ambiguous type reference
 
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Storage;
@@ -41,7 +40,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         _logger             = logger;
     }
 
-    // ─── Upload (IBrowserFile — recommended) ─────────────────────────────────
+    // ─── Upload (IBrowserFile) ────────────────────────────────────────────────
 
     public async Task<StorageUploadResult> UploadImageAsync(
         IBrowserFile browserFile,
@@ -99,7 +98,7 @@ public class SupabaseStorageService : ISupabaseStorageService
                 return new StorageUploadResult { Success = false, ErrorMessage = "Supabase returned empty path" };
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"[Storage] ✓ Uploaded: {uniqueFileName} " +
+                $"[Storage] ✓ {uniqueFileName} " +
                 $"({compression.OriginalSize / 1024} KB → {compression.CompressedSize / 1024} KB, " +
                 $"{compression.CompressionRatio * 100:F1}% saved) [{compression.ContentType}]",
                 LogLevel.Info);
@@ -130,7 +129,7 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            _logger.LogWarning("[Storage] Legacy stream upload — IBrowserFile method preferred");
+            _logger.LogWarning("[Storage] Legacy stream upload — IBrowserFile preferred");
 
             var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
             var timestamp      = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
@@ -183,7 +182,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         return results;
     }
 
-    // ─── Upload (Raw bytes — for conversion workflow) ─────────────────────────
+    // ─── Upload (Raw bytes — conversion workflow) ─────────────────────────────
 
     public async Task<StorageUploadResult> UploadImageBytesAsync(
         byte[] bytes,
@@ -217,8 +216,7 @@ public class SupabaseStorageService : ISupabaseStorageService
                 return new StorageUploadResult { Success = false, ErrorMessage = "Supabase returned empty path" };
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"[Storage] ✓ Bytes uploaded: {uniqueFileName} ({bytes.Length / 1024} KB)",
-                LogLevel.Info);
+                $"[Storage] ✓ Bytes uploaded: {uniqueFileName} ({bytes.Length / 1024} KB)", LogLevel.Info);
 
             return new StorageUploadResult
             {
@@ -236,7 +234,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
     }
 
-    // ─── Move (category change) ───────────────────────────────────────────────
+    // ─── Move ─────────────────────────────────────────────────────────────────
 
     public async Task<bool> MoveImageAsync(string sourcePath, string destPath, string bucketName = "products")
     {
@@ -276,7 +274,7 @@ public class SupabaseStorageService : ISupabaseStorageService
 
             var deleted = await DeleteImageAsync(sourcePath, bucketName);
             if (!deleted)
-                _logger.LogWarning("[Storage] MoveImage: uploaded to {Dst} but failed to delete {Src}", destPath, sourcePath);
+                _logger.LogWarning("[Storage] MoveImage: uploaded to {Dst} but delete of {Src} failed", destPath, sourcePath);
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"[Storage] ✓ Moved: {sourcePath} → {destPath}", LogLevel.Info);
@@ -285,7 +283,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Storage] MoveImageAsync failed: {Src} → {Dst}", sourcePath, destPath);
+            _logger.LogError(ex, "[Storage] MoveImageAsync: {Src} → {Dst}", sourcePath, destPath);
             return false;
         }
     }
@@ -306,7 +304,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("404") || ex.Message.Contains("not found"))
         {
-            _logger.LogWarning("[Storage] Not found (treating as success): {Path}", filePath);
+            _logger.LogWarning("[Storage] Not found (success): {Path}", filePath);
             return true;
         }
         catch (Exception ex)
@@ -346,7 +344,9 @@ public class SupabaseStorageService : ISupabaseStorageService
         catch (Exception ex) { _logger.LogError(ex, "GetSignedUrl failed: {Path}", filePath); return string.Empty; }
     }
 
-    // ─── List / metadata ─────────────────────────────────────────────────────
+    // ─── List / metadata ──────────────────────────────────────────────────────
+    // FileObject.MetaData is a public field: Dictionary<string, object>
+    // (capital D, confirmed from storage-csharp source on GitHub)
 
     public async Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products")
     {
@@ -354,16 +354,16 @@ public class SupabaseStorageService : ISupabaseStorageService
         {
             var files = await _supabaseClient.Storage.From(GetBucketId(bucketName)).List(folder);
 
-            return files.Select(f => new StorageFile
-            {
-                Name        = f.Name      ?? string.Empty,
-                Id          = f.Id        ?? Guid.NewGuid().ToString(),
-                UpdatedAt   = f.UpdatedAt ?? DateTime.UtcNow,
-                // Pass the raw metadata dictionary — avoids Supabase.Storage.FileObject
-                // type reference which ambiguates with our own namespace.
-                Size        = ExtractSize(f.Metadata),
-                ContentType = ExtractMimeType(f.Metadata)
-            }).ToList();
+            return files
+                .Where(f => !f.IsFolder)   // skip virtual folder placeholders
+                .Select(f => new StorageFile
+                {
+                    Name        = f.Name      ?? string.Empty,
+                    Id          = f.Id        ?? Guid.NewGuid().ToString(),
+                    UpdatedAt   = f.UpdatedAt ?? DateTime.UtcNow,
+                    Size        = ExtractSize(f.MetaData),       // ← f.MetaData (capital D)
+                    ContentType = ExtractMimeType(f.MetaData)    // ← f.MetaData (capital D)
+                }).ToList();
         }
         catch (Exception ex)
         {
@@ -385,10 +385,10 @@ public class SupabaseStorageService : ISupabaseStorageService
             return new StorageFileMetadata
             {
                 Name        = file.Name      ?? string.Empty,
-                Size        = ExtractSize(file.Metadata),
+                Size        = ExtractSize(file.MetaData),        // ← capital D
                 CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
                 UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
-                ContentType = ExtractMimeType(file.Metadata)
+                ContentType = ExtractMimeType(file.MetaData)     // ← capital D
             };
         }
         catch (Exception ex) { _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath); return null; }
@@ -432,31 +432,31 @@ public class SupabaseStorageService : ISupabaseStorageService
     }
 
     /// <summary>
-    /// Extract file size from Supabase metadata dictionary.
-    /// We take Dictionary&lt;string,object&gt;? instead of FileObject to avoid
-    /// the Supabase.Storage type reference ambiguating with our namespace.
+    /// Extract file size from the FileObject.MetaData field.
+    /// MetaData is Dictionary&lt;string, object&gt; where values are Newtonsoft JToken after JSON round-trip.
+    /// Supabase stores size under "size" key (bytes as integer/long).
     /// </summary>
-    private static long ExtractSize(Dictionary<string, object>? metadata)
+    private static long ExtractSize(Dictionary<string, object> metaData)
     {
-        if (metadata == null) return 0;
+        if (metaData == null || metaData.Count == 0) return 0;
 
         try
         {
-            // Round-trip via JSON so JToken values get normalised
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(metadata);
+            // Round-trip through JSON normalises JToken values to primitives
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(metaData);
             var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<MetaDto>(json);
             return dto?.Size ?? dto?.ContentLength ?? 0;
         }
         catch { return 0; }
     }
 
-    private static string ExtractMimeType(Dictionary<string, object>? metadata)
+    private static string ExtractMimeType(Dictionary<string, object> metaData)
     {
-        if (metadata == null) return string.Empty;
+        if (metaData == null || metaData.Count == 0) return string.Empty;
 
         try
         {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(metadata);
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(metaData);
             var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<MetaDto>(json);
             return dto?.MimeType ?? dto?.ContentType ?? string.Empty;
         }
@@ -511,7 +511,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         catch { return null; }
     }
 
-    // ─── Metadata DTO (private) ───────────────────────────────────────────────
+    // ─── Metadata DTO ─────────────────────────────────────────────────────────
 
     private sealed class MetaDto
     {
