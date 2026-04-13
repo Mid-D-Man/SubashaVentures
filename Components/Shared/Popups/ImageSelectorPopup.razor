@@ -1,7 +1,6 @@
 @* Components/Shared/Popups/ImageSelectorPopup.razor *@
 @using Microsoft.AspNetCore.Components.Web
 @using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Admin.Images
 
 <div class="image-selector-overlay @(IsOpen ? "open" : "")" @onclick="HandleOverlayClick">
@@ -26,7 +25,7 @@
                     }
                 </p>
             </div>
-            <button class="isp-close" @onclick="Close" title="Close">
+            <button class="isp-close" @onclick="HandleClose" title="Close">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
@@ -36,50 +35,44 @@
         <!-- ── Toolbar ── -->
         <div class="isp-toolbar">
             <!-- Search -->
-            <div class="isp-search-wrap">
-                <div class="isp-search-box">
-                    <svg class="isp-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
-                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <input class="isp-search-input"
-                           type="text"
-                           placeholder="Search images…"
-                           value="@searchQuery"
-                           @oninput="HandleSearchInput"
-                           @onkeydown="HandleSearchKeyDown" />
-                    @if (!string.IsNullOrEmpty(searchQuery))
-                    {
-                        <button class="isp-search-clear" @onclick="ClearSearch" title="Clear search">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                        </button>
-                    }
-                </div>
+            <div class="isp-search-box">
+                <svg class="isp-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                    <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <input class="isp-search-input"
+                       type="text"
+                       placeholder="Search images…"
+                       value="@searchQuery"
+                       @oninput="HandleSearchInput"
+                       @onkeydown="HandleSearchKeyDown" />
+                @if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    <button class="isp-search-clear" @onclick="ClearSearch" title="Clear">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                }
             </div>
 
             <!-- Filters row -->
             <div class="isp-filters-row">
+                <!-- Category -->
                 <div class="isp-filter-group">
                     <label class="isp-filter-label">Category</label>
                     <div class="isp-select-wrap">
                         <select class="isp-select" value="@selectedFolder" @onchange="HandleFolderFilter">
-                            <option value="">All Categories</option>
+                            <option value="">All</option>
                             @foreach (var cat in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
                             {
                                 <option value="@cat.Slug">@cat.Name</option>
-                            }
-                            @if (!categories.Any())
-                            {
-                                <option value="products">Products</option>
-                                <option value="banners">Banners</option>
-                                <option value="categories">Categories</option>
                             }
                         </select>
                     </div>
                 </div>
 
+                <!-- Sort -->
                 <div class="isp-filter-group">
                     <label class="isp-filter-label">Sort</label>
                     <div class="isp-select-wrap">
@@ -88,6 +81,22 @@
                             <option value="oldest">Oldest first</option>
                             <option value="name-az">Name A–Z</option>
                             <option value="name-za">Name Z–A</option>
+                            <option value="size-largest">Size (largest)</option>
+                            <option value="size-smallest">Size (smallest)</option>
+                            <option value="type-az">Type A–Z</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Per page -->
+                <div class="isp-filter-group">
+                    <label class="isp-filter-label">Per page</label>
+                    <div class="isp-select-wrap">
+                        <select class="isp-select" value="@pageSize" @onchange="HandlePageSizeChange">
+                            <option value="12">12</option>
+                            <option value="24">24</option>
+                            <option value="48">48</option>
+                            <option value="96">96</option>
                         </select>
                     </div>
                 </div>
@@ -99,26 +108,32 @@
                             <path d="M3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12C21 16.97 16.97 21 12 21C9.17 21 6.66 19.64 5 17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             <path d="M3 8V12H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        Reset filters
+                        Reset
                     </button>
                 }
 
+                <!-- View size -->
                 <div class="isp-view-toggles">
-                    <button class="isp-view-btn @(viewSize == "small"  ? "active" : "")" @onclick='() => SetViewSize("small")'  title="Small grid">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="0" y="0" width="6" height="6" rx="1"/><rect x="10" y="0" width="6" height="6" rx="1"/>
-                            <rect x="0" y="10" width="6" height="6" rx="1"/><rect x="10" y="10" width="6" height="6" rx="1"/>
+                    <button class="isp-view-btn @(viewSize == "small"  ? "active" : "")" @onclick='() => SetViewSize("small")'  title="Small">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                            <rect x="0" y="0" width="6" height="6" rx="1"/>
+                            <rect x="10" y="0" width="6" height="6" rx="1"/>
+                            <rect x="0" y="10" width="6" height="6" rx="1"/>
+                            <rect x="10" y="10" width="6" height="6" rx="1"/>
                         </svg>
                     </button>
-                    <button class="isp-view-btn @(viewSize == "medium" ? "active" : "")" @onclick='() => SetViewSize("medium")' title="Medium grid">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/>
-                            <rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/>
+                    <button class="isp-view-btn @(viewSize == "medium" ? "active" : "")" @onclick='() => SetViewSize("medium")' title="Medium">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                            <rect x="0" y="0" width="7" height="7" rx="1"/>
+                            <rect x="9" y="0" width="7" height="7" rx="1"/>
+                            <rect x="0" y="9" width="7" height="7" rx="1"/>
+                            <rect x="9" y="9" width="7" height="7" rx="1"/>
                         </svg>
                     </button>
-                    <button class="isp-view-btn @(viewSize == "large"  ? "active" : "")" @onclick='() => SetViewSize("large")'  title="Large grid">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="0" y="0" width="16" height="7" rx="1"/><rect x="0" y="9" width="16" height="7" rx="1"/>
+                    <button class="isp-view-btn @(viewSize == "large"  ? "active" : "")" @onclick='() => SetViewSize("large")'  title="Large">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                            <rect x="0" y="0" width="16" height="7" rx="1"/>
+                            <rect x="0" y="9" width="16" height="7" rx="1"/>
                         </svg>
                     </button>
                 </div>
@@ -146,7 +161,7 @@
             }
         </div>
 
-        <!-- ── Results bar (only once we have data) ── -->
+        <!-- ── Results bar ── -->
         @if (!isLoading || allImages.Any())
         {
             <div class="isp-results-bar">
@@ -155,17 +170,16 @@
                     {
                         <span class="isp-loading-more-badge">
                             <span class="isp-mini-spinner"></span>
-                            Loading more (@loadedFolderCount / @totalFolderCount categories)…
+                            Loading @loadedFolderCount / @totalFolderCount categories…
                         </span>
                     }
-                    else if (allImages.Count > 0)
+                    else if (filteredImages.Count > 0)
                     {
                         @(HasActiveFilters
                             ? $"{filteredImages.Count} of {allImages.Count} images"
                             : $"{allImages.Count} image{(allImages.Count != 1 ? "s" : "")}")
                     }
                 </span>
-
                 @if (!AllowMultiple && SelectedImages.Count > 0)
                 {
                     <button class="isp-clear-selection" @onclick="ClearSelection">Clear selection</button>
@@ -189,7 +203,7 @@
                     }
                 </div>
             }
-            else if (!filteredImages.Any() && !isLoading && !isLoadingMore)
+            else if (!pagedImages.Any() && !isLoading && !isLoadingMore)
             {
                 <div class="isp-state-block">
                     <div class="isp-empty-icon">
@@ -198,7 +212,6 @@
                             <svg width="56" height="56" viewBox="0 0 24 24" fill="none">
                                 <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/>
                                 <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                <path d="M9 11H13M11 9V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                             </svg>
                         }
                         else
@@ -211,17 +224,17 @@
                         }
                     </div>
                     <h3>@(HasActiveFilters ? "No images match your filters" : "No images available")</h3>
-                    <p>@(HasActiveFilters ? "Try adjusting your search or category filter." : "Upload images first to use this picker.")</p>
+                    <p>@(HasActiveFilters ? "Try adjusting your search or category." : "Upload images first.")</p>
                     @if (HasActiveFilters)
                     {
-                        <button class="isp-reset-btn prominent" @onclick="ResetAllFilters">Reset all filters</button>
+                        <button class="isp-reset-btn prominent" @onclick="ResetAllFilters">Reset filters</button>
                     }
                 </div>
             }
             else
             {
                 <div class="isp-grid @viewSize">
-                    @foreach (var image in filteredImages)
+                    @foreach (var image in pagedImages)
                     {
                         var isSelected = SelectedImages.Contains(image.PublicUrl);
                         <AdminImageCard Image="@image"
@@ -231,10 +244,9 @@
                                         OnSelectionChanged="@(_ => HandleImageSelect(image))" />
                     }
 
-                    @* Skeleton placeholders while more batches load *@
                     @if (isLoadingMore)
                     {
-                        @for (int i = 0; i < 8; i++)
+                        @for (int i = 0; i < 4; i++)
                         {
                             <div class="isp-skeleton-card">
                                 <div class="isp-skeleton-img"></div>
@@ -248,6 +260,55 @@
                 </div>
             }
         </div>
+
+        <!-- ── Pagination ── -->
+        @if (totalPages > 1)
+        {
+            <div class="isp-pagination">
+                <button class="isp-page-btn prev-next"
+                        @onclick="PreviousPage"
+                        disabled="@(currentPage <= 1)">
+                    ← Prev
+                </button>
+
+                @{
+                    var startPg = Math.Max(1, currentPage - 2);
+                    var endPg   = Math.Min(totalPages, currentPage + 2);
+
+                    if (startPg > 1)
+                    {
+                        <button class="isp-page-btn" @onclick="@(() => GoToPage(1))">1</button>
+                        if (startPg > 2) { <span class="isp-page-ellipsis">…</span> }
+                    }
+
+                    for (int pg = startPg; pg <= endPg; pg++)
+                    {
+                        var cap = pg;
+                        <button class="isp-page-btn @(cap == currentPage ? "active" : "")"
+                                @onclick="@(() => GoToPage(cap))">
+                            @cap
+                        </button>
+                    }
+
+                    if (endPg < totalPages)
+                    {
+                        if (endPg < totalPages - 1) { <span class="isp-page-ellipsis">…</span> }
+                        <button class="isp-page-btn" @onclick="@(() => GoToPage(totalPages))">@totalPages</button>
+                    }
+                }
+
+                <button class="isp-page-btn prev-next"
+                        @onclick="NextPage"
+                        disabled="@(currentPage >= totalPages)">
+                    Next →
+                </button>
+
+                <span class="isp-page-info">
+                    @((currentPage - 1) * pageSize + 1)–@Math.Min(currentPage * pageSize, filteredImages.Count)
+                    of @filteredImages.Count
+                </span>
+            </div>
+        }
 
         <!-- ── Footer ── -->
         <div class="isp-footer">
@@ -265,7 +326,7 @@
             <div class="isp-footer-actions">
                 <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
                                  Size="SecondaryButton.ButtonSize.Medium"
-                                 OnClick="Close">
+                                 OnClick="HandleClose">
                     Cancel
                 </SecondaryButton>
                 <PrimaryButton Size="PrimaryButton.ButtonSize.Medium"
