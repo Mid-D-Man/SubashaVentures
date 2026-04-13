@@ -1,3 +1,6 @@
+// Components/Shared/Popups/ImageSelectorPopup.razor.cs
+// Only LoadImagesFromFolderAsync changed: FileSize = file.Size (was hardcoded 0)
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using SubashaVentures.Services.Supabase;
@@ -14,30 +17,29 @@ namespace SubashaVentures.Components.Shared.Popups;
 
 public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 {
-    [Inject] private ISupabaseStorageService     StorageService  { get; set; } = default!;
-    [Inject] private IBlazorAppLocalStorageService LocalStorage   { get; set; } = default!;
-    [Inject] private IFirestoreService           FirestoreService { get; set; } = default!;
-    [Inject] private IImageCacheService          ImageCacheService{ get; set; } = default!;
-    [Inject] private IJSRuntime                  JSRuntime        { get; set; } = default!;
-    [Inject] private ILogger<ImageSelectorPopup> Logger           { get; set; } = default!;
+    [Inject] private ISupabaseStorageService      StorageService    { get; set; } = default!;
+    [Inject] private IBlazorAppLocalStorageService LocalStorage      { get; set; } = default!;
+    [Inject] private IFirestoreService            FirestoreService  { get; set; } = default!;
+    [Inject] private IImageCacheService           ImageCacheService { get; set; } = default!;
+    [Inject] private IJSRuntime                   JSRuntime         { get; set; } = default!;
+    [Inject] private ILogger<ImageSelectorPopup>  Logger            { get; set; } = default!;
 
     // ─── Parameters ───────────────────────────────────────────────────────────
 
-    [Parameter] public bool IsOpen                                  { get; set; }
-    [Parameter] public bool AllowMultiple                           { get; set; } = true;
-    [Parameter] public int  MaxSelection                            { get; set; } = 10;
-    [Parameter] public List<string> PreSelectedUrls                 { get; set; } = new();
-    [Parameter] public string? DefaultFolder                        { get; set; }
-    [Parameter] public EventCallback<List<string>> OnImagesSelected { get; set; }
-    [Parameter] public EventCallback OnClose                        { get; set; }
+    [Parameter] public bool IsOpen                                   { get; set; }
+    [Parameter] public bool AllowMultiple                            { get; set; } = true;
+    [Parameter] public int  MaxSelection                             { get; set; } = 10;
+    [Parameter] public List<string> PreSelectedUrls                  { get; set; } = new();
+    [Parameter] public string? DefaultFolder                         { get; set; }
+    [Parameter] public EventCallback<List<string>> OnImagesSelected  { get; set; }
+    [Parameter] public EventCallback OnClose                         { get; set; }
 
     // ─── Loading state ────────────────────────────────────────────────────────
 
-    private bool isLoading     = false;   // initial load, grid is empty
-    private bool isLoadingMore = false;   // batch-by-batch load, grid already has items
-    private bool isInitialized = false;
+    private bool isLoading      = false;
+    private bool isLoadingMore  = false;
+    private bool isInitialized  = false;
 
-    // Batch-load progress (used for the progress bar and results bar)
     private int loadedFolderCount = 0;
     private int totalFolderCount  = 0;
     private int loadingProgress   =>
@@ -66,7 +68,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
     private const string CACHE_KEY              = "image_selector_cache";
     private const int    CACHE_DURATION_MINUTES = 5;
-    /// <summary>Number of Supabase folders to process per batch before re-rendering.</summary>
     private const int    BATCH_SIZE             = 2;
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
@@ -124,7 +125,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     {
         try
         {
-            // Try cache first — instant render, no spinner at all
             var cached = await LoadFromCacheAsync();
             if (cached != null)
             {
@@ -135,7 +135,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // Determine folder list
             var folders = categories.Any()
                 ? categories.Select(c => c.Slug).ToArray()
                 : new[] { "products", "banners", "categories" };
@@ -148,15 +147,10 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             var allImageUrls = new List<string>();
 
-            // ── Process folders in batches ────────────────────────────────────
-            // Each batch fetches BATCH_SIZE folders then re-renders so the user
-            // sees images appearing progressively rather than waiting for all.
             for (int batchStart = 0; batchStart < folders.Length; batchStart += BATCH_SIZE)
             {
                 var batch = folders.Skip(batchStart).Take(BATCH_SIZE).ToArray();
 
-                // After the first batch is done we switch to "loading more" mode
-                // so the grid is already visible with skeleton cards at the bottom.
                 if (batchStart > 0)
                 {
                     isLoading     = false;
@@ -166,29 +160,23 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                 var batchImages = new List<AdminImageCard.ImageItem>();
                 var batchUrls   = new List<string>();
 
-                // Fetch all folders in this batch concurrently
                 var tasks = batch.Select(folder =>
                     LoadImagesFromFolderAsync(folder, batchImages, batchUrls)).ToArray();
 
                 await Task.WhenAll(tasks);
 
-                // Merge into master list and re-render
-                lock (allImages)
-                {
-                    allImages.AddRange(batchImages);
-                }
+                lock (allImages) { allImages.AddRange(batchImages); }
 
                 allImageUrls.AddRange(batchUrls);
                 loadedFolderCount += batch.Length;
 
-                ApplyFilters();   // re-renders the grid with the images loaded so far
+                ApplyFilters();
 
                 await MID_HelperFunctions.DebugMessageAsync(
                     $"[ImageSelector] Batch done: {loadedFolderCount}/{totalFolderCount} folders, " +
                     $"{allImages.Count} total images", LogLevel.Debug);
             }
 
-            // Background preload (non-blocking)
             if (allImageUrls.Any())
             {
                 _ = Task.Run(async () =>
@@ -239,7 +227,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                     PublicUrl      = publicUrl,
                     ThumbnailUrl   = publicUrl,
                     Folder         = folder,
-                    FileSize       = 0,      // defer HEAD requests — too slow per-image at scale
+                    FileSize       = file.Size,   // ← real size from Supabase metadata
                     Dimensions     = "",
                     UploadedAt     = file.UpdatedAt,
                     IsReferenced   = false,
@@ -294,15 +282,10 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
     private void HandleSearchKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape")
-            ClearSearch();
+        if (e.Key == "Escape") ClearSearch();
     }
 
-    private void ClearSearch()
-    {
-        searchQuery = "";
-        ApplyFilters();
-    }
+    private void ClearSearch() { searchQuery = ""; ApplyFilters(); }
 
     private void HandleFolderFilter(ChangeEventArgs e)
     {
@@ -324,11 +307,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         ApplyFilters();
     }
 
-    private void SetViewSize(string size)
-    {
-        viewSize = size;
-        StateHasChanged();
-    }
+    private void SetViewSize(string size) { viewSize = size; StateHasChanged(); }
 
     private void HandleImageSelect(AdminImageCard.ImageItem image)
     {
@@ -356,11 +335,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    private void ClearSelection()
-    {
-        SelectedImages.Clear();
-        StateHasChanged();
-    }
+    private void ClearSelection() { SelectedImages.Clear(); StateHasChanged(); }
 
     private async Task HandleConfirm()
     {
