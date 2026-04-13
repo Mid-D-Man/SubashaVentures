@@ -1,4 +1,3 @@
-// Services/Supabase/ISupabaseStorageService.cs - Updated Interface
 // Services/Supabase/ISupabaseStorageService.cs
 using Microsoft.AspNetCore.Components.Forms;
 
@@ -6,40 +5,60 @@ namespace SubashaVentures.Services.Supabase;
 
 public interface ISupabaseStorageService
 {
-    // RECOMMENDED: Upload using IBrowserFile with optional compression
+    // ── Recommended: IBrowserFile upload with optional compression ────────────
     Task<StorageUploadResult> UploadImageAsync(
         IBrowserFile browserFile,
         string bucketName = "products",
         string? folder = null,
         bool enableCompression = true);
-    
-    // LEGACY: Upload from stream (less reliable)
+
+    // ── Legacy: stream upload ─────────────────────────────────────────────────
     Task<StorageUploadResult> UploadImageAsync(
         Stream fileStream,
         string fileName,
         string bucketName = "products",
         string? folder = null);
-    
+
     Task<List<StorageUploadResult>> UploadImagesAsync(
         List<(Stream stream, string fileName)> files,
         string bucketName = "products",
         string? folder = null);
-    
+
+    // ── Raw bytes upload (used for conversion workflow) ───────────────────────
+    Task<StorageUploadResult> UploadImageBytesAsync(
+        byte[] bytes,
+        string fileName,
+        string contentType,
+        string bucketName = "products",
+        string? folder = null);
+
+    // ── Delete ────────────────────────────────────────────────────────────────
     Task<bool> DeleteImageAsync(string filePath, string bucketName = "products");
     Task<bool> DeleteImagesAsync(List<string> filePaths, string bucketName = "products");
-    
+
+    // ── URL helpers ───────────────────────────────────────────────────────────
     string GetPublicUrl(string filePath, string bucketName = "products");
     Task<string> GetSignedUrlAsync(string filePath, int expiresIn = 3600, string bucketName = "products");
-    
+
+    // ── Listing / metadata ────────────────────────────────────────────────────
     Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products");
     Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, string bucketName = "products");
-    
+
+    // ── Move (category change) ────────────────────────────────────────────────
+    /// <summary>
+    /// Download bytes from sourcePath, upload to destPath, then delete sourcePath.
+    /// Use this to move an image between categories/folders.
+    /// </summary>
+    Task<bool> MoveImageAsync(string sourcePath, string destPath, string bucketName = "products");
+
+    // ── Capacity ──────────────────────────────────────────────────────────────
     Task<StorageCapacityInfo> GetStorageCapacityAsync(string bucketName = "products");
     Task<StorageCapacityCheckResult> CanUploadFileAsync(long fileSizeBytes, string bucketName = "products");
     Task<long> GetBucketSizeAsync(string bucketName = "products");
 }
 
-// Data models remain the same...
+// ── Data models ───────────────────────────────────────────────────────────────
+
 public class StorageUploadResult
 {
     public bool Success { get; set; }
@@ -73,29 +92,23 @@ public class StorageCapacityInfo
     public long TotalCapacityBytes { get; set; }
     public long UsedCapacityBytes { get; set; }
     public long AvailableCapacityBytes => TotalCapacityBytes - UsedCapacityBytes;
-    public double UsagePercentage => TotalCapacityBytes > 0 
-        ? (UsedCapacityBytes / (double)TotalCapacityBytes) * 100 
+    public double UsagePercentage => TotalCapacityBytes > 0
+        ? (UsedCapacityBytes / (double)TotalCapacityBytes) * 100
         : 0;
     public long MaxFileSizeBytes { get; set; } = 50 * 1024 * 1024;
     public string BucketName { get; set; } = string.Empty;
-    
+
     public string FormattedTotalCapacity => FormatBytes(TotalCapacityBytes);
     public string FormattedUsedCapacity => FormatBytes(UsedCapacityBytes);
     public string FormattedAvailableCapacity => FormatBytes(AvailableCapacityBytes);
     public string FormattedMaxFileSize => FormatBytes(MaxFileSizeBytes);
-    
+
     private static string FormatBytes(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB", "TB" };
         double len = bytes;
         int order = 0;
-        
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len = len / 1024;
-        }
-        
+        while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
         return $"{len:0.##} {sizes[order]}";
     }
 }
