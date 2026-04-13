@@ -1,6 +1,6 @@
 // Services/Supabase/SupabaseStorageService.cs
-// WebP-aware upload service. Derives the file extension from the compressed content type
-// so uploaded files are named *.webp rather than keeping the original *.jpg / *.png.
+// WebP-aware upload service + file size extraction from Supabase metadata.
+// MoveImageAsync: download public URL → re-upload to new path → delete source.
 
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Storage;
@@ -15,6 +15,7 @@ public class SupabaseStorageService : ISupabaseStorageService
 {
     private readonly Client _supabaseClient;
     private readonly IImageCompressionService _compressionService;
+    private readonly HttpClient _httpClient;
     private readonly ILogger<SupabaseStorageService> _logger;
 
     private const long MaxFileSizeBytes = 50L * 1024L * 1024L;
@@ -30,10 +31,12 @@ public class SupabaseStorageService : ISupabaseStorageService
     public SupabaseStorageService(
         Client supabaseClient,
         IImageCompressionService compressionService,
+        HttpClient httpClient,
         ILogger<SupabaseStorageService> logger)
     {
         _supabaseClient     = supabaseClient;
         _compressionService = compressionService;
+        _httpClient         = httpClient;
         _logger             = logger;
     }
 
@@ -54,7 +57,6 @@ public class SupabaseStorageService : ISupabaseStorageService
                 return new StorageUploadResult { Success = false, ErrorMessage = validation.ErrorMessage };
             }
 
-            // Compress + convert to WebP (default)
             var compression = await _compressionService.CompressImageAsync(
                 browserFile,
                 maxWidth          : 2000,
@@ -72,15 +74,11 @@ public class SupabaseStorageService : ISupabaseStorageService
                 };
             }
 
-            // Derive extension from the actual output content type (may be .webp, .jpg, .png …)
-            var outputExt    = ImageCompressionService.MimeToExtension(compression.ContentType);
-            var baseName     = SanitizeFileName(Path.GetFileNameWithoutExtension(browserFile.Name));
-            var timestamp    = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var outputExt      = ImageCompressionService.MimeToExtension(compression.ContentType);
+            var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(browserFile.Name));
+            var timestamp      = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             var uniqueFileName = $"{baseName}_{timestamp}{outputExt}";
-
-            var filePath = string.IsNullOrEmpty(folder)
-                ? uniqueFileName
-                : $"{folder}/{uniqueFileName}";
+            var filePath       = string.IsNullOrEmpty(folder) ? uniqueFileName : $"{folder}/{uniqueFileName}";
 
             byte[] fileBytes;
             using (var ms = new MemoryStream())
@@ -102,9 +100,7 @@ public class SupabaseStorageService : ISupabaseStorageService
                 });
 
             if (string.IsNullOrEmpty(uploadedPath))
-            {
                 return new StorageUploadResult { Success = false, ErrorMessage = "Supabase returned empty path" };
-            }
 
             var publicUrl = GetPublicUrl(filePath, bucketName);
 
@@ -145,7 +141,6 @@ public class SupabaseStorageService : ISupabaseStorageService
             var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
             var timestamp      = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             var ext            = Path.GetExtension(fileName).ToLowerInvariant();
-            // Keep original extension for stream uploads (no conversion possible here)
             var uniqueFileName = $"{baseName}_{timestamp}{ext}";
             var filePath       = string.IsNullOrEmpty(folder) ? uniqueFileName : $"{folder}/{uniqueFileName}";
             var mimeType       = ExtToMime(ext);
@@ -192,6 +187,126 @@ public class SupabaseStorageService : ISupabaseStorageService
             await Task.Delay(100);
         }
         return results;
+    }
+
+    // ─── Upload (Raw bytes — for conversion workflow) ─────────────────────────
+
+    public async Task<StorageUploadResult> UploadImageBytesAsync(
+        byte[] bytes,
+        string fileName,
+        string contentType,
+        string bucketName = "products",
+        string? folder    = null)
+    {
+        try
+        {
+            if (bytes == null || bytes.Length == 0)
+                return new StorageUploadResult { Success = false, ErrorMessage = "Empty byte array" };
+
+            var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
+            var ext            = Path.GetExtension(fileName).ToLowerInvariant();
+            if (string.IsNullOrEmpty(ext))
+                ext = MimeToExt(contentType);
+
+            var timestamp      = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var uniqueFileName = $"{baseName}_{timestamp}{ext}";
+            var filePath       = string.IsNullOrEmpty(folder) ? uniqueFileName : $"{folder}/{uniqueFileName}";
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[Storage] Uploading bytes: {filePath} ({bytes.Length / 1024} KB) [{contentType}]",
+                LogLevel.Info);
+
+            var uploadedPath = await _supabaseClient.Storage
+                .From(GetBucketId(bucketName))
+                .Upload(bytes, filePath, new FileOptions { ContentType = contentType, Upsert = false });
+
+            if (string.IsNullOrEmpty(uploadedPath))
+                return new StorageUploadResult { Success = false, ErrorMessage = "Supabase returned empty path" };
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[Storage] ✓ Bytes uploaded: {uniqueFileName} ({bytes.Length / 1024} KB)",
+                LogLevel.Info);
+
+            return new StorageUploadResult
+            {
+                Success     = true,
+                FilePath    = filePath,
+                PublicUrl   = GetPublicUrl(filePath, bucketName),
+                FileSize    = bytes.Length,
+                ContentType = contentType
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UploadImageBytesAsync failed: {FileName}", fileName);
+            return new StorageUploadResult { Success = false, ErrorMessage = BuildUploadErrorMessage(ex) };
+        }
+    }
+
+    // ─── Move (category change) ───────────────────────────────────────────────
+
+    public async Task<bool> MoveImageAsync(string sourcePath, string destPath, string bucketName = "products")
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(destPath))
+                return false;
+
+            if (sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase))
+                return true; // Nothing to do
+
+            // 1. Download from public URL
+            var publicUrl = GetPublicUrl(sourcePath, bucketName);
+            byte[] bytes;
+
+            try
+            {
+                bytes = await _httpClient.GetByteArrayAsync(publicUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[Storage] MoveImage: failed to download {Src}", sourcePath);
+                return false;
+            }
+
+            if (bytes == null || bytes.Length == 0)
+            {
+                _logger.LogWarning("[Storage] MoveImage: empty download for {Src}", sourcePath);
+                return false;
+            }
+
+            // 2. Upload to destination path (upsert=true in case dest already exists)
+            var ext      = Path.GetExtension(sourcePath).ToLowerInvariant();
+            var mimeType = ExtToMime(ext);
+
+            var uploadResult = await _supabaseClient.Storage
+                .From(GetBucketId(bucketName))
+                .Upload(bytes, destPath, new FileOptions { ContentType = mimeType, Upsert = true });
+
+            if (string.IsNullOrEmpty(uploadResult))
+            {
+                _logger.LogError("[Storage] MoveImage: upload to {Dst} failed", destPath);
+                return false;
+            }
+
+            // 3. Delete original
+            var deleted = await DeleteImageAsync(sourcePath, bucketName);
+            if (!deleted)
+            {
+                // Upload succeeded but delete failed — warn but return true (dest exists)
+                _logger.LogWarning("[Storage] MoveImage: uploaded to {Dst} but failed to delete {Src}", destPath, sourcePath);
+            }
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[Storage] ✓ Moved: {sourcePath} → {destPath}", LogLevel.Info);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Storage] MoveImageAsync failed: {Src} → {Dst}", sourcePath, destPath);
+            return false;
+        }
     }
 
     // ─── Delete ───────────────────────────────────────────────────────────────
@@ -271,13 +386,14 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             var files = await _supabaseClient.Storage.From(GetBucketId(bucketName)).List(folder);
+
             return files.Select(f => new StorageFile
             {
                 Name        = f.Name        ?? string.Empty,
                 Id          = f.Id          ?? Guid.NewGuid().ToString(),
                 UpdatedAt   = f.UpdatedAt   ?? DateTime.UtcNow,
-                Size        = 0,
-                ContentType = string.Empty
+                Size        = ExtractFileSize(f),
+                ContentType = ExtractContentType(f)
             }).ToList();
         }
         catch (Exception ex)
@@ -300,10 +416,10 @@ public class SupabaseStorageService : ISupabaseStorageService
             return new StorageFileMetadata
             {
                 Name        = file.Name ?? string.Empty,
-                Size        = 0,
+                Size        = ExtractFileSize(file),
                 CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
                 UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
-                ContentType = string.Empty
+                ContentType = ExtractContentType(file)
             };
         }
         catch (Exception ex)
@@ -353,6 +469,45 @@ public class SupabaseStorageService : ISupabaseStorageService
         return id;
     }
 
+    /// <summary>
+    /// Safely extract file size from Supabase FileObject metadata.
+    /// The metadata property is Dictionary&lt;string, object&gt; where values may be JToken.
+    /// We round-trip through JSON to a typed DTO for reliability.
+    /// </summary>
+    private static long ExtractFileSize(Supabase.Storage.FileObject f)
+    {
+        try
+        {
+            if (f.Metadata == null) return 0;
+
+            // Round-trip through JSON → typed DTO (handles JToken values from Newtonsoft)
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(f.Metadata);
+            var meta = Newtonsoft.Json.JsonConvert.DeserializeObject<SupabaseFileMetaDto>(json);
+
+            // Supabase uses both "size" and "contentLength" depending on SDK version
+            return meta?.Size ?? meta?.ContentLength ?? 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static string ExtractContentType(Supabase.Storage.FileObject f)
+    {
+        try
+        {
+            if (f.Metadata == null) return string.Empty;
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(f.Metadata);
+            var meta = Newtonsoft.Json.JsonConvert.DeserializeObject<SupabaseFileMetaDto>(json);
+            return meta?.MimeType ?? meta?.ContentType ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     private static string SanitizeFileName(string fileName)
     {
         var invalid = Path.GetInvalidFileNameChars();
@@ -369,6 +524,16 @@ public class SupabaseStorageService : ISupabaseStorageService
         _       => "image/jpeg"
     };
 
+    private static string MimeToExt(string mime) => mime.ToLowerInvariant() switch
+    {
+        "image/webp" => ".webp",
+        "image/jpeg" => ".jpg",
+        "image/jpg"  => ".jpg",
+        "image/png"  => ".png",
+        "image/gif"  => ".gif",
+        _            => ".jpg"
+    };
+
     private static string BuildUploadErrorMessage(Exception ex)
     {
         if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
@@ -378,10 +543,6 @@ public class SupabaseStorageService : ISupabaseStorageService
         return ex.Message;
     }
 
-    /// <summary>
-    /// Extracts the storage file path from a Supabase public URL.
-    /// URL format: https://[ref].supabase.co/storage/v1/object/public/[bucket-id]/[file-path]
-    /// </summary>
     public string? ExtractFilePathFromUrl(string publicUrl, string bucketName)
     {
         try
@@ -396,5 +557,34 @@ public class SupabaseStorageService : ISupabaseStorageService
         {
             return null;
         }
+    }
+
+    // ─── Supabase metadata DTO ────────────────────────────────────────────────
+
+    private sealed class SupabaseFileMetaDto
+    {
+        [Newtonsoft.Json.JsonProperty("size")]
+        public long? Size { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("contentLength")]
+        public long? ContentLength { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("mimetype")]
+        public string? MimeType { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("contentType")]
+        public string? ContentType { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("cacheControl")]
+        public string? CacheControl { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("eTag")]
+        public string? ETag { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("lastModified")]
+        public DateTime? LastModified { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("httpStatusCode")]
+        public int? HttpStatusCode { get; set; }
     }
 }
