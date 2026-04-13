@@ -1,6 +1,7 @@
 // Services/Supabase/SupabaseStorageService.cs
-// WebP-aware upload service + file size extraction from Supabase metadata.
-// MoveImageAsync: download public URL → re-upload to new path → delete source.
+// Fix: private helpers now take Dictionary<string,object>? instead of
+// Supabase.Storage.FileObject — that type reference ambiguated with our own
+// namespace (SubashaVentures.Services.Supabase) causing the build error.
 
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Storage;
@@ -44,18 +45,15 @@ public class SupabaseStorageService : ISupabaseStorageService
 
     public async Task<StorageUploadResult> UploadImageAsync(
         IBrowserFile browserFile,
-        string bucketName        = "products",
-        string? folder           = null,
-        bool enableCompression   = true)
+        string bucketName      = "products",
+        string? folder         = null,
+        bool enableCompression = true)
     {
         try
         {
             var validation = await _compressionService.ValidateImageAsync(browserFile);
             if (!validation.IsValid)
-            {
-                _logger.LogWarning("Validation failed: {Err}", validation.ErrorMessage);
                 return new StorageUploadResult { Success = false, ErrorMessage = validation.ErrorMessage };
-            }
 
             var compression = await _compressionService.CompressImageAsync(
                 browserFile,
@@ -66,13 +64,11 @@ public class SupabaseStorageService : ISupabaseStorageService
                 outputFormat      : ImageOutputFormat.WebP);
 
             if (!compression.Success || compression.CompressedStream == null)
-            {
                 return new StorageUploadResult
                 {
                     Success      = false,
                     ErrorMessage = compression.ErrorMessage ?? "Compression failed"
                 };
-            }
 
             var outputExt      = ImageCompressionService.MimeToExtension(compression.ContentType);
             var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(browserFile.Name));
@@ -102,8 +98,6 @@ public class SupabaseStorageService : ISupabaseStorageService
             if (string.IsNullOrEmpty(uploadedPath))
                 return new StorageUploadResult { Success = false, ErrorMessage = "Supabase returned empty path" };
 
-            var publicUrl = GetPublicUrl(filePath, bucketName);
-
             await MID_HelperFunctions.DebugMessageAsync(
                 $"[Storage] ✓ Uploaded: {uniqueFileName} " +
                 $"({compression.OriginalSize / 1024} KB → {compression.CompressedSize / 1024} KB, " +
@@ -114,7 +108,7 @@ public class SupabaseStorageService : ISupabaseStorageService
             {
                 Success     = true,
                 FilePath    = filePath,
-                PublicUrl   = publicUrl,
+                PublicUrl   = GetPublicUrl(filePath, bucketName),
                 FileSize    = compression.CompressedSize,
                 ContentType = compression.ContentType
             };
@@ -205,8 +199,7 @@ public class SupabaseStorageService : ISupabaseStorageService
 
             var baseName       = SanitizeFileName(Path.GetFileNameWithoutExtension(fileName));
             var ext            = Path.GetExtension(fileName).ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext))
-                ext = MimeToExt(contentType);
+            if (string.IsNullOrEmpty(ext)) ext = MimeToExt(contentType);
 
             var timestamp      = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             var uniqueFileName = $"{baseName}_{timestamp}{ext}";
@@ -249,20 +242,13 @@ public class SupabaseStorageService : ISupabaseStorageService
     {
         try
         {
-            if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(destPath))
-                return false;
+            if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(destPath)) return false;
+            if (sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase)) return true;
 
-            if (sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase))
-                return true; // Nothing to do
-
-            // 1. Download from public URL
             var publicUrl = GetPublicUrl(sourcePath, bucketName);
             byte[] bytes;
 
-            try
-            {
-                bytes = await _httpClient.GetByteArrayAsync(publicUrl);
-            }
+            try   { bytes = await _httpClient.GetByteArrayAsync(publicUrl); }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[Storage] MoveImage: failed to download {Src}", sourcePath);
@@ -275,7 +261,6 @@ public class SupabaseStorageService : ISupabaseStorageService
                 return false;
             }
 
-            // 2. Upload to destination path (upsert=true in case dest already exists)
             var ext      = Path.GetExtension(sourcePath).ToLowerInvariant();
             var mimeType = ExtToMime(ext);
 
@@ -289,13 +274,9 @@ public class SupabaseStorageService : ISupabaseStorageService
                 return false;
             }
 
-            // 3. Delete original
             var deleted = await DeleteImageAsync(sourcePath, bucketName);
             if (!deleted)
-            {
-                // Upload succeeded but delete failed — warn but return true (dest exists)
                 _logger.LogWarning("[Storage] MoveImage: uploaded to {Dst} but failed to delete {Src}", destPath, sourcePath);
-            }
 
             await MID_HelperFunctions.DebugMessageAsync(
                 $"[Storage] ✓ Moved: {sourcePath} → {destPath}", LogLevel.Info);
@@ -316,15 +297,16 @@ public class SupabaseStorageService : ISupabaseStorageService
         try
         {
             if (string.IsNullOrEmpty(filePath)) return false;
-            var bucketId = GetBucketId(bucketName);
-            var response = await _supabaseClient.Storage.From(bucketId).Remove(new List<string> { filePath });
+            var response = await _supabaseClient.Storage
+                .From(GetBucketId(bucketName))
+                .Remove(new List<string> { filePath });
             if (response == null) return false;
             _logger.LogInformation("[Storage] ✓ Deleted: {Path}", filePath);
             return true;
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("404") || ex.Message.Contains("not found"))
         {
-            _logger.LogWarning("[Storage] File not found (treating as success): {Path}", filePath);
+            _logger.LogWarning("[Storage] Not found (treating as success): {Path}", filePath);
             return true;
         }
         catch (Exception ex)
@@ -343,26 +325,15 @@ public class SupabaseStorageService : ISupabaseStorageService
             var response = await _supabaseClient.Storage.From(GetBucketId(bucketName)).Remove(valid);
             return response != null;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Batch delete failed");
-            return false;
-        }
+        catch (Exception ex) { _logger.LogError(ex, "Batch delete failed"); return false; }
     }
 
     // ─── URL helpers ──────────────────────────────────────────────────────────
 
     public string GetPublicUrl(string filePath, string bucketName = "products")
     {
-        try
-        {
-            return _supabaseClient.Storage.From(GetBucketId(bucketName)).GetPublicUrl(filePath) ?? string.Empty;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "GetPublicUrl failed: {Path}", filePath);
-            return string.Empty;
-        }
+        try { return _supabaseClient.Storage.From(GetBucketId(bucketName)).GetPublicUrl(filePath) ?? string.Empty; }
+        catch (Exception ex) { _logger.LogError(ex, "GetPublicUrl failed: {Path}", filePath); return string.Empty; }
     }
 
     public async Task<string> GetSignedUrlAsync(string filePath, int expiresIn = 3600, string bucketName = "products")
@@ -372,11 +343,7 @@ public class SupabaseStorageService : ISupabaseStorageService
             return await _supabaseClient.Storage.From(GetBucketId(bucketName))
                        .CreateSignedUrl(filePath, expiresIn) ?? string.Empty;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "GetSignedUrl failed: {Path}", filePath);
-            return string.Empty;
-        }
+        catch (Exception ex) { _logger.LogError(ex, "GetSignedUrl failed: {Path}", filePath); return string.Empty; }
     }
 
     // ─── List / metadata ─────────────────────────────────────────────────────
@@ -389,11 +356,13 @@ public class SupabaseStorageService : ISupabaseStorageService
 
             return files.Select(f => new StorageFile
             {
-                Name        = f.Name        ?? string.Empty,
-                Id          = f.Id          ?? Guid.NewGuid().ToString(),
-                UpdatedAt   = f.UpdatedAt   ?? DateTime.UtcNow,
-                Size        = ExtractFileSize(f),
-                ContentType = ExtractContentType(f)
+                Name        = f.Name      ?? string.Empty,
+                Id          = f.Id        ?? Guid.NewGuid().ToString(),
+                UpdatedAt   = f.UpdatedAt ?? DateTime.UtcNow,
+                // Pass the raw metadata dictionary — avoids Supabase.Storage.FileObject
+                // type reference which ambiguates with our own namespace.
+                Size        = ExtractSize(f.Metadata),
+                ContentType = ExtractMimeType(f.Metadata)
             }).ToList();
         }
         catch (Exception ex)
@@ -415,32 +384,26 @@ public class SupabaseStorageService : ISupabaseStorageService
 
             return new StorageFileMetadata
             {
-                Name        = file.Name ?? string.Empty,
-                Size        = ExtractFileSize(file),
+                Name        = file.Name      ?? string.Empty,
+                Size        = ExtractSize(file.Metadata),
                 CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
                 UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
-                ContentType = ExtractContentType(file)
+                ContentType = ExtractMimeType(file.Metadata)
             };
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath);
-            return null;
-        }
+        catch (Exception ex) { _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath); return null; }
     }
 
     // ─── Capacity ─────────────────────────────────────────────────────────────
 
-    public async Task<StorageCapacityInfo> GetStorageCapacityAsync(string bucketName = "products")
-    {
-        return new StorageCapacityInfo
+    public async Task<StorageCapacityInfo> GetStorageCapacityAsync(string bucketName = "products") =>
+        new StorageCapacityInfo
         {
             TotalCapacityBytes = 100L * 1024L * 1024L * 1024L,
             UsedCapacityBytes  = await GetBucketSizeAsync(bucketName),
             MaxFileSizeBytes   = MaxFileSizeBytes,
             BucketName         = bucketName
         };
-    }
 
     public async Task<StorageCapacityCheckResult> CanUploadFileAsync(long fileSizeBytes, string bucketName = "products")
     {
@@ -457,8 +420,7 @@ public class SupabaseStorageService : ISupabaseStorageService
         return new StorageCapacityCheckResult { CanUpload = true };
     }
 
-    public Task<long> GetBucketSizeAsync(string bucketName = "products") =>
-        Task.FromResult(0L);
+    public Task<long> GetBucketSizeAsync(string bucketName = "products") => Task.FromResult(0L);
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
@@ -470,42 +432,35 @@ public class SupabaseStorageService : ISupabaseStorageService
     }
 
     /// <summary>
-    /// Safely extract file size from Supabase FileObject metadata.
-    /// The metadata property is Dictionary&lt;string, object&gt; where values may be JToken.
-    /// We round-trip through JSON to a typed DTO for reliability.
+    /// Extract file size from Supabase metadata dictionary.
+    /// We take Dictionary&lt;string,object&gt;? instead of FileObject to avoid
+    /// the Supabase.Storage type reference ambiguating with our namespace.
     /// </summary>
-    private static long ExtractFileSize(Supabase.Storage.FileObject f)
+    private static long ExtractSize(Dictionary<string, object>? metadata)
     {
+        if (metadata == null) return 0;
+
         try
         {
-            if (f.Metadata == null) return 0;
-
-            // Round-trip through JSON → typed DTO (handles JToken values from Newtonsoft)
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(f.Metadata);
-            var meta = Newtonsoft.Json.JsonConvert.DeserializeObject<SupabaseFileMetaDto>(json);
-
-            // Supabase uses both "size" and "contentLength" depending on SDK version
-            return meta?.Size ?? meta?.ContentLength ?? 0;
+            // Round-trip via JSON so JToken values get normalised
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(metadata);
+            var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<MetaDto>(json);
+            return dto?.Size ?? dto?.ContentLength ?? 0;
         }
-        catch
-        {
-            return 0;
-        }
+        catch { return 0; }
     }
 
-    private static string ExtractContentType(Supabase.Storage.FileObject f)
+    private static string ExtractMimeType(Dictionary<string, object>? metadata)
     {
+        if (metadata == null) return string.Empty;
+
         try
         {
-            if (f.Metadata == null) return string.Empty;
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(f.Metadata);
-            var meta = Newtonsoft.Json.JsonConvert.DeserializeObject<SupabaseFileMetaDto>(json);
-            return meta?.MimeType ?? meta?.ContentType ?? string.Empty;
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(metadata);
+            var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<MetaDto>(json);
+            return dto?.MimeType ?? dto?.ContentType ?? string.Empty;
         }
-        catch
-        {
-            return string.Empty;
-        }
+        catch { return string.Empty; }
     }
 
     private static string SanitizeFileName(string fileName)
@@ -537,9 +492,9 @@ public class SupabaseStorageService : ISupabaseStorageService
     private static string BuildUploadErrorMessage(Exception ex)
     {
         if (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
-            return "Permission denied. Check bucket permissions in Supabase.";
+            return "Permission denied — check bucket permissions in Supabase.";
         if (ex.Message.Contains("404") || ex.Message.Contains("Not Found"))
-            return "Bucket does not exist. Create it in Supabase Dashboard.";
+            return "Bucket does not exist — create it in Supabase Dashboard.";
         return ex.Message;
     }
 
@@ -553,15 +508,12 @@ public class SupabaseStorageService : ISupabaseStorageService
             var idx      = publicUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
             return idx >= 0 ? Uri.UnescapeDataString(publicUrl[(idx + marker.Length)..]) : null;
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 
-    // ─── Supabase metadata DTO ────────────────────────────────────────────────
+    // ─── Metadata DTO (private) ───────────────────────────────────────────────
 
-    private sealed class SupabaseFileMetaDto
+    private sealed class MetaDto
     {
         [Newtonsoft.Json.JsonProperty("size")]
         public long? Size { get; set; }
@@ -574,17 +526,5 @@ public class SupabaseStorageService : ISupabaseStorageService
 
         [Newtonsoft.Json.JsonProperty("contentType")]
         public string? ContentType { get; set; }
-
-        [Newtonsoft.Json.JsonProperty("cacheControl")]
-        public string? CacheControl { get; set; }
-
-        [Newtonsoft.Json.JsonProperty("eTag")]
-        public string? ETag { get; set; }
-
-        [Newtonsoft.Json.JsonProperty("lastModified")]
-        public DateTime? LastModified { get; set; }
-
-        [Newtonsoft.Json.JsonProperty("httpStatusCode")]
-        public int? HttpStatusCode { get; set; }
     }
 }
