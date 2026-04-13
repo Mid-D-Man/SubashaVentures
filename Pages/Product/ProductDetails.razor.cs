@@ -1,10 +1,13 @@
+// Pages/Product/ProductDetails.razor.cs
 using Microsoft.AspNetCore.Components;
+using SubashaVentures.Domain.Partner;
 using SubashaVentures.Domain.Product;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Cart;
 using SubashaVentures.Services.Wishlist;
 using SubashaVentures.Services.VisualElements;
+using SubashaVentures.Services.Partners;
 using SubashaVentures.Models.Firebase;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Domain.Enums;
@@ -27,14 +30,20 @@ public partial class ProductDetails : ComponentBase, IDisposable
     [Inject] private IWishlistService WishlistService { get; set; } = default!;
     [Inject] private IProductInteractionService InteractionService { get; set; } = default!;
     [Inject] private IVisualElementsService VisualElements { get; set; } = default!;
+    [Inject] private IPartnerStoreService PartnerStoreService { get; set; } = default!;
     [Inject] private ProductViewTracker ViewTracker { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private ILogger<ProductDetails> Logger { get; set; } = default!;
 
+    // ── Product & related ──────────────────────────────────────
     private ProductViewModel? Product;
     private List<ReviewViewModel> Reviews = new();
     private List<ProductViewModel> RelatedProducts = new();
-    
+
+    // ── Partner store (populated only for partner products) ────
+    private PartnerStoreViewModel? PartnerStore = null;
+
+    // ── State flags ────────────────────────────────────────────
     private bool IsLoading = true;
     private bool IsAuthenticated = false;
     private bool IsInCart = false;
@@ -46,36 +55,35 @@ public partial class ProductDetails : ComponentBase, IDisposable
     private bool ShowReviewConfirmation = false;
     private bool ImageLoading = true;
     private bool ThumbnailsLoading = true;
-    
+
     private string? CurrentUserId;
     private string SelectedImage = string.Empty;
     private int SelectedQuantity = 1;
-    
-    // Variant selection
-    private string? SelectedSize = null;
+
+    private string? SelectedSize  = null;
     private string? SelectedColor = null;
     private string? CurrentVariantKey = null;
-    
-    // SVG icons
-    private string starSvg = string.Empty;
-    private string flameSvg = string.Empty;
-    private string warningSvg = string.Empty;
-    private string checkMarkSvg = string.Empty;
-    private string closeSvg = string.Empty;
-    private string cartSvg = string.Empty;
-    private string heartSvg = string.Empty;
-    private string shippingSvg = string.Empty;
-    private string weightSvg = string.Empty;
-    private string buyNowSvg = string.Empty;
-    private string editSvg = string.Empty;
+
+    // ── SVG icons ──────────────────────────────────────────────
+    private string starSvg       = string.Empty;
+    private string flameSvg      = string.Empty;
+    private string warningSvg    = string.Empty;
+    private string checkMarkSvg  = string.Empty;
+    private string closeSvg      = string.Empty;
+    private string cartSvg       = string.Empty;
+    private string heartSvg      = string.Empty;
+    private string shippingSvg   = string.Empty;
+    private string weightSvg     = string.Empty;
+    private string buyNowSvg     = string.Empty;
+    private string editSvg       = string.Empty;
     private string allProductsSvg = string.Empty;
-    
-    // Track time spent on page
+
     private Stopwatch? _pageViewStopwatch;
     private DateTime _pageLoadTime;
-    
-    // Reference to confirmation popup
+
     private ConfirmationPopup? ReviewConfirmationPopup;
+
+    // ── Lifecycle ──────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,18 +94,13 @@ public partial class ProductDetails : ComponentBase, IDisposable
             _pageViewStopwatch = Stopwatch.StartNew();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"🔄 Loading product details for slug: {Slug}",
-                LogLevel.Info
-            );
+                $"🔄 Loading product details for slug: {Slug}", LogLevel.Info);
 
-            // Load SVGs first
             await LoadSvgsAsync();
 
             IsAuthenticated = await PermissionService.IsAuthenticatedAsync();
             if (IsAuthenticated)
-            {
                 CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
 
             await LoadProductDetails();
         }
@@ -118,51 +121,42 @@ public partial class ProductDetails : ComponentBase, IDisposable
         {
             var tasks = new[]
             {
-                VisualElements.GetCustomSvgAsync(SvgType.Star, width: 16, height: 16, fillColor: "currentColor"),
-                VisualElements.GetCustomSvgAsync(SvgType.Flame, width: 16, height: 16, fillColor: "currentColor"),
-                VisualElements.GetCustomSvgAsync(SvgType.Warning, width: 20, height: 20, fillColor: "currentColor"),
-                VisualElements.GetCustomSvgAsync(SvgType.CheckMark, width: 18, height: 18, fillColor: "currentColor"),
-                VisualElements.GetCustomSvgAsync(SvgType.Close, width: 18, height: 18, fillColor: "currentColor"),
-                VisualElements.GetCustomSvgAsync(SvgType.Cart, width: 20, height: 20, fillColor: "currentColor"),
-                VisualElements.GetCustomSvgAsync(SvgType.Heart, width: 20, height: 20, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Star,        width: 16, height: 16, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Flame,       width: 16, height: 16, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Warning,     width: 20, height: 20, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.CheckMark,   width: 18, height: 18, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Close,       width: 18, height: 18, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Cart,        width: 20, height: 20, fillColor: "currentColor"),
+                VisualElements.GetCustomSvgAsync(SvgType.Heart,       width: 20, height: 20, fillColor: "currentColor"),
                 Task.Run(async () => VisualElements.GenerateSvg(
                     "<path d='M3 3h18v2H3V3zm0 6h18v2H3V9zm0 6h18v2H3v-2z'/><path d='M19 7l-5 5 5 5'/>",
-                    width: 20, height: 20, viewBox: "0 0 24 24"
-                )), // Shipping truck icon
+                    width: 20, height: 20, viewBox: "0 0 24 24")),
                 Task.Run(async () => VisualElements.GenerateSvg(
                     "<path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/>",
-                    width: 20, height: 20, viewBox: "0 0 24 24"
-                )), // Weight scale icon
+                    width: 20, height: 20, viewBox: "0 0 24 24")),
                 Task.Run(async () => VisualElements.GenerateSvg(
                     "<path d='M13 3l-6 9h4v9l6-9h-4V3z'/>",
-                    width: 20, height: 20, viewBox: "0 0 24 24"
-                )), // Buy now lightning bolt
+                    width: 20, height: 20, viewBox: "0 0 24 24")),
                 Task.Run(async () => VisualElements.GenerateSvg(
                     "<path d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/>",
-                    width: 18, height: 18, viewBox: "0 0 24 24"
-                )), // Edit/write review pencil
-                VisualElements.GetCustomSvgAsync(SvgType.AllProducts, width: 64, height: 64, fillColor: "var(--gray-400)")
+                    width: 18, height: 18, viewBox: "0 0 24 24")),
+                VisualElements.GetCustomSvgAsync(SvgType.AllProducts,  width: 64, height: 64, fillColor: "var(--gray-400)")
             };
 
             var results = await Task.WhenAll(tasks);
 
-            starSvg = results[0];
-            flameSvg = results[1];
-            warningSvg = results[2];
-            checkMarkSvg = results[3];
-            closeSvg = results[4];
-            cartSvg = results[5];
-            heartSvg = results[6];
-            shippingSvg = results[7];
-            weightSvg = results[8];
-            buyNowSvg = results[9];
-            editSvg = results[10];
+            starSvg       = results[0];
+            flameSvg      = results[1];
+            warningSvg    = results[2];
+            checkMarkSvg  = results[3];
+            closeSvg      = results[4];
+            cartSvg       = results[5];
+            heartSvg      = results[6];
+            shippingSvg   = results[7];
+            weightSvg     = results[8];
+            buyNowSvg     = results[9];
+            editSvg       = results[10];
             allProductsSvg = results[11];
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                "✓ All product detail SVGs loaded successfully",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
@@ -171,131 +165,103 @@ public partial class ProductDetails : ComponentBase, IDisposable
     }
 
     protected override async Task OnParametersSetAsync()
-{
-    // Handle slug changes (e.g., from related products)
-    if (!IsLoading && Product != null && !Product.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase))
     {
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"🔄 Slug changed from {Product.Slug} to {Slug}, reloading...",
-            LogLevel.Info
-        );
-        
-        IsLoading = true;
-        ImageLoading = true;  // Only show skeleton when loading new product
-        ThumbnailsLoading = true;
-        StateHasChanged();
-        
-        await LoadProductDetails();
-        
-        IsLoading = false;
-        StateHasChanged();
+        if (!IsLoading && Product != null &&
+            !Product.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase))
+        {
+            IsLoading          = true;
+            ImageLoading       = true;
+            ThumbnailsLoading  = true;
+            PartnerStore       = null;
+            StateHasChanged();
+
+            await LoadProductDetails();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
     }
-}
 
-private async Task LoadProductDetails()
-{
-    try
+    private async Task LoadProductDetails()
     {
-        // Get all products and find by slug
-        var allProducts = await ProductService.GetAllProductsAsync();
-        Product = allProducts.FirstOrDefault(p => 
-            p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase) && 
-            p.IsActive && 
-            !string.IsNullOrEmpty(p.Name)
-        );
-
-        if (Product == null)
+        try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"❌ Product not found for slug: {Slug}",
-                LogLevel.Warning
-            );
-            return;
+            var allProducts = await ProductService.GetAllProductsAsync();
+            Product = allProducts.FirstOrDefault(p =>
+                p.Slug.Equals(Slug, StringComparison.OrdinalIgnoreCase) &&
+                p.IsActive &&
+                !string.IsNullOrEmpty(p.Name));
+
+            if (Product == null)
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"❌ Product not found for slug: {Slug}", LogLevel.Warning);
+                return;
+            }
+
+            SelectedImage     = Product.Images?.FirstOrDefault() ?? string.Empty;
+            ImageLoading      = false;
+            ThumbnailsLoading = false;
+
+            if (Product.Sizes?.Any() == true)  SelectedSize  = Product.Sizes.First();
+            if (Product.Colors?.Any() == true) SelectedColor = Product.Colors.First();
+            UpdateVariantKey();
+
+            // ── Load partner store if this is a partner product ────
+            if (!Product.IsOwnedByStore && Product.PartnerId.HasValue)
+            {
+                try
+                {
+                    PartnerStore = await PartnerStoreService.GetStoreByPartnerIdAsync(
+                        Product.PartnerId.Value.ToString());
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Could not load partner store for product {Id}", Product.Id);
+                }
+            }
+
+            // Track view
+            if (!string.IsNullOrEmpty(CurrentUserId))
+                await InteractionService.TrackViewAsync(Product.Id, CurrentUserId);
+
+            await ViewTracker.TrackProductViewAsync(Product);
+
+            if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
+                await CheckCartAndWishlistStatus();
+
+            await LoadReviews();
+            await LoadRelatedProducts();
+
+            StateHasChanged();
         }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"✅ Product loaded: {Product.Name} (ID: {Product.Id})",
-            LogLevel.Info
-        );
-
-        // Set selected image
-        SelectedImage = Product.Images?.FirstOrDefault() ?? string.Empty;
-        
-        // Reset image loading states after product is loaded
-        ImageLoading = false;
-        ThumbnailsLoading = false;
-        
-        // Initialize variant selection to first available
-        if (Product.Sizes != null && Product.Sizes.Any())
+        catch (Exception ex)
         {
-            SelectedSize = Product.Sizes.First();
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading product details: {Slug}");
+            Logger.LogError(ex, "Failed to load product details");
         }
-        
-        if (Product.Colors != null && Product.Colors.Any())
-        {
-            SelectedColor = Product.Colors.First();
-        }
-        
-        UpdateVariantKey();
+    }
 
-        // Track product view
-        if (!string.IsNullOrEmpty(CurrentUserId))
-        {
-            await InteractionService.TrackViewAsync(Product.Id, CurrentUserId);
-        }
-
-        // Track in localStorage for history page
-        await ViewTracker.TrackProductViewAsync(Product);
-
-        // Load user-specific data
-        if (IsAuthenticated && !string.IsNullOrEmpty(CurrentUserId))
-        {
-            await CheckCartAndWishlistStatus();
-        }
-
-        // Load reviews
-        await LoadReviews();
-
-        // Load related products
-        await LoadRelatedProducts();
-
+    private void SelectImage(string image)
+    {
+        SelectedImage = image;
         StateHasChanged();
     }
-    catch (Exception ex)
-    {
-        await MID_HelperFunctions.LogExceptionAsync(ex, $"Loading product details: {Slug}");
-        Logger.LogError(ex, "Failed to load product details");
-    }
-}
 
-private void SelectImage(string image)
-{
-    // Don't show skeleton when switching between already-loaded images
-    SelectedImage = image;
-    StateHasChanged();
-}
-    
     private void HandleImageLoad()
-{
-    // Additional safety - ensure loading states are false when image loads
-    ImageLoading = false;
-    ThumbnailsLoading = false;
-    StateHasChanged();
-}
+    {
+        ImageLoading      = false;
+        ThumbnailsLoading = false;
+        StateHasChanged();
+    }
 
     private async Task CheckCartAndWishlistStatus()
     {
         if (Product == null || string.IsNullOrEmpty(CurrentUserId)) return;
-        
         try
         {
-            IsInCart = await CartService.IsInCartAsync(CurrentUserId, Product.Id.ToString());
+            IsInCart     = await CartService.IsInCartAsync(CurrentUserId, Product.Id.ToString());
             IsInWishlist = await WishlistService.IsInWishlistAsync(CurrentUserId, Product.Id.ToString());
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"📊 Cart status: {IsInCart}, Wishlist status: {IsInWishlist}",
-                LogLevel.Debug
-            );
         }
         catch (Exception ex)
         {
@@ -306,15 +272,12 @@ private void SelectImage(string image)
     private void UpdateVariantKey()
     {
         CurrentVariantKey = ProductModelExtensions.BuildVariantKey(SelectedSize, SelectedColor);
-        
-        // Update selected image if variant has specific image
+
         if (Product != null && !string.IsNullOrEmpty(CurrentVariantKey))
         {
             var variantImage = Product.GetVariantImage(CurrentVariantKey);
             if (!string.IsNullOrEmpty(variantImage))
-            {
                 SelectedImage = variantImage;
-            }
         }
     }
 
@@ -335,72 +298,53 @@ private void SelectImage(string image)
     private string? GetColorHex(string color)
     {
         if (Product == null || string.IsNullOrEmpty(CurrentVariantKey)) return null;
-        
-        if (Product.Variants.TryGetValue(CurrentVariantKey, out var variant))
-        {
-            return variant.ColorHex;
-        }
-        
-        return null;
+        return Product.Variants.TryGetValue(CurrentVariantKey, out var variant)
+            ? variant.ColorHex
+            : null;
     }
 
     private string GetVariantPrice()
     {
         if (Product == null) return "₦0";
-        var price = Product.GetVariantPrice(CurrentVariantKey);
-        return $"₦{price:N0}";
+        return $"₦{Product.GetVariantPrice(CurrentVariantKey):N0}";
     }
 
-    private int GetVariantStock()
-    {
-        if (Product == null) return 0;
-        return Product.GetVariantStock(CurrentVariantKey);
-    }
+    private int GetVariantStock() =>
+        Product?.GetVariantStock(CurrentVariantKey) ?? 0;
 
-    private decimal GetVariantShippingCost()
-    {
-        if (Product == null) return 0;
-        return Product.GetVariantShippingCost(CurrentVariantKey);
-    }
+    private decimal GetVariantShippingCost() =>
+        Product?.GetVariantShippingCost(CurrentVariantKey) ?? 0;
 
     private bool GetVariantHasFreeShipping()
     {
         if (Product == null) return false;
-        var productModel = Product.ToCloudModel();
-        return productModel.VariantHasFreeShipping(CurrentVariantKey);
+        return Product.ToCloudModel().VariantHasFreeShipping(CurrentVariantKey);
     }
 
     private decimal GetVariantWeight()
     {
         if (Product == null) return 0;
-        var productModel = Product.ToCloudModel();
-        return productModel.GetVariantWeight(CurrentVariantKey);
+        return Product.ToCloudModel().GetVariantWeight(CurrentVariantKey);
     }
 
-    private string GetStockStatus()
+    private string GetStockStatus() => GetVariantStock() switch
     {
-        var stock = GetVariantStock();
-        return stock switch
-        {
-            0 => "Out of Stock",
-            > 0 and <= 5 => "Low Stock",
-            _ => "In Stock"
-        };
-    }
+        0           => "Out of Stock",
+        > 0 and <= 5 => "Low Stock",
+        _           => "In Stock"
+    };
 
     private async Task LoadReviews()
     {
         try
         {
             if (Product == null) return;
-
             var reviewModels = await ReviewService.GetProductReviewsAsync(Product.Id.ToString());
             Reviews = ReviewViewModel.FromCloudModels(reviewModels);
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading product reviews");
-            Logger.LogError(ex, "Failed to load reviews");
             Reviews = new List<ReviewViewModel>();
         }
     }
@@ -410,57 +354,36 @@ private void SelectImage(string image)
         try
         {
             if (Product == null) return;
-
             var categoryProducts = await ProductService.GetProductsByCategoryAsync(Product.CategoryId);
-            
             RelatedProducts = categoryProducts
                 .Where(p => p.Id != Product.Id && p.IsActive && p.IsInStock)
                 .OrderByDescending(p => p.IsFeatured)
                 .ThenByDescending(p => p.Rating)
                 .Take(4)
                 .ToList();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"✅ Loaded {RelatedProducts.Count} related products",
-                LogLevel.Info
-            );
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Loading related products");
-            Logger.LogError(ex, "Failed to load related products");
             RelatedProducts = new List<ProductViewModel>();
         }
     }
 
-    
     private void IncreaseQuantity()
     {
-        if (SelectedQuantity < GetVariantStock())
-        {
-            SelectedQuantity++;
-        }
+        if (SelectedQuantity < GetVariantStock()) SelectedQuantity++;
     }
 
     private void DecreaseQuantity()
     {
-        if (SelectedQuantity > 1)
-        {
-            SelectedQuantity--;
-        }
+        if (SelectedQuantity > 1) SelectedQuantity--;
     }
 
     private void ValidateQuantity()
     {
-        var maxStock = GetVariantStock();
-        if (SelectedQuantity < 1)
-        {
-            SelectedQuantity = 1;
-        }
-        else if (SelectedQuantity > maxStock)
-        {
-            SelectedQuantity = maxStock;
-        }
+        var max = GetVariantStock();
+        if (SelectedQuantity < 1)   SelectedQuantity = 1;
+        if (SelectedQuantity > max) SelectedQuantity = max;
     }
 
     private async Task HandleAddToCart()
@@ -472,53 +395,21 @@ private void SelectImage(string image)
 
         try
         {
-            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-            {
-                return;
-            }
-
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}")) return;
             if (string.IsNullOrEmpty(CurrentUserId))
-            {
                 CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
-
-            if (string.IsNullOrEmpty(CurrentUserId))
-            {
-                PermissionService.ShowAuthRequiredMessage("add items to cart");
-                return;
-            }
+            if (string.IsNullOrEmpty(CurrentUserId)) { PermissionService.ShowAuthRequiredMessage("add items to cart"); return; }
 
             var success = await CartService.AddToCartAsync(
-                CurrentUserId,
-                Product.Id.ToString(),
+                CurrentUserId, Product.Id.ToString(),
                 quantity: SelectedQuantity,
-                size: SelectedSize,
-                color: SelectedColor
-            );
+                size: SelectedSize, color: SelectedColor);
 
-            if (success)
-            {
-                IsInCart = true;
-                
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ Added {SelectedQuantity}x {Product.Name} (Size: {SelectedSize}, Color: {SelectedColor}) to cart",
-                    LogLevel.Info
-                );
-
-                StateHasChanged();
-            }
-            else
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"❌ Failed to add {Product.Name} to cart",
-                    LogLevel.Error
-                );
-            }
+            if (success) IsInCart = true;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Adding product to cart");
-            Logger.LogError(ex, "Failed to add product to cart");
         }
         finally
         {
@@ -536,60 +427,20 @@ private void SelectImage(string image)
 
         try
         {
-            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-            {
-                return;
-            }
-
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}")) return;
             if (string.IsNullOrEmpty(CurrentUserId))
-            {
                 CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
+            if (string.IsNullOrEmpty(CurrentUserId)) { PermissionService.ShowAuthRequiredMessage("purchase items"); return; }
 
-            if (string.IsNullOrEmpty(CurrentUserId))
-            {
-                PermissionService.ShowAuthRequiredMessage("purchase items");
-                return;
-            }
+            var queryParams = new List<string> { $"productId={Product.Id}", $"quantity={SelectedQuantity}" };
+            if (!string.IsNullOrEmpty(SelectedSize))  queryParams.Add($"size={Uri.EscapeDataString(SelectedSize)}");
+            if (!string.IsNullOrEmpty(SelectedColor)) queryParams.Add($"color={Uri.EscapeDataString(SelectedColor)}");
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"⚡ Buy Now clicked: {Product.Name}, Qty: {SelectedQuantity}, Size: {SelectedSize}, Color: {SelectedColor}",
-                LogLevel.Info
-            );
-
-            // Build query parameters for checkout
-            var queryParams = new List<string>
-            {
-                $"productId={Product.Id}",
-                $"quantity={SelectedQuantity}"
-            };
-
-            if (!string.IsNullOrEmpty(SelectedSize))
-            {
-                queryParams.Add($"size={Uri.EscapeDataString(SelectedSize)}");
-            }
-
-            if (!string.IsNullOrEmpty(SelectedColor))
-            {
-                queryParams.Add($"color={Uri.EscapeDataString(SelectedColor)}");
-            }
-
-            var queryString = string.Join("&", queryParams);
-            
-            // Navigate to checkout with product details
-            var checkoutUrl = $"checkout/{Product.Slug}?{queryString}";
-            
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Navigating to checkout: {checkoutUrl}",
-                LogLevel.Info
-            );
-
-            Navigation.NavigateTo(checkoutUrl);
+            Navigation.NavigateTo($"checkout/{Product.Slug}?{string.Join("&", queryParams)}");
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Buy now");
-            Logger.LogError(ex, "Failed to process buy now");
         }
         finally
         {
@@ -607,38 +458,17 @@ private void SelectImage(string image)
 
         try
         {
-            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}"))
-            {
-                return;
-            }
-
+            if (!await PermissionService.EnsureAuthenticatedAsync($"product/{Product.Slug}")) return;
             if (string.IsNullOrEmpty(CurrentUserId))
-            {
                 CurrentUserId = await PermissionService.GetCurrentUserIdAsync();
-            }
-
-            if (string.IsNullOrEmpty(CurrentUserId))
-            {
-                PermissionService.ShowAuthRequiredMessage("add items to wishlist");
-                return;
-            }
+            if (string.IsNullOrEmpty(CurrentUserId)) { PermissionService.ShowAuthRequiredMessage("add items to wishlist"); return; }
 
             var success = await WishlistService.ToggleWishlistAsync(CurrentUserId, Product.Id.ToString());
-
-            if (success)
-            {
-                IsInWishlist = !IsInWishlist;
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✅ {(IsInWishlist ? "Added to" : "Removed from")} wishlist: {Product.Name}",
-                    LogLevel.Info
-                );
-            }
+            if (success) IsInWishlist = !IsInWishlist;
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling wishlist");
-            Logger.LogError(ex, "Failed to toggle wishlist");
         }
         finally
         {
@@ -647,25 +477,21 @@ private void SelectImage(string image)
         }
     }
 
-    private void NavigateToCart()
+    // ── Navigation ─────────────────────────────────────────────
+
+    private void NavigateToCart()      => Navigation.NavigateTo("/user/wishlist-cart");
+    private void NavigateToWishlist()  => Navigation.NavigateTo("/user/wishlist-cart");
+
+    private void NavigateToPartnerStore()
     {
-        Navigation.NavigateTo("/user/wishlist-cart");
+        if (PartnerStore != null)
+            Navigation.NavigateTo(PartnerStore.PublicStoreUrl);
+        else if (Product?.PartnerId.HasValue == true)
+            Navigation.NavigateTo($"/store/partner/{Product.PartnerId.Value}");
     }
 
-    private void NavigateToWishlist()
-    {
-        Navigation.NavigateTo("/user/wishlist-cart");
-    }
-
-    private void OpenReviewForm()
-    {
-        ShowReviewForm = true;
-    }
-
-    private void CloseReviewForm()
-    {
-        ShowReviewForm = false;
-    }
+    private void OpenReviewForm()   => ShowReviewForm = true;
+    private void CloseReviewForm()  => ShowReviewForm = false;
 
     private async Task HandleReviewSubmitted()
     {
@@ -681,25 +507,12 @@ private void SelectImage(string image)
         StateHasChanged();
     }
 
-    private async Task HandleRelatedAddToCart(int productId)
-    {
-        await MID_HelperFunctions.DebugMessageAsync($"🛒 Add to cart from related: {productId}", LogLevel.Info);
-    }
+    private async Task HandleRelatedAddToCart(int productId)   => await Task.CompletedTask;
+    private async Task HandleRelatedToggleFavorite(int productId) => await Task.CompletedTask;
 
-    private async Task HandleRelatedToggleFavorite(int productId)
-    {
-        await MID_HelperFunctions.DebugMessageAsync($"❤️ Toggle favorite from related: {productId}", LogLevel.Info);
-    }
-
-    private void NavigateToShop()
-    {
-        Navigation.NavigateTo("/shop");
-    }
-
-    private void NavigateToCategory(string categoryId)
-    {
+    private void NavigateToShop() => Navigation.NavigateTo("/shop");
+    private void NavigateToCategory(string categoryId) =>
         Navigation.NavigateTo($"/shop?category={categoryId}");
-    }
 
     public void Dispose()
     {
@@ -713,14 +526,7 @@ private void SelectImage(string image)
                 try
                 {
                     await ViewTracker.UpdateViewDurationAsync(
-                        Product.Id.ToString(), 
-                        durationSeconds
-                    );
-
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"📊 User spent {durationSeconds}s on product {Product.Id}",
-                        LogLevel.Info
-                    );
+                        Product.Id.ToString(), durationSeconds);
                 }
                 catch (Exception ex)
                 {
