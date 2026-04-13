@@ -1,5 +1,5 @@
 // Components/Shared/Popups/ImageSelectorPopup.razor.cs
-// Only LoadImagesFromFolderAsync changed: FileSize = file.Size (was hardcoded 0)
+// Added: pagination, reset-on-close, sort by type/size/name, proper state management.
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -34,7 +34,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     [Parameter] public EventCallback<List<string>> OnImagesSelected  { get; set; }
     [Parameter] public EventCallback OnClose                         { get; set; }
 
-    // ─── Loading state ────────────────────────────────────────────────────────
+    // ─── Loading ──────────────────────────────────────────────────────────────
 
     private bool isLoading      = false;
     private bool isLoadingMore  = false;
@@ -47,12 +47,19 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             ? (int)Math.Round(loadedFolderCount * 100.0 / totalFolderCount)
             : 0;
 
-    // ─── Filter/sort/view state ───────────────────────────────────────────────
+    // ─── Filter / sort / view / pagination ───────────────────────────────────
 
     private string searchQuery    = "";
     private string selectedFolder = "";
     private string sortBy         = "newest";
     private string viewSize       = "medium";
+    private int    currentPage    = 1;
+    private int    pageSize       = 24;
+
+    private int totalPages =>
+        filteredImages.Count > 0
+            ? (int)Math.Ceiling(filteredImages.Count / (double)pageSize)
+            : 0;
 
     private bool HasActiveFilters =>
         !string.IsNullOrEmpty(searchQuery) || !string.IsNullOrEmpty(selectedFolder);
@@ -62,6 +69,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     private List<string>                   SelectedImages = new();
     private List<AdminImageCard.ImageItem> allImages      = new();
     private List<AdminImageCard.ImageItem> filteredImages = new();
+    private List<AdminImageCard.ImageItem> pagedImages    = new();
     private List<CategoryModel>            categories     = new();
 
     private MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>? _pool;
@@ -86,8 +94,10 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     {
         if (IsOpen && !isInitialized)
         {
-            if (PreSelectedUrls.Any())
-                SelectedImages = new List<string>(PreSelectedUrls);
+            // Apply pre-selections
+            SelectedImages = PreSelectedUrls.Any()
+                ? new List<string>(PreSelectedUrls)
+                : new List<string>();
 
             if (!string.IsNullOrEmpty(DefaultFolder))
                 selectedFolder = DefaultFolder;
@@ -95,10 +105,28 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             await LoadImagesAsync();
             isInitialized = true;
         }
-        else if (!IsOpen)
+        else if (!IsOpen && isInitialized)
         {
+            // Reset everything when popup closes so it's clean next time
+            ResetState();
             isInitialized = false;
         }
+    }
+
+    // ─── State reset ──────────────────────────────────────────────────────────
+
+    private void ResetState()
+    {
+        searchQuery    = "";
+        selectedFolder = "";
+        sortBy         = "newest";
+        currentPage    = 1;
+        SelectedImages.Clear();
+        filteredImages.Clear();
+        pagedImages.Clear();
+        // Note: allImages and categories are kept — avoids re-fetching on next open
+        // (cache handles freshness). Clear them too if you want a full reset:
+        // allImages.Clear();
     }
 
     // ─── Data loading ─────────────────────────────────────────────────────────
@@ -110,9 +138,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             var loaded = await FirestoreService.GetCollectionAsync<CategoryModel>("categories");
             categories = loaded?.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder).ToList()
                          ?? new List<CategoryModel>();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"[ImageSelector] {categories.Count} categories loaded", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -130,8 +155,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             {
                 allImages = cached;
                 ApplyFilters();
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"[ImageSelector] {allImages.Count} images from cache", LogLevel.Info);
                 return;
             }
 
@@ -141,8 +164,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
 
             totalFolderCount  = folders.Length;
             loadedFolderCount = 0;
-
-            isLoading = true;
+            isLoading         = true;
             StateHasChanged();
 
             var allImageUrls = new List<string>();
@@ -151,30 +173,19 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             {
                 var batch = folders.Skip(batchStart).Take(BATCH_SIZE).ToArray();
 
-                if (batchStart > 0)
-                {
-                    isLoading     = false;
-                    isLoadingMore = true;
-                }
+                if (batchStart > 0) { isLoading = false; isLoadingMore = true; }
 
                 var batchImages = new List<AdminImageCard.ImageItem>();
                 var batchUrls   = new List<string>();
 
-                var tasks = batch.Select(folder =>
-                    LoadImagesFromFolderAsync(folder, batchImages, batchUrls)).ToArray();
-
-                await Task.WhenAll(tasks);
+                await Task.WhenAll(batch.Select(f =>
+                    LoadImagesFromFolderAsync(f, batchImages, batchUrls)));
 
                 lock (allImages) { allImages.AddRange(batchImages); }
-
                 allImageUrls.AddRange(batchUrls);
                 loadedFolderCount += batch.Length;
 
                 ApplyFilters();
-
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"[ImageSelector] Batch done: {loadedFolderCount}/{totalFolderCount} folders, " +
-                    $"{allImages.Count} total images", LogLevel.Debug);
             }
 
             if (allImageUrls.Any())
@@ -187,9 +198,6 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
             }
 
             await SaveToCacheAsync(allImages);
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"[ImageSelector] ✓ All {allImages.Count} images loaded", LogLevel.Info);
         }
         catch (Exception ex)
         {
@@ -227,7 +235,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
                     PublicUrl      = publicUrl,
                     ThumbnailUrl   = publicUrl,
                     Folder         = folder,
-                    FileSize       = file.Size,   // ← real size from Supabase metadata
+                    FileSize       = file.Size,   // real size from Supabase metadata
                     Dimensions     = "",
                     UploadedAt     = file.UpdatedAt,
                     IsReferenced   = false,
@@ -239,37 +247,79 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"LoadFolder: {folder}");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"ISP LoadFolder: {folder}");
         }
     }
 
-    // ─── Filtering / sorting ──────────────────────────────────────────────────
+    // ─── Filtering / sorting / pagination ─────────────────────────────────────
 
     private void ApplyFilters()
     {
-        var query = searchQuery.Trim();
-
         IEnumerable<AdminImageCard.ImageItem> results = allImages;
 
         if (!string.IsNullOrEmpty(selectedFolder))
             results = results.Where(img =>
                 img.Folder.Equals(selectedFolder, StringComparison.OrdinalIgnoreCase));
 
-        if (!string.IsNullOrEmpty(query))
+        if (!string.IsNullOrEmpty(searchQuery))
+        {
+            var q = searchQuery.Trim();
             results = results.Where(img =>
-                img.FileName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                img.Folder.Contains(query, StringComparison.OrdinalIgnoreCase));
+                img.FileName.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                img.Folder.Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
 
         results = sortBy switch
         {
-            "oldest"  => results.OrderBy(x => x.UploadedAt),
-            "name-az" => results.OrderBy(x => x.FileName, StringComparer.OrdinalIgnoreCase),
-            "name-za" => results.OrderByDescending(x => x.FileName, StringComparer.OrdinalIgnoreCase),
-            _         => results.OrderByDescending(x => x.UploadedAt)
+            "oldest"       => results.OrderBy(x => x.UploadedAt),
+            "name-az"      => results.OrderBy(x => x.FileName, StringComparer.OrdinalIgnoreCase),
+            "name-za"      => results.OrderByDescending(x => x.FileName, StringComparer.OrdinalIgnoreCase),
+            "size-largest" => results.OrderByDescending(x => x.FileSize),
+            "size-smallest"=> results.OrderBy(x => x.FileSize),
+            "type-az"      => results.OrderBy(x => Path.GetExtension(x.FileName).ToLowerInvariant())
+                                     .ThenBy(x => x.FileName, StringComparer.OrdinalIgnoreCase),
+            _              => results.OrderByDescending(x => x.UploadedAt)
         };
 
         filteredImages = results.ToList();
+        currentPage    = 1;   // always reset to page 1 on filter change
+        UpdatePagedImages();
+    }
+
+    private void UpdatePagedImages()
+    {
+        pagedImages = filteredImages
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
         StateHasChanged();
+    }
+
+    // ─── Pagination event handlers ────────────────────────────────────────────
+
+    private void PreviousPage()
+    {
+        if (currentPage > 1) { currentPage--; UpdatePagedImages(); }
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages) { currentPage++; UpdatePagedImages(); }
+    }
+
+    private void GoToPage(int p)
+    {
+        if (p >= 1 && p <= totalPages) { currentPage = p; UpdatePagedImages(); }
+    }
+
+    private void HandlePageSizeChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            pageSize    = size;
+            currentPage = 1;
+            UpdatePagedImages();
+        }
     }
 
     // ─── UI event handlers ────────────────────────────────────────────────────
@@ -344,26 +394,32 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         if (OnImagesSelected.HasDelegate)
             await OnImagesSelected.InvokeAsync(new List<string>(SelectedImages));
 
-        await Close();
+        await CloseInternal();
     }
 
-    private async Task Close()
+    /// <summary>
+    /// Called by Cancel button and the X close button.
+    /// Fires OnClose callback — parent sets IsOpen=false which triggers
+    /// OnParametersSetAsync → ResetState().
+    /// </summary>
+    private async Task HandleClose()
     {
-        IsOpen = false;
-        if (OnClose.HasDelegate) await OnClose.InvokeAsync();
-        StateHasChanged();
+        await CloseInternal();
     }
 
-    private void HandleOverlayClick() => _ = Close();
+    private async Task CloseInternal()
+    {
+        if (OnClose.HasDelegate) await OnClose.InvokeAsync();
+        // ResetState() is called inside OnParametersSetAsync when IsOpen becomes false
+    }
+
+    private void HandleOverlayClick() => _ = HandleClose();
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private string GetCategoryName(string slug)
-    {
-        var cat = categories.FirstOrDefault(c =>
-            c.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
-        return cat?.Name ?? slug;
-    }
+    private string GetCategoryName(string slug) =>
+        categories.FirstOrDefault(c =>
+            c.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))?.Name ?? slug;
 
     // ─── Cache ────────────────────────────────────────────────────────────────
 
@@ -401,7 +457,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "SaveCache");
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ISP SaveCache");
         }
     }
 
@@ -410,7 +466,7 @@ public partial class ImageSelectorPopup : ComponentBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         try { _pool?.Dispose(); }
-        catch (Exception ex) { Logger.LogError(ex, "Dispose error"); }
+        catch (Exception ex) { Logger.LogError(ex, "ISP Dispose error"); }
     }
 
     // ─── Inner types ──────────────────────────────────────────────────────────
