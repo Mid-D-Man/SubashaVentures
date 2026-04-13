@@ -1,4 +1,7 @@
 // Pages/Admin/ImageManagement.razor.cs
+// Fix: added `using SubashaVentures.Components.Shared.Notifications;`
+// so NotificationType resolves correctly.
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
@@ -9,7 +12,7 @@ using SubashaVentures.Utilities.HelperScripts;
 using SubashaVentures.Utilities.ObjectPooling;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Admin.Images;
-using SubashaVentures.Components.Shared.Notifications;
+using SubashaVentures.Components.Shared.Notifications;   // ← fixes NotificationType
 using SubashaVentures.Models.Firebase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
@@ -78,9 +81,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     // ─── Move state ───────────────────────────────────────────────────────────
 
     private AdminImageCard.ImageItem? moveImage;
-    private bool   isMoveModalOpen   = false;
-    private string moveTargetFolder  = "";
-    private bool   isMoving          = false;
+    private bool   isMoveModalOpen  = false;
+    private string moveTargetFolder = "";
+    private bool   isMoving         = false;
 
     // ─── Filter / sort / view ─────────────────────────────────────────────────
 
@@ -174,7 +177,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     {
         try
         {
-            // Try cache first — instant render
             var cached = await LoadFromCacheAsync();
             if (cached != null)
             {
@@ -204,11 +206,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             {
                 var batch = folders.Skip(batchStart).Take(BATCH_SIZE).ToArray();
 
-                if (batchStart > 0)
-                {
-                    isLoading     = false;
-                    isLoadingMore = true;
-                }
+                if (batchStart > 0) { isLoading = false; isLoadingMore = true; }
 
                 var batchImages = new List<AdminImageCard.ImageItem>();
                 var batchUrls   = new List<string>();
@@ -226,8 +224,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 ApplyFiltersAndSort();
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"[ImageMgmt] Batch done: {loadedFolderCount}/{totalFolderCount} folders, " +
-                    $"{allImages.Count} total", LogLevel.Debug);
+                    $"[ImageMgmt] Batch {loadedFolderCount}/{totalFolderCount}, total={allImages.Count}",
+                    LogLevel.Debug);
             }
 
             if (allImageUrls.Any())
@@ -281,7 +279,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     PublicUrl      = publicUrl,
                     ThumbnailUrl   = publicUrl,
                     Folder         = folder,
-                    FileSize       = file.Size,           // ← real size from metadata
+                    FileSize       = file.Size,   // real size from Supabase MetaData
                     Dimensions     = "",
                     UploadedAt     = file.UpdatedAt,
                     IsReferenced   = false,
@@ -321,7 +319,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ─── Filtering / sorting / pagination ────────────────────────────────────
+    // ─── Filtering / sorting / pagination ─────────────────────────────────────
 
     private void ApplyFiltersAndSort()
     {
@@ -366,11 +364,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         ApplyFiltersAndSort();
     }
 
-    private void ClearSearch()
-    {
-        searchQuery = "";
-        ApplyFiltersAndSort();
-    }
+    private void ClearSearch() { searchQuery = ""; ApplyFiltersAndSort(); }
 
     private void ClearAllFilters()
     {
@@ -430,7 +424,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // ─── Copy / Download / Delete ─────────────────────────────────────────────
+    // ─── Copy / Download ──────────────────────────────────────────────────────
 
     private async Task HandleCopyUrl(AdminImageCard.ImageItem image)
     {
@@ -472,6 +466,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             ShowError("Failed to download image");
         }
     }
+
+    // ─── Delete ───────────────────────────────────────────────────────────────
 
     private async Task HandleDelete(AdminImageCard.ImageItem image)
     {
@@ -578,10 +574,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     private Task HandleConvert(AdminImageCard.ImageItem image)
     {
-        conversionImage      = image;
-        conversionFormat     = "image/webp";
-        conversionQuality    = 85;
-        replaceOriginal      = false;
+        conversionImage       = image;
+        conversionFormat      = "image/webp";
+        conversionQuality     = 85;
+        replaceOriginal       = false;
         isConversionModalOpen = true;
         StateHasChanged();
         return Task.CompletedTask;
@@ -603,7 +599,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isConverting = true;
             StateHasChanged();
 
-            // Call JS imageCompressor — fetches the public URL, canvas-encodes to target format
             var jsResult = await JSRuntime.InvokeAsync<JsConversionResult>(
                 "imageCompressor.compressImageFromUrl",
                 conversionImage.PublicUrl,
@@ -618,7 +613,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // Decode base64 → bytes
             byte[] bytes;
             try { bytes = Convert.FromBase64String(jsResult.Base64Data); }
             catch (Exception ex)
@@ -628,19 +622,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // Build a sensible new filename
             var baseName    = Path.GetFileNameWithoutExtension(conversionImage.FileName);
             var newExt      = GetFormatExtension(conversionFormat);
             var newFileName = $"{baseName}_converted{newExt}";
             var actualMime  = jsResult.Format ?? conversionFormat;
 
-            // Upload to same folder
             var uploadResult = await StorageService.UploadImageBytesAsync(
-                bytes,
-                newFileName,
-                actualMime,
-                "products",
-                conversionImage.Folder);
+                bytes, newFileName, actualMime, "products", conversionImage.Folder);
 
             if (!uploadResult.Success)
             {
@@ -648,31 +636,22 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // Optionally delete the original
             if (replaceOriginal)
             {
                 var sourcePath = $"{conversionImage.Folder}/{conversionImage.FileName}";
                 var deleted    = await StorageService.DeleteImageAsync(sourcePath, "products");
 
                 if (deleted)
-                {
                     allImages.Remove(conversionImage);
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"[ImageMgmt] Original deleted: {sourcePath}", LogLevel.Info);
-                }
                 else
-                {
                     ShowWarning("Converted successfully, but original could not be deleted");
-                }
             }
 
-            // Refresh
             await InvalidateCacheAsync();
             await LoadImagesAsync();
 
             var savedPct = (int)(jsResult.CompressionRatio * 100);
-            var label    = GetFormatLabel(conversionFormat);
-            ShowSuccess($"Converted to {label} successfully — {savedPct}% size change");
+            ShowSuccess($"Converted to {GetFormatLabel(conversionFormat)} — {savedPct}% size change");
         }
         catch (Exception ex)
         {
@@ -729,7 +708,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
             if (success)
             {
-                // Update local image list without full reload
                 allImages.Remove(moveImage);
                 moveImage.Folder       = moveTargetFolder;
                 moveImage.PublicUrl    = StorageService.GetPublicUrl(destPath, "products");
@@ -937,7 +915,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private void CloseUploadModal() { isUploadModalOpen = false; uploadQueue.Clear(); StateHasChanged(); }
     private void HandleDragEnter()  { isDragging = true;  StateHasChanged(); }
     private void HandleDragLeave()  { isDragging = false; StateHasChanged(); }
-    private async Task HandleDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs _) { isDragging = false; StateHasChanged(); }
+    private async Task HandleDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs _)
+        { isDragging = false; StateHasChanged(); }
 
     // ─── Cache helpers ────────────────────────────────────────────────────────
 
@@ -980,15 +959,20 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     // ─── Notifications ────────────────────────────────────────────────────────
 
-    private void ShowSuccess(string m) => notificationComponent?.ShowNotification(m, NotificationType.Success);
-    private void ShowError(string m)   => notificationComponent?.ShowNotification(m, NotificationType.Error);
-    private void ShowWarning(string m) => notificationComponent?.ShowNotification(m, NotificationType.Warning);
-    private void ShowInfo(string m)    => notificationComponent?.ShowNotification(m, NotificationType.Info);
+    private void ShowSuccess(string m) =>
+        notificationComponent?.ShowNotification(m, NotificationType.Success);
+    private void ShowError(string m) =>
+        notificationComponent?.ShowNotification(m, NotificationType.Error);
+    private void ShowWarning(string m) =>
+        notificationComponent?.ShowNotification(m, NotificationType.Warning);
+    private void ShowInfo(string m) =>
+        notificationComponent?.ShowNotification(m, NotificationType.Info);
 
     // ─── Utility helpers ──────────────────────────────────────────────────────
 
     private string GetCategoryDisplayName(string slug) =>
-        categories.FirstOrDefault(c => c.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))?.Name ?? slug;
+        categories.FirstOrDefault(c =>
+            c.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))?.Name ?? slug;
 
     private static string GetFormatLabel(string mime) => mime switch
     {
@@ -1029,10 +1013,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
     // ─── Inner types ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Matches the JS object returned by imageCompressor.compressImageFromUrl().
-    /// System.Text.Json (used by Blazor JS interop) deserialises camelCase automatically.
-    /// </summary>
     private sealed class JsConversionResult
     {
         public bool    Success          { get; set; }
