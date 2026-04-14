@@ -1,0 +1,390 @@
+@page "/store/{slug}"
+@using SubashaVentures.Domain.Partner
+@using SubashaVentures.Domain.Product
+@using SubashaVentures.Components.Shared.Loading
+@using SubashaVentures.Components.Shared.Cards
+@using SubashaVentures.Layout.Main
+@layout LandingPageLayout
+
+<PageTitle>@(store?.StoreName ?? "Partner Store") - SubashaVentures</PageTitle>
+
+<div class="store-page">
+
+    @if (isLoading)
+    {
+        <div class="store-loading">
+            <LoadingSpinner Size="LoadingSpinner.SpinnerSize.Large"
+                           Message="Loading store..." />
+        </div>
+    }
+    else if (store == null)
+    {
+        <div class="store-not-found">
+            <div class="snf-icon">🏪</div>
+            <h2>Store Not Found</h2>
+            <p>This store doesn't exist or is no longer active.</p>
+            <button class="btn-back" @onclick="GoToShop">Browse Products</button>
+        </div>
+    }
+    else
+    {
+        @* ── Banner ── *@
+        <div class="store-banner"
+             style="@(store.HasBanner ? $"background-image: url('{store.BannerUrl}')" : "")">
+            <div class="store-banner-overlay"></div>
+
+            <div class="store-banner-content">
+                <div class="store-identity">
+                    <div class="store-logo-wrap">
+                        @if (store.HasLogo)
+                        {
+                            <img src="@store.LogoUrl" alt="@store.StoreName" class="store-logo" />
+                        }
+                        else
+                        {
+                            <div class="store-logo-placeholder">
+                                <span>🏪</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="store-title-block">
+                        <h1 class="store-name">@store.StoreName</h1>
+                        @if (!string.IsNullOrEmpty(store.Tagline))
+                        {
+                            <p class="store-tagline">@store.Tagline</p>
+                        }
+                        <div class="store-meta-row">
+                            <span class="store-location">📍 @store.LocationDisplay</span>
+                            <span class="store-divider">•</span>
+                            <span class="store-member-since">Member since @store.CreatedAtDisplay</span>
+                            @if (ratingSummary.TotalReviews > 0)
+                            {
+                                <span class="store-divider">•</span>
+                                <span class="store-rating-inline">
+                                    ⭐ @ratingSummary.DisplayAverage
+                                    <span class="rating-count">(@ratingSummary.DisplayTotal)</span>
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="store-stats-row">
+                    <div class="store-stat">
+                        <span class="stat-value">@store.TotalProducts</span>
+                        <span class="stat-label">Products</span>
+                    </div>
+                    <div class="store-stat">
+                        <span class="stat-value">@store.TotalOrders</span>
+                        <span class="stat-label">Orders</span>
+                    </div>
+                    <div class="store-stat">
+                        <span class="stat-value">@store.DisplayTotalSales</span>
+                        <span class="stat-label">Total Sales</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ── Body ── *@
+        <div class="store-body">
+
+            @* ── Left: info + ratings ── *@
+            <aside class="store-sidebar">
+
+                @* Description *@
+                @if (!string.IsNullOrEmpty(store.Description))
+                {
+                    <div class="sidebar-card">
+                        <h3 class="sidebar-card-title">About This Store</h3>
+                        <p class="store-description">@store.Description</p>
+                    </div>
+                }
+
+                @* Contact *@
+                @if (!string.IsNullOrEmpty(store.PublicPhone) ||
+                     !string.IsNullOrEmpty(store.PublicEmail))
+                {
+                    <div class="sidebar-card">
+                        <h3 class="sidebar-card-title">Contact</h3>
+                        @if (!string.IsNullOrEmpty(store.PublicPhone))
+                        {
+                            <div class="contact-row">
+                                <span class="contact-icon">📞</span>
+                                <a href="tel:@store.PublicPhone" class="contact-link">
+                                    @store.PublicPhone
+                                </a>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(store.PublicEmail))
+                        {
+                            <div class="contact-row">
+                                <span class="contact-icon">✉️</span>
+                                <a href="mailto:@store.PublicEmail" class="contact-link">
+                                    @store.PublicEmail
+                                </a>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Rating Summary *@
+                <div class="sidebar-card rating-card">
+                    <h3 class="sidebar-card-title">Store Ratings</h3>
+
+                    @if (ratingSummary.TotalReviews == 0)
+                    {
+                        <p class="no-rating-text">No reviews yet. Be the first!</p>
+                    }
+                    else
+                    {
+                        <div class="rating-overview">
+                            <div class="rating-big">
+                                <span class="rating-big-number">@ratingSummary.DisplayAverage</span>
+                                <div class="rating-stars-big">
+                                    @for (int s = 1; s <= 5; s++)
+                                    {
+                                        int star = s;
+                                        <span class="rstar @(star <= Math.Round(ratingSummary.AverageRating) ? "filled" : "")">★</span>
+                                    }
+                                </div>
+                                <span class="rating-total-text">@ratingSummary.DisplayTotal</span>
+                            </div>
+
+                            <div class="rating-breakdown">
+                                @for (int s = 5; s >= 1; s--)
+                                {
+                                    int star = s;
+                                    int pct  = ratingSummary.PercentFor(star);
+                                    int count = ratingSummary.Breakdown.GetValueOrDefault(star, 0);
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">@star ★</span>
+                                        <div class="breakdown-bar-track">
+                                            <div class="breakdown-bar-fill"
+                                                 style="width: @pct%"></div>
+                                        </div>
+                                        <span class="breakdown-count">@count</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @* Write review button *@
+                    @if (isAuthenticated && !hasReviewed && !showReviewForm)
+                    {
+                        <button class="btn-write-review" @onclick="OpenReviewForm">
+                            ✏️ Write a Review
+                        </button>
+                    }
+                    else if (!isAuthenticated)
+                    {
+                        <button class="btn-write-review" @onclick="GoToSignIn">
+                            Sign in to Review
+                        </button>
+                    }
+                    else if (hasReviewed)
+                    {
+                        <p class="already-reviewed">✓ You've reviewed this store</p>
+                    }
+                </div>
+            </aside>
+
+            @* ── Main: products + reviews ── *@
+            <main class="store-main">
+
+                @* Review Form *@
+                @if (showReviewForm)
+                {
+                    <div class="store-review-form-wrap">
+                        <div class="store-review-form">
+                            <div class="srf-header">
+                                <h3>Write a Review</h3>
+                                <button class="srf-close" @onclick="CloseReviewForm">✕</button>
+                            </div>
+
+                            @* Star picker *@
+                            <div class="srf-field">
+                                <label class="srf-label">Rating <span class="req">*</span></label>
+                                <div class="star-picker">
+                                    @for (int s = 1; s <= 5; s++)
+                                    {
+                                        int star = s;
+                                        <button class="star-pick @(star <= reviewForm.Rating ? "active" : "")"
+                                                @onclick="() => reviewForm.Rating = star">
+                                            ★
+                                        </button>
+                                    }
+                                    <span class="star-pick-label">
+                                        @(reviewForm.Rating == 0 ? "Select a rating" : $"{reviewForm.Rating}/5")
+                                    </span>
+                                </div>
+                                @if (HasReviewError("Rating"))
+                                {
+                                    <span class="srf-error">@GetReviewError("Rating")</span>
+                                }
+                            </div>
+
+                            <div class="srf-field">
+                                <label class="srf-label">Title (optional)</label>
+                                <input type="text"
+                                       class="srf-input"
+                                       @bind="reviewForm.Title"
+                                       placeholder="Summarise your experience" />
+                            </div>
+
+                            <div class="srf-field">
+                                <label class="srf-label">
+                                    Comment <span class="req">*</span>
+                                    <span class="char-count">@reviewForm.Comment.Length / 10 min</span>
+                                </label>
+                                <textarea class="srf-textarea @(HasReviewError("Comment") ? "has-error" : "")"
+                                          @bind="reviewForm.Comment"
+                                          @bind:event="oninput"
+                                          placeholder="Tell others about your experience with this store…"
+                                          rows="4"></textarea>
+                                @if (HasReviewError("Comment"))
+                                {
+                                    <span class="srf-error">@GetReviewError("Comment")</span>
+                                }
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(reviewSubmitError))
+                            {
+                                <div class="srf-submit-error">⚠️ @reviewSubmitError</div>
+                            }
+                            @if (reviewSubmitSuccess)
+                            {
+                                <div class="srf-submit-success">
+                                    ✓ Review submitted! It will appear after admin approval.
+                                </div>
+                            }
+
+                            <div class="srf-actions">
+                                <button class="btn-cancel-review" @onclick="CloseReviewForm">
+                                    Cancel
+                                </button>
+                                <button class="btn-submit-review @(isSubmittingReview ? "loading" : "")"
+                                        @onclick="HandleSubmitReview"
+                                        disabled="@isSubmittingReview">
+                                    @if (isSubmittingReview)
+                                    {
+                                        <span class="btn-spinner-sm"></span>
+                                        <span>Submitting…</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Submit Review</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* Products *@
+                <section class="store-products-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Products (@products.Count)</h2>
+                        <div class="product-sort">
+                            <select class="sort-select" @onchange="HandleSortChange">
+                                <option value="default">Default</option>
+                                <option value="price-asc">Price: Low to High</option>
+                                <option value="price-desc">Price: High to Low</option>
+                                <option value="rating">Best Rated</option>
+                                <option value="newest">Newest</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (!products.Any())
+                    {
+                        <div class="no-products">
+                            <span class="no-products-icon">📦</span>
+                            <p>No products available in this store yet.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="store-products-grid">
+                            @foreach (var product in sortedProducts)
+                            {
+                                <ShopProductCard Product="@product" />
+                            }
+                        </div>
+                    }
+                </section>
+
+                @* Reviews *@
+                <section class="store-reviews-section">
+                    <h2 class="section-title">Customer Reviews</h2>
+
+                    @if (!reviews.Any())
+                    {
+                        <div class="no-reviews">
+                            <span class="no-reviews-icon">💬</span>
+                            <p>No reviews yet. Share your experience!</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="reviews-list">
+                            @foreach (var review in reviews)
+                            {
+                                <div class="store-review-card">
+                                    <div class="src-header">
+                                        <div class="src-avatar">
+                                            @if (!string.IsNullOrEmpty(review.UserAvatar))
+                                            {
+                                                <img src="@review.UserAvatar"
+                                                     alt="@review.UserName" />
+                                            }
+                                            else
+                                            {
+                                                <span class="src-avatar-initial">
+                                                    @review.UserName.FirstOrDefault()
+                                                </span>
+                                            }
+                                        </div>
+                                        <div class="src-identity">
+                                            <span class="src-name">@review.UserName</span>
+                                            <div class="src-stars">
+                                                @for (int s = 1; s <= 5; s++)
+                                                {
+                                                    int star = s;
+                                                    <span class="rstar @(star <= review.Rating ? "filled" : "")">★</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="src-meta">
+                                            <span class="src-date">@review.TimeAgo</span>
+                                            @if (review.IsVerifiedPurchase)
+                                            {
+                                                <span class="src-verified">✓ Verified Purchase</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @if (!string.IsNullOrEmpty(review.Title))
+                                    {
+                                        <h4 class="src-title">@review.Title</h4>
+                                    }
+                                    <p class="src-comment">@review.Comment</p>
+
+                                    <div class="src-footer">
+                                        <button class="btn-helpful"
+                                                @onclick="() => HandleMarkHelpful(review.Id)">
+                                            👍 Helpful (@review.HelpfulCount)
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+
+            </main>
+        </div>
+    }
+</div>
