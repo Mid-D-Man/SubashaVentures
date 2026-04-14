@@ -631,7 +631,97 @@
 .move-label { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
 
 .move-same-folder-hint { font-size: 0.8rem; color: var(--text-muted); margin: 0; text-align: center; font-style: italic; }
+/* ── Rename Modal additions ─────────────────────────────────────────────── */
+.rename-modal-content { display: flex; flex-direction: column; gap: 1.25rem; }
 
+.rename-input-section { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.rename-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rename-ext {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--gray-100);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.rename-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1.5px solid var(--border-light);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.rename-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(150,153,74,0.12);
+}
+
+.rename-error {
+    font-size: 0.8rem;
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
+.rename-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* ── File type badge on image card ──────────────────────────────────────── */
+.image-type-badge {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    background: rgba(0,0,0,0.75);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    backdrop-filter: blur(4px);
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* ── Clear filters button ───────────────────────────────────────────────── */
+.clear-filters-btn {
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid var(--danger-color);
+    background: transparent;
+    color: var(--danger-color);
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    align-self: center;
+}
+
+.clear-filters-btn:hover {
+    background: var(--danger-color);
+    color: white;
+}
+
+[data-theme="dark"] .rename-ext { background: var(--gray-800); }
+[data-theme="dark"] .rename-input { background: var(--bg-elevated, #252a30); border-color: var(--border-color); }
 /* ── Dark Theme ──────────────────────────────────────────────────────────── */
 [data-theme="dark"] .stat-card,
 [data-theme="dark"] .im-toolbar,
