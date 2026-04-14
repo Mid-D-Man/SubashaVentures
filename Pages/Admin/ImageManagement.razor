@@ -1,8 +1,7 @@
-@* Pages/Admin/ImageManagement.razor *@
+@* Pages/Admin/ImageManagement.razor — added rename modal + file type filter *@
 @page "/admin/images"
 @using SubashaVentures.Layout.Admin
 @using SubashaVentures.Components.Shared.Buttons
-@using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Modals
 @using SubashaVentures.Components.Admin.Images
 @using SubashaVentures.Components.Shared.Notifications
@@ -43,7 +42,6 @@
                 </div>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">🖼️</div>
             <div class="stat-info">
@@ -51,7 +49,6 @@
                 <span class="stat-value">@totalImages</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">📂</div>
             <div class="stat-info">
@@ -59,7 +56,6 @@
                 <span class="stat-value">@totalFolders</span>
             </div>
         </div>
-
         <div class="stat-card">
             <div class="stat-icon">🔗</div>
             <div class="stat-info">
@@ -72,14 +68,7 @@
     <!-- ── Toolbar ── -->
     <div class="im-toolbar">
         <div class="im-filters">
-            <select class="filter-select folder-select" @onchange="HandleFolderFilterChange">
-                <option value="">All Folders</option>
-                @foreach (var category in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
-                {
-                    <option value="@category.Slug">@category.Name</option>
-                }
-            </select>
-
+            <!-- Search -->
             <div class="search-box-wrapper">
                 <svg class="search-icon-inline" width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
@@ -96,14 +85,40 @@
                 }
             </div>
 
+            <!-- Category -->
+            <select class="filter-select" @onchange="HandleFolderFilterChange">
+                <option value="">All Categories</option>
+                @foreach (var cat in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
+                {
+                    <option value="@cat.Slug" selected="@(selectedFolder == cat.Slug)">@cat.Name</option>
+                }
+            </select>
+
+            <!-- File Type -->
+            <select class="filter-select" @onchange="HandleFileTypeChange">
+                <option value="">All Types</option>
+                <option value="webp" selected="@(filterFileType == "webp")">WebP</option>
+                <option value="jpg"  selected="@(filterFileType == "jpg")">JPEG (.jpg)</option>
+                <option value="jpeg" selected="@(filterFileType == "jpeg")">JPEG (.jpeg)</option>
+                <option value="png"  selected="@(filterFileType == "png")">PNG</option>
+                <option value="gif"  selected="@(filterFileType == "gif")">GIF</option>
+            </select>
+
+            <!-- Sort -->
             <select class="filter-select" @onchange="HandleSortChange">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
-                <option value="name-az">Name (A-Z)</option>
-                <option value="name-za">Name (Z-A)</option>
+                <option value="name-az">Name (A–Z)</option>
+                <option value="name-za">Name (Z–A)</option>
                 <option value="size-largest">Largest First</option>
                 <option value="size-smallest">Smallest First</option>
+                <option value="type-az">Type (A–Z)</option>
             </select>
+
+            @if (HasActiveFilters)
+            {
+                <button class="clear-filters-btn" @onclick="ClearAllFilters">✕ Clear</button>
+            }
         </div>
 
         <div class="im-view-controls">
@@ -112,73 +127,48 @@
                 <span class="selection-count">@selectedImages.Count selected</span>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
                                  Variant="SecondaryButton.ButtonVariant.Outline"
-                                 OnClick="HandleBulkDownload">
-                    ⬇ Download
-                </SecondaryButton>
+                                 OnClick="HandleBulkDownload">⬇</SecondaryButton>
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
                                  Variant="SecondaryButton.ButtonVariant.Outline"
                                  OnClick="HandleBulkDelete"
-                                 CssClass="btn-danger-outline">
-                    🗑 Delete
-                </SecondaryButton>
+                                 CssClass="btn-danger-outline">🗑</SecondaryButton>
             }
 
-            <button class="view-toggle @(gridSize == "small"  ? "active" : "")"
-                    @onclick="@(() => SetGridSize("small"))">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="0" y="0" width="6" height="6" rx="1"/>
-                    <rect x="10" y="0" width="6" height="6" rx="1"/>
-                    <rect x="0" y="10" width="6" height="6" rx="1"/>
-                    <rect x="10" y="10" width="6" height="6" rx="1"/>
+            <button class="view-toggle @(gridSize == "small"  ? "active" : "")" @onclick="@(() => SetGridSize("small"))">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="0" y="0" width="6" height="6" rx="1"/><rect x="10" y="0" width="6" height="6" rx="1"/>
+                    <rect x="0" y="10" width="6" height="6" rx="1"/><rect x="10" y="10" width="6" height="6" rx="1"/>
                 </svg>
             </button>
-            <button class="view-toggle @(gridSize == "medium" ? "active" : "")"
-                    @onclick="@(() => SetGridSize("medium"))">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="0" y="0" width="7" height="7" rx="1"/>
-                    <rect x="9" y="0" width="7" height="7" rx="1"/>
-                    <rect x="0" y="9" width="7" height="7" rx="1"/>
-                    <rect x="9" y="9" width="7" height="7" rx="1"/>
+            <button class="view-toggle @(gridSize == "medium" ? "active" : "")" @onclick="@(() => SetGridSize("medium"))">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/>
+                    <rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/>
                 </svg>
             </button>
-            <button class="view-toggle @(gridSize == "large"  ? "active" : "")"
-                    @onclick="@(() => SetGridSize("large"))">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="0" y="0" width="16" height="7" rx="1"/>
-                    <rect x="0" y="9" width="16" height="7" rx="1"/>
+            <button class="view-toggle @(gridSize == "large"  ? "active" : "")" @onclick="@(() => SetGridSize("large"))">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="0" y="0" width="16" height="7" rx="1"/><rect x="0" y="9" width="16" height="7" rx="1"/>
                 </svg>
             </button>
         </div>
     </div>
 
-    <!-- ── Batch progress bar (only during loading-more) ── -->
+    <!-- ── Batch progress ── -->
     @if (isLoadingMore)
     {
         <div class="im-batch-progress">
-            <div class="im-batch-bar">
-                <div class="im-batch-fill" style="width: @loadingProgress%"></div>
-            </div>
-            <span class="im-batch-label">
-                Loading @loadedFolderCount / @totalFolderCount categories…
-            </span>
+            <div class="im-batch-bar"><div class="im-batch-fill" style="width: @loadingProgress%"></div></div>
+            <span class="im-batch-label">Loading @loadedFolderCount / @totalFolderCount categories…</span>
         </div>
     }
 
-    <!-- ── Main content area ── -->
+    <!-- ── Content ── -->
     @if (isLoading && !allImages.Any())
     {
         <div class="im-loading">
             <div class="loading-spinner"></div>
             <p>Loading images…</p>
-            @if (totalFolderCount > 0)
-            {
-                <div class="im-batch-progress" style="width:260px;margin-top:0.5rem;">
-                    <div class="im-batch-bar">
-                        <div class="im-batch-fill" style="width: @loadingProgress%"></div>
-                    </div>
-                    <span class="im-batch-label">@loadedFolderCount / @totalFolderCount categories</span>
-                </div>
-            }
         </div>
     }
     else if (!filteredImages.Any() && !isLoading && !isLoadingMore)
@@ -186,14 +176,11 @@
         <div class="im-empty">
             <div class="empty-icon">🖼️</div>
             <h3>No images found</h3>
-            <p>@(string.IsNullOrEmpty(searchQuery) && string.IsNullOrEmpty(selectedFolder)
-                ? "Upload your first image to get started"
-                : "No images match your filters")</p>
-            @if (!string.IsNullOrEmpty(searchQuery) || !string.IsNullOrEmpty(selectedFolder))
+            <p>@(HasActiveFilters ? "No images match your filters" : "Upload your first image to get started")</p>
+            @if (HasActiveFilters)
             {
                 <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                 OnClick="ClearAllFilters"
-                                 Size="SecondaryButton.ButtonSize.Small">
+                                 OnClick="ClearAllFilters" Size="SecondaryButton.ButtonSize.Small">
                     Clear Filters
                 </SecondaryButton>
             }
@@ -205,27 +192,18 @@
     }
     else
     {
-        <!-- Results count bar -->
         <div class="im-results-bar">
             <span class="im-results-count">
-                @if (HasActiveFilters)
-                {
-                    @($"{filteredImages.Count} of {allImages.Count} images")
-                }
-                else
-                {
-                    @($"{allImages.Count} image{(allImages.Count != 1 ? "s" : "")}")
-                }
+                @(HasActiveFilters
+                    ? $"{filteredImages.Count} of {allImages.Count} images"
+                    : $"{allImages.Count} image{(allImages.Count != 1 ? "s" : "")}")
             </span>
             @if (HasActiveFilters)
             {
-                <button class="im-reset-filters-btn" @onclick="ClearAllFilters">
-                    Reset filters
-                </button>
+                <button class="im-reset-filters-btn" @onclick="ClearAllFilters">Reset filters</button>
             }
         </div>
 
-        <!-- Image Grid -->
         <div class="im-grid @gridSize">
             @foreach (var image in paginatedImages)
             {
@@ -236,6 +214,7 @@
                                 OnDelete="HandleDelete"
                                 OnConvert="HandleConvert"
                                 OnMove="HandleMove"
+                                OnRename="HandleRename"
                                 OnSelectionChanged="@((args) => HandleImageSelect(args.imageId, args.isSelected))" />
             }
 
@@ -254,52 +233,26 @@
             }
         </div>
 
-        <!-- ── Pagination — sticky bottom ── -->
+        <!-- ── Pagination ── -->
         @if (totalPages > 0)
         {
             <div class="im-pagination">
                 <div class="pagination-info">
-                    Showing @((currentPage - 1) * pageSize + 1)–@Math.Min(currentPage * pageSize, filteredImages.Count)
-                    of @filteredImages.Count images
+                    @((currentPage - 1) * pageSize + 1)–@Math.Min(currentPage * pageSize, filteredImages.Count)
+                    of @filteredImages.Count
                 </div>
                 <div class="pagination-controls">
-                    <button class="page-btn prev-next"
-                            @onclick="PreviousPage"
-                            disabled="@(currentPage <= 1)">
-                        ← Prev
-                    </button>
+                    <button class="page-btn prev-next" @onclick="PreviousPage" disabled="@(currentPage <= 1)">← Prev</button>
 
                     @{
-                        var startPage = Math.Max(1, currentPage - 2);
-                        var endPage   = Math.Min(totalPages, currentPage + 2);
-
-                        if (startPage > 1)
-                        {
-                            <button class="page-btn" @onclick="@(() => GoToPage(1))">1</button>
-                            if (startPage > 2) { <span class="page-ellipsis">…</span> }
-                        }
-
-                        for (int pg = startPage; pg <= endPage; pg++)
-                        {
-                            var pageCapture = pg;
-                            <button class="page-btn @(pageCapture == currentPage ? "active" : "")"
-                                    @onclick="@(() => GoToPage(pageCapture))">
-                                @pageCapture
-                            </button>
-                        }
-
-                        if (endPage < totalPages)
-                        {
-                            if (endPage < totalPages - 1) { <span class="page-ellipsis">…</span> }
-                            <button class="page-btn" @onclick="@(() => GoToPage(totalPages))">@totalPages</button>
-                        }
+                        var sp = Math.Max(1, currentPage - 2);
+                        var ep = Math.Min(totalPages, currentPage + 2);
+                        if (sp > 1) { <button class="page-btn" @onclick="@(() => GoToPage(1))">1</button> if (sp > 2) { <span class="page-ellipsis">…</span> } }
+                        for (int pg = sp; pg <= ep; pg++) { var c = pg; <button class="page-btn @(c == currentPage ? "active" : "")" @onclick="@(() => GoToPage(c))">@c</button> }
+                        if (ep < totalPages) { if (ep < totalPages - 1) { <span class="page-ellipsis">…</span> } <button class="page-btn" @onclick="@(() => GoToPage(totalPages))">@totalPages</button> }
                     }
 
-                    <button class="page-btn prev-next"
-                            @onclick="NextPage"
-                            disabled="@(currentPage >= totalPages)">
-                        Next →
-                    </button>
+                    <button class="page-btn prev-next" @onclick="NextPage" disabled="@(currentPage >= totalPages)">Next →</button>
                 </div>
                 <div class="pagination-size">
                     <label>Per page:</label>
@@ -327,9 +280,9 @@
             <div class="upload-section">
                 <label class="upload-label">Upload to Category</label>
                 <select class="upload-select" @bind="uploadFolder">
-                    @foreach (var category in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
+                    @foreach (var cat in categories.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder))
                     {
-                        <option value="@category.Slug">@category.Name</option>
+                        <option value="@cat.Slug">@cat.Name</option>
                     }
                 </select>
             </div>
@@ -337,7 +290,7 @@
             <div class="upload-section">
                 <label class="compression-toggle">
                     <input type="checkbox" @bind="enableCompression" class="compression-checkbox" />
-                    <span class="compression-label">Enable Image Compression + WebP Conversion (Recommended)</span>
+                    <span class="compression-label">Enable Compression + WebP Conversion</span>
                     <span class="compression-hint">Reduces file size 25–34% while maintaining quality</span>
                 </label>
             </div>
@@ -348,20 +301,13 @@
                  @ondrop="HandleDrop"
                  @ondragenter="HandleDragEnter"
                  @ondragleave="HandleDragLeave">
-                <InputFile OnChange="HandleFileSelect"
-                           multiple
-                           accept="image/*"
-                           id="imageUploadInput"
-                           class="file-input-native" />
-                <label for="imageUploadInput"
-                       class="upload-dropzone @(isDragging ? "dragging" : "")">
+                <InputFile OnChange="HandleFileSelect" multiple accept="image/*" id="imageUploadInput" class="file-input-native" />
+                <label for="imageUploadInput" class="upload-dropzone @(isDragging ? "dragging" : "")">
                     <div class="dropzone-content">
                         <div class="dropzone-icon">📁</div>
                         <h3>Drag & drop images here</h3>
                         <p>or</p>
-                        <div class="browse-btn-wrapper">
-                            <span class="browse-btn">Browse Files</span>
-                        </div>
+                        <div class="browse-btn-wrapper"><span class="browse-btn">Browse Files</span></div>
                         <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50 MB)</p>
                     </div>
                 </label>
@@ -378,9 +324,7 @@
                     @foreach (var item in uploadQueue)
                     {
                         <div class="queue-item @item.Status">
-                            <div class="queue-preview">
-                                <img src="@item.PreviewUrl" alt="@item.FileName" />
-                            </div>
+                            <div class="queue-preview"><img src="@item.PreviewUrl" alt="@item.FileName" /></div>
                             <div class="queue-info">
                                 <span class="queue-name">@item.FileName</span>
                                 <span class="queue-size">@item.FormattedSize</span>
@@ -392,40 +336,24 @@
                             <div class="queue-progress">
                                 @if (item.Status == "uploading")
                                 {
-                                    <div class="progress-bar">
-                                        <div class="progress-fill" style="width: @item.Progress%"></div>
-                                    </div>
+                                    <div class="progress-bar"><div class="progress-fill" style="width: @item.Progress%"></div></div>
                                     <span class="progress-text">@item.Progress%</span>
                                 }
-                                else if (item.Status == "success")
-                                {
-                                    <span class="status-icon success">✓</span>
-                                }
-                                else if (item.Status == "error")
-                                {
-                                    <span class="status-icon error">✗</span>
-                                }
-                                else
-                                {
-                                    <span class="status-icon pending">⏳</span>
-                                }
+                                else if (item.Status == "success") { <span class="status-icon success">✓</span> }
+                                else if (item.Status == "error")   { <span class="status-icon error">✗</span> }
+                                else                               { <span class="status-icon pending">⏳</span> }
                             </div>
-                            <button class="queue-remove" type="button"
-                                    @onclick="@(() => RemoveFromQueue(item))">✕</button>
+                            <button class="queue-remove" type="button" @onclick="@(() => RemoveFromQueue(item))">✕</button>
                         </div>
                     }
                 </div>
 
                 <div class="upload-actions">
-                    <SecondaryButton OnClick="CloseUploadModal"
-                                     Variant="SecondaryButton.ButtonVariant.Outline"
-                                     IsDisabled="@isUploading"
-                                     Size="SecondaryButton.ButtonSize.Medium">
+                    <SecondaryButton OnClick="CloseUploadModal" Variant="SecondaryButton.ButtonVariant.Outline"
+                                     IsDisabled="@isUploading" Size="SecondaryButton.ButtonSize.Medium">
                         Cancel
                     </SecondaryButton>
-                    <PrimaryButton OnClick="StartUpload"
-                                   IsDisabled="@isUploading"
-                                   IsLoading="@isUploading"
+                    <PrimaryButton OnClick="StartUpload" IsDisabled="@isUploading" IsLoading="@isUploading"
                                    Size="PrimaryButton.ButtonSize.Medium">
                         Upload @uploadQueue.Count Image@(uploadQueue.Count != 1 ? "s" : "")
                     </PrimaryButton>
@@ -452,7 +380,7 @@
                     </div>
                     <div class="convert-source-info">
                         <span class="convert-filename">@conversionImage.FileName</span>
-                        <span class="convert-meta">Current: <strong>@conversionImage.FileExtension</strong></span>
+                        <span class="convert-meta">Current format: <strong>@conversionImage.FileExtension</strong></span>
                         <span class="convert-meta">Size: <strong>@conversionImage.FormattedSize</strong></span>
                         <span class="convert-meta">Category: <strong>@GetCategoryDisplayName(conversionImage.Folder)</strong></span>
                     </div>
@@ -462,7 +390,7 @@
                     <label class="convert-section-label">Target Format</label>
                     <div class="convert-format-options">
                         <label class="format-option @(conversionFormat == "image/webp" ? "selected" : "")">
-                            <input type="radio" name="format" value="image/webp"
+                            <input type="radio" name="cvtfmt" value="image/webp"
                                    checked="@(conversionFormat == "image/webp")"
                                    @onchange="@(() => conversionFormat = "image/webp")" />
                             <span class="format-label">
@@ -471,7 +399,7 @@
                             </span>
                         </label>
                         <label class="format-option @(conversionFormat == "image/jpeg" ? "selected" : "")">
-                            <input type="radio" name="format" value="image/jpeg"
+                            <input type="radio" name="cvtfmt" value="image/jpeg"
                                    checked="@(conversionFormat == "image/jpeg")"
                                    @onchange="@(() => conversionFormat = "image/jpeg")" />
                             <span class="format-label">
@@ -480,7 +408,7 @@
                             </span>
                         </label>
                         <label class="format-option @(conversionFormat == "image/png" ? "selected" : "")">
-                            <input type="radio" name="format" value="image/png"
+                            <input type="radio" name="cvtfmt" value="image/png"
                                    checked="@(conversionFormat == "image/png")"
                                    @onchange="@(() => conversionFormat = "image/png")" />
                             <span class="format-label">
@@ -494,18 +422,11 @@
                 @if (conversionFormat != "image/png")
                 {
                     <div class="convert-section">
-                        <label class="convert-section-label">
-                            Quality: <strong>@conversionQuality%</strong>
-                        </label>
-                        <input type="range"
-                               class="quality-slider"
-                               min="10" max="100" step="5"
+                        <label class="convert-section-label">Quality: <strong>@conversionQuality%</strong></label>
+                        <input type="range" class="quality-slider" min="10" max="100" step="5"
                                value="@conversionQuality"
                                @oninput="@((e) => conversionQuality = int.Parse(e.Value?.ToString() ?? "85"))" />
-                        <div class="quality-hints">
-                            <span>Low (smaller)</span>
-                            <span>High (better quality)</span>
-                        </div>
+                        <div class="quality-hints"><span>Low (smaller)</span><span>High (better quality)</span></div>
                     </div>
                 }
 
@@ -521,22 +442,19 @@
                         }
                         else
                         {
-                            <span>Both files will exist. You can delete the original manually later.</span>
+                            <span>Both files will exist side by side.</span>
                         }
                     </p>
                 </div>
 
                 <div class="convert-actions">
                     <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                     OnClick="CancelConvert"
-                                     IsDisabled="@isConverting"
+                                     OnClick="CancelConvert" IsDisabled="@isConverting"
                                      Size="SecondaryButton.ButtonSize.Medium">
                         Cancel
                     </SecondaryButton>
-                    <PrimaryButton OnClick="ConfirmConvert"
-                                   IsLoading="@isConverting"
-                                   IsDisabled="@isConverting"
-                                   Size="PrimaryButton.ButtonSize.Medium">
+                    <PrimaryButton OnClick="ConfirmConvert" IsLoading="@isConverting"
+                                   IsDisabled="@isConverting" Size="PrimaryButton.ButtonSize.Medium">
                         @(isConverting ? "Converting…" : $"Convert to {GetFormatLabel(conversionFormat)}")
                     </PrimaryButton>
                 </div>
@@ -557,14 +475,10 @@
         {
             <div class="move-modal-content">
                 <div class="move-preview-row">
-                    <div class="move-thumb">
-                        <img src="@moveImage.ThumbnailUrl" alt="@moveImage.FileName" />
-                    </div>
+                    <div class="move-thumb"><img src="@moveImage.ThumbnailUrl" alt="@moveImage.FileName" /></div>
                     <div class="move-info">
                         <span class="move-filename">@moveImage.FileName</span>
-                        <span class="move-current">
-                            Currently in: <strong>@GetCategoryDisplayName(moveImage.Folder)</strong>
-                        </span>
+                        <span class="move-current">Currently in: <strong>@GetCategoryDisplayName(moveImage.Folder)</strong></span>
                     </div>
                 </div>
 
@@ -585,16 +499,73 @@
 
                 <div class="convert-actions">
                     <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                     OnClick="CancelMove"
-                                     IsDisabled="@isMoving"
+                                     OnClick="CancelMove" IsDisabled="@isMoving"
                                      Size="SecondaryButton.ButtonSize.Medium">
                         Cancel
                     </SecondaryButton>
-                    <PrimaryButton OnClick="ConfirmMove"
-                                   IsLoading="@isMoving"
+                    <PrimaryButton OnClick="ConfirmMove" IsLoading="@isMoving"
                                    IsDisabled="@(isMoving || moveTargetFolder == moveImage.Folder)"
                                    Size="PrimaryButton.ButtonSize.Medium">
                         @(isMoving ? "Moving…" : "Move Image")
+                    </PrimaryButton>
+                </div>
+            </div>
+        }
+    </BodyContent>
+</DynamicModal>
+
+<!-- ══ Rename Modal ══ -->
+<DynamicModal @ref="renameModal"
+              Title="Rename Image"
+              Size="DynamicModal.ModalSize.Small"
+              IsOpen="@isRenameModalOpen"
+              ShowFooter="false"
+              OnClose="CancelRename">
+    <BodyContent>
+        @if (renameImage != null)
+        {
+            <div class="rename-modal-content">
+                <div class="move-preview-row">
+                    <div class="move-thumb"><img src="@renameImage.ThumbnailUrl" alt="@renameImage.FileName" /></div>
+                    <div class="move-info">
+                        <span class="move-filename">@renameImage.FileName</span>
+                        <span class="move-current">Category: <strong>@GetCategoryDisplayName(renameImage.Folder)</strong></span>
+                    </div>
+                </div>
+
+                <div class="rename-input-section">
+                    <label class="rename-label">
+                        New name
+                        <span class="rename-ext">@Path.GetExtension(renameImage.FileName)</span>
+                    </label>
+                    <input class="rename-input"
+                           type="text"
+                           placeholder="Enter new file name"
+                           value="@renameNewName"
+                           @oninput="@((e) => { renameNewName = e.Value?.ToString() ?? ""; renameError = ""; StateHasChanged(); })"
+                           @onkeydown="@(async (e) => { if (e.Key == "Enter") await ConfirmRename(); })"
+                           maxlength="200" />
+
+                    @if (!string.IsNullOrEmpty(renameError))
+                    {
+                        <span class="rename-error">⚠ @renameError</span>
+                    }
+                    else
+                    {
+                        <span class="rename-hint">Extension (@renameImage.FileExtension) will be preserved.</span>
+                    }
+                </div>
+
+                <div class="convert-actions">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                     OnClick="CancelRename" IsDisabled="@isRenaming"
+                                     Size="SecondaryButton.ButtonSize.Medium">
+                        Cancel
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="ConfirmRename" IsLoading="@isRenaming"
+                                   IsDisabled="@(isRenaming || string.IsNullOrWhiteSpace(renameNewName))"
+                                   Size="PrimaryButton.ButtonSize.Medium">
+                        @(isRenaming ? "Renaming…" : "Rename")
                     </PrimaryButton>
                 </div>
             </div>
@@ -612,12 +583,10 @@
                    WarningText="This action cannot be undone."
                    Variant="ConfirmationPopup.ConfirmationVariant.Danger"
                    ConfirmButtonText="@(isDeleting ? "Deleting…" : "Delete")"
-                   CancelButtonText="Cancel"
                    IsProcessing="@isDeleting"
                    OnConfirm="ConfirmDelete"
                    OnCancel="CancelDelete" />
 
-<!-- ══ Notifications ══ -->
 <NotificationComponent @ref="notificationComponent"
                        Position="NotificationPosition.TopRight"
                        AutoDismissTime="5000" />
