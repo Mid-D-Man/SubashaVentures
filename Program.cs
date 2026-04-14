@@ -184,6 +184,7 @@ builder.Services.AddScoped<ICloudflareR2Service, CloudflareR2Service>();
 builder.Services.AddScoped<IPartnerApplicationService, PartnerApplicationService>();
 builder.Services.AddScoped<IPartnerTemplateService, PartnerTemplateService>();
 builder.Services.AddScoped<IPartnerStoreService, PartnerStoreService>();
+builder.Services.AddScoped<IPartnerStoreReviewService, PartnerStoreReviewService>();
 var host = builder.Build();
 
 try
