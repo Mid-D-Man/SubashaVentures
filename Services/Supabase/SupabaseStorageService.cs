@@ -350,50 +350,97 @@ private const int STORAGE_PAGE_SIZE = 1000;   // max Supabase will return per ca
     // (capital D, confirmed from storage-csharp source on GitHub)
 
     public async Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products")
+{
+    try
     {
-        try
-        {
-            var files = await _supabaseClient.Storage.From(GetBucketId(bucketName)).List(folder);
+        var bucket   = _supabaseClient.Storage.From(GetBucketId(bucketName));
+        var allFiles = new List<StorageFile>();
+        var offset   = 0;
 
-            return files
+        while (true)
+        {
+            var page = await bucket.List(folder, new Supabase.Storage.SearchOptions
+            {
+                Limit  = STORAGE_PAGE_SIZE,
+                Offset = offset,
+                SortBy = new Supabase.Storage.SortBy
+                {
+                    Column = "created_at",
+                    Order  = "desc"
+                }
+            });
+
+            if (page == null || !page.Any()) break;
+
+            var mapped = page
                 .Where(f => !f.IsFolder)   // skip virtual folder placeholders
                 .Select(f => new StorageFile
                 {
                     Name        = f.Name      ?? string.Empty,
                     Id          = f.Id        ?? Guid.NewGuid().ToString(),
                     UpdatedAt   = f.UpdatedAt ?? DateTime.UtcNow,
-                    Size        = ExtractSize(f.MetaData),       // ← f.MetaData (capital D)
-                    ContentType = ExtractMimeType(f.MetaData)    // ← f.MetaData (capital D)
-                }).ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ListFiles failed: {Folder}", folder);
-            return new List<StorageFile>();
-        }
-    }
+                    Size        = ExtractSize(f.MetaData),
+                    ContentType = ExtractMimeType(f.MetaData)
+                });
 
-    public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, string bucketName = "products")
+            allFiles.AddRange(mapped);
+
+            // If we got fewer items than the page size, we're on the last page
+            if (page.Count < STORAGE_PAGE_SIZE) break;
+
+            offset += STORAGE_PAGE_SIZE;
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[Storage] ListFiles page done: offset={offset}, running total={allFiles.Count}",
+                LogLevel.Debug);
+        }
+
+        await MID_HelperFunctions.DebugMessageAsync(
+            $"[Storage] ListFiles '{folder}': {allFiles.Count} files total",
+            LogLevel.Info);
+
+        return allFiles;
+    }
+    catch (Exception ex)
     {
-        try
-        {
-            var dir      = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
-            var files    = await _supabaseClient.Storage.From(GetBucketId(bucketName)).List(dir);
-            var fileName = Path.GetFileName(filePath);
-            var file     = files.FirstOrDefault(f => f.Name == fileName);
-            if (file == null) return null;
-
-            return new StorageFileMetadata
-            {
-                Name        = file.Name      ?? string.Empty,
-                Size        = ExtractSize(file.MetaData),        // ← capital D
-                CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
-                UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
-                ContentType = ExtractMimeType(file.MetaData)     // ← capital D
-            };
-        }
-        catch (Exception ex) { _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath); return null; }
+        _logger.LogError(ex, "ListFiles failed: {Folder}", folder);
+        return new List<StorageFile>();
     }
+}
+
+public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, string bucketName = "products")
+{
+    try
+    {
+        var dir      = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
+        var fileName = Path.GetFileName(filePath);
+
+        var bucket = _supabaseClient.Storage.From(GetBucketId(bucketName));
+        var page   = await bucket.List(dir, new Supabase.Storage.SearchOptions
+        {
+            Limit  = STORAGE_PAGE_SIZE,
+            Offset = 0,
+            SortBy = new Supabase.Storage.SortBy { Column = "name", Order = "asc" }
+        });
+
+        var file = page?.FirstOrDefault(f => f.Name == fileName);
+        if (file == null) return null;
+
+        return new StorageFileMetadata
+        {
+            Name        = file.Name      ?? string.Empty,
+            Size        = ExtractSize(file.MetaData),
+            CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
+            UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
+            ContentType = ExtractMimeType(file.MetaData)
+        };
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath);
+        return null;
+    }
+}
 
     // ─── Capacity ─────────────────────────────────────────────────────────────
 
