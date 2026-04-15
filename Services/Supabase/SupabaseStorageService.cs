@@ -1,13 +1,16 @@
 // Services/Supabase/SupabaseStorageService.cs
-// Fix 1: f.MetaData (capital D, public field) not f.Metadata
-// Fix 2: pass Dictionary<string,object> directly — no ambiguous type reference
+// Fix 1: namespace aliases for Supabase.Storage types (prevents resolution against current namespace)
+// Fix 2: page.Count() instead of page.Count (IEnumerable vs List)
+// Fix 3: proper pagination with offset — Supabase default limit was 100
 
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
-using FileOptions = Supabase.Storage.FileOptions;
+using FileOptions        = global::Supabase.Storage.FileOptions;
+using StorageSearchOptions = global::Supabase.Storage.SearchOptions;
+using StorageSortBy        = global::Supabase.Storage.SortBy;
 
 namespace SubashaVentures.Services.Supabase;
 
@@ -18,8 +21,8 @@ public class SupabaseStorageService : ISupabaseStorageService
     private readonly HttpClient _httpClient;
     private readonly ILogger<SupabaseStorageService> _logger;
 
-    private const long MaxFileSizeBytes = 50L * 1024L * 1024L;
-private const int STORAGE_PAGE_SIZE = 1000;   // max Supabase will return per call
+    private const long MaxFileSizeBytes  = 50L * 1024L * 1024L;
+    private const int  STORAGE_PAGE_SIZE = 1000; // max Supabase returns per call
 
     private readonly Dictionary<string, string> _buckets = new()
     {
@@ -345,102 +348,109 @@ private const int STORAGE_PAGE_SIZE = 1000;   // max Supabase will return per ca
         catch (Exception ex) { _logger.LogError(ex, "GetSignedUrl failed: {Path}", filePath); return string.Empty; }
     }
 
-    // ─── List / metadata ──────────────────────────────────────────────────────
-    // FileObject.MetaData is a public field: Dictionary<string, object>
-    // (capital D, confirmed from storage-csharp source on GitHub)
+    // ─── List / metadata — FIXED: uses StorageSearchOptions alias + Count() ──
 
     public async Task<List<StorageFile>> ListFilesAsync(string folder, string bucketName = "products")
-{
-    try
     {
-        var bucket   = _supabaseClient.Storage.From(GetBucketId(bucketName));
-        var allFiles = new List<StorageFile>();
-        var offset   = 0;
-
-        while (true)
+        try
         {
-            var page = await bucket.List(folder, new Supabase.Storage.SearchOptions
+            var bucket   = _supabaseClient.Storage.From(GetBucketId(bucketName));
+            var allFiles = new List<StorageFile>();
+            var offset   = 0;
+
+            while (true)
             {
-                Limit  = STORAGE_PAGE_SIZE,
-                Offset = offset,
-                SortBy = new Supabase.Storage.SortBy
+                // FIX: use StorageSearchOptions alias (global::Supabase.Storage.SearchOptions)
+                //      to avoid namespace resolution against SubashaVentures.Services.Supabase
+                var page = await bucket.List(folder, new StorageSearchOptions
                 {
-                    Column = "created_at",
-                    Order  = "desc"
-                }
-            });
-
-            if (page == null || !page.Any()) break;
-
-            var mapped = page
-                .Where(f => !f.IsFolder)   // skip virtual folder placeholders
-                .Select(f => new StorageFile
-                {
-                    Name        = f.Name      ?? string.Empty,
-                    Id          = f.Id        ?? Guid.NewGuid().ToString(),
-                    UpdatedAt   = f.UpdatedAt ?? DateTime.UtcNow,
-                    Size        = ExtractSize(f.MetaData),
-                    ContentType = ExtractMimeType(f.MetaData)
+                    Limit  = STORAGE_PAGE_SIZE,
+                    Offset = offset,
+                    SortBy = new StorageSortBy
+                    {
+                        Column = "created_at",
+                        Order  = "desc"
+                    }
                 });
 
-            allFiles.AddRange(mapped);
+                // FIX: null guard then LINQ Count() — avoids method-group error
+                //      when SDK returns IEnumerable<FileObject> instead of List<FileObject>
+                if (page == null || !page.Any()) break;
 
-            // If we got fewer items than the page size, we're on the last page
-            if (page.Count < STORAGE_PAGE_SIZE) break;
+                var pageCount = page.Count();
 
-            offset += STORAGE_PAGE_SIZE;
+                var mapped = page
+                    // Files have non-null Id; folder placeholder entries have null Id
+                    .Where(f => !string.IsNullOrEmpty(f.Id))
+                    .Select(f => new StorageFile
+                    {
+                        Name        = f.Name      ?? string.Empty,
+                        Id          = f.Id        ?? Guid.NewGuid().ToString(),
+                        UpdatedAt   = f.UpdatedAt ?? DateTime.UtcNow,
+                        Size        = ExtractSize(f.MetaData),
+                        ContentType = ExtractMimeType(f.MetaData)
+                    });
+
+                allFiles.AddRange(mapped);
+
+                // If fewer items than page size, we're on the last page
+                if (pageCount < STORAGE_PAGE_SIZE) break;
+
+                offset += STORAGE_PAGE_SIZE;
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"[Storage] ListFiles page: offset={offset}, running total={allFiles.Count}",
+                    LogLevel.Debug);
+            }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"[Storage] ListFiles page done: offset={offset}, running total={allFiles.Count}",
-                LogLevel.Debug);
+                $"[Storage] ListFiles '{folder}': {allFiles.Count} files total",
+                LogLevel.Info);
+
+            return allFiles;
         }
-
-        await MID_HelperFunctions.DebugMessageAsync(
-            $"[Storage] ListFiles '{folder}': {allFiles.Count} files total",
-            LogLevel.Info);
-
-        return allFiles;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "ListFiles failed: {Folder}", folder);
-        return new List<StorageFile>();
-    }
-}
-
-public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, string bucketName = "products")
-{
-    try
-    {
-        var dir      = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
-        var fileName = Path.GetFileName(filePath);
-
-        var bucket = _supabaseClient.Storage.From(GetBucketId(bucketName));
-        var page   = await bucket.List(dir, new Supabase.Storage.SearchOptions
+        catch (Exception ex)
         {
-            Limit  = STORAGE_PAGE_SIZE,
-            Offset = 0,
-            SortBy = new Supabase.Storage.SortBy { Column = "name", Order = "asc" }
-        });
-
-        var file = page?.FirstOrDefault(f => f.Name == fileName);
-        if (file == null) return null;
-
-        return new StorageFileMetadata
-        {
-            Name        = file.Name      ?? string.Empty,
-            Size        = ExtractSize(file.MetaData),
-            CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
-            UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
-            ContentType = ExtractMimeType(file.MetaData)
-        };
+            _logger.LogError(ex, "ListFiles failed: {Folder}", folder);
+            return new List<StorageFile>();
+        }
     }
-    catch (Exception ex)
+
+    public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, string bucketName = "products")
     {
-        _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath);
-        return null;
+        try
+        {
+            var dir      = Path.GetDirectoryName(filePath)?.Replace("\\", "/") ?? "";
+            var fileName = Path.GetFileName(filePath);
+
+            var bucket = _supabaseClient.Storage.From(GetBucketId(bucketName));
+
+            // FIX: same StorageSearchOptions / StorageSortBy aliases
+            var page = await bucket.List(dir, new StorageSearchOptions
+            {
+                Limit  = STORAGE_PAGE_SIZE,
+                Offset = 0,
+                SortBy = new StorageSortBy { Column = "name", Order = "asc" }
+            });
+
+            var file = page?.FirstOrDefault(f => f.Name == fileName);
+            if (file == null) return null;
+
+            return new StorageFileMetadata
+            {
+                Name        = file.Name      ?? string.Empty,
+                Size        = ExtractSize(file.MetaData),
+                CreatedAt   = file.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt   = file.UpdatedAt ?? DateTime.UtcNow,
+                ContentType = ExtractMimeType(file.MetaData)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetFileMetadata failed: {Path}", filePath);
+            return null;
+        }
     }
-}
 
     // ─── Capacity ─────────────────────────────────────────────────────────────
 
@@ -481,16 +491,14 @@ public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, st
 
     /// <summary>
     /// Extract file size from the FileObject.MetaData field.
-    /// MetaData is Dictionary&lt;string, object&gt; where values are Newtonsoft JToken after JSON round-trip.
-    /// Supabase stores size under "size" key (bytes as integer/long).
+    /// MetaData is Dictionary&lt;string, object&gt; — values are Newtonsoft JToken after round-trip.
+    /// Supabase stores size under "size" key (integer/long).
     /// </summary>
     private static long ExtractSize(Dictionary<string, object> metaData)
     {
         if (metaData == null || metaData.Count == 0) return 0;
-
         try
         {
-            // Round-trip through JSON normalises JToken values to primitives
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(metaData);
             var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<MetaDto>(json);
             return dto?.Size ?? dto?.ContentLength ?? 0;
@@ -501,7 +509,6 @@ public async Task<StorageFileMetadata?> GetFileMetadataAsync(string filePath, st
     private static string ExtractMimeType(Dictionary<string, object> metaData)
     {
         if (metaData == null || metaData.Count == 0) return string.Empty;
-
         try
         {
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(metaData);
