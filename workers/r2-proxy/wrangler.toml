@@ -6,17 +6,28 @@ compatibility_date = "2024-09-01"
 binding = "R2_BUCKET"
 bucket_name = "subasha-ventures"
 
+# ── Plain text (non-sensitive) ─────────────────────────────────────────────
 [vars]
-SUPABASE_URL = "https://wbwmovtewytjibxutssk.supabase.co"
-WORKER_ENV = "production"
+SUPABASE_URL   = "https://wbwmovtewytjibxutssk.supabase.co"
+WORKER_ENV     = "production"
 R2_PUBLIC_DOMAIN = "https://r2-proxy.mysubasha.com"
 
-# Secrets — set via wrangler CLI, never in this file:
-# wrangler secret put SUPABASE_ANON_KEY
-# wrangler secret put R2_ACCOUNT_ID         (for presigned URL generation via S3 API)
-# wrangler secret put R2_ACCESS_KEY_ID      (R2 API token)
-# wrangler secret put R2_SECRET_ACCESS_KEY  (R2 API token secret)
+# ── Encrypted secrets — set via CLI, never put values here ────────────────
+# Run once from workers/r2-proxy/:
+#   npx wrangler secret put SUPABASE_ANON_KEY
+#   npx wrangler secret put R2_ACCOUNT_ID
+#   npx wrangler secret put R2_ACCESS_KEY_ID
+#   npx wrangler secret put R2_SECRET_ACCESS_KEY
+#
+# For local dev, create workers/r2-proxy/.dev.vars (add to .gitignore):
+#   SUPABASE_ANON_KEY=eyJhbGci...
+#   R2_ACCOUNT_ID=...
+#   R2_ACCESS_KEY_ID=...
+#   R2_SECRET_ACCESS_KEY=...
+
+[secrets]
+required = ["SUPABASE_ANON_KEY", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
 
 [[routes]]
-pattern = "r2-proxy.mysubasha.com/*"
+pattern  = "r2-proxy.mysubasha.com/*"
 zone_name = "mysubasha.com"
