@@ -19,6 +19,7 @@ public class SupabaseStorageService : ISupabaseStorageService
     private readonly ILogger<SupabaseStorageService> _logger;
 
     private const long MaxFileSizeBytes = 50L * 1024L * 1024L;
+private const int STORAGE_PAGE_SIZE = 1000;   // max Supabase will return per call
 
     private readonly Dictionary<string, string> _buckets = new()
     {
