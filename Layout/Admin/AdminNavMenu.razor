@@ -7,39 +7,27 @@
      @ref="navElement"
      @onmouseenter="HandleMouseEnter"
      @onmouseleave="HandleMouseLeave">
-    
+
     <!-- Navigation Header -->
     <div class="nav-header">
         <div class="nav-brand">
-            @if (isExpanded || isMobileOpen)
-            {
-                <span class="brand-text">SubashaVentures</span>
-            }
-            else
-            {
-                <span class="brand-icon-only">🌟</span>
-            }
+            <div class="brand-icon-svg" title="SubashaVentures">
+                <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="36" height="36" rx="8" fill="var(--primary-color, #96994A)"/>
+                    <path d="M25 13C25 11.343 23.657 10 22 10H15C13.343 10 12 11.343 12 13C12 14.657 13.343 16 15 16H21C22.657 16 24 17.343 24 19C24 20.657 22.657 22 21 22H11.5"
+                          stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
         </div>
-        
-        <button class="nav-toggle-btn desktop-only" 
+
+        <button class="nav-toggle-btn desktop-only"
                 @onclick="TogglePinned"
-                title="@(isPinned ? "Unpin sidebar" : "Pin sidebar")">
-            @if (isPinned)
-            {
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M15 4L5 14M5 4L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-            }
-            else
-            {
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M4 10H16M4 10L8 6M4 10L8 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            }
+                title="@(isPinned ? "Collapse sidebar" : "Expand sidebar")">
+            <span class="toggle-chevron">@(isPinned ? "«" : "»")</span>
         </button>
 
         <button class="nav-close-btn mobile-only" @onclick="CloseMobileNav">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </button>
@@ -74,11 +62,11 @@
                                 </svg>
                             </span>
                         </button>
-                        
+
                         <div class="nav-item-children">
                             @foreach (var child in item.Children)
                             {
-                                <a href="@child.Path" 
+                                <a href="@child.Path"
                                    class="nav-item child @(IsCurrentPath(child.Path) ? "active" : "")"
                                    @onclick="() => HandleNavigation(child.Path)">
                                     <span class="nav-item-icon">@GetIconSvg(child.Icon)</span>
@@ -95,7 +83,7 @@
                 else
                 {
                     <!-- Single Item -->
-                    <a href="@item.Path" 
+                    <a href="@item.Path"
                        class="nav-item @(IsCurrentPath(item.Path) ? "active" : "")"
                        @onclick="() => HandleNavigation(item.Path)">
                         <span class="nav-item-icon">@GetIconSvg(item.Icon)</span>
