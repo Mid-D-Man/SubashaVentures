@@ -11,7 +11,7 @@ using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Admin.Images;
 using SubashaVentures.Components.Shared.Notifications;
 using SubashaVentures.Models.Firebase;
-using SubashaVentures.Domain.Enums;                      // ← NotificationType lives here
+using SubashaVentures.Domain.Enums;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Admin;
@@ -35,6 +35,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private DynamicModal?          convertModal;
     private DynamicModal?          moveModal;
     private DynamicModal?          renameModal;
+    private DynamicModal?          bulkConvertModal;
+    private DynamicModal?          bulkRenameModal;
     private ConfirmationPopup?     confirmationPopup;
 
     // ─── Object pools ─────────────────────────────────────────────────────────
@@ -49,9 +51,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private int  loadedFolderCount = 0;
     private int  totalFolderCount  = 0;
     private int  loadingProgress   =>
-        totalFolderCount > 0
-            ? (int)Math.Round(loadedFolderCount * 100.0 / totalFolderCount)
-            : 0;
+        totalFolderCount > 0 ? (int)Math.Round(loadedFolderCount * 100.0 / totalFolderCount) : 0;
 
     private const int BATCH_SIZE = 2;
 
@@ -69,7 +69,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private AdminImageCard.ImageItem? imageToDelete      = null;
     private List<string>              imagesToDelete     = new();
 
-    // ─── Conversion state ─────────────────────────────────────────────────────
+    // ─── Conversion state (single) ────────────────────────────────────────────
 
     private AdminImageCard.ImageItem? conversionImage;
     private bool   isConversionModalOpen = false;
@@ -78,6 +78,17 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private bool   replaceOriginal       = false;
     private bool   isConverting          = false;
 
+    // ─── Bulk Conversion state ────────────────────────────────────────────────
+
+    private List<AdminImageCard.ImageItem> bulkConvertImages       = new();
+    private bool                           isBulkConversionModalOpen = false;
+    private string                         bulkConversionFormat    = "image/webp";
+    private int                            bulkConversionQuality   = 85;
+    private bool                           bulkReplaceOriginals    = false;
+    private bool                           isBulkConverting        = false;
+    private int                            bulkConvertCurrent      = 0;
+    private int                            bulkConvertTotal        = 0;
+
     // ─── Move state ───────────────────────────────────────────────────────────
 
     private AdminImageCard.ImageItem? moveImage;
@@ -85,19 +96,31 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private string moveTargetFolder = "";
     private bool   isMoving         = false;
 
-    // ─── Rename state ─────────────────────────────────────────────────────────
+    // ─── Rename state (single) ────────────────────────────────────────────────
 
     private AdminImageCard.ImageItem? renameImage;
     private bool   isRenameModalOpen = false;
-    private string renameNewName     = "";          // without extension
+    private string renameNewName     = "";
     private string renameError       = "";
     private bool   isRenaming        = false;
+
+    // ─── Bulk Rename state ────────────────────────────────────────────────────
+
+    private List<AdminImageCard.ImageItem> bulkRenameImages      = new();
+    private bool                           isBulkRenameModalOpen = false;
+    private string                         bulkRenamePrefix      = "";
+    private bool                           bulkRenameKeepName    = false;
+    private int                            bulkRenameStartIndex  = 1;
+    private int                            bulkRenamePadding     = 3;
+    private string                         bulkRenameError       = "";
+    private bool                           isBulkRenaming        = false;
+    private int                            bulkRenameProgress    = 0;
 
     // ─── Filter / sort / view ─────────────────────────────────────────────────
 
     private string searchQuery      = "";
     private string selectedFolder   = "";
-    private string filterFileType   = "";          // "", "webp", "jpg", "png", "gif"
+    private string filterFileType   = "";
     private string uploadFolder     = "products";
     private string gridSize         = "medium";
     private string sortBy           = "newest";
@@ -142,14 +165,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         try
         {
             _imageListPool = new MID_ComponentObjectPool<List<AdminImageCard.ImageItem>>(
-                () => new List<AdminImageCard.ImageItem>(),
-                l  => l.Clear(),
-                maxPoolSize: 10);
-
+                () => new List<AdminImageCard.ImageItem>(), l => l.Clear(), maxPoolSize: 10);
             _uploadQueuePool = new MID_ComponentObjectPool<List<UploadQueueItem>>(
-                () => new List<UploadQueueItem>(),
-                l  => l.Clear(),
-                maxPoolSize: 5);
+                () => new List<UploadQueueItem>(), l => l.Clear(), maxPoolSize: 5);
 
             await LoadCategoriesAsync();
             await LoadImagesAsync();
@@ -174,6 +192,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             categories = loaded?.Where(c => c.IsActive).OrderBy(c => c.DisplayOrder).ToList()
                          ?? new List<CategoryModel>();
             totalFolders = categories.Count > 0 ? categories.Count : 3;
+            // Initialise default upload folder to first category if available
+            if (categories.Any() && string.IsNullOrEmpty(uploadFolder))
+                uploadFolder = categories.First().Slug;
         }
         catch (Exception ex)
         {
@@ -214,31 +235,25 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             for (int batchStart = 0; batchStart < folders.Length; batchStart += BATCH_SIZE)
             {
                 var batch = folders.Skip(batchStart).Take(BATCH_SIZE).ToArray();
-
                 if (batchStart > 0) { isLoading = false; isLoadingMore = true; }
 
                 var batchImages = new List<AdminImageCard.ImageItem>();
                 var batchUrls   = new List<string>();
-
-                await Task.WhenAll(batch.Select(f =>
-                    LoadImagesFromFolderAsync(f, batchImages, batchUrls)));
+                await Task.WhenAll(batch.Select(f => LoadImagesFromFolderAsync(f, batchImages, batchUrls)));
 
                 lock (allImages) { allImages.AddRange(batchImages); }
                 allImageUrls.AddRange(batchUrls);
                 loadedFolderCount += batch.Length;
                 totalImages        = allImages.Count;
-
                 ApplyFiltersAndSort();
             }
 
             if (allImageUrls.Any())
-            {
                 _ = Task.Run(async () =>
                 {
                     try { await ImageCacheService.PreloadImagesAsync(allImageUrls); }
                     catch (Exception ex) { await MID_HelperFunctions.LogExceptionAsync(ex, "Preload"); }
                 });
-            }
 
             await SaveToCacheAsync(allImages);
             await LoadStorageInfoAsync();
@@ -274,16 +289,14 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
                 var item = new AdminImageCard.ImageItem
                 {
-                    Id             = file.Id,
-                    FileName       = file.Name,
-                    PublicUrl      = publicUrl,
-                    ThumbnailUrl   = publicUrl,
-                    Folder         = folder,
-                    FileSize       = file.Size,
-                    Dimensions     = "",
-                    UploadedAt     = file.UpdatedAt,
-                    IsReferenced   = false,
-                    ReferenceCount = 0
+                    Id           = file.Id,
+                    FileName     = file.Name,
+                    PublicUrl    = publicUrl,
+                    ThumbnailUrl = publicUrl,
+                    Folder       = folder,
+                    FileSize     = file.Size,
+                    Dimensions   = "",
+                    UploadedAt   = file.UpdatedAt
                 };
 
                 lock (imageList) { imageList.Add(item); }
@@ -303,11 +316,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         {
             var totalSize     = allImages.Sum(img => img.FileSize);
             var totalCapacity = 1L * 1024L * 1024L * 1024L;
-
             storagePercentage = totalCapacity > 0
                 ? Math.Min(100, totalSize / (double)totalCapacity * 100)
                 : 0;
-
             usedStorage  = FormatBytes(totalSize);
             totalStorage = "1 GB";
             StateHasChanged();
@@ -364,13 +375,12 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    private void HandleSearchInput(ChangeEventArgs e)
-    {
-        searchQuery = e.Value?.ToString() ?? "";
-        ApplyFiltersAndSort();
-    }
-
-    private void ClearSearch() { searchQuery = ""; ApplyFiltersAndSort(); }
+    private void HandleSearchInput(ChangeEventArgs e)    { searchQuery    = e.Value?.ToString() ?? ""; ApplyFiltersAndSort(); }
+    private void ClearSearch()                           { searchQuery    = ""; ApplyFiltersAndSort(); }
+    private void HandleFolderFilterChange(ChangeEventArgs e) { selectedFolder  = e.Value?.ToString() ?? ""; ApplyFiltersAndSort(); }
+    private void HandleFileTypeChange(ChangeEventArgs e) { filterFileType  = e.Value?.ToString() ?? ""; ApplyFiltersAndSort(); }
+    private void HandleSortChange(ChangeEventArgs e)     { sortBy         = e.Value?.ToString() ?? "newest"; ApplyFiltersAndSort(); }
+    private void SetGridSize(string size)                { gridSize = size; StateHasChanged(); }
 
     private void ClearAllFilters()
     {
@@ -380,26 +390,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         sortBy         = "newest";
         ApplyFiltersAndSort();
     }
-
-    private void HandleFolderFilterChange(ChangeEventArgs e)
-    {
-        selectedFolder = e.Value?.ToString() ?? "";
-        ApplyFiltersAndSort();
-    }
-
-    private void HandleFileTypeChange(ChangeEventArgs e)
-    {
-        filterFileType = e.Value?.ToString() ?? "";
-        ApplyFiltersAndSort();
-    }
-
-    private void HandleSortChange(ChangeEventArgs e)
-    {
-        sortBy = e.Value?.ToString() ?? "newest";
-        ApplyFiltersAndSort();
-    }
-
-    private void SetGridSize(string size) { gridSize = size; StateHasChanged(); }
 
     // ─── Pagination ───────────────────────────────────────────────────────────
 
@@ -530,14 +520,12 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             {
                 success = await StorageService.DeleteImageAsync(
                     $"{imageToDelete.Folder}/{imageToDelete.FileName}", "products");
-
                 if (success) { allImages.Remove(imageToDelete); ShowSuccess($"'{imageToDelete.FileName}' deleted"); }
                 else         { ShowError($"Failed to delete '{imageToDelete.FileName}'"); }
             }
             else
             {
                 success = await StorageService.DeleteImagesAsync(imagesToDelete, "products");
-
                 if (success)
                 {
                     var names = imagesToDelete.Select(Path.GetFileName).ToHashSet();
@@ -579,10 +567,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         StateHasChanged();
     }
 
-    // ─── Conversion ───────────────────────────────────────────────────────────
-    // KEY FIX: C# downloads image bytes first → converts to base64 → passes to JS.
-    // JS then builds a local Blob URL (no cross-origin URL ever hits the canvas).
-    // This fully bypasses the canvas CORS taint that was silently killing conversions.
+    // ─── Single Conversion ────────────────────────────────────────────────────
 
     private Task HandleConvert(AdminImageCard.ImageItem image)
     {
@@ -611,40 +596,26 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             isConverting = true;
             StateHasChanged();
 
-            // ── Step 1: Download image bytes in C# ──────────────────────────
-            // We do this here so JS never has to fetch a cross-origin URL,
-            // which would taint the canvas and silently break toBlob().
             byte[] sourceBytes;
-            try
-            {
-                sourceBytes = await Http.GetByteArrayAsync(conversionImage.PublicUrl);
-            }
+            try   { sourceBytes = await Http.GetByteArrayAsync(conversionImage.PublicUrl); }
             catch (Exception ex)
             {
                 await MID_HelperFunctions.LogExceptionAsync(ex, "ConvertDownload");
-                ShowError("Failed to download image for conversion. Check your network.");
+                ShowError("Failed to download image for conversion.");
                 return;
             }
 
             if (sourceBytes == null || sourceBytes.Length == 0)
             {
-                ShowError("Downloaded image is empty — cannot convert.");
+                ShowError("Downloaded image is empty.");
                 return;
             }
 
-            // ── Step 2: Convert to base64, pass to JS ───────────────────────
-            // JS gets a data-URL string, builds a Blob from it locally.
-            // No cross-origin URL involved → canvas is never tainted.
             var sourceMime   = GetMimeFromExtension(Path.GetExtension(conversionImage.FileName));
             var sourceBase64 = $"data:{sourceMime};base64,{Convert.ToBase64String(sourceBytes)}";
 
             var jsResult = await JSRuntime.InvokeAsync<JsConversionResult>(
-                "imageCompressor.compressImage",
-                sourceBase64,
-                conversionQuality,
-                4096,
-                4096,
-                conversionFormat);
+                "imageCompressor.compressImage", sourceBase64, conversionQuality, 4096, 4096, conversionFormat);
 
             if (!jsResult.Success || string.IsNullOrEmpty(jsResult.Base64Data))
             {
@@ -652,9 +623,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // ── Step 3: Decode result base64 → bytes ────────────────────────
             byte[] convertedBytes;
-            try { convertedBytes = Convert.FromBase64String(jsResult.Base64Data); }
+            try   { convertedBytes = Convert.FromBase64String(jsResult.Base64Data); }
             catch (Exception ex)
             {
                 ShowError("Failed to decode converted image");
@@ -662,7 +632,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // ── Step 4: Upload converted bytes ──────────────────────────────
             var baseName    = Path.GetFileNameWithoutExtension(conversionImage.FileName);
             var newExt      = GetFormatExtension(conversionFormat);
             var newFileName = $"{baseName}_converted{newExt}";
@@ -677,11 +646,10 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            // ── Step 5: Optionally delete original ───────────────────────────
             if (replaceOriginal)
             {
-                var sourcePath = $"{conversionImage.Folder}/{conversionImage.FileName}";
-                var deleted    = await StorageService.DeleteImageAsync(sourcePath, "products");
+                var deleted = await StorageService.DeleteImageAsync(
+                    $"{conversionImage.Folder}/{conversionImage.FileName}", "products");
                 if (deleted)
                     allImages.Remove(conversionImage);
                 else
@@ -708,6 +676,122 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
+    // ─── Bulk Conversion ──────────────────────────────────────────────────────
+
+    private Task HandleBulkConvert()
+    {
+        bulkConvertImages = allImages
+            .Where(x => selectedImages.Contains(x.Id))
+            .ToList();
+
+        if (!bulkConvertImages.Any()) { ShowWarning("No images selected"); return Task.CompletedTask; }
+
+        bulkConversionFormat    = "image/webp";
+        bulkConversionQuality   = 85;
+        bulkReplaceOriginals    = false;
+        bulkConvertCurrent      = 0;
+        bulkConvertTotal        = bulkConvertImages.Count;
+        isBulkConversionModalOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CancelBulkConvert()
+    {
+        isBulkConversionModalOpen = false;
+        bulkConvertImages.Clear();
+        StateHasChanged();
+    }
+
+    private async Task ConfirmBulkConvert()
+    {
+        if (!bulkConvertImages.Any() || isBulkConverting) return;
+
+        try
+        {
+            isBulkConverting   = true;
+            bulkConvertCurrent = 0;
+            StateHasChanged();
+
+            int successCount = 0, failCount = 0;
+
+            foreach (var image in bulkConvertImages.ToList())
+            {
+                try
+                {
+                    byte[] sourceBytes;
+                    try   { sourceBytes = await Http.GetByteArrayAsync(image.PublicUrl); }
+                    catch { failCount++; bulkConvertCurrent++; StateHasChanged(); continue; }
+
+                    if (sourceBytes == null || sourceBytes.Length == 0)
+                    { failCount++; bulkConvertCurrent++; StateHasChanged(); continue; }
+
+                    var sourceMime   = GetMimeFromExtension(Path.GetExtension(image.FileName));
+                    var sourceBase64 = $"data:{sourceMime};base64,{Convert.ToBase64String(sourceBytes)}";
+
+                    var jsResult = await JSRuntime.InvokeAsync<JsConversionResult>(
+                        "imageCompressor.compressImage",
+                        sourceBase64, bulkConversionQuality, 4096, 4096, bulkConversionFormat);
+
+                    if (!jsResult.Success || string.IsNullOrEmpty(jsResult.Base64Data))
+                    { failCount++; bulkConvertCurrent++; StateHasChanged(); continue; }
+
+                    byte[] convertedBytes;
+                    try   { convertedBytes = Convert.FromBase64String(jsResult.Base64Data); }
+                    catch { failCount++; bulkConvertCurrent++; StateHasChanged(); continue; }
+
+                    var baseName  = Path.GetFileNameWithoutExtension(image.FileName);
+                    var newExt    = GetFormatExtension(bulkConversionFormat);
+                    var newName   = $"{baseName}_converted{newExt}";
+                    var mime      = jsResult.Format ?? bulkConversionFormat;
+
+                    var uploadResult = await StorageService.UploadImageBytesAsync(
+                        convertedBytes, newName, mime, "products", image.Folder);
+
+                    if (uploadResult.Success)
+                    {
+                        if (bulkReplaceOriginals)
+                            await StorageService.DeleteImageAsync($"{image.Folder}/{image.FileName}", "products");
+                        successCount++;
+                    }
+                    else failCount++;
+                }
+                catch (Exception ex)
+                {
+                    await MID_HelperFunctions.LogExceptionAsync(ex, $"BulkConvert: {image.FileName}");
+                    failCount++;
+                }
+
+                bulkConvertCurrent++;
+                StateHasChanged();
+                await Task.Delay(80);
+            }
+
+            await InvalidateCacheAsync();
+            await LoadImagesAsync();
+            selectedImages.Clear();
+
+            if (failCount == 0)
+                ShowSuccess($"Converted {successCount} image(s) to {GetFormatLabel(bulkConversionFormat)}");
+            else if (successCount > 0)
+                ShowWarning($"Converted {successCount}, {failCount} failed");
+            else
+                ShowError($"Failed to convert {failCount} image(s)");
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ConfirmBulkConvert");
+            ShowError("Bulk conversion failed unexpectedly");
+        }
+        finally
+        {
+            isBulkConverting          = false;
+            isBulkConversionModalOpen = false;
+            bulkConvertImages.Clear();
+            StateHasChanged();
+        }
+    }
+
     // ─── Move ─────────────────────────────────────────────────────────────────
 
     private Task HandleMove(AdminImageCard.ImageItem image)
@@ -729,7 +813,6 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private async Task ConfirmMove()
     {
         if (moveImage == null || isMoving) return;
-
         if (moveTargetFolder == moveImage.Folder)
         {
             ShowWarning("Image is already in that category");
@@ -775,13 +858,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ─── Rename ───────────────────────────────────────────────────────────────
+    // ─── Single Rename ────────────────────────────────────────────────────────
 
     private Task HandleRename(AdminImageCard.ImageItem image)
     {
-        renameImage      = image;
-        renameNewName    = Path.GetFileNameWithoutExtension(image.FileName);
-        renameError      = "";
+        renameImage       = image;
+        renameNewName     = Path.GetFileNameWithoutExtension(image.FileName);
+        renameError       = "";
         isRenameModalOpen = true;
         StateHasChanged();
         return Task.CompletedTask;
@@ -798,49 +881,27 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
     private async Task ConfirmRename()
     {
         if (renameImage == null || isRenaming) return;
-
         renameError = "";
 
-        // Validate name
         var trimmed = renameNewName.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            renameError = "Name cannot be empty.";
-            StateHasChanged();
-            return;
-        }
+        if (string.IsNullOrEmpty(trimmed)) { renameError = "Name cannot be empty."; StateHasChanged(); return; }
 
         var invalidChars = Path.GetInvalidFileNameChars();
-        if (trimmed.Any(c => invalidChars.Contains(c)))
-        {
-            renameError = "Name contains invalid characters.";
-            StateHasChanged();
-            return;
-        }
+        if (trimmed.Any(c => invalidChars.Contains(c))) { renameError = "Name contains invalid characters."; StateHasChanged(); return; }
 
-        var ext         = Path.GetExtension(renameImage.FileName);   // keep original extension
+        var ext         = Path.GetExtension(renameImage.FileName);
         var newFileName = $"{trimmed}{ext}";
 
         if (newFileName.Equals(renameImage.FileName, StringComparison.OrdinalIgnoreCase))
-        {
-            renameError = "That is already the file name.";
-            StateHasChanged();
-            return;
-        }
+        { renameError = "That is already the file name."; StateHasChanged(); return; }
 
-        // Check for collision
         var newFilePath = $"{renameImage.Folder}/{newFileName}";
         var collision   = allImages.Any(img =>
             img.Folder == renameImage.Folder &&
             img.FileName.Equals(newFileName, StringComparison.OrdinalIgnoreCase) &&
             img.Id != renameImage.Id);
 
-        if (collision)
-        {
-            renameError = "A file with that name already exists in this category.";
-            StateHasChanged();
-            return;
-        }
+        if (collision) { renameError = "A file with that name already exists in this category."; StateHasChanged(); return; }
 
         try
         {
@@ -848,17 +909,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
             StateHasChanged();
 
             var oldPath = $"{renameImage.Folder}/{renameImage.FileName}";
-
-            // MoveImageAsync: download → re-upload under new name → delete old
             var success = await StorageService.MoveImageAsync(oldPath, newFilePath, "products");
 
             if (success)
             {
-                // Update local list in place — no full reload needed
-                renameImage.FileName       = newFileName;
-                renameImage.PublicUrl      = StorageService.GetPublicUrl(newFilePath, "products");
-                renameImage.ThumbnailUrl   = renameImage.PublicUrl;
-
+                renameImage.FileName     = newFileName;
+                renameImage.PublicUrl    = StorageService.GetPublicUrl(newFilePath, "products");
+                renameImage.ThumbnailUrl = renameImage.PublicUrl;
                 await InvalidateCacheAsync();
                 ApplyFiltersAndSort();
                 ShowSuccess($"Renamed to '{newFileName}'");
@@ -880,7 +937,170 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         }
     }
 
-    // ─── File select / upload ─────────────────────────────────────────────────
+    // ─── Bulk Rename ──────────────────────────────────────────────────────────
+
+    private Task HandleBulkRename()
+    {
+        bulkRenameImages = allImages
+            .Where(x => selectedImages.Contains(x.Id))
+            .ToList();
+
+        if (!bulkRenameImages.Any()) { ShowWarning("No images selected"); return Task.CompletedTask; }
+
+        bulkRenamePrefix     = "";
+        bulkRenameKeepName   = false;
+        bulkRenameStartIndex = 1;
+        bulkRenamePadding    = 3;
+        bulkRenameError      = "";
+        bulkRenameProgress   = 0;
+        isBulkRenameModalOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CancelBulkRename()
+    {
+        isBulkRenameModalOpen = false;
+        bulkRenameImages.Clear();
+        bulkRenameError = "";
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Computes preview of first 4 renames so the user can verify before committing.
+    /// </summary>
+    private List<(string Original, string Preview)> GetBulkRenamePreview()
+    {
+        var result = new List<(string, string)>();
+        var preview = bulkRenameImages.Take(4).ToList();
+
+        for (int i = 0; i < preview.Count; i++)
+        {
+            var img        = preview[i];
+            var ext        = Path.GetExtension(img.FileName);
+            var idx        = bulkRenameStartIndex + i;
+            var paddedIdx  = idx.ToString().PadLeft(bulkRenamePadding, '0');
+
+            string newName;
+            if (bulkRenameKeepName)
+            {
+                var baseName = Path.GetFileNameWithoutExtension(img.FileName);
+                newName = string.IsNullOrEmpty(bulkRenamePrefix)
+                    ? $"{baseName}_{paddedIdx}{ext}"
+                    : $"{bulkRenamePrefix}{baseName}_{paddedIdx}{ext}";
+            }
+            else
+            {
+                newName = string.IsNullOrEmpty(bulkRenamePrefix)
+                    ? $"{paddedIdx}{ext}"
+                    : $"{bulkRenamePrefix}{paddedIdx}{ext}";
+            }
+
+            result.Add((img.FileName, newName));
+        }
+
+        return result;
+    }
+
+    private async Task ConfirmBulkRename()
+    {
+        if (!bulkRenameImages.Any() || isBulkRenaming) return;
+
+        bulkRenameError = "";
+
+        // Validate prefix characters
+        var invalidChars = Path.GetInvalidFileNameChars();
+        if (!string.IsNullOrEmpty(bulkRenamePrefix) && bulkRenamePrefix.Any(c => invalidChars.Contains(c)))
+        {
+            bulkRenameError = "Prefix contains invalid characters.";
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            isBulkRenaming   = true;
+            bulkRenameProgress = 0;
+            StateHasChanged();
+
+            int successCount = 0, failCount = 0, skipCount = 0;
+
+            for (int i = 0; i < bulkRenameImages.Count; i++)
+            {
+                var image     = bulkRenameImages[i];
+                var ext       = Path.GetExtension(image.FileName);
+                var idx       = bulkRenameStartIndex + i;
+                var paddedIdx = idx.ToString().PadLeft(bulkRenamePadding, '0');
+
+                string newFileName;
+                if (bulkRenameKeepName)
+                {
+                    var baseName = Path.GetFileNameWithoutExtension(image.FileName);
+                    newFileName = string.IsNullOrEmpty(bulkRenamePrefix)
+                        ? $"{baseName}_{paddedIdx}{ext}"
+                        : $"{bulkRenamePrefix}{baseName}_{paddedIdx}{ext}";
+                }
+                else
+                {
+                    newFileName = string.IsNullOrEmpty(bulkRenamePrefix)
+                        ? $"{paddedIdx}{ext}"
+                        : $"{bulkRenamePrefix}{paddedIdx}{ext}";
+                }
+
+                // Skip if already the same name
+                if (newFileName.Equals(image.FileName, StringComparison.OrdinalIgnoreCase))
+                { skipCount++; bulkRenameProgress++; StateHasChanged(); continue; }
+
+                var oldPath = $"{image.Folder}/{image.FileName}";
+                var newPath = $"{image.Folder}/{newFileName}";
+
+                try
+                {
+                    var success = await StorageService.MoveImageAsync(oldPath, newPath, "products");
+                    if (success)
+                    {
+                        image.FileName     = newFileName;
+                        image.PublicUrl    = StorageService.GetPublicUrl(newPath, "products");
+                        image.ThumbnailUrl = image.PublicUrl;
+                        successCount++;
+                    }
+                    else failCount++;
+                }
+                catch (Exception ex)
+                {
+                    await MID_HelperFunctions.LogExceptionAsync(ex, $"BulkRename: {image.FileName}");
+                    failCount++;
+                }
+
+                bulkRenameProgress++;
+                StateHasChanged();
+                await Task.Delay(60);
+            }
+
+            await InvalidateCacheAsync();
+            ApplyFiltersAndSort();
+            selectedImages.Clear();
+
+            if      (failCount == 0) ShowSuccess($"Renamed {successCount} image(s)" + (skipCount > 0 ? $", {skipCount} skipped" : ""));
+            else if (successCount > 0) ShowWarning($"Renamed {successCount}, {failCount} failed");
+            else   ShowError($"Rename failed for {failCount} image(s)");
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "ConfirmBulkRename");
+            ShowError("Bulk rename failed unexpectedly");
+        }
+        finally
+        {
+            isBulkRenaming        = false;
+            isBulkRenameModalOpen = false;
+            bulkRenameImages.Clear();
+            bulkRenameError = "";
+            StateHasChanged();
+        }
+    }
+
+    // ─── Upload ───────────────────────────────────────────────────────────────
 
     private async Task HandleFileSelect(InputFileChangeEventArgs e)
     {
@@ -888,7 +1108,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
 
         try
         {
-            var files          = e.GetMultipleFiles(maxAllowedFiles);
+            var files = e.GetMultipleFiles(maxAllowedFiles);
             int validFileCount = 0;
 
             foreach (var file in files)
@@ -936,13 +1156,11 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         {
             const long maxPreview = 2L * 1024L * 1024L;
             const long maxRead    = 50L * 1024L * 1024L;
-
             using var stream = file.OpenReadStream(maxRead);
             using var ms     = new MemoryStream();
             await stream.CopyToAsync(ms);
             var bytes = ms.ToArray();
             var src   = bytes.Length > maxPreview ? bytes.Take((int)maxPreview).ToArray() : bytes;
-
             return $"data:{file.ContentType};base64,{Convert.ToBase64String(src)}";
         }
         catch { return null; }
@@ -972,10 +1190,8 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     if (item.BrowserFile != null)
                     {
                         result = await StorageService.UploadImageAsync(
-                            item.BrowserFile,
-                            bucketName        : "products",
-                            folder            : uploadFolder,
-                            enableCompression : enableCompression);
+                            item.BrowserFile, bucketName: "products", folder: uploadFolder,
+                            enableCompression: enableCompression);
                     }
                     else
                     {
@@ -986,15 +1202,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                             failCount++;
                             continue;
                         }
-
                         using var ms = new MemoryStream(item.FileData);
                         result = await StorageService.UploadImageAsync(ms, item.FileName, "products", uploadFolder);
                     }
 
                     item.Progress = 100;
-
                     if (result.Success) { item.Status = "success"; successCount++; }
-                    else               { item.Status = "error"; item.ErrorMessage = result.ErrorMessage ?? "Upload failed"; failCount++; }
+                    else { item.Status = "error"; item.ErrorMessage = result.ErrorMessage ?? "Upload failed"; failCount++; }
                 }
                 catch (Exception ex)
                 {
@@ -1003,11 +1217,7 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
                     failCount++;
                     await MID_HelperFunctions.LogExceptionAsync(ex, $"Upload: {item.FileName}");
                 }
-                finally
-                {
-                    StateHasChanged();
-                    await Task.Delay(80);
-                }
+                finally { StateHasChanged(); await Task.Delay(80); }
             }
 
             await InvalidateCacheAsync();
@@ -1052,16 +1262,13 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         {
             var json = await LocalStorage.GetItemAsync<string>(CACHE_KEY);
             if (string.IsNullOrEmpty(json)) return null;
-
             var data = JsonHelper.Deserialize<ImageCacheData>(json);
             if (data == null) return null;
-
             if ((DateTime.UtcNow - data.CachedAt).TotalMinutes > CACHE_DURATION_MINUTES)
             {
                 await LocalStorage.RemoveItemAsync(CACHE_KEY);
                 return null;
             }
-
             return data.Images;
         }
         catch { return null; }
@@ -1130,6 +1337,9 @@ public partial class ImageManagement : ComponentBase, IAsyncDisposable
         while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
         return $"{len:0.##} {sizes[order]}";
     }
+
+    private static string TruncateName(string name, int max) =>
+        name.Length <= max ? name : name[..(max - 1)] + "…";
 
     // ─── Dispose ──────────────────────────────────────────────────────────────
 
