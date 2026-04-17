@@ -1,4 +1,4 @@
-@* Pages/Admin/ImageManagement.razor — added rename modal + file type filter *@
+@* Pages/Admin/ImageManagement.razor — bulk convert + bulk rename + emoji→SVG *@
 @page "/admin/images"
 @using SubashaVentures.Layout.Admin
 @using SubashaVentures.Components.Shared.Buttons
@@ -18,8 +18,12 @@
         <div class="im-header-right">
             <PrimaryButton Variant="PrimaryButton.ButtonVariant.Primary"
                            Size="PrimaryButton.ButtonSize.Medium"
-                           Icon="⬆"
                            OnClick="OpenUploadModal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right:0.375rem">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="17 8 12 3 7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
                 Upload Images
             </PrimaryButton>
         </div>
@@ -30,7 +34,13 @@
         <div class="stat-card storage">
             <div class="stat-header">
                 <span class="stat-label">Storage Used</span>
-                <span class="stat-icon">💾</span>
+                <div class="stat-icon-svg">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                </div>
             </div>
             <div class="stat-body">
                 <div class="storage-bar">
@@ -43,21 +53,36 @@
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">🖼️</div>
+            <div class="stat-icon-svg">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+            </div>
             <div class="stat-info">
                 <span class="stat-label">Total Images</span>
                 <span class="stat-value">@totalImages</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">📂</div>
+            <div class="stat-icon-svg">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+            </div>
             <div class="stat-info">
                 <span class="stat-label">Categories</span>
                 <span class="stat-value">@totalFolders</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">🔗</div>
+            <div class="stat-icon-svg">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+            </div>
             <div class="stat-info">
                 <span class="stat-label">Referenced</span>
                 <span class="stat-value">@referencedImages</span>
@@ -97,11 +122,11 @@
             <!-- File Type -->
             <select class="filter-select" @onchange="HandleFileTypeChange">
                 <option value="">All Types</option>
-                <option value="webp" selected="@(filterFileType == "webp")">WebP</option>
-                <option value="jpg"  selected="@(filterFileType == "jpg")">JPEG (.jpg)</option>
-                <option value="jpeg" selected="@(filterFileType == "jpeg")">JPEG (.jpeg)</option>
-                <option value="png"  selected="@(filterFileType == "png")">PNG</option>
-                <option value="gif"  selected="@(filterFileType == "gif")">GIF</option>
+                <option value="webp"  selected="@(filterFileType == "webp")">WebP</option>
+                <option value="jpg"   selected="@(filterFileType == "jpg")">JPEG (.jpg)</option>
+                <option value="jpeg"  selected="@(filterFileType == "jpeg")">JPEG (.jpeg)</option>
+                <option value="png"   selected="@(filterFileType == "png")">PNG</option>
+                <option value="gif"   selected="@(filterFileType == "gif")">GIF</option>
             </select>
 
             <!-- Sort -->
@@ -125,13 +150,51 @@
             @if (selectedImages.Any())
             {
                 <span class="selection-count">@selectedImages.Count selected</span>
+
+                <!-- Bulk Download -->
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
                                  Variant="SecondaryButton.ButtonVariant.Outline"
-                                 OnClick="HandleBulkDownload">⬇</SecondaryButton>
+                                 OnClick="HandleBulkDownload"
+                                 CssClass="bulk-action-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M7 10L12 15L17 10M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </SecondaryButton>
+
+                <!-- Bulk Convert -->
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 OnClick="HandleBulkConvert"
+                                 CssClass="bulk-action-btn"
+                                 title="Convert format for all selected">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </SecondaryButton>
+
+                <!-- Bulk Rename -->
+                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                 Variant="SecondaryButton.ButtonVariant.Outline"
+                                 OnClick="HandleBulkRename"
+                                 CssClass="bulk-action-btn"
+                                 title="Rename all selected images">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M11 4H4C3.47 4 2.96 4.21 2.59 4.59C2.21 4.96 2 5.47 2 6V20C2 20.53 2.21 21.04 2.59 21.41C2.96 21.79 3.47 22 4 22H18C18.53 22 19.04 21.79 19.41 21.41C19.79 21.04 20 20.53 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M18.5 2.5C18.76 2.24 19.12 2.09 19.5 2.09C19.88 2.09 20.24 2.24 20.5 2.5C20.76 2.76 20.91 3.12 20.91 3.5C20.91 3.88 20.76 4.24 20.5 4.5L12 13L8 14L9 10L18.5 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </SecondaryButton>
+
+                <!-- Bulk Delete -->
                 <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
                                  Variant="SecondaryButton.ButtonVariant.Outline"
                                  OnClick="HandleBulkDelete"
-                                 CssClass="btn-danger-outline">🗑</SecondaryButton>
+                                 CssClass="bulk-action-btn btn-danger-outline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 6V4C8 3.47 8.21 2.96 8.59 2.59C8.96 2.21 9.47 2 10 2H14C14.53 2 15.04 2.21 15.41 2.59C15.79 2.96 16 3.47 16 4V6M19 6V20C19 20.53 18.79 21.04 18.41 21.41C18.04 21.79 17.53 22 17 22H7C6.47 22 5.96 21.79 5.59 21.41C5.21 21.04 5 20.53 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </SecondaryButton>
             }
 
             <button class="view-toggle @(gridSize == "small"  ? "active" : "")" @onclick="@(() => SetGridSize("small"))">
@@ -174,7 +237,13 @@
     else if (!filteredImages.Any() && !isLoading && !isLoadingMore)
     {
         <div class="im-empty">
-            <div class="empty-icon">🖼️</div>
+            <div class="empty-icon-svg">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.35">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+            </div>
             <h3>No images found</h3>
             <p>@(HasActiveFilters ? "No images match your filters" : "Upload your first image to get started")</p>
             @if (HasActiveFilters)
@@ -243,7 +312,6 @@
                 </div>
                 <div class="pagination-controls">
                     <button class="page-btn prev-next" @onclick="PreviousPage" disabled="@(currentPage <= 1)">← Prev</button>
-
                     @{
                         var sp = Math.Max(1, currentPage - 2);
                         var ep = Math.Min(totalPages, currentPage + 2);
@@ -251,7 +319,6 @@
                         for (int pg = sp; pg <= ep; pg++) { var c = pg; <button class="page-btn @(c == currentPage ? "active" : "")" @onclick="@(() => GoToPage(c))">@c</button> }
                         if (ep < totalPages) { if (ep < totalPages - 1) { <span class="page-ellipsis">…</span> } <button class="page-btn" @onclick="@(() => GoToPage(totalPages))">@totalPages</button> }
                     }
-
                     <button class="page-btn prev-next" @onclick="NextPage" disabled="@(currentPage >= totalPages)">Next →</button>
                 </div>
                 <div class="pagination-size">
@@ -304,8 +371,14 @@
                 <InputFile OnChange="HandleFileSelect" multiple accept="image/*" id="imageUploadInput" class="file-input-native" />
                 <label for="imageUploadInput" class="upload-dropzone @(isDragging ? "dragging" : "")">
                     <div class="dropzone-content">
-                        <div class="dropzone-icon">📁</div>
-                        <h3>Drag & drop images here</h3>
+                        <div class="dropzone-icon-svg">
+                            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h3>Drag &amp; drop images here</h3>
                         <p>or</p>
                         <div class="browse-btn-wrapper"><span class="browse-btn">Browse Files</span></div>
                         <p class="upload-hint">Supports: JPG, PNG, WebP, GIF (Max 50 MB)</p>
@@ -341,7 +414,7 @@
                                 }
                                 else if (item.Status == "success") { <span class="status-icon success">✓</span> }
                                 else if (item.Status == "error")   { <span class="status-icon error">✗</span> }
-                                else                               { <span class="status-icon pending">⏳</span> }
+                                else                               { <span class="status-icon pending">○</span> }
                             </div>
                             <button class="queue-remove" type="button" @onclick="@(() => RemoveFromQueue(item))">✕</button>
                         </div>
@@ -363,7 +436,7 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- ══ Convert Modal ══ -->
+<!-- ══ Convert Modal (single) ══ -->
 <DynamicModal @ref="convertModal"
               Title="Convert Image Format"
               Size="DynamicModal.ModalSize.Medium"
@@ -375,50 +448,31 @@
         {
             <div class="convert-modal-content">
                 <div class="convert-preview-row">
-                    <div class="convert-thumb">
-                        <img src="@conversionImage.ThumbnailUrl" alt="@conversionImage.FileName" />
-                    </div>
+                    <div class="convert-thumb"><img src="@conversionImage.ThumbnailUrl" alt="@conversionImage.FileName" /></div>
                     <div class="convert-source-info">
                         <span class="convert-filename">@conversionImage.FileName</span>
-                        <span class="convert-meta">Current format: <strong>@conversionImage.FileExtension</strong></span>
+                        <span class="convert-meta">Format: <strong>@conversionImage.FileExtension</strong></span>
                         <span class="convert-meta">Size: <strong>@conversionImage.FormattedSize</strong></span>
                         <span class="convert-meta">Category: <strong>@GetCategoryDisplayName(conversionImage.Folder)</strong></span>
                     </div>
                 </div>
-
                 <div class="convert-section">
                     <label class="convert-section-label">Target Format</label>
                     <div class="convert-format-options">
                         <label class="format-option @(conversionFormat == "image/webp" ? "selected" : "")">
-                            <input type="radio" name="cvtfmt" value="image/webp"
-                                   checked="@(conversionFormat == "image/webp")"
-                                   @onchange="@(() => conversionFormat = "image/webp")" />
-                            <span class="format-label">
-                                <strong>WebP</strong>
-                                <small>Best for web — smallest file size</small>
-                            </span>
+                            <input type="radio" name="cvtfmt" value="image/webp" checked="@(conversionFormat == "image/webp")" @onchange="@(() => conversionFormat = "image/webp")" />
+                            <span class="format-label"><strong>WebP</strong><small>Best for web — smallest file size</small></span>
                         </label>
                         <label class="format-option @(conversionFormat == "image/jpeg" ? "selected" : "")">
-                            <input type="radio" name="cvtfmt" value="image/jpeg"
-                                   checked="@(conversionFormat == "image/jpeg")"
-                                   @onchange="@(() => conversionFormat = "image/jpeg")" />
-                            <span class="format-label">
-                                <strong>JPEG</strong>
-                                <small>Maximum compatibility</small>
-                            </span>
+                            <input type="radio" name="cvtfmt" value="image/jpeg" checked="@(conversionFormat == "image/jpeg")" @onchange="@(() => conversionFormat = "image/jpeg")" />
+                            <span class="format-label"><strong>JPEG</strong><small>Maximum compatibility</small></span>
                         </label>
                         <label class="format-option @(conversionFormat == "image/png" ? "selected" : "")">
-                            <input type="radio" name="cvtfmt" value="image/png"
-                                   checked="@(conversionFormat == "image/png")"
-                                   @onchange="@(() => conversionFormat = "image/png")" />
-                            <span class="format-label">
-                                <strong>PNG</strong>
-                                <small>Lossless — larger files</small>
-                            </span>
+                            <input type="radio" name="cvtfmt" value="image/png" checked="@(conversionFormat == "image/png")" @onchange="@(() => conversionFormat = "image/png")" />
+                            <span class="format-label"><strong>PNG</strong><small>Lossless — larger files</small></span>
                         </label>
                     </div>
                 </div>
-
                 @if (conversionFormat != "image/png")
                 {
                     <div class="convert-section">
@@ -429,37 +483,206 @@
                         <div class="quality-hints"><span>Low (smaller)</span><span>High (better quality)</span></div>
                     </div>
                 }
-
                 <div class="convert-section">
                     <label class="convert-replace-label">
                         <input type="checkbox" @bind="replaceOriginal" />
                         <span>Delete original after conversion</span>
                     </label>
                     <p class="convert-hint">
-                        @if (replaceOriginal)
-                        {
-                            <span class="hint-warning">⚠ The original file will be permanently removed.</span>
-                        }
-                        else
-                        {
-                            <span>Both files will exist side by side.</span>
-                        }
+                        @if (replaceOriginal) { <span class="hint-warning">⚠ The original file will be permanently removed.</span> }
+                        else                  { <span>Both files will exist side by side.</span> }
                     </p>
                 </div>
-
                 <div class="convert-actions">
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                     OnClick="CancelConvert" IsDisabled="@isConverting"
-                                     Size="SecondaryButton.ButtonSize.Medium">
-                        Cancel
-                    </SecondaryButton>
-                    <PrimaryButton OnClick="ConfirmConvert" IsLoading="@isConverting"
-                                   IsDisabled="@isConverting" Size="PrimaryButton.ButtonSize.Medium">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CancelConvert" IsDisabled="@isConverting" Size="SecondaryButton.ButtonSize.Medium">Cancel</SecondaryButton>
+                    <PrimaryButton OnClick="ConfirmConvert" IsLoading="@isConverting" IsDisabled="@isConverting" Size="PrimaryButton.ButtonSize.Medium">
                         @(isConverting ? "Converting…" : $"Convert to {GetFormatLabel(conversionFormat)}")
                     </PrimaryButton>
                 </div>
             </div>
         }
+    </BodyContent>
+</DynamicModal>
+
+<!-- ══ Bulk Convert Modal ══ -->
+<DynamicModal @ref="bulkConvertModal"
+              Title="Bulk Convert Images"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isBulkConversionModalOpen"
+              ShowFooter="false"
+              OnClose="CancelBulkConvert">
+    <BodyContent>
+        <div class="convert-modal-content">
+            <div class="bulk-op-count-bar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                    <polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Converting <strong>@bulkConvertImages.Count</strong> selected image@(bulkConvertImages.Count != 1 ? "s" : "")
+            </div>
+
+            <div class="convert-section">
+                <label class="convert-section-label">Target Format</label>
+                <div class="convert-format-options">
+                    <label class="format-option @(bulkConversionFormat == "image/webp" ? "selected" : "")">
+                        <input type="radio" name="bcvtfmt" value="image/webp" checked="@(bulkConversionFormat == "image/webp")" @onchange="@(() => bulkConversionFormat = "image/webp")" />
+                        <span class="format-label"><strong>WebP</strong><small>Best for web — smallest file size</small></span>
+                    </label>
+                    <label class="format-option @(bulkConversionFormat == "image/jpeg" ? "selected" : "")">
+                        <input type="radio" name="bcvtfmt" value="image/jpeg" checked="@(bulkConversionFormat == "image/jpeg")" @onchange="@(() => bulkConversionFormat = "image/jpeg")" />
+                        <span class="format-label"><strong>JPEG</strong><small>Maximum compatibility</small></span>
+                    </label>
+                    <label class="format-option @(bulkConversionFormat == "image/png" ? "selected" : "")">
+                        <input type="radio" name="bcvtfmt" value="image/png" checked="@(bulkConversionFormat == "image/png")" @onchange="@(() => bulkConversionFormat = "image/png")" />
+                        <span class="format-label"><strong>PNG</strong><small>Lossless — larger files</small></span>
+                    </label>
+                </div>
+            </div>
+
+            @if (bulkConversionFormat != "image/png")
+            {
+                <div class="convert-section">
+                    <label class="convert-section-label">Quality: <strong>@bulkConversionQuality%</strong></label>
+                    <input type="range" class="quality-slider" min="10" max="100" step="5"
+                           value="@bulkConversionQuality"
+                           @oninput="@((e) => bulkConversionQuality = int.Parse(e.Value?.ToString() ?? "85"))" />
+                    <div class="quality-hints"><span>Low (smaller)</span><span>High (better quality)</span></div>
+                </div>
+            }
+
+            <div class="convert-section">
+                <label class="convert-replace-label">
+                    <input type="checkbox" @bind="bulkReplaceOriginals" />
+                    <span>Delete originals after conversion</span>
+                </label>
+                <p class="convert-hint">
+                    @if (bulkReplaceOriginals) { <span class="hint-warning">⚠ All original files will be permanently removed.</span> }
+                    else                       { <span>Converted copies will exist alongside the originals.</span> }
+                </p>
+            </div>
+
+            @if (isBulkConverting)
+            {
+                <div class="bulk-op-progress">
+                    <div class="bulk-op-bar">
+                        <div class="bulk-op-fill" style="width: @(bulkConvertTotal > 0 ? (int)(bulkConvertCurrent * 100.0 / bulkConvertTotal) : 0)%"></div>
+                    </div>
+                    <span class="bulk-op-label">Converting @bulkConvertCurrent / @bulkConvertTotal…</span>
+                </div>
+            }
+
+            <div class="convert-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CancelBulkConvert" IsDisabled="@isBulkConverting" Size="SecondaryButton.ButtonSize.Medium">Cancel</SecondaryButton>
+                <PrimaryButton OnClick="ConfirmBulkConvert" IsLoading="@isBulkConverting" IsDisabled="@isBulkConverting" Size="PrimaryButton.ButtonSize.Medium">
+                    @(isBulkConverting ? $"Converting {bulkConvertCurrent}/{bulkConvertTotal}…" : $"Convert {bulkConvertImages.Count} to {GetFormatLabel(bulkConversionFormat)}")
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- ══ Bulk Rename Modal ══ -->
+<DynamicModal @ref="bulkRenameModal"
+              Title="Bulk Rename Images"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isBulkRenameModalOpen"
+              ShowFooter="false"
+              OnClose="CancelBulkRename">
+    <BodyContent>
+        <div class="bulk-rename-modal-content">
+            <div class="bulk-op-count-bar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M11 4H4C2.9 4 2 4.9 2 6V20C2 21.1 2.9 22 4 22H18C19.1 22 20 21.1 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18.5 2.5C19.3 1.7 20.7 1.7 21.5 2.5C22.3 3.3 22.3 4.7 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Renaming <strong>@bulkRenameImages.Count</strong> selected image@(bulkRenameImages.Count != 1 ? "s" : "")
+            </div>
+
+            <!-- Prefix -->
+            <div class="rename-input-section">
+                <label class="rename-label">Prefix <span class="rename-optional">(optional)</span></label>
+                <input class="rename-input"
+                       type="text"
+                       placeholder="e.g. product_ or summer_"
+                       value="@bulkRenamePrefix"
+                       maxlength="80"
+                       @oninput="@((e) => { bulkRenamePrefix = e.Value?.ToString() ?? ""; StateHasChanged(); })" />
+            </div>
+
+            <!-- Naming mode -->
+            <div class="bulk-rename-mode-section">
+                <label class="rename-label">Naming mode</label>
+                <div class="bulk-rename-modes">
+                    <label class="bulk-rename-mode-option @(!bulkRenameKeepName ? "selected" : "")">
+                        <input type="radio" name="bnmode" checked="@(!bulkRenameKeepName)" @onchange="@(() => { bulkRenameKeepName = false; StateHasChanged(); })" />
+                        <div class="mode-text">
+                            <strong>Sequential numbers only</strong>
+                            <small>e.g. prefix_001.jpg, prefix_002.jpg</small>
+                        </div>
+                    </label>
+                    <label class="bulk-rename-mode-option @(bulkRenameKeepName ? "selected" : "")">
+                        <input type="radio" name="bnmode" checked="@bulkRenameKeepName" @onchange="@(() => { bulkRenameKeepName = true; StateHasChanged(); })" />
+                        <div class="mode-text">
+                            <strong>Keep original name + append index</strong>
+                            <small>e.g. prefix_photo_001.jpg, prefix_shirt_002.jpg</small>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Start index + padding -->
+            <div class="bulk-rename-index-row">
+                <div class="rename-input-section" style="flex:1">
+                    <label class="rename-label">Start index</label>
+                    <input class="rename-input" type="number" min="0" max="9999"
+                           value="@bulkRenameStartIndex"
+                           @oninput="@((e) => { if (int.TryParse(e.Value?.ToString(), out var v)) { bulkRenameStartIndex = Math.Max(0, v); StateHasChanged(); } })" />
+                </div>
+                <div class="rename-input-section" style="flex:1">
+                    <label class="rename-label">Zero-padding</label>
+                    <select class="rename-input" @onchange="@((e) => { if (int.TryParse(e.Value?.ToString(), out var v)) { bulkRenamePadding = v; StateHasChanged(); } })">
+                        <option value="1" selected="@(bulkRenamePadding == 1)">None (1, 2, 3…)</option>
+                        <option value="2" selected="@(bulkRenamePadding == 2)">2 digits (01, 02…)</option>
+                        <option value="3" selected="@(bulkRenamePadding == 3)">3 digits (001, 002…)</option>
+                        <option value="4" selected="@(bulkRenamePadding == 4)">4 digits (0001, 0002…)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Live preview -->
+            <div class="bulk-rename-preview-section">
+                <label class="rename-label">Preview (first @Math.Min(bulkRenameImages.Count, 4))</label>
+                <div class="bulk-rename-preview-list">
+                    @foreach (var (original, preview) in GetBulkRenamePreview())
+                    {
+                        <div class="bulk-rename-preview-row">
+                            <span class="preview-original" title="@original">@TruncateName(original, 22)</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                <path d="M5 12H19M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="preview-new" title="@preview">@TruncateName(preview, 22)</span>
+                        </div>
+                    }
+                    @if (bulkRenameImages.Count > 4)
+                    {
+                        <div class="bulk-rename-preview-more">+ @(bulkRenameImages.Count - 4) more</div>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(bulkRenameError))
+            {
+                <p class="rename-error">⚠ @bulkRenameError</p>
+            }
+
+            <div class="convert-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CancelBulkRename" IsDisabled="@isBulkRenaming" Size="SecondaryButton.ButtonSize.Medium">Cancel</SecondaryButton>
+                <PrimaryButton OnClick="ConfirmBulkRename" IsLoading="@isBulkRenaming" IsDisabled="@isBulkRenaming" Size="PrimaryButton.ButtonSize.Medium">
+                    @(isBulkRenaming ? $"Renaming {bulkRenameProgress}/{bulkRenameImages.Count}…" : $"Rename {bulkRenameImages.Count} Image{(bulkRenameImages.Count != 1 ? "s" : "")}")
+                </PrimaryButton>
+            </div>
+        </div>
     </BodyContent>
 </DynamicModal>
 
@@ -481,7 +704,6 @@
                         <span class="move-current">Currently in: <strong>@GetCategoryDisplayName(moveImage.Folder)</strong></span>
                     </div>
                 </div>
-
                 <div class="move-select-section">
                     <label class="move-label">Move to</label>
                     <select class="upload-select" @bind="moveTargetFolder">
@@ -491,21 +713,13 @@
                         }
                     </select>
                 </div>
-
                 @if (moveTargetFolder == moveImage.Folder)
                 {
                     <p class="move-same-folder-hint">Select a different category to move the image.</p>
                 }
-
                 <div class="convert-actions">
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                     OnClick="CancelMove" IsDisabled="@isMoving"
-                                     Size="SecondaryButton.ButtonSize.Medium">
-                        Cancel
-                    </SecondaryButton>
-                    <PrimaryButton OnClick="ConfirmMove" IsLoading="@isMoving"
-                                   IsDisabled="@(isMoving || moveTargetFolder == moveImage.Folder)"
-                                   Size="PrimaryButton.ButtonSize.Medium">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CancelMove" IsDisabled="@isMoving" Size="SecondaryButton.ButtonSize.Medium">Cancel</SecondaryButton>
+                    <PrimaryButton OnClick="ConfirmMove" IsLoading="@isMoving" IsDisabled="@(isMoving || moveTargetFolder == moveImage.Folder)" Size="PrimaryButton.ButtonSize.Medium">
                         @(isMoving ? "Moving…" : "Move Image")
                     </PrimaryButton>
                 </div>
@@ -514,7 +728,7 @@
     </BodyContent>
 </DynamicModal>
 
-<!-- ══ Rename Modal ══ -->
+<!-- ══ Rename Modal (single) ══ -->
 <DynamicModal @ref="renameModal"
               Title="Rename Image"
               Size="DynamicModal.ModalSize.Small"
@@ -532,7 +746,6 @@
                         <span class="move-current">Category: <strong>@GetCategoryDisplayName(renameImage.Folder)</strong></span>
                     </div>
                 </div>
-
                 <div class="rename-input-section">
                     <label class="rename-label">
                         New name
@@ -545,7 +758,6 @@
                            @oninput="@((e) => { renameNewName = e.Value?.ToString() ?? ""; renameError = ""; StateHasChanged(); })"
                            @onkeydown="@(async (e) => { if (e.Key == "Enter") await ConfirmRename(); })"
                            maxlength="200" />
-
                     @if (!string.IsNullOrEmpty(renameError))
                     {
                         <span class="rename-error">⚠ @renameError</span>
@@ -555,16 +767,9 @@
                         <span class="rename-hint">Extension (@renameImage.FileExtension) will be preserved.</span>
                     }
                 </div>
-
                 <div class="convert-actions">
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                     OnClick="CancelRename" IsDisabled="@isRenaming"
-                                     Size="SecondaryButton.ButtonSize.Medium">
-                        Cancel
-                    </SecondaryButton>
-                    <PrimaryButton OnClick="ConfirmRename" IsLoading="@isRenaming"
-                                   IsDisabled="@(isRenaming || string.IsNullOrWhiteSpace(renameNewName))"
-                                   Size="PrimaryButton.ButtonSize.Medium">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CancelRename" IsDisabled="@isRenaming" Size="SecondaryButton.ButtonSize.Medium">Cancel</SecondaryButton>
+                    <PrimaryButton OnClick="ConfirmRename" IsLoading="@isRenaming" IsDisabled="@(isRenaming || string.IsNullOrWhiteSpace(renameNewName))" Size="PrimaryButton.ButtonSize.Medium">
                         @(isRenaming ? "Renaming…" : "Rename")
                     </PrimaryButton>
                 </div>
@@ -577,9 +782,7 @@
 <ConfirmationPopup @ref="confirmationPopup"
                    IsOpen="@isConfirmationOpen"
                    Title="@(imageToDelete != null ? "Delete Image?" : $"Delete {imagesToDelete.Count} Images?")"
-                   Message="@(imageToDelete != null
-                       ? $"Are you sure you want to delete \"{imageToDelete.FileName}\"?"
-                       : $"Are you sure you want to delete {imagesToDelete.Count} selected images?")"
+                   Message="@(imageToDelete != null ? $"Are you sure you want to delete \"{imageToDelete.FileName}\"?" : $"Are you sure you want to delete {imagesToDelete.Count} selected images?")"
                    WarningText="This action cannot be undone."
                    Variant="ConfirmationPopup.ConfirmationVariant.Danger"
                    ConfirmButtonText="@(isDeleting ? "Deleting…" : "Delete")"
