@@ -37,7 +37,7 @@
                 <div class="user-profile-section">
                     <div class="user-profile-card">
                         <div class="user-avatar-large">
-                            @if (!string.IsNullOrEmpty(DisplayAvatarUrl) && !_avatarLoadFailed)
+                            @if (!string.IsNullOrEmpty(DisplayAvatarUrl) && !_allAvatarsFailed)
                             {
                                 <img src="@DisplayAvatarUrl"
                                      alt="@userName"
@@ -223,21 +223,29 @@
     [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
     [Parameter] public EventCallback<string>     OnNavigate    { get; set; }
 
-    // ── Auth / user state ────────────────────────────────────────────────────
+    // ── Auth / user state ─────────────────────────────────────────────────
     private bool   isAuthenticated = false;
     private string userName  = "";
     private string userEmail = "";
 
-    // ── Avatar ───────────────────────────────────────────────────────────────
-    private string _profileAvatarUrl = string.Empty;
-    private string _gravatarUrl = string.Empty;
-    private bool   _avatarLoadFailed = false;
+    // ── Avatar ────────────────────────────────────────────────────────────
+    // Priority: R2/profile URL → Gravatar → initials
+    private string _profileAvatarUrl      = string.Empty;
+    private string _gravatarUrl           = string.Empty;
+    private bool   _usingGravatar         = false;   // true when profile URL failed
+    private bool   _allAvatarsFailed      = false;   // true when both URLs failed
     private string _avatarCachedForUserId = string.Empty;
 
+    /// <summary>
+    /// Returns the URL that the current <img> tag should use.
+    /// Profile (R2) URL takes priority; falls back to Gravatar once profile fails.
+    /// </summary>
     private string DisplayAvatarUrl =>
-        !string.IsNullOrEmpty(_profileAvatarUrl) ? _profileAvatarUrl : _gravatarUrl;
+        (!_usingGravatar && !string.IsNullOrEmpty(_profileAvatarUrl))
+            ? _profileAvatarUrl
+            : _gravatarUrl;
 
-    // ── Categories ───────────────────────────────────────────────────────────
+    // ── Categories ────────────────────────────────────────────────────────
     private List<CategoryViewModel> TopCategories      = new();
     private bool                    IsLoadingCategories = true;
     private bool                    HasMoreCategories   = false;
@@ -247,13 +255,17 @@
 
     public enum ActionType { SignIn, SignUp, Profile, Logout }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // Lifecycle
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
+        // Load auth state first so the profile section renders correctly
+        // on the very first paint, then kick off the heavier loads.
         await LoadAuthenticationState();
+        StateHasChanged();  // reflect auth immediately; icons/categories follow
+
         await LoadNavigationIcons();
         await LoadTopCategories();
 
@@ -264,7 +276,10 @@
     {
         if (IsOpen)
         {
+            // Refresh auth state every time the panel is opened so
+            // sign-in/out changes are reflected without a full page reload.
             await LoadAuthenticationState();
+            StateHasChanged();
 
             if (!TopCategories.Any() && !IsLoadingCategories)
                 await LoadTopCategories();
@@ -277,9 +292,9 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // Auth + Avatar loading
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     private async Task LoadAuthenticationState()
     {
@@ -293,9 +308,19 @@
             if (isAuthenticated)
             {
                 userEmail = user?.FindFirst(ClaimTypes.Email)?.Value ?? "";
-                var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value  ?? "";
-                var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value    ?? "";
-                var userId    = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+
+                // Support both the standard ClaimTypes URI form (used by
+                // CustomSupabaseClaimsFactory) AND raw JWT field name strings
+                // (produced by the JwtTokenHelper fallback path).
+                var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value
+                             ?? user?.FindFirst("first_name")?.Value
+                             ?? "";
+                var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value
+                             ?? user?.FindFirst("last_name")?.Value
+                             ?? "";
+                var userId    = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                             ?? user?.FindFirst("sub")?.Value
+                             ?? "";
 
                 userName = !string.IsNullOrEmpty(firstName)
                     ? $"{firstName} {lastName}".Trim()
@@ -305,11 +330,13 @@
             }
             else
             {
+                // Reset everything on sign-out
                 userName               = "";
                 userEmail              = "";
                 _profileAvatarUrl      = string.Empty;
                 _gravatarUrl           = string.Empty;
-                _avatarLoadFailed      = false;
+                _usingGravatar         = false;
+                _allAvatarsFailed      = false;
                 _avatarCachedForUserId = string.Empty;
             }
         }
@@ -322,17 +349,26 @@
         }
     }
 
+    /// <summary>
+    /// Loads the avatar URL from the user's profile (Cloudflare R2) and
+    /// builds the Gravatar fallback URL. Call order on success:
+    ///   R2/profile URL  →  (on error) Gravatar  →  (on error) initials
+    /// </summary>
     private async Task LoadAvatarAsync(string userId, string email)
     {
+        // Always rebuild Gravatar URL (cheap, no network call)
         if (!string.IsNullOrEmpty(email))
             _gravatarUrl = BuildGravatarUrl(email, size: 200);
 
+        // Skip expensive DB call if we already have this user's avatar
         if (!string.IsNullOrEmpty(userId) && userId == _avatarCachedForUserId)
             return;
 
+        // Reset avatar state for the new user
         _avatarCachedForUserId = userId;
         _profileAvatarUrl      = string.Empty;
-        _avatarLoadFailed      = false;
+        _usingGravatar         = false;
+        _allAvatarsFailed      = false;
 
         if (string.IsNullOrEmpty(userId)) return;
 
@@ -344,6 +380,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"SidePanel: could not load profile avatar: {ex.Message}");
+            // _profileAvatarUrl stays empty → DisplayAvatarUrl will return Gravatar
         }
     }
 
@@ -352,16 +389,33 @@
         if (string.IsNullOrWhiteSpace(email)) return string.Empty;
 
         var normalised = email.Trim().ToLowerInvariant();
-        var hashBytes  = MD5.HashData(Encoding.UTF8.GetBytes(normalised));
+        var hashBytes  = MD5.HashData(System.Text.Encoding.UTF8.GetBytes(normalised));
         var hash       = Convert.ToHexString(hashBytes).ToLower();
 
+        // d=404 means Gravatar returns 404 (not a placeholder) if no avatar
+        // exists, which triggers our @onerror handler to fall through to initials.
         return $"https://www.gravatar.com/avatar/{hash}?s={size}&d=404";
     }
 
+    /// <summary>
+    /// Called when the currently-displayed avatar image fails to load.
+    /// First failure: switch from profile URL to Gravatar.
+    /// Second failure: give up and show initials.
+    /// </summary>
     private void HandleAvatarError()
     {
-        _avatarLoadFailed = true;
-        StateHasChanged();
+        if (!_usingGravatar && !string.IsNullOrEmpty(_gravatarUrl))
+        {
+            // Profile (R2) URL failed → try Gravatar next
+            _usingGravatar = true;
+            StateHasChanged();
+        }
+        else
+        {
+            // Gravatar also failed (or wasn't available) → show initials
+            _allAvatarsFailed = true;
+            StateHasChanged();
+        }
     }
 
     private string GetUserInitial()
@@ -371,9 +425,9 @@
         return "?";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // Navigation icons
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     private async Task LoadNavigationIcons()
     {
@@ -400,9 +454,9 @@
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // Categories
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     private async Task LoadTopCategories()
     {
@@ -447,9 +501,9 @@
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // Panel actions
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
     {
@@ -458,8 +512,6 @@
             await ClosePanel();
             await Task.Delay(80);
 
-            // Use QueryHelpers so it handles encoding exactly once — no manual
-            // Uri.EscapeDataString here, which would cause double-encoding.
             var url = QueryHelpers.AddQueryString("shop",
                 new Dictionary<string, string?> { ["category"] = category.Name.Trim() });
 
