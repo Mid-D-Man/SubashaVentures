@@ -42,7 +42,40 @@ public class EmailService : IEmailService
         _anonKey    = config["Supabase:AnonKey"] ?? string.Empty;
         _logger     = logger;
     }
+public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
+        string businessName, string uniquePartnerId, string storeSlug)
+    {
+        var payload = new
+        {
+            type = "partner_approved",
+            to = toEmail,
+            data = new
+            {
+                partnerName,
+                businessName,
+                uniquePartnerId,
+                storeSlug
+            }
+        };
 
+        await SendAsync(payload);
+    }
+
+    public async Task SendPartnerRejectedAsync(string toEmail, string partnerName, string rejectionReason)
+    {
+        var payload = new
+        {
+            type = "partner_rejected",
+            to = toEmail,
+            data = new
+            {
+                partnerName,
+                rejectionReason
+            }
+        };
+
+        await SendAsync(payload);
+    }
     // ── Newsletter ────────────────────────────────────────────────────────────
 
     public async Task<EmailResult> SendNewsletterAsync(SendNewsletterRequest request)
