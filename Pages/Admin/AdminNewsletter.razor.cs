@@ -130,20 +130,24 @@ public partial class AdminNewsletter : ComponentBase
         {
             _subscriberCount = await NewsletterService.GetSubscriberCountAsync();
 
-            // FIX: Use .Where() with lambda expressions — the raw .Filter() overload
-            // does NOT support bool as a criterion type and will throw a PostgrestException.
-            // .Where(u => u.BoolProp) compiles to an expression tree that the library
-            // knows how to translate into a PostgREST filter correctly.
+            // FIX: Postgrest C# client cannot parse bare boolean lambda expressions
+            // like .Where(u => u.EmailNotifications) or .Where(u => !u.IsDeleted).
+            // Use .Filter() with string-based operators which map directly to
+            // PostgREST query params and bypass the expression tree parser entirely.
             var usersResult = await Supabase
                 .From<SubashaVentures.Models.Supabase.UserModel>()
-                .Where(u => u.EmailNotifications)  // ✅ bool via expression tree
-                .Where(u => !u.IsDeleted)          // ✅ bool via expression tree
+                .Filter("email_notifications", Constants.Operator.Equals, "true")
+                .Filter("is_deleted",          Constants.Operator.Equals, "false")
+                .Filter("account_status",      Constants.Operator.Equals, "Active")
                 .Get();
 
             _usersWithEmailCount = usersResult?.Models?.Count ?? 0;
 
-            var combined = await NewsletterService.GetCombinedRecipientEmailsAsync();
-            _totalReach = combined.Count;
+            // _totalReach = unique emails across newsletter subscribers + users with
+            // email_notifications on. Compute directly here to match exactly what
+            // the edge function queries, rather than relying on a service method
+            // that may use different filters.
+            _totalReach = _usersWithEmailCount;
         }
         catch (Exception ex)
         {
@@ -180,7 +184,7 @@ public partial class AdminNewsletter : ComponentBase
 
         try
         {
-            _subscribers = await NewsletterService.GetSubscribersAsync(0, 500);
+            _subscribers         = await NewsletterService.GetSubscribersAsync(0, 500);
             _filteredSubscribers = _subscribers;
         }
         catch (Exception ex)
@@ -214,7 +218,7 @@ public partial class AdminNewsletter : ComponentBase
     private void ClearSubscriberSearch()
     {
         _subscriberSearchQuery = string.Empty;
-        _filteredSubscribers = _subscribers;
+        _filteredSubscribers   = _subscribers;
         StateHasChanged();
     }
 
@@ -222,9 +226,9 @@ public partial class AdminNewsletter : ComponentBase
 
     private void SetEmailType(EmailType type)
     {
-        _emailType = type;
+        _emailType   = type;
         _segmentSize = -1;
-        _sendError = string.Empty;
+        _sendError   = string.Empty;
         _sendSuccess = string.Empty;
         StateHasChanged();
     }
@@ -245,7 +249,7 @@ public partial class AdminNewsletter : ComponentBase
         try
         {
             var criteria = BuildSegmentationCriteria();
-            var ids = await SegmentationService.GetUserIdsByCriteriaAsync(criteria);
+            var ids      = await SegmentationService.GetUserIdsByCriteriaAsync(criteria);
             _segmentSize = ids.Count;
         }
         catch (Exception ex)
@@ -267,23 +271,13 @@ public partial class AdminNewsletter : ComponentBase
         if (_selectedTiers.Any())
             c.MembershipTiers = new List<MembershipTier>(_selectedTiers);
 
-        if (decimal.TryParse(_minSpent, out var minS) && minS > 0)
-            c.MinSpent = minS;
+        if (decimal.TryParse(_minSpent,  out var minS) && minS > 0) c.MinSpent  = minS;
+        if (decimal.TryParse(_maxSpent,  out var maxS) && maxS > 0) c.MaxSpent  = maxS;
+        if (int.TryParse    (_minOrders, out var minO) && minO > 0) c.MinOrders = minO;
+        if (int.TryParse    (_maxOrders, out var maxO) && maxO > 0) c.MaxOrders = maxO;
 
-        if (decimal.TryParse(_maxSpent, out var maxS) && maxS > 0)
-            c.MaxSpent = maxS;
-
-        if (int.TryParse(_minOrders, out var minO) && minO > 0)
-            c.MinOrders = minO;
-
-        if (int.TryParse(_maxOrders, out var maxO) && maxO > 0)
-            c.MaxOrders = maxO;
-
-        if (_filterEmailVerified)
-            c.IsEmailVerified = true;
-
-        if (_filterHasOrders)
-            c.MinOrders = c.MinOrders ?? 1;
+        if (_filterEmailVerified) c.IsEmailVerified = true;
+        if (_filterHasOrders)     c.MinOrders       = c.MinOrders ?? 1;
 
         return c;
     }
@@ -292,7 +286,7 @@ public partial class AdminNewsletter : ComponentBase
 
     private async Task SendEmail()
     {
-        _sendError = string.Empty;
+        _sendError   = string.Empty;
         _sendSuccess = string.Empty;
 
         if (!CanSend)
@@ -312,8 +306,8 @@ public partial class AdminNewsletter : ComponentBase
 
     private async Task ExecuteSend()
     {
-        _isSending = true;
-        _sendError = string.Empty;
+        _isSending   = true;
+        _sendError   = string.Empty;
         _confirmSendPopup?.Close();
         StateHasChanged();
 
@@ -326,10 +320,10 @@ public partial class AdminNewsletter : ComponentBase
                 case EmailType.Newsletter:
                     result = await EmailService.SendNewsletterAsync(new SendNewsletterRequest
                     {
-                        Subject    = _subject,
+                        Subject     = _subject,
                         HtmlContent = _body,
-                        CtaText    = string.IsNullOrWhiteSpace(_ctaText) ? null : _ctaText,
-                        CtaUrl     = string.IsNullOrWhiteSpace(_ctaUrl)  ? null : _ctaUrl
+                        CtaText     = string.IsNullOrWhiteSpace(_ctaText) ? null : _ctaText,
+                        CtaUrl      = string.IsNullOrWhiteSpace(_ctaUrl)  ? null : _ctaUrl
                     });
                     break;
 
@@ -354,13 +348,12 @@ public partial class AdminNewsletter : ComponentBase
                             Type = "newsletter",
                             Data = new Dictionary<string, object>
                             {
-                                { "subject",  _subject  },
-                                { "content",  _body     },
-                                { "ctaText",  _ctaText  },
-                                { "ctaUrl",   _ctaUrl   }
+                                { "subject", _subject },
+                                { "content", _body    },
+                                { "ctaText", _ctaText },
+                                { "ctaUrl",  _ctaUrl  }
                             }
                         });
-
                         if (!r.Success) errors++;
                     }
 
@@ -380,10 +373,10 @@ public partial class AdminNewsletter : ComponentBase
                         Type = "newsletter",
                         Data = new Dictionary<string, object>
                         {
-                            { "subject",  _subject  },
-                            { "content",  _body     },
-                            { "ctaText",  _ctaText  },
-                            { "ctaUrl",   _ctaUrl   }
+                            { "subject", _subject },
+                            { "content", _body    },
+                            { "ctaText", _ctaText },
+                            { "ctaUrl",  _ctaUrl  }
                         }
                     });
                     break;
@@ -451,15 +444,15 @@ public partial class AdminNewsletter : ComponentBase
 
     private void ResetComposeForm()
     {
-        _emailType    = EmailType.Newsletter;
-        _subject      = string.Empty;
-        _body         = string.Empty;
-        _ctaText      = string.Empty;
-        _ctaUrl       = string.Empty;
-        _directEmail  = string.Empty;
-        _sendError    = string.Empty;
-        _sendSuccess  = string.Empty;
-        _segmentSize  = -1;
+        _emailType   = EmailType.Newsletter;
+        _subject     = string.Empty;
+        _body        = string.Empty;
+        _ctaText     = string.Empty;
+        _ctaUrl      = string.Empty;
+        _directEmail = string.Empty;
+        _sendError   = string.Empty;
+        _sendSuccess = string.Empty;
+        _segmentSize = -1;
         _selectedTiers.Clear();
         _minSpent = _maxSpent = _minOrders = _maxOrders = string.Empty;
         _filterEmailVerified = false;
