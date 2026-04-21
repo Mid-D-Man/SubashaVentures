@@ -16,6 +16,10 @@ public interface IEmailService
     /// Useful for resending order confirmations, etc.
     /// </summary>
     Task<EmailResult> SendTransactionalAsync(SendTransactionalRequest request);
+    Task SendPartnerApprovedAsync(string toEmail, string partnerName, string businessName,
+        string uniquePartnerId, string storeSlug);
+    Task SendPartnerRejectedAsync(string toEmail, string partnerName, string rejectionReason);
+
 }
 
 // ── Request / Response models ─────────────────────────────────────────────────
