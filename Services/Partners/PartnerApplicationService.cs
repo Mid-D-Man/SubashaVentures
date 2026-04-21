@@ -1,3 +1,4 @@
+// Services/Partners/PartnerApplicationService.cs
 using System.Net.Http.Headers;
 using System.Text.Json;
 using SubashaVentures.Domain.Partner;
@@ -6,7 +7,7 @@ using SubashaVentures.Services.SupaBase;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Supabase.Postgrest;
-using System.Net.Http.Json;          // ← FIX: JsonContent lives here
+using System.Net.Http.Json;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Services.Partners;
@@ -19,12 +20,10 @@ public class PartnerApplicationService : IPartnerApplicationService
     private readonly IConfiguration _config;
     private readonly ILogger<PartnerApplicationService> _logger;
 
-    // Cooldown durations by rejection count
     private static readonly Dictionary<int, int> CooldownDaysByRejection = new()
     {
-        { 1, 30  },
-        { 2, 90  },
-        // 3 = permanently rejected, handled separately
+        { 1, 30 },
+        { 2, 90 },
     };
 
     private const int MaxRejectionsBeforePermanent = 3;
@@ -52,10 +51,9 @@ public class PartnerApplicationService : IPartnerApplicationService
             if (string.IsNullOrWhiteSpace(userId))
                 return ApplicationEligibilityResult.NotEligible("Invalid user ID");
 
-            if (!Guid.TryParse(userId, out var userGuid))
+            if (!Guid.TryParse(userId, out _))
                 return ApplicationEligibilityResult.NotEligible("Invalid user ID format");
 
-            // Check if already a partner
             var userRecords = await _database.GetWithFilterAsync<UserModel>(
                 "id", Constants.Operator.Equals, userId);
 
@@ -67,33 +65,26 @@ public class PartnerApplicationService : IPartnerApplicationService
             if (user.IsPartner)
                 return new ApplicationEligibilityResult
                 {
-                    IsEligible        = false,
-                    IsAlreadyPartner  = true,
-                    Reason            = "You are already a partner"
+                    IsEligible       = false,
+                    IsAlreadyPartner = true,
+                    Reason           = "You are already a partner"
                 };
 
-            // Load all applications for this user
             var applications = await _database.GetWithFilterAsync<PartnerApplicationModel>(
                 "user_id", Constants.Operator.Equals, userId);
 
-            // Check permanent rejection
-            var permanentlyRejected = applications
-                .Any(a => a.IsPermanentlyRejected);
-
-            if (permanentlyRejected)
+            if (applications.Any(a => a.IsPermanentlyRejected))
                 return new ApplicationEligibilityResult
                 {
-                    IsEligible             = false,
-                    IsPermanentlyRejected  = true,
+                    IsEligible            = false,
+                    IsPermanentlyRejected = true,
                     Reason = "Your application has been permanently rejected. " +
                              "Please contact support if you believe this is an error."
                 };
 
-            // Check active application
-            var activeApplication = applications
-                .FirstOrDefault(a =>
-                    a.Status == PartnerApplicationStatus.Pending ||
-                    a.Status == PartnerApplicationStatus.UnderReview);
+            var activeApplication = applications.FirstOrDefault(a =>
+                a.Status == PartnerApplicationStatus.Pending ||
+                a.Status == PartnerApplicationStatus.UnderReview);
 
             if (activeApplication != null)
                 return new ApplicationEligibilityResult
@@ -103,21 +94,18 @@ public class PartnerApplicationService : IPartnerApplicationService
                     Reason = "You already have an application under review"
                 };
 
-            // Check cooldown
-            var inCooldown = applications
-                .FirstOrDefault(a =>
-                    a.Status == PartnerApplicationStatus.Rejected
-                    && a.CooldownUntil.HasValue
-                    && a.CooldownUntil.Value > DateTime.UtcNow);
+            var inCooldown = applications.FirstOrDefault(a =>
+                a.Status == PartnerApplicationStatus.Rejected
+                && a.CooldownUntil.HasValue
+                && a.CooldownUntil.Value > DateTime.UtcNow);
 
             if (inCooldown != null)
                 return new ApplicationEligibilityResult
                 {
-                    IsEligible   = false,
-                    IsInCooldown = true,
+                    IsEligible    = false,
+                    IsInCooldown  = true,
                     CooldownUntil = inCooldown.CooldownUntil,
-                    Reason = $"You must wait {inCooldown.CooldownRemainingDisplay} " +
-                             $"before reapplying"
+                    Reason = $"You must wait {inCooldown.CooldownRemainingDisplay} before reapplying"
                 };
 
             return ApplicationEligibilityResult.Eligible();
@@ -125,8 +113,7 @@ public class PartnerApplicationService : IPartnerApplicationService
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "CheckEligibility");
-            return ApplicationEligibilityResult.NotEligible(
-                "Unable to check eligibility. Please try again.");
+            return ApplicationEligibilityResult.NotEligible("Unable to check eligibility. Please try again.");
         }
     }
 
@@ -136,17 +123,14 @@ public class PartnerApplicationService : IPartnerApplicationService
     {
         try
         {
-            // ── Eligibility gate ──────────────────────────────
             var eligibility = await CheckEligibilityAsync(userId);
             if (!eligibility.IsEligible)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Application rejected at eligibility: {eligibility.Reason}",
-                    LogLevel.Warning);
+                    $"Application rejected at eligibility: {eligibility.Reason}", LogLevel.Warning);
                 return null;
             }
 
-            // ── Location validation (double-check server-side) ─
             if (!PartnerLocation.All.Contains(request.Location))
             {
                 await MID_HelperFunctions.DebugMessageAsync(
@@ -154,41 +138,38 @@ public class PartnerApplicationService : IPartnerApplicationService
                 return null;
             }
 
-            // ── Field validation ──────────────────────────────
             var validationErrors = ValidateApplicationRequest(request);
             if (validationErrors.Any())
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Application validation failed: {string.Join(", ", validationErrors)}",
-                    LogLevel.Warning);
+                    $"Application validation failed: {string.Join(", ", validationErrors)}", LogLevel.Warning);
                 return null;
             }
 
             if (!Guid.TryParse(userId, out var userGuid))
                 return null;
 
-            // ── Build model ───────────────────────────────────
             var model = new PartnerApplicationModel
             {
-                Id                   = Guid.NewGuid(),
-                UserId               = userGuid,
-                FullName             = request.FullName.Trim(),
-                BusinessName         = request.BusinessName.Trim(),
-                BusinessType         = request.BusinessType,
-                Location             = request.Location,
-                Phone                = request.Phone.Trim(),
-                Email                = request.Email.Trim().ToLowerInvariant(),
-                Reason               = request.Reason.Trim(),
-                BankAccountName      = request.BankAccountName.Trim(),
-                BankAccountNumber    = request.BankAccountNumber.Trim(),
-                BankName             = request.BankName.Trim(),
-                BankCode             = request.BankCode?.Trim(),
-                Status               = PartnerApplicationStatus.Pending,
-                RejectionCount       = 0,
+                Id                    = Guid.NewGuid(),
+                UserId                = userGuid,
+                FullName              = request.FullName.Trim(),
+                BusinessName          = request.BusinessName.Trim(),
+                BusinessType          = request.BusinessType,
+                Location              = request.Location,
+                Phone                 = request.Phone.Trim(),
+                Email                 = request.Email.Trim().ToLowerInvariant(),
+                Reason                = request.Reason.Trim(),
+                BankAccountName       = request.BankAccountName.Trim(),
+                BankAccountNumber     = request.BankAccountNumber.Trim(),
+                BankName              = request.BankName.Trim(),
+                BankCode              = request.BankCode?.Trim(),
+                Status                = PartnerApplicationStatus.Pending,
+                RejectionCount        = 0,
                 IsPermanentlyRejected = false,
-                ContactLogs          = new List<ApplicationContactLog>(),
-                SubmittedAt          = DateTime.UtcNow,
-                CreatedAt            = DateTime.UtcNow
+                ContactLogs           = new List<ApplicationContactLog>(),
+                SubmittedAt           = DateTime.UtcNow,
+                CreatedAt             = DateTime.UtcNow
             };
 
             var inserted = await _database.InsertAsync(model);
@@ -200,14 +181,11 @@ public class PartnerApplicationService : IPartnerApplicationService
                 return null;
             }
 
-            // ── Update user's partner_applied_at ──────────────
             try
             {
                 var userRecords = await _database.GetWithFilterAsync<UserModel>(
                     "id", Constants.Operator.Equals, userId);
-
                 var user = userRecords.FirstOrDefault();
-
                 if (user != null)
                 {
                     user.PartnerAppliedAt = DateTime.UtcNow;
@@ -216,14 +194,11 @@ public class PartnerApplicationService : IPartnerApplicationService
             }
             catch (Exception ex)
             {
-                // Non-fatal — application was still created
-                _logger.LogWarning(ex,
-                    "Failed to update partner_applied_at for user {UserId}", userId);
+                _logger.LogWarning(ex, "Failed to update partner_applied_at for user {UserId}", userId);
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Partner application submitted: {inserted.First().Id}",
-                LogLevel.Info);
+                $"Partner application submitted: {inserted.First().Id}", LogLevel.Info);
 
             return PartnerApplicationViewModel.FromCloudModel(inserted.First());
         }
@@ -241,13 +216,8 @@ public class PartnerApplicationService : IPartnerApplicationService
             var applications = await _database.GetWithFilterAsync<PartnerApplicationModel>(
                 "user_id", Constants.Operator.Equals, userId);
 
-            var latest = applications
-                .OrderByDescending(a => a.CreatedAt)
-                .FirstOrDefault();
-
-            return latest == null
-                ? null
-                : PartnerApplicationViewModel.FromCloudModel(latest);
+            var latest = applications.OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+            return latest == null ? null : PartnerApplicationViewModel.FromCloudModel(latest);
         }
         catch (Exception ex)
         {
@@ -256,8 +226,7 @@ public class PartnerApplicationService : IPartnerApplicationService
         }
     }
 
-    public async Task<List<PartnerApplicationViewModel>> GetUserApplicationHistoryAsync(
-        string userId)
+    public async Task<List<PartnerApplicationViewModel>> GetUserApplicationHistoryAsync(string userId)
     {
         try
         {
@@ -293,8 +262,7 @@ public class PartnerApplicationService : IPartnerApplicationService
             }
             else
             {
-                applications = (await _database.GetAllAsync<PartnerApplicationModel>())
-                    .ToList();
+                applications = (await _database.GetAllAsync<PartnerApplicationModel>()).ToList();
             }
 
             return applications
@@ -309,8 +277,7 @@ public class PartnerApplicationService : IPartnerApplicationService
         }
     }
 
-    public async Task<PartnerApplicationViewModel?> GetApplicationByIdAsync(
-        string applicationId)
+    public async Task<PartnerApplicationViewModel?> GetApplicationByIdAsync(string applicationId)
     {
         try
         {
@@ -320,10 +287,7 @@ public class PartnerApplicationService : IPartnerApplicationService
                 "id", Constants.Operator.Equals, applicationId);
 
             var application = applications.FirstOrDefault();
-
-            return application == null
-                ? null
-                : PartnerApplicationViewModel.FromCloudModel(application);
+            return application == null ? null : PartnerApplicationViewModel.FromCloudModel(application);
         }
         catch (Exception ex)
         {
@@ -332,9 +296,7 @@ public class PartnerApplicationService : IPartnerApplicationService
         }
     }
 
-    public async Task<bool> MarkUnderReviewAsync(
-        string applicationId,
-        string adminUserId)
+    public async Task<bool> MarkUnderReviewAsync(string applicationId, string adminUserId)
     {
         try
         {
@@ -351,8 +313,7 @@ public class PartnerApplicationService : IPartnerApplicationService
 
             if (application.Status != PartnerApplicationStatus.Pending)
             {
-                _logger.LogWarning(
-                    "Cannot mark as under review — current status: {Status}",
+                _logger.LogWarning("Cannot mark as under review — current status: {Status}",
                     application.Status);
                 return false;
             }
@@ -379,7 +340,6 @@ public class PartnerApplicationService : IPartnerApplicationService
                 "id", Constants.Operator.Equals, request.ApplicationId);
 
             var application = applications.FirstOrDefault();
-
             if (application == null) return false;
 
             var logEntry = new ApplicationContactLog
@@ -399,8 +359,7 @@ public class PartnerApplicationService : IPartnerApplicationService
             var result = await _database.UpdateAsync(application);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Contact log added to application {request.ApplicationId}",
-                LogLevel.Info);
+                $"Contact log added to application {request.ApplicationId}", LogLevel.Info);
 
             return result != null && result.Any();
         }
@@ -428,7 +387,6 @@ public class PartnerApplicationService : IPartnerApplicationService
                     ErrorMessage = "Admin not authenticated"
                 };
 
-            // ── Call edge function ────────────────────────────
             var supabaseUrl = _config["Supabase:Url"]
                 ?? throw new InvalidOperationException("Supabase:Url not configured");
 
@@ -439,7 +397,6 @@ public class PartnerApplicationService : IPartnerApplicationService
             httpRequest.Headers.Authorization =
                 new AuthenticationHeaderValue("Bearer", session.AccessToken);
             httpRequest.Headers.Add("apikey", anonKey);
-
             httpRequest.Content = JsonContent.Create(new
             {
                 application_id = applicationId,
@@ -450,28 +407,48 @@ public class PartnerApplicationService : IPartnerApplicationService
             var raw      = await response.Content.ReadAsStringAsync();
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Edge fn response ({response.StatusCode}): {raw}",
-                LogLevel.Debug);
+                $"Edge fn response ({response.StatusCode}): {raw}", LogLevel.Debug);
 
             if (!response.IsSuccessStatusCode)
-            {
                 return new ApplicationApprovalResult
                 {
                     Success      = false,
                     ErrorMessage = $"Edge function error ({response.StatusCode}): {raw}"
                 };
-            }
 
             var result = JsonSerializer.Deserialize<EdgeApprovalResponse>(
-                raw,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                raw, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (result?.Success != true)
+                return new ApplicationApprovalResult
+                {
+                    Success      = false,
+                    ErrorMessage = result?.Error ?? "Unknown error from edge function"
+                };
+
+            // ── Fire approval email (non-fatal) ───────────────
+            _ = SendPartnerApprovedEmailAsync(
+                toEmail:         result.UserEmail,
+                partnerName:     result.UserFirstName,
+                businessName:    result.BusinessName,
+                uniquePartnerId: result.UniquePartnerId,
+                storeSlug:       result.StoreSlug
+            ).ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    _logger.LogError(t.Exception,
+                        "Partner approval email failed for application {Id}", applicationId);
+            });
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Application approved: partner={result.PartnerId} store={result.StoreId}",
+                LogLevel.Info);
 
             return new ApplicationApprovalResult
             {
-                Success        = result?.Success ?? false,
-                PartnerId      = result?.PartnerId,
-                PartnerStoreId = result?.StoreId,
-                ErrorMessage   = result?.Error
+                Success        = true,
+                PartnerId      = result.PartnerId,
+                PartnerStoreId = result.StoreId
             };
         }
         catch (Exception ex)
@@ -506,7 +483,6 @@ public class PartnerApplicationService : IPartnerApplicationService
 
             var newRejectionCount = application.RejectionCount + 1;
 
-            // ── Permanent rejection at 3 strikes ──────────────
             if (newRejectionCount >= MaxRejectionsBeforePermanent)
             {
                 application.Status                = PartnerApplicationStatus.PermanentlyRejected;
@@ -514,13 +490,11 @@ public class PartnerApplicationService : IPartnerApplicationService
                 application.CooldownUntil         = null;
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Application {applicationId} permanently rejected " +
-                    $"(strike {newRejectionCount})",
+                    $"Application {applicationId} permanently rejected (strike {newRejectionCount})",
                     LogLevel.Warning);
             }
             else
             {
-                // ── Cooldown calculation ───────────────────────
                 var cooldownDays = cooldownDaysOverride
                     ?? CooldownDaysByRejection.GetValueOrDefault(newRejectionCount, 30);
 
@@ -528,8 +502,7 @@ public class PartnerApplicationService : IPartnerApplicationService
                 application.CooldownUntil = DateTime.UtcNow.AddDays(cooldownDays);
 
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"Application {applicationId} rejected " +
-                    $"(strike {newRejectionCount}, cooldown {cooldownDays} days)",
+                    $"Application {applicationId} rejected (strike {newRejectionCount}, cooldown {cooldownDays}d)",
                     LogLevel.Info);
             }
 
@@ -539,7 +512,24 @@ public class PartnerApplicationService : IPartnerApplicationService
             application.ReviewedAt      = DateTime.UtcNow;
 
             var result = await _database.UpdateAsync(application);
-            return result != null && result.Any();
+            var success = result != null && result.Any();
+
+            if (success)
+            {
+                // ── Fire rejection email (non-fatal) ──────────
+                _ = SendPartnerRejectedEmailAsync(
+                    toEmail:         application.Email,
+                    partnerName:     application.FullName,
+                    rejectionReason: rejectionReason
+                ).ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        _logger.LogError(t.Exception,
+                            "Partner rejection email failed for application {Id}", applicationId);
+                });
+            }
+
+            return success;
         }
         catch (Exception ex)
         {
@@ -573,19 +563,96 @@ public class PartnerApplicationService : IPartnerApplicationService
         }
     }
 
+    // ── Email Helpers ──────────────────────────────────────────
+
+    private async Task SendPartnerApprovedEmailAsync(
+        string? toEmail,
+        string? partnerName,
+        string? businessName,
+        string? uniquePartnerId,
+        string? storeSlug)
+    {
+        if (string.IsNullOrWhiteSpace(toEmail)) return;
+
+        await SendEmailAsync(new
+        {
+            type = "partner_approved",
+            to   = toEmail,
+            data = new
+            {
+                partnerName     = partnerName     ?? string.Empty,
+                businessName    = businessName    ?? string.Empty,
+                uniquePartnerId = uniquePartnerId ?? string.Empty,
+                storeSlug       = storeSlug       ?? string.Empty
+            }
+        });
+    }
+
+    private async Task SendPartnerRejectedEmailAsync(
+        string toEmail,
+        string partnerName,
+        string rejectionReason)
+    {
+        await SendEmailAsync(new
+        {
+            type = "partner_rejected",
+            to   = toEmail,
+            data = new
+            {
+                partnerName,
+                rejectionReason
+            }
+        });
+    }
+
+    private async Task SendEmailAsync(object payload)
+    {
+        try
+        {
+            var supabaseUrl = _config["Supabase:Url"]
+                ?? throw new InvalidOperationException("Supabase:Url not configured");
+
+            var serviceRoleKey = _config["Supabase:ServiceRoleKey"]
+                ?? throw new InvalidOperationException("Supabase:ServiceRoleKey not configured");
+
+            var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"{supabaseUrl}/functions/v1/send-email")
+            {
+                Content = JsonContent.Create(payload)
+            };
+
+            // Use service role key here — send-email doesn't validate caller JWT,
+            // it just needs the apikey header to pass the Supabase gateway
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", serviceRoleKey);
+
+            var response = await _http.SendAsync(request);
+            var body     = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                _logger.LogWarning("send-email returned {Status}: {Body}",
+                    response.StatusCode, body);
+            else
+                _logger.LogInformation("Email dispatched: {Body}", body);
+        }
+        catch (Exception ex)
+        {
+            // Always non-fatal — email must never break business logic
+            _logger.LogError(ex, "SendEmailAsync failed");
+        }
+    }
+
     // ── Private Helpers ────────────────────────────────────────
 
-    private static List<string> ValidateApplicationRequest(
-        SubmitPartnerApplicationRequest request)
+    private static List<string> ValidateApplicationRequest(SubmitPartnerApplicationRequest request)
     {
         var errors = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(request.FullName) ||
-            request.FullName.Trim().Length < 2)
+        if (string.IsNullOrWhiteSpace(request.FullName) || request.FullName.Trim().Length < 2)
             errors.Add("Full name must be at least 2 characters");
 
-        if (string.IsNullOrWhiteSpace(request.BusinessName) ||
-            request.BusinessName.Trim().Length < 2)
+        if (string.IsNullOrWhiteSpace(request.BusinessName) || request.BusinessName.Trim().Length < 2)
             errors.Add("Business name must be at least 2 characters");
 
         if (!PartnerBusinessType.All.Contains(request.BusinessType))
@@ -594,16 +661,13 @@ public class PartnerApplicationService : IPartnerApplicationService
         if (!PartnerLocation.All.Contains(request.Location))
             errors.Add($"Location must be one of: {string.Join(", ", PartnerLocation.All)}");
 
-        if (string.IsNullOrWhiteSpace(request.Phone) ||
-            request.Phone.Trim().Length < 10)
+        if (string.IsNullOrWhiteSpace(request.Phone) || request.Phone.Trim().Length < 10)
             errors.Add("Phone number must be at least 10 digits");
 
-        if (string.IsNullOrWhiteSpace(request.Email) ||
-            !request.Email.Contains('@'))
+        if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
             errors.Add("Invalid email address");
 
-        if (string.IsNullOrWhiteSpace(request.Reason) ||
-            request.Reason.Trim().Length < 50)
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 50)
             errors.Add("Reason must be at least 50 characters");
 
         if (string.IsNullOrWhiteSpace(request.BankAccountName) ||
@@ -621,13 +685,18 @@ public class PartnerApplicationService : IPartnerApplicationService
         return errors;
     }
 
-    // ── Edge Function Response Shape ───────────────────────────
+    // ── Edge Function Response Shapes ──────────────────────────
 
     private class EdgeApprovalResponse
     {
-        public bool Success { get; set; }
-        public string? PartnerId { get; set; }
-        public string? StoreId { get; set; }
-        public string? Error { get; set; }
+        public bool    Success         { get; set; }
+        public string? PartnerId       { get; set; }
+        public string? StoreId         { get; set; }
+        public string? UniquePartnerId { get; set; }
+        public string? StoreSlug       { get; set; }
+        public string? UserFirstName   { get; set; }
+        public string? UserEmail       { get; set; }
+        public string? BusinessName    { get; set; }
+        public string? Error           { get; set; }
     }
 }
