@@ -145,10 +145,12 @@ public class ApplicationEligibilityResult
 /// </summary>
 public class ApplicationApprovalResult
 {
-    public bool Success { get; set; }
-    public string? PartnerId { get; set; }
+    public bool    Success        { get; set; }
+    public string? PartnerId      { get; set; }
     public string? PartnerStoreId { get; set; }
-    public string? ErrorMessage { get; set; }
+    public string? UniquePartnerId { get; set; }
+    public string? StoreSlug      { get; set; }
+    public string? ErrorMessage   { get; set; }
 }
 
 /// <summary>
