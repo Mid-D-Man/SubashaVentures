@@ -24,88 +24,76 @@ public class UserSegmentationService : IUserSegmentationService
         ILogger<UserSegmentationService> logger)
     {
         _permissionService = permissionService;
-        _database = database;
-        _supabaseClient = supabaseClient;
-        _logger = logger;
+        _database          = database;
+        _supabaseClient    = supabaseClient;
+        _logger            = logger;
     }
 
     private async Task<bool> EnsureAdminAccessAsync()
     {
-        var isSuperiorAdmin = await _permissionService.IsSuperiorAdminAsync();
-        if (!isSuperiorAdmin)
-        {
-            _logger.LogWarning("Unauthorized access attempt to UserSegmentationService");
-            return false;
-        }
-        return true;
+        if (await _permissionService.IsSuperiorAdminAsync()) return true;
+        _logger.LogWarning("Unauthorized access attempt to UserSegmentationService");
+        return false;
     }
 
-    public async Task<List<UserProfileViewModel>> GetUsersBySpendingRangeAsync(decimal minSpent, decimal? maxSpent = null)
+    // ── Fetch all active non-deleted users (base query used by most methods) ──
+
+    private async Task<List<UserModel>> FetchBaseUsersAsync()
+    {
+        // Use .Filter() with string operators throughout — the Postgrest C# client
+        // cannot parse bare boolean expressions or negations in .Where() lambdas.
+        var result = await _supabaseClient
+            .From<UserModel>()
+            .Filter("is_deleted",      Constants.Operator.Equals, "false")
+            .Filter("account_status",  Constants.Operator.Equals, "Active")
+            .Get();
+
+        return result?.Models ?? new List<UserModel>();
+    }
+
+    // ── Public methods ────────────────────────────────────────────────────────
+
+    public async Task<List<UserProfileViewModel>> GetUsersBySpendingRangeAsync(
+        decimal minSpent, decimal? maxSpent = null)
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Segmenting users by spending: min={minSpent}, max={maxSpent}",
-                LogLevel.Info
-            );
+            var users = await FetchBaseUsersAsync();
 
-            var query = _supabaseClient
-                .From<UserModel>()
-                .Where(u => u.TotalSpent >= minSpent);
-
+            var filtered = users.Where(u => u.TotalSpent >= minSpent);
             if (maxSpent.HasValue)
-            {
-                query = query.Where(u => u.TotalSpent <= maxSpent.Value);
-            }
+                filtered = filtered.Where(u => u.TotalSpent <= maxSpent.Value);
 
-            var users = await query.Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
-                .Select(UserProfileViewModel.FromCloudModel)
-                .ToList();
+            return filtered.Select(UserProfileViewModel.FromCloudModel).ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Segmenting users by spending");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersBySpendingRange");
+            return new();
         }
     }
 
-    public async Task<List<UserProfileViewModel>> GetUsersByLoyaltyPointsAsync(int minPoints, int? maxPoints = null)
+    public async Task<List<UserProfileViewModel>> GetUsersByLoyaltyPointsAsync(
+        int minPoints, int? maxPoints = null)
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var query = _supabaseClient
-                .From<UserModel>()
-                .Where(u => u.LoyaltyPoints >= minPoints);
+            var users = await FetchBaseUsersAsync();
 
+            var filtered = users.Where(u => u.LoyaltyPoints >= minPoints);
             if (maxPoints.HasValue)
-            {
-                query = query.Where(u => u.LoyaltyPoints <= maxPoints.Value);
-            }
+                filtered = filtered.Where(u => u.LoyaltyPoints <= maxPoints.Value);
 
-            var users = await query.Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
-                .Select(UserProfileViewModel.FromCloudModel)
-                .ToList();
+            return filtered.Select(UserProfileViewModel.FromCloudModel).ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Segmenting users by loyalty points");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersByLoyaltyPoints");
+            return new();
         }
     }
 
@@ -113,25 +101,23 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var users = await _supabaseClient
+            var result = await _supabaseClient
                 .From<UserModel>()
-                .Where(u => u.MembershipTier == tier.ToString())
+                .Filter("is_deleted",      Constants.Operator.Equals, "false")
+                .Filter("account_status",  Constants.Operator.Equals, "Active")
+                .Filter("membership_tier", Constants.Operator.Equals, tier.ToString())
                 .Get();
 
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
+            return result?.Models?
                 .Select(UserProfileViewModel.FromCloudModel)
-                .ToList();
+                .ToList() ?? new();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Segmenting users by tier");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersByMembershipTier");
+            return new();
         }
     }
 
@@ -139,40 +125,28 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var carts = await _supabaseClient
-                .From<CartModel>()
-                .Get();
-
-            if (carts?.Models == null || !carts.Models.Any())
-                return new List<UserProfileViewModel>();
+            var carts = await _supabaseClient.From<CartModel>().Get();
+            if (carts?.Models == null || !carts.Models.Any()) return new();
 
             var userIdsWithCart = carts.Models
                 .Where(c => c.Items != null && c.Items.Any())
                 .Select(c => c.UserId)
-                .ToList();
+                .ToHashSet();
 
-            if (!userIdsWithCart.Any())
-                return new List<UserProfileViewModel>();
+            if (!userIdsWithCart.Any()) return new();
 
-            var users = await _supabaseClient
-                .From<UserModel>()
-                .Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
+            var users = await FetchBaseUsersAsync();
+            return users
                 .Where(u => userIdsWithCart.Contains(u.Id))
                 .Select(UserProfileViewModel.FromCloudModel)
                 .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting users with cart items");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersWithItemsInCart");
+            return new();
         }
     }
 
@@ -180,40 +154,28 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var wishlists = await _supabaseClient
-                .From<WishlistModel>()
-                .Get();
-
-            if (wishlists?.Models == null || !wishlists.Models.Any())
-                return new List<UserProfileViewModel>();
+            var wishlists = await _supabaseClient.From<WishlistModel>().Get();
+            if (wishlists?.Models == null || !wishlists.Models.Any()) return new();
 
             var userIdsWithWishlist = wishlists.Models
                 .Where(w => w.Items != null && w.Items.Any())
                 .Select(w => w.UserId)
-                .ToList();
+                .ToHashSet();
 
-            if (!userIdsWithWishlist.Any())
-                return new List<UserProfileViewModel>();
+            if (!userIdsWithWishlist.Any()) return new();
 
-            var users = await _supabaseClient
-                .From<UserModel>()
-                .Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
+            var users = await FetchBaseUsersAsync();
+            return users
                 .Where(u => userIdsWithWishlist.Contains(u.Id))
                 .Select(UserProfileViewModel.FromCloudModel)
                 .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting users with wishlist items");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersWithItemsInWishlist");
+            return new();
         }
     }
 
@@ -221,27 +183,20 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var cutoffDate = DateTime.UtcNow.AddDays(-inactiveDays);
+            var cutoff = DateTime.UtcNow.AddDays(-inactiveDays);
+            var users  = await FetchBaseUsersAsync();
 
-            var users = await _supabaseClient
-                .From<UserModel>()
-                .Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
-                .Where(u => u.LastLoginAt.HasValue && u.LastLoginAt.Value < cutoffDate)
+            return users
+                .Where(u => u.LastLoginAt.HasValue && u.LastLoginAt.Value < cutoff)
                 .Select(UserProfileViewModel.FromCloudModel)
                 .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting inactive users");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetInactiveUsers");
+            return new();
         }
     }
 
@@ -249,59 +204,41 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var cutoffDate = DateTime.UtcNow.AddDays(-daysAgo);
+            var cutoff = DateTime.UtcNow.AddDays(-daysAgo);
+            var users  = await FetchBaseUsersAsync();
 
-            var users = await _supabaseClient
-                .From<UserModel>()
-                .Where(u => u.CreatedAt >= cutoffDate)
-                .Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
+            return users
+                .Where(u => u.CreatedAt >= cutoff)
                 .Select(UserProfileViewModel.FromCloudModel)
                 .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting new users");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetNewUsers");
+            return new();
         }
     }
 
-    public async Task<List<UserProfileViewModel>> GetUsersByOrderCountAsync(int minOrders, int? maxOrders = null)
+    public async Task<List<UserProfileViewModel>> GetUsersByOrderCountAsync(
+        int minOrders, int? maxOrders = null)
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var query = _supabaseClient
-                .From<UserModel>()
-                .Where(u => u.TotalOrders >= minOrders);
-
+            var users    = await FetchBaseUsersAsync();
+            var filtered = users.Where(u => u.TotalOrders >= minOrders);
             if (maxOrders.HasValue)
-            {
-                query = query.Where(u => u.TotalOrders <= maxOrders.Value);
-            }
+                filtered = filtered.Where(u => u.TotalOrders <= maxOrders.Value);
 
-            var users = await query.Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
-                .Select(UserProfileViewModel.FromCloudModel)
-                .ToList();
+            return filtered.Select(UserProfileViewModel.FromCloudModel).ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Segmenting users by order count");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersByOrderCount");
+            return new();
         }
     }
 
@@ -309,60 +246,35 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var carts = await _supabaseClient
-                .From<CartModel>()
-                .Get();
+            var carts     = await _supabaseClient.From<CartModel>().Get();
+            var wishlists = await _supabaseClient.From<WishlistModel>().Get();
 
-            var wishlists = await _supabaseClient
-                .From<WishlistModel>()
-                .Get();
-
-            var userIdsWithProduct = new HashSet<string>();
+            var interested = new HashSet<string>();
 
             if (carts?.Models != null)
-            {
                 foreach (var cart in carts.Models)
-                {
                     if (cart.Items?.Any(i => i.product_id == productId) == true)
-                    {
-                        userIdsWithProduct.Add(cart.UserId);
-                    }
-                }
-            }
+                        interested.Add(cart.UserId);
 
             if (wishlists?.Models != null)
-            {
-                foreach (var wishlist in wishlists.Models)
-                {
-                    if (wishlist.Items?.Any(i => i.product_id == productId) == true)
-                    {
-                        userIdsWithProduct.Add(wishlist.UserId);
-                    }
-                }
-            }
+                foreach (var w in wishlists.Models)
+                    if (w.Items?.Any(i => i.product_id == productId) == true)
+                        interested.Add(w.UserId);
 
-            if (!userIdsWithProduct.Any())
-                return new List<UserProfileViewModel>();
+            if (!interested.Any()) return new();
 
-            var users = await _supabaseClient
-                .From<UserModel>()
-                .Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
-                .Where(u => userIdsWithProduct.Contains(u.Id))
+            var users = await FetchBaseUsersAsync();
+            return users
+                .Where(u => interested.Contains(u.Id))
                 .Select(UserProfileViewModel.FromCloudModel)
                 .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting users interested in product: {productId}");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetUsersInterestedInProduct: {productId}");
+            return new();
         }
     }
 
@@ -370,112 +282,170 @@ public class UserSegmentationService : IUserSegmentationService
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            var orders = await _supabaseClient
-                .From<OrderModel>()
-                .Get();
-
-            if (orders?.Models == null || !orders.Models.Any())
-                return new List<UserProfileViewModel>();
+            // Fetch orders that contain items in this category and get their user IDs
+            var orders = await _supabaseClient.From<OrderModel>().Get();
+            if (orders?.Models == null || !orders.Models.Any()) return new();
 
             var userIds = orders.Models
                 .Select(o => o.UserId.ToString())
                 .Distinct()
-                .ToList();
+                .ToHashSet();
 
-            if (!userIds.Any())
-                return new List<UserProfileViewModel>();
+            if (!userIds.Any()) return new();
 
-            var users = await _supabaseClient
-                .From<UserModel>()
-                .Get();
-
-            if (users?.Models == null || !users.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            return users.Models
+            var users = await FetchBaseUsersAsync();
+            return users
                 .Where(u => userIds.Contains(u.Id))
                 .Select(UserProfileViewModel.FromCloudModel)
                 .ToList();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, $"Getting users by category: {category}");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"GetUsersByPurchasedCategory: {category}");
+            return new();
         }
     }
 
-    public async Task<List<UserProfileViewModel>> GetUsersByMultipleCriteriaAsync(UserSegmentationCriteria criteria)
+    public async Task<List<UserProfileViewModel>> GetPartnerUsersAsync()
     {
         try
         {
-            if (!await EnsureAdminAccessAsync())
-                return new List<UserProfileViewModel>();
+            if (!await EnsureAdminAccessAsync()) return new();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Segmenting users with multiple criteria",
-                LogLevel.Info
-            );
-
-            var allUsers = await _supabaseClient
+            var result = await _supabaseClient
                 .From<UserModel>()
+                .Filter("is_deleted",  Constants.Operator.Equals, "false")
+                .Filter("is_partner",  Constants.Operator.Equals, "true")
                 .Get();
 
-            if (allUsers?.Models == null || !allUsers.Models.Any())
-                return new List<UserProfileViewModel>();
-
-            var filteredUsers = allUsers.Models.AsEnumerable();
-
-            if (criteria.MinSpent.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.TotalSpent >= criteria.MinSpent.Value);
-
-            if (criteria.MaxSpent.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.TotalSpent <= criteria.MaxSpent.Value);
-
-            if (criteria.MinLoyaltyPoints.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.LoyaltyPoints >= criteria.MinLoyaltyPoints.Value);
-
-            if (criteria.MaxLoyaltyPoints.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.LoyaltyPoints <= criteria.MaxLoyaltyPoints.Value);
-
-            if (criteria.MembershipTiers != null && criteria.MembershipTiers.Any())
-            {
-                var tierStrings = criteria.MembershipTiers.Select(t => t.ToString()).ToList();
-                filteredUsers = filteredUsers.Where(u => tierStrings.Contains(u.MembershipTier));
-            }
-
-            if (criteria.MinOrders.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.TotalOrders >= criteria.MinOrders.Value);
-
-            if (criteria.MaxOrders.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.TotalOrders <= criteria.MaxOrders.Value);
-
-            if (criteria.CreatedAfter.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.CreatedAt >= criteria.CreatedAfter.Value);
-
-            if (criteria.CreatedBefore.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.CreatedAt <= criteria.CreatedBefore.Value);
-
-            if (criteria.IsEmailVerified.HasValue)
-                filteredUsers = filteredUsers.Where(u => u.IsEmailVerified == criteria.IsEmailVerified.Value);
-
-            var result = filteredUsers
+            return result?.Models?
                 .Select(UserProfileViewModel.FromCloudModel)
-                .ToList();
-
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Segmentation complete: {result.Count} users matched",
-                LogLevel.Info
-            );
-
-            return result;
+                .ToList() ?? new();
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Multi-criteria segmentation");
-            return new List<UserProfileViewModel>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetPartnerUsers");
+            return new();
+        }
+    }
+
+    public async Task<List<UserProfileViewModel>> GetNonPartnerUsersAsync()
+    {
+        try
+        {
+            if (!await EnsureAdminAccessAsync()) return new();
+
+            var result = await _supabaseClient
+                .From<UserModel>()
+                .Filter("is_deleted",     Constants.Operator.Equals, "false")
+                .Filter("account_status", Constants.Operator.Equals, "Active")
+                .Filter("is_partner",     Constants.Operator.Equals, "false")
+                .Get();
+
+            return result?.Models?
+                .Select(UserProfileViewModel.FromCloudModel)
+                .ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetNonPartnerUsers");
+            return new();
+        }
+    }
+
+    public async Task<List<UserProfileViewModel>> GetUsersByMultipleCriteriaAsync(
+        UserSegmentationCriteria criteria)
+    {
+        try
+        {
+            if (!await EnsureAdminAccessAsync()) return new();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                "Segmenting users with multiple criteria", LogLevel.Info);
+
+            // Build server-side filters first to reduce payload
+            var query = _supabaseClient.From<UserModel>();
+
+            // Always exclude deleted unless explicitly asked not to
+            if (criteria.ExcludeDeleted != false)
+                query = query.Filter("is_deleted", Constants.Operator.Equals, "false");
+
+            if (criteria.ActiveOnly == true)
+                query = query.Filter("account_status", Constants.Operator.Equals, "Active");
+
+            if (criteria.IsEmailVerified.HasValue)
+                query = query.Filter("is_email_verified", Constants.Operator.Equals,
+                    criteria.IsEmailVerified.Value ? "true" : "false");
+
+            if (criteria.EmailNotificationsEnabled.HasValue)
+                query = query.Filter("email_notifications", Constants.Operator.Equals,
+                    criteria.EmailNotificationsEnabled.Value ? "true" : "false");
+
+            if (criteria.IsPartner.HasValue)
+                query = query.Filter("is_partner", Constants.Operator.Equals,
+                    criteria.IsPartner.Value ? "true" : "false");
+
+            if (criteria.MembershipTiers?.Count == 1)
+                query = query.Filter("membership_tier", Constants.Operator.Equals,
+                    criteria.MembershipTiers[0].ToString());
+
+            var result = await query.Get();
+            if (result?.Models == null || !result.Models.Any()) return new();
+
+            // Client-side filters for things the Postgrest client can't do server-side
+            var filtered = result.Models.AsEnumerable();
+
+            if (criteria.MinSpent.HasValue)
+                filtered = filtered.Where(u => u.TotalSpent >= criteria.MinSpent.Value);
+
+            if (criteria.MaxSpent.HasValue)
+                filtered = filtered.Where(u => u.TotalSpent <= criteria.MaxSpent.Value);
+
+            if (criteria.MinLoyaltyPoints.HasValue)
+                filtered = filtered.Where(u => u.LoyaltyPoints >= criteria.MinLoyaltyPoints.Value);
+
+            if (criteria.MaxLoyaltyPoints.HasValue)
+                filtered = filtered.Where(u => u.LoyaltyPoints <= criteria.MaxLoyaltyPoints.Value);
+
+            // Multi-tier filter (server-side only handles single tier)
+            if (criteria.MembershipTiers?.Count > 1)
+            {
+                var tierStrings = criteria.MembershipTiers.Select(t => t.ToString()).ToHashSet();
+                filtered = filtered.Where(u => tierStrings.Contains(u.MembershipTier));
+            }
+
+            if (criteria.MinOrders.HasValue)
+                filtered = filtered.Where(u => u.TotalOrders >= criteria.MinOrders.Value);
+
+            if (criteria.MaxOrders.HasValue)
+                filtered = filtered.Where(u => u.TotalOrders <= criteria.MaxOrders.Value);
+
+            if (criteria.CreatedAfter.HasValue)
+                filtered = filtered.Where(u => u.CreatedAt >= criteria.CreatedAfter.Value);
+
+            if (criteria.CreatedBefore.HasValue)
+                filtered = filtered.Where(u => u.CreatedAt <= criteria.CreatedBefore.Value);
+
+            if (criteria.InactiveDays.HasValue)
+            {
+                var cutoff = DateTime.UtcNow.AddDays(-criteria.InactiveDays.Value);
+                filtered = filtered.Where(u =>
+                    u.LastLoginAt.HasValue && u.LastLoginAt.Value < cutoff);
+            }
+
+            var finalList = filtered.Select(UserProfileViewModel.FromCloudModel).ToList();
+
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"Segmentation complete: {finalList.Count} users matched", LogLevel.Info);
+
+            return finalList;
+        }
+        catch (Exception ex)
+        {
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUsersByMultipleCriteria");
+            return new();
         }
     }
 
@@ -488,8 +458,8 @@ public class UserSegmentationService : IUserSegmentationService
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Getting user IDs by criteria");
-            return new List<string>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "GetUserIdsByCriteria");
+            return new();
         }
     }
 }
