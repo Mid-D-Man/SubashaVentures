@@ -1,14 +1,7 @@
-
-// =============================================================================
-// Services/Email/EmailService.cs
-// =============================================================================
-
-// (In a real project, split into its own file. Kept together for clarity.)
-
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Net.Http.Json;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
@@ -36,60 +29,66 @@ public class EmailService : IEmailService
         IConfiguration config,
         ILogger<EmailService> logger)
     {
-        _http       = http;
-        _auth       = auth;
+        _http        = http;
+        _auth        = auth;
         _supabaseUrl = config["Supabase:Url"] ?? string.Empty;
-        _anonKey    = config["Supabase:AnonKey"] ?? string.Empty;
-        _logger     = logger;
+        _anonKey     = config["Supabase:AnonKey"] ?? string.Empty;
+        _logger      = logger;
     }
-public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
-        string businessName, string uniquePartnerId, string storeSlug)
+
+    // ── Partner notification emails ───────────────────────────────────────────
+
+    public async Task SendPartnerApprovedAsync(
+        string toEmail,
+        string partnerName,
+        string businessName,
+        string uniquePartnerId,
+        string storeSlug)
     {
         var payload = new
         {
             type = "partner_approved",
-            to = toEmail,
-            data = new
-            {
-                partnerName,
-                businessName,
-                uniquePartnerId,
-                storeSlug
-            }
+            to   = toEmail,
+            data = new { partnerName, businessName, uniquePartnerId, storeSlug }
         };
 
-        await SendAsync(payload);
+        await SendEmailAsync(payload);   // ← fixed: was SendAsync (non-existent)
     }
 
-    public async Task SendPartnerRejectedAsync(string toEmail, string partnerName, string rejectionReason)
+    public async Task SendPartnerRejectedAsync(
+        string toEmail,
+        string partnerName,
+        string rejectionReason)
     {
         var payload = new
         {
             type = "partner_rejected",
-            to = toEmail,
-            data = new
-            {
-                partnerName,
-                rejectionReason
-            }
+            to   = toEmail,
+            data = new { partnerName, rejectionReason }
         };
 
-        await SendAsync(payload);
+        await SendEmailAsync(payload);   // ← fixed: was SendAsync (non-existent)
     }
+
     // ── Newsletter ────────────────────────────────────────────────────────────
 
     public async Task<EmailResult> SendNewsletterAsync(SendNewsletterRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Subject) || string.IsNullOrWhiteSpace(request.HtmlContent))
+        if (string.IsNullOrWhiteSpace(request.Subject) ||
+            string.IsNullOrWhiteSpace(request.HtmlContent))
         {
-            return new EmailResult { Success = false, ErrorMessage = "Subject and content are required." };
+            return new EmailResult
+            {
+                Success      = false,
+                ErrorMessage = "Subject and content are required."
+            };
         }
 
         var payload = new
         {
             type      = "newsletter",
             sendToAll = true,
-            data      = new
+            data = new
             {
                 subject = request.Subject,
                 content = request.HtmlContent,
@@ -105,9 +104,14 @@ public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
 
     public async Task<EmailResult> SendTransactionalAsync(SendTransactionalRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.To) || string.IsNullOrWhiteSpace(request.Type))
+        if (string.IsNullOrWhiteSpace(request.To) ||
+            string.IsNullOrWhiteSpace(request.Type))
         {
-            return new EmailResult { Success = false, ErrorMessage = "To and Type are required." };
+            return new EmailResult
+            {
+                Success      = false,
+                ErrorMessage = "To and Type are required."
+            };
         }
 
         var payload = new
@@ -120,7 +124,7 @@ public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
         return await CallEdgeFunctionAsync(payload);
     }
 
-    // ── Shared HTTP helper ────────────────────────────────────────────────────
+    // ── Shared HTTP helpers ───────────────────────────────────────────────────
 
     private async Task<EmailResult> CallEdgeFunctionAsync(object payload)
     {
@@ -128,16 +132,15 @@ public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
         {
             var session = await _auth.GetCurrentSessionAsync();
             if (session == null)
-            {
                 return new EmailResult { Success = false, ErrorMessage = "Not authenticated." };
-            }
 
             var url = $"{_supabaseUrl}/functions/v1/send-email";
             var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = JsonContent.Create(payload, options: _json)
             };
-            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            req.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", session.AccessToken);
             req.Headers.Add("apikey", _anonKey);
 
             var response = await _http.SendAsync(req);
@@ -149,9 +152,11 @@ public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
             var result = JsonSerializer.Deserialize<EdgeEmailResponse>(raw, _json);
 
             if (result == null)
-            {
-                return new EmailResult { Success = false, ErrorMessage = "Empty response from edge function." };
-            }
+                return new EmailResult
+                {
+                    Success      = false,
+                    ErrorMessage = "Empty response from edge function."
+                };
 
             return new EmailResult
             {
@@ -168,13 +173,52 @@ public async Task SendPartnerApprovedAsync(string toEmail, string partnerName,
         }
     }
 
+    /// <summary>
+    /// Sends an email via the send-email edge function using the service-role key.
+    /// Non-fatal — never throws; failures are logged.
+    /// </summary>
+    private async Task SendEmailAsync(object payload)
+    {
+        try
+        {
+            var serviceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY")
+                ?? throw new InvalidOperationException(
+                    "SUPABASE_SERVICE_ROLE_KEY environment variable not set");
+
+            var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"{_supabaseUrl}/functions/v1/send-email")
+            {
+                Content = JsonContent.Create(payload, options: _json)
+            };
+
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", serviceRoleKey);
+            request.Headers.Add("apikey", _anonKey);
+
+            var response = await _http.SendAsync(request);
+            var body     = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                _logger.LogWarning("send-email returned {Status}: {Body}",
+                    response.StatusCode, body);
+            else
+                _logger.LogInformation("Email dispatched: {Body}", body);
+        }
+        catch (Exception ex)
+        {
+            // Always non-fatal — email must never break business logic
+            _logger.LogError(ex, "SendEmailAsync failed for payload type");
+        }
+    }
+
     // ── Response shape from edge function ────────────────────────────────────
 
-    private class EdgeEmailResponse
+    private sealed class EdgeEmailResponse
     {
-        [JsonPropertyName("success")] public bool   Success { get; set; }
-        [JsonPropertyName("sent")]    public int    Sent    { get; set; }
-        [JsonPropertyName("failed")]  public int    Failed  { get; set; }
-        [JsonPropertyName("error")]   public string? Error  { get; set; }
+        [JsonPropertyName("success")] public bool    Success { get; set; }
+        [JsonPropertyName("sent")]    public int     Sent    { get; set; }
+        [JsonPropertyName("failed")]  public int     Failed  { get; set; }
+        [JsonPropertyName("error")]   public string? Error   { get; set; }
     }
 }
