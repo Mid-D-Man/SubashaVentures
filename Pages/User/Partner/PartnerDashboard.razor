@@ -17,7 +17,12 @@
     else if (dashboard == null)
     {
         <div class="pd-error">
-            <div class="pd-error-icon">⚠️</div>
+            <div class="pd-error-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 9V11M12 15H12.01M5.07183 19H18.9282C20.4678 19 21.4301 17.3333 20.6603 16L13.7321 4C12.9623 2.66667 11.0378 2.66667 10.268 4L3.33978 16C2.56998 17.3333 3.53223 19 5.07183 19Z"
+                          stroke="var(--warning-color,#f59e0b)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
             <h2>Unable to Load Dashboard</h2>
             <p>Something went wrong loading your partner dashboard. Please try again.</p>
             <PrimaryButton OnClick="LoadDashboard">Retry</PrimaryButton>
@@ -58,7 +63,9 @@
 
         <div class="pd-stats">
             <div class="pd-stat-card">
-                <div class="stat-icon">📦</div>
+                <div class="stat-icon">
+                    @((MarkupString)productsIconSvg)
+                </div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.TotalApprovedProducts</span>
                     <span class="stat-label">Live Products</span>
@@ -66,7 +73,9 @@
             </div>
 
             <div class="pd-stat-card">
-                <div class="stat-icon">📝</div>
+                <div class="stat-icon">
+                    @((MarkupString)templatesIconSvg)
+                </div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.TotalTemplates</span>
                     <span class="stat-label">Templates</span>
@@ -82,7 +91,9 @@
             </div>
 
             <div class="pd-stat-card">
-                <div class="stat-icon">💰</div>
+                <div class="stat-icon">
+                    @((MarkupString)payoutIconSvg)
+                </div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.DisplayPendingPayout</span>
                     <span class="stat-label">Pending Payout</span>
@@ -94,7 +105,9 @@
             </div>
 
             <div class="pd-stat-card">
-                <div class="stat-icon">📈</div>
+                <div class="stat-icon">
+                    @((MarkupString)revenueIconSvg)
+                </div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.DisplayTotalRevenue</span>
                     <span class="stat-label">Total Revenue</span>
@@ -105,20 +118,23 @@
         <div class="pd-quick-actions">
             <h2>Quick Actions</h2>
             <div class="qa-grid">
-                <button class="qa-card" @onclick="@(() => Navigation.NavigateTo("user/partner/templates"))">
-                    <span class="qa-icon">➕</span>
+                <button class="qa-card"
+                        @onclick="@(() => Navigation.NavigateTo("user/partner/templates"))">
+                    <span class="qa-icon">@((MarkupString)addIconSvg)</span>
                     <span class="qa-label">Add Product</span>
                     <span class="qa-desc">Create a new product template</span>
                 </button>
 
-                <button class="qa-card" @onclick="@(() => Navigation.NavigateTo("user/partner/store"))">
-                    <span class="qa-icon">🏪</span>
+                <button class="qa-card"
+                        @onclick="@(() => Navigation.NavigateTo("user/partner/store"))">
+                    <span class="qa-icon">@((MarkupString)storeIconSvg)</span>
                     <span class="qa-label">Edit Store</span>
                     <span class="qa-desc">Update your store profile</span>
                 </button>
 
-                <button class="qa-card" @onclick="@(() => Navigation.NavigateTo("user/partner/financials"))">
-                    <span class="qa-icon">💳</span>
+                <button class="qa-card"
+                        @onclick="@(() => Navigation.NavigateTo("user/partner/financials"))">
+                    <span class="qa-icon">@((MarkupString)financialsIconSvg)</span>
                     <span class="qa-label">Financials</span>
                     <span class="qa-desc">View earnings and request payout</span>
                 </button>
@@ -126,7 +142,7 @@
                 @if (dashboard.HasStore)
                 {
                     <a class="qa-card" href="@dashboard.Store!.PublicStoreUrl" target="_blank">
-                        <span class="qa-icon">🔗</span>
+                        <span class="qa-icon">@((MarkupString)linkIconSvg)</span>
                         <span class="qa-label">View Store</span>
                         <span class="qa-desc">See your public store page</span>
                     </a>
@@ -139,7 +155,7 @@
             <div class="pd-section">
                 <div class="pd-section-header">
                     <h2>Recent Templates</h2>
-                    <a href="user/partner/templates" class="view-all">View All →</a>
+                    <a href="user/partner/templates" class="view-all">View All</a>
                 </div>
                 <div class="pd-template-list">
                     @foreach (var template in dashboard.RecentTemplates)
@@ -152,7 +168,9 @@
                                 }
                                 else
                                 {
-                                    <span class="thumb-placeholder">📦</span>
+                                    <span class="thumb-placeholder">
+                                        @((MarkupString)thumbPlaceholderSvg)
+                                    </span>
                                 }
                             </div>
                             <div class="template-info">
@@ -173,7 +191,7 @@
             <div class="pd-section">
                 <div class="pd-section-header">
                     <h2>Recent Payouts</h2>
-                    <a href="user/partner/financials" class="view-all">View All →</a>
+                    <a href="user/partner/financials" class="view-all">View All</a>
                 </div>
                 <div class="pd-payout-list">
                     @foreach (var payout in dashboard.RecentPayouts)
