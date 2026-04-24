@@ -1,0 +1,302 @@
+@page "/admin/partner-payouts"
+@using SubashaVentures.Layout.Admin
+@using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Components.Shared.Forms
+@using SubashaVentures.Components.Shared.Modals
+@using SubashaVentures.Components.Shared.Notifications
+@using SubashaVentures.Domain.Partner
+@layout AdminLayout
+
+<div class="partner-payout-management">
+
+    <NotificationComponent @ref="notificationComponent"
+                           Position="NotificationPosition.TopRight"
+                           AutoDismissTime="5000" />
+
+    <!-- Header -->
+    <div class="ppm-header">
+        <div>
+            <h1 class="ppm-title">Partner Payout Management</h1>
+            <p class="ppm-subtitle">Review and process partner withdrawal requests.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="ppm-stats">
+        <div class="ppm-stat pending">
+            <span class="ppm-stat-value">@pendingCount</span>
+            <span class="ppm-stat-label">Pending</span>
+        </div>
+        <div class="ppm-stat processing">
+            <span class="ppm-stat-value">@processingCount</span>
+            <span class="ppm-stat-label">Processing</span>
+        </div>
+        <div class="ppm-stat paid">
+            <span class="ppm-stat-value">@paidCount</span>
+            <span class="ppm-stat-label">Paid</span>
+        </div>
+        <div class="ppm-stat total-amount">
+            <span class="ppm-stat-value">₦@pendingAmount.ToString("N0")</span>
+            <span class="ppm-stat-label">Pending Amount</span>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="ppm-toolbar">
+        <div class="ppm-filters">
+            <InputField Value="@searchQuery"
+                        ValueChanged="@((v) => { searchQuery = v; ApplyFilter(); })"
+                        Placeholder="Search partner, bank name..."
+                        ShowClearButton="true"
+                        CssClass="ppm-search" />
+
+            <select class="ppm-select" @onchange="HandleStatusFilter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="paid">Paid</option>
+                <option value="rejected">Rejected</option>
+            </select>
+
+            <select class="ppm-select" @onchange="HandleSortChange">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="amount-high">Amount (High)</option>
+                <option value="amount-low">Amount (Low)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Table -->
+    @if (isLoading)
+    {
+        <div class="ppm-loading">
+            <div class="ppm-spinner"></div>
+            <p>Loading payout requests...</p>
+        </div>
+    }
+    else if (!filtered.Any())
+    {
+        <div class="ppm-empty">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="5" width="20" height="14" rx="2"
+                      stroke="currentColor" stroke-width="1.5"/>
+                <path d="M2 10H22" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <h3>No payout requests found</h3>
+            <p>@(string.IsNullOrEmpty(searchQuery) && string.IsNullOrEmpty(selectedStatus)
+                ? "No payout requests have been submitted yet."
+                : "Try adjusting your filters.")</p>
+        </div>
+    }
+    else
+    {
+        <div class="ppm-table-container">
+            <table class="ppm-table">
+                <thead>
+                    <tr>
+                        <th>Partner / Bank</th>
+                        <th>Amount</th>
+                        <th>Account</th>
+                        <th>Status</th>
+                        <th>Requested</th>
+                        <th>Reference</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var payout in filtered)
+                    {
+                        <tr class="@(payout.Status == "pending" ? "row-pending" : "")">
+                            <td>
+                                <div class="ppm-partner-cell">
+                                    <span class="ppm-partner-id">@payout.PartnerId</span>
+                                    <span class="ppm-bank-name">@payout.BankName</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="ppm-amount">@payout.DisplayAmount</span>
+                            </td>
+                            <td>
+                                <div class="ppm-account-cell">
+                                    <span>@payout.BankAccountName</span>
+                                    <span class="ppm-account-number">
+                                        @payout.MaskedAccountNumber
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="ppm-status-badge @payout.StatusBadgeClass">
+                                    @payout.StatusDisplay
+                                </span>
+                            </td>
+                            <td class="ppm-date">@payout.RequestedAtDisplay</td>
+                            <td>
+                                <span class="ppm-ref">
+                                    @(payout.TransactionReference ?? "—")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="ppm-row-actions">
+                                    @if (payout.IsPending)
+                                    {
+                                        <SecondaryButton
+                                            Size="SecondaryButton.ButtonSize.ExtraSmall"
+                                            Variant="SecondaryButton.ButtonVariant.Outline"
+                                            OnClick="@(() => OpenMarkProcessingModal(payout))">
+                                            Mark Processing
+                                        </SecondaryButton>
+                                        <SecondaryButton
+                                            Size="SecondaryButton.ButtonSize.ExtraSmall"
+                                            Variant="SecondaryButton.ButtonVariant.Outline"
+                                            OnClick="@(() => OpenMarkPaidModal(payout))"
+                                            CssClass="btn-success-outline">
+                                            Mark Paid
+                                        </SecondaryButton>
+                                        <button class="ppm-reject-btn"
+                                                @onclick="@(() => OpenRejectPayoutModal(payout))">
+                                            Reject
+                                        </button>
+                                    }
+                                    else if (payout.IsProcessing)
+                                    {
+                                        <SecondaryButton
+                                            Size="SecondaryButton.ButtonSize.ExtraSmall"
+                                            Variant="SecondaryButton.ButtonVariant.Outline"
+                                            OnClick="@(() => OpenMarkPaidModal(payout))"
+                                            CssClass="btn-success-outline">
+                                            Mark Paid
+                                        </SecondaryButton>
+                                    }
+                                    else
+                                    {
+                                        <span class="ppm-terminal-label">
+                                            @payout.ProcessedAtDisplay
+                                        </span>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Mark Paid Modal -->
+<DynamicModal @ref="paidModal"
+              Title="Mark Payout as Paid"
+              Size="DynamicModal.ModalSize.Medium"
+              IsOpen="@isPaidModalOpen"
+              ShowFooter="false"
+              OnClose="ClosePaidModal">
+    <BodyContent>
+        <div class="ppm-paid-form">
+            @if (selectedPayout != null)
+            {
+                <div class="ppm-payout-summary">
+                    <div class="ppm-summary-row">
+                        <span class="summary-label">Amount</span>
+                        <span class="summary-value amount">@selectedPayout.DisplayAmount</span>
+                    </div>
+                    <div class="ppm-summary-row">
+                        <span class="summary-label">Account Name</span>
+                        <span class="summary-value">@selectedPayout.BankAccountName</span>
+                    </div>
+                    <div class="ppm-summary-row">
+                        <span class="summary-label">Account Number</span>
+                        <span class="summary-value">@selectedPayout.BankAccountNumber</span>
+                    </div>
+                    <div class="ppm-summary-row">
+                        <span class="summary-label">Bank</span>
+                        <span class="summary-value">@selectedPayout.BankName</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Transaction Reference <span class="required">*</span>
+                    </label>
+                    <input type="text"
+                           class="form-input @(HasPaidError("Reference") ? "has-error" : "")"
+                           @bind="paidForm.TransactionReference"
+                           placeholder="Bank transfer / payment reference" />
+                    @if (HasPaidError("Reference"))
+                    {
+                        <span class="error-text">@GetPaidError("Reference")</span>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select class="form-select" @bind="paidForm.PaymentMethod">
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="cash">Cash</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Admin Notes (optional)</label>
+                    <textarea class="form-textarea"
+                              @bind="paidForm.AdminNotes"
+                              rows="2"
+                              placeholder="Any notes about this payment..."></textarea>
+                </div>
+
+                <div class="ppm-form-actions">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                    OnClick="ClosePaidModal">
+                        Cancel
+                    </SecondaryButton>
+                    <PrimaryButton OnClick="HandleMarkPaid"
+                                  IsLoading="@isActioning"
+                                  IsDisabled="@isActioning"
+                                  CssClass="btn-success">
+                        Confirm Payment
+                    </PrimaryButton>
+                </div>
+            }
+        </div>
+    </BodyContent>
+</DynamicModal>
+
+<!-- Reject Payout Modal -->
+<DynamicModal @ref="rejectPayoutModal"
+              Title="Reject Payout Request"
+              Size="DynamicModal.ModalSize.Small"
+              IsOpen="@isRejectPayoutOpen"
+              ShowFooter="false"
+              OnClose="CloseRejectPayoutModal">
+    <BodyContent>
+        <div class="ppm-reject-form">
+            <div class="form-group">
+                <label class="form-label">
+                    Rejection Reason <span class="required">*</span>
+                </label>
+                <textarea class="form-textarea @(HasRejectPayoutError("Reason") ? "has-error" : "")"
+                          @bind="rejectPayoutForm.Reason"
+                          rows="3"
+                          placeholder="Explain why this payout is being rejected."></textarea>
+                @if (HasRejectPayoutError("Reason"))
+                {
+                    <span class="error-text">@GetRejectPayoutError("Reason")</span>
+                }
+            </div>
+
+            <div class="ppm-form-actions">
+                <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                OnClick="CloseRejectPayoutModal">
+                    Cancel
+                </SecondaryButton>
+                <PrimaryButton OnClick="HandleRejectPayout"
+                              IsLoading="@isActioning"
+                              IsDisabled="@isActioning"
+                              CssClass="btn-danger">
+                    Confirm Rejection
+                </PrimaryButton>
+            </div>
+        </div>
+    </BodyContent>
+</DynamicModal>
