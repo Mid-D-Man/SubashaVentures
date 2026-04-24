@@ -1,28 +1,31 @@
+// Pages/User/Partner/PartnerApply.razor.cs
+// Fixed: DB fallback to break the redirect loop when JWT is stale post-approval.
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Domain.Partner;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Partners;
-using System.Net.Http.Json;          // ← FIX: JsonContent lives here
+using SubashaVentures.Services.Users;
+
 namespace SubashaVentures.Pages.User.Partner;
 
 public partial class PartnerApply : ComponentBase
 {
     [Inject] private IPartnerApplicationService PartnerApplicationService { get; set; } = default!;
-    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IUserService               UserService               { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider         { get; set; } = default!;
+    [Inject] private NavigationManager           Navigation                { get; set; } = default!;
 
-    private bool isLoading = true;
+    private bool isLoading    = true;
     private bool isSubmitting = false;
-    private int currentStep = 1;
-    private string userId = string.Empty;
+    private int  currentStep  = 1;
+    private string userId     = string.Empty;
     private string submitError = string.Empty;
 
-    private ApplicationEligibilityResult eligibility = new() { IsEligible = false };
-    private PartnerApplicationViewModel? existingApplication = null;
+    private ApplicationEligibilityResult   eligibility          = new() { IsEligible = false };
+    private PartnerApplicationViewModel?   existingApplication  = null;
 
     private Dictionary<string, string> validationErrors = new();
-
     private ApplyFormData form = new();
 
     protected override async Task OnInitializedAsync()
@@ -30,7 +33,7 @@ public partial class PartnerApply : ComponentBase
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
+            var user      = authState.User;
 
             if (user.Identity?.IsAuthenticated != true)
             {
@@ -48,6 +51,33 @@ public partial class PartnerApply : ComponentBase
                 return;
             }
 
+            // ── CRITICAL: Check DB directly — JWT may be stale right after approval ──
+            // If the DB says the user is already a partner, skip the apply page entirely.
+            // This is the fix for the infinite redirect loop.
+            try
+            {
+                var dbProfile = await UserService.GetUserByIdAsync(userId);
+                if (dbProfile?.IsPartner == true)
+                {
+                    Navigation.NavigateTo("user/partner/dashboard", replace: true);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PartnerApply DB check error (non-fatal): {ex.Message}");
+                // fall through — if DB check fails, also check JWT claim below
+            }
+
+            // Also honour stale JWT claim (belt-and-suspenders)
+            var isPartnerClaim = user.FindFirst("is_partner")?.Value == "true";
+            var partnerIdClaim = user.FindFirst("partner_id")?.Value;
+            if (isPartnerClaim || !string.IsNullOrEmpty(partnerIdClaim))
+            {
+                Navigation.NavigateTo("user/partner/dashboard", replace: true);
+                return;
+            }
+
             // Pre-fill email from auth claims
             form.Email = user.Identity.Name ?? string.Empty;
 
@@ -57,28 +87,31 @@ public partial class PartnerApply : ComponentBase
 
             await Task.WhenAll(eligibilityTask, existingTask);
 
-            eligibility          = await eligibilityTask;
-            existingApplication  = await existingTask;
+            eligibility         = await eligibilityTask;
+            existingApplication = await existingTask;
 
-            // If they have an active or rejected (in cooldown) application show that instead
-            if (existingApplication != null &&
-                (existingApplication.Status == PartnerApplicationStatus.Pending   ||
-                 existingApplication.Status == PartnerApplicationStatus.UnderReview ||
-                 existingApplication.IsInCooldown ||
-                 existingApplication.IsPermanentlyRejected))
+            // Decide what to show
+            if (existingApplication != null)
             {
-                // existingApplication view will be shown
-            }
-            else if (existingApplication?.Status == PartnerApplicationStatus.Approved)
-            {
-                // Already a partner — redirect to dashboard
-                Navigation.NavigateTo("user/partner/dashboard");
-                return;
-            }
-            else if (existingApplication?.CanReapply == true)
-            {
-                // Can reapply — clear existing so the form shows
-                existingApplication = null;
+                if (existingApplication.Status == PartnerApplicationStatus.Approved)
+                {
+                    // DB says approved — re-attempt redirect (JWT may be very stale)
+                    Navigation.NavigateTo("user/partner/dashboard", replace: true);
+                    return;
+                }
+
+                if (existingApplication.Status == PartnerApplicationStatus.Pending   ||
+                    existingApplication.Status == PartnerApplicationStatus.UnderReview ||
+                    existingApplication.IsInCooldown                                   ||
+                    existingApplication.IsPermanentlyRejected)
+                {
+                    // Show existing-application view — form not shown
+                }
+                else if (existingApplication.CanReapply)
+                {
+                    // Clear it so the form renders
+                    existingApplication = null;
+                }
             }
         }
         catch (Exception ex)
@@ -125,13 +158,15 @@ public partial class PartnerApply : ComponentBase
     {
         validationErrors.Clear();
 
-        if (string.IsNullOrWhiteSpace(form.BankAccountName) || form.BankAccountName.Trim().Length < 2)
+        if (string.IsNullOrWhiteSpace(form.BankAccountName) ||
+            form.BankAccountName.Trim().Length < 2)
             validationErrors["BankAccountName"] = "Account name is required";
 
-        if (string.IsNullOrWhiteSpace(form.BankAccountNumber) ||
-            !form.BankAccountNumber.All(char.IsDigit) ||
+        if (string.IsNullOrWhiteSpace(form.BankAccountNumber)  ||
+            !form.BankAccountNumber.All(char.IsDigit)           ||
             form.BankAccountNumber.Length is < 10 or > 12)
-            validationErrors["BankAccountNumber"] = "Enter a valid 10-12 digit account number";
+            validationErrors["BankAccountNumber"] =
+                "Enter a valid 10-12 digit account number";
 
         if (string.IsNullOrWhiteSpace(form.BankName))
             validationErrors["BankName"] = "Bank name is required";
@@ -143,7 +178,7 @@ public partial class PartnerApply : ComponentBase
 
     private async Task HandleSubmit()
     {
-        submitError = string.Empty;
+        submitError  = string.Empty;
         isSubmitting = true;
         StateHasChanged();
 
@@ -161,19 +196,17 @@ public partial class PartnerApply : ComponentBase
                 BankAccountName   = form.BankAccountName.Trim(),
                 BankAccountNumber = form.BankAccountNumber.Trim(),
                 BankName          = form.BankName.Trim(),
-                BankCode          = string.IsNullOrWhiteSpace(form.BankCode) ? null : form.BankCode.Trim(),
+                BankCode          = string.IsNullOrWhiteSpace(form.BankCode)
+                    ? null : form.BankCode.Trim(),
             };
 
             var result = await PartnerApplicationService.SubmitApplicationAsync(userId, request);
 
             if (result != null)
-            {
                 currentStep = 4;
-            }
             else
-            {
-                submitError = "Failed to submit application. Please check your details and try again.";
-            }
+                submitError =
+                    "Failed to submit application. Please check your details and try again.";
         }
         catch (Exception ex)
         {
@@ -186,11 +219,8 @@ public partial class PartnerApply : ComponentBase
         }
     }
 
-    private bool HasError(string field) =>
-        validationErrors.ContainsKey(field);
-
-    private string GetError(string field) =>
-        validationErrors.GetValueOrDefault(field, string.Empty);
+    private bool   HasError(string field) => validationErrors.ContainsKey(field);
+    private string GetError(string field) => validationErrors.GetValueOrDefault(field, string.Empty);
 
     private string MaskAccountNumber(string number)
     {
