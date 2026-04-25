@@ -1,6 +1,6 @@
 @page "/user/partner/financials"
-@layout UserLayout
-@using SubashaVentures.Layout.User
+@layout PartnerLayout
+@using SubashaVentures.Layout.Partner
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
@@ -206,7 +206,7 @@
         <div class="bank-update-form">
             <div class="pf-notice warning">
                 <span>⚠️</span>
-                <p>Bank detail changes require admin approval before taking effect. Your current details will remain active until approved.</p>
+                <p>Bank detail changes require admin approval before taking effect. Your current details remain active until approved.</p>
             </div>
 
             <InputField @bind-Value="bankForm.NewAccountName"
