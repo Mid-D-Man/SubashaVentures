@@ -1,6 +1,6 @@
 @page "/user/partner/dashboard"
-@layout UserLayout
-@using SubashaVentures.Layout.User
+@layout PartnerLayout
+@using SubashaVentures.Layout.Partner
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Domain.Partner
@@ -63,9 +63,7 @@
 
         <div class="pd-stats">
             <div class="pd-stat-card">
-                <div class="stat-icon">
-                    @((MarkupString)productsIconSvg)
-                </div>
+                <div class="stat-icon">@((MarkupString)productsIconSvg)</div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.TotalApprovedProducts</span>
                     <span class="stat-label">Live Products</span>
@@ -73,9 +71,7 @@
             </div>
 
             <div class="pd-stat-card">
-                <div class="stat-icon">
-                    @((MarkupString)templatesIconSvg)
-                </div>
+                <div class="stat-icon">@((MarkupString)templatesIconSvg)</div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.TotalTemplates</span>
                     <span class="stat-label">Templates</span>
@@ -91,9 +87,7 @@
             </div>
 
             <div class="pd-stat-card">
-                <div class="stat-icon">
-                    @((MarkupString)payoutIconSvg)
-                </div>
+                <div class="stat-icon">@((MarkupString)payoutIconSvg)</div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.DisplayPendingPayout</span>
                     <span class="stat-label">Pending Payout</span>
@@ -105,9 +99,7 @@
             </div>
 
             <div class="pd-stat-card">
-                <div class="stat-icon">
-                    @((MarkupString)revenueIconSvg)
-                </div>
+                <div class="stat-icon">@((MarkupString)revenueIconSvg)</div>
                 <div class="stat-info">
                     <span class="stat-value">@dashboard.DisplayTotalRevenue</span>
                     <span class="stat-label">Total Revenue</span>
@@ -168,9 +160,7 @@
                                 }
                                 else
                                 {
-                                    <span class="thumb-placeholder">
-                                        @((MarkupString)thumbPlaceholderSvg)
-                                    </span>
+                                    <span class="thumb-placeholder">@((MarkupString)thumbPlaceholderSvg)</span>
                                 }
                             </div>
                             <div class="template-info">
