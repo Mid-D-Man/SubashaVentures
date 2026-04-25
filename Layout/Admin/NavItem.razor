@@ -1,0 +1,43 @@
+@* Shared nav item component used by AdminNavMenu *@
+@namespace SubashaVentures.Layout.Admin
+@inject NavigationManager Navigation
+
+<a href="@Href"
+   class="admin-nav-item @(IsCurrentPage() ? "active" : "") @CssClass"
+   title="@(IsCollapsed ? Label : "")">
+    <span class="nav-item-icon">
+        @((MarkupString)Icon)
+    </span>
+    @if (!IsCollapsed)
+    {
+        <span class="nav-item-label">@Label</span>
+        @if (BadgeCount > 0)
+        {
+            <span class="nav-item-badge">@(BadgeCount > 99 ? "99+" : BadgeCount.ToString())</span>
+        }
+    }
+    else if (BadgeCount > 0)
+    {
+        <span class="nav-item-badge-dot"></span>
+    }
+</a>
+
+@code {
+    [Parameter] public string Href        { get; set; } = string.Empty;
+    [Parameter] public string Icon        { get; set; } = string.Empty;
+    [Parameter] public string Label       { get; set; } = string.Empty;
+    [Parameter] public bool   IsCollapsed { get; set; } = false;
+    [Parameter] public int    BadgeCount  { get; set; } = 0;
+    [Parameter] public bool   ExactMatch  { get; set; } = false;
+    [Parameter] public string CssClass    { get; set; } = string.Empty;
+
+    private bool IsCurrentPage()
+    {
+        var current = Navigation.ToBaseRelativePath(Navigation.Uri).TrimEnd('/');
+        var target  = Href.TrimStart('/').TrimEnd('/');
+
+        return ExactMatch
+            ? string.Equals(current, target, StringComparison.OrdinalIgnoreCase)
+            : current.StartsWith(target, StringComparison.OrdinalIgnoreCase);
+    }
+}
