@@ -1,253 +1,153 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
-using SubashaVentures.Services.Partners;
-using SubashaVentures.Utilities.HelperScripts;
-using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
+using SubashaVentures.Domain.Enums;
+using SubashaVentures.Services.VisualElements;
 
 namespace SubashaVentures.Layout.Admin;
 
 public partial class AdminNavMenu : LayoutComponentBase
-
 {
-    [Inject] private IPartnerApplicationService PartnerApplicationService { get; set; } = default!;
+    [Inject]
+    public NavigationManager NavigationManager { get; set; } = default!;
 
-    private ElementReference navElement;
-    private bool isExpanded   = false;
-    private bool isPinned     = false;
-    private bool isMobileOpen = false;
-    private int  pendingApplicationCount = 0;
+    [Inject]
+    public IJSRuntime JSRuntime { get; set; } = default!;
 
-    private HashSet<string> expandedGroups = new();
-    private IJSObjectReference?           jsModule;
-    private DotNetObjectReference<AdminNavMenu>? dotNetRef;
+    [Inject]
+    public IVisualElementsService VisualElements { get; set; } = default!;
 
-    private List<NavigationSection> NavigationSections => new()
+    [Inject]
+    public AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+
+    private bool isCollapsed = false;
+    private string adminName = "Admin";
+    private string adminRole = "Administrator";
+    private int pendingTemplateCount = 0;
+    private int pendingPayoutCount = 0;
+
+    // SVG fields
+    private string dashSvg = string.Empty;
+    private string analyticsSvg = string.Empty;
+    private string orderSvg = string.Empty;
+    private string productSvg = string.Empty;
+    private string categorySvg = string.Empty;
+    private string inventorySvg = string.Empty;
+    private string partnerAppSvg = string.Empty;
+    private string partnerTemplateSvg = string.Empty;
+    private string partnerPayoutSvg = string.Empty;
+    private string usersSvg = string.Empty;
+    private string segmentSvg = string.Empty;
+    private string newsletterSvg = string.Empty;
+    private string offerSvg = string.Empty;
+    private string bannerSvg = string.Empty;
+    private string supportSvg = string.Empty;
+    private string reviewSvg = string.Empty;
+    private string adminUserSvg = string.Empty;
+    private string settingsSvg = string.Empty;
+    private string logsSvg = string.Empty;
+    private string signOutSvg = string.Empty;
+    private string collapseIconSvg = string.Empty;
+    private string paymentSvg = string.Empty;
+
+    protected override async Task OnInitializedAsync()
     {
-        new NavigationSection
+        await Task.WhenAll(LoadSvgsAsync(), LoadAdminInfoAsync(), LoadBadgeCountsAsync());
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
         {
-            Title = "Main",
-            Items = new List<NavigationItem>
-            {
-                new() { Id = "dashboard", Label = "Dashboard", Path = "admin", Icon = "dashboard" }
-            }
-        },
-        new NavigationSection
-        {
-            Title = "Management",
-            Items = new List<NavigationItem>
-            {
-                new() { Id = "orders",       Label = "Order Management",      Path = "admin/orders",               Icon = "orders"       },
-                new() { Id = "users",        Label = "User Management",       Path = "admin/users",                Icon = "users"        },
-                new() { Id = "products",     Label = "Product Management",    Path = "admin/products",             Icon = "products"     },
-                new() { Id = "partners",     Label = "Partner Management",    Path = "admin/partners",             Icon = "partners"     },
-                new() { Id = "applications", Label = "Partner Applications",  Path = "admin/partner-applications", Icon = "applications", Badge = pendingApplicationCount },
-                new() { Id = "images",       Label = "Image Management",      Path = "admin/images",               Icon = "images"       },
-                new() { Id = "categories",   Label = "Category Management",   Path = "admin/categories",           Icon = "category"     },
-                new() { Id = "reviews",      Label = "Review Management",     Path = "admin/reviews",              Icon = "reviews"      },
-                new() { Id = "misc",         Label = "Misc Management",       Path = "admin/misc",                 Icon = "misc"         },
-            }
-        },
-        new NavigationSection
-        {
-            Title = "Operations",
-            Items = new List<NavigationItem>
-            {
-                new() { Id = "collection-scanner", Label = "Collection Scanner", Path = "admin/collection-scanner", Icon = "scanner" },
-            }
-        },
-        new NavigationSection
-        {
-            Title = "Communications",
-            Items = new List<NavigationItem>
-            {
-                new() { Id = "messages",   Label = "Messages",  Path = "admin/messages",   Icon = "messages"   },
-                new() { Id = "newsletter", Label = "Newsletter", Path = "admin/newsletter", Icon = "newsletter" },
-            }
-        },
-        new NavigationSection
-        {
-            Title = "Analytics",
-            Items = new List<NavigationItem>
-            {
-                new() { Id = "statistics", Label = "Statistics", Path = "admin/statistics", Icon = "analytics" }
-            }
+            dashSvg = await VisualElements.GetCustomSvgAsync(SvgType.Stats, 20, 20);
+            analyticsSvg = await VisualElements.GetCustomSvgAsync(SvgType.Stats, 20, 20);
+            orderSvg = await VisualElements.GetCustomSvgAsync(SvgType.Order, 20, 20);
+            productSvg = await VisualElements.GetCustomSvgAsync(SvgType.AllProducts, 20, 20);
+            categorySvg = await VisualElements.GetCustomSvgAsync(SvgType.Records, 20, 20);
+            inventorySvg = await VisualElements.GetCustomSvgAsync(SvgType.AllProducts, 20, 20);
+            usersSvg = await VisualElements.GetCustomSvgAsync(SvgType.User, 20, 20);
+            newsletterSvg = await VisualElements.GetCustomSvgAsync(SvgType.Messages, 20, 20);
+            offerSvg = await VisualElements.GetCustomSvgAsync(SvgType.Offer, 20, 20);
+            supportSvg = await VisualElements.GetCustomSvgAsync(SvgType.HelpCenter, 20, 20);
+            reviewSvg = await VisualElements.GetCustomSvgAsync(SvgType.Star, 20, 20);
+            settingsSvg = await VisualElements.GetCustomSvgAsync(SvgType.Settings, 20, 20);
+            adminUserSvg = await VisualElements.GetCustomSvgAsync(SvgType.User, 20, 20);
+
+            // Inline SVGs without matching SvgType
+            partnerAppSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            partnerTemplateSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            partnerPayoutSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            segmentSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            bannerSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            logsSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            signOutSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            collapseIconSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>",
+                20, 20, "0 0 24 24", "fill='none'");
         }
-    };
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
+        catch (Exception ex)
         {
-            try
-            {
-                jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                    "import", "./js/adminNavMenu.js");
-
-                dotNetRef = DotNetObjectReference.Create(this);
-
-                await jsModule.InvokeVoidAsync("initializeNavMenu", navElement, dotNetRef);
-
-                MID_HelperFunctions.DebugMessage("AdminNavMenu initialized", LogLevel.Info);
-            }
-            catch (Exception ex)
-            {
-                MID_HelperFunctions.DebugMessage(
-                    $"Failed to initialize AdminNavMenu JS: {ex.Message}", LogLevel.Error);
-            }
-
-            // Load pending application badge count
-            try
-            {
-                var stats = await PartnerApplicationService.GetApplicationStatisticsAsync();
-                pendingApplicationCount = stats.Pending + stats.UnderReview;
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                MID_HelperFunctions.DebugMessage(
-                    $"Failed to load application badge count: {ex.Message}", LogLevel.Warning);
-            }
+            Console.WriteLine($"AdminNavMenu SVG load error: {ex.Message}");
         }
     }
 
-    private void HandleMouseEnter()
+    private async Task LoadAdminInfoAsync()
     {
-        if (!isPinned && !isMobileOpen)
+        try
         {
-            isExpanded = true;
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated != true) return;
+
+            var first = user.FindFirst("first_name")?.Value ?? "";
+            var last = user.FindFirst("last_name")?.Value ?? "";
+            adminName = $"{first} {last}".Trim();
+            if (string.IsNullOrEmpty(adminName)) adminName = "Admin";
+
+            adminRole = user.FindFirst("admin_role")?.Value ?? "Administrator";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AdminNavMenu user info: {ex.Message}");
         }
     }
 
-    private void HandleMouseLeave()
+    private async Task LoadBadgeCountsAsync()
     {
-        if (!isPinned && !isMobileOpen)
+        try
         {
-            isExpanded = false;
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AdminNavMenu badge counts: {ex.Message}");
         }
     }
 
-    private void TogglePinned()
+    private void ToggleCollapse()
     {
-        isPinned   = !isPinned;
-        isExpanded = isPinned;
+        isCollapsed = !isCollapsed;
         StateHasChanged();
-    }
-
-    [JSInvokable]
-    public void OpenMobileNav()
-    {
-        isMobileOpen = true;
-        isExpanded   = true;
-        StateHasChanged();
-    }
-
-    private void CloseMobileNav()
-    {
-        isMobileOpen = false;
-        isExpanded   = false;
-        StateHasChanged();
-    }
-
-    private void ToggleGroup(string groupId)
-    {
-        if (expandedGroups.Contains(groupId))
-            expandedGroups.Remove(groupId);
-        else
-            expandedGroups.Add(groupId);
-        StateHasChanged();
-    }
-
-    private void HandleNavigation(string path)
-    {
-        if (isMobileOpen) CloseMobileNav();
-        NavigationManager.NavigateTo(path);
-    }
-
-    private bool IsCurrentPath(string path)
-    {
-        var currentPath = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "");
-
-        if (currentPath.StartsWith("/"))
-            currentPath = currentPath.Substring(1);
-
-        if (path == "admin" && currentPath == "admin")
-            return true;
-
-        if (path != "admin" && currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        return false;
-    }
-
-    private RenderFragment GetIconSvg(string iconName) => builder =>
-    {
-        var svg = iconName switch
-        {
-            "dashboard" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""11"" y=""2"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""2"" y=""11"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""11"" y=""11"" width=""7"" height=""7"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
-
-            "orders" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M10 2L2 6l8 4 8-4z"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><path d=""M2 6v8l8 4 8-4V6"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><line x1=""10"" y1=""10"" x2=""10"" y2=""18"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
-
-            "users" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><circle cx=""7"" cy=""6"" r=""2.5"" stroke=""currentColor"" stroke-width=""1.5""/><circle cx=""13"" cy=""6"" r=""2.5"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M2 16C2 13.5 4 12 7 12C10 12 12 13.5 12 16M8 16C8 13.5 10 12 13 12C16 12 18 13.5 18 16"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
-
-            "products" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""16"" height=""16"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M2 7H18M7 2V7M13 2V7"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
-
-            "partners" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M13 7C13 8.66 11.66 10 10 10C8.34 10 7 8.66 7 7C7 5.34 8.34 4 10 4C11.66 4 13 5.34 13 7Z"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M3 18C3 15.79 4.79 14 7 14H13C15.21 14 17 15.79 17 18"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M17 7C17 8.1 16.1 9 15 9"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><path d=""M3 7C3 8.1 3.9 9 5 9"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
-
-            "applications" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M4 2h9l4 4v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><path d=""M13 2v4h4"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><path d=""M7 9h6M7 12h6M7 15h4"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
-
-            "images" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""3"" width=""16"" height=""14"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><circle cx=""7"" cy=""8"" r=""1.5"" fill=""currentColor""/><path d=""M2 13L6 9L10 13L14 9L18 13"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
-
-            "category" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""5"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""9"" y=""2"" width=""9"" height=""5"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""2"" y=""9"" width=""9"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""13"" y=""9"" width=""5"" height=""9"" rx=""1"" stroke=""currentColor"" stroke-width=""1.5""/></svg>",
-
-            "reviews" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M10 2L12.5 7L18 8L14 12L15 18L10 15L5 18L6 12L2 8L7.5 7L10 2Z"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/></svg>",
-
-            "misc" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><circle cx=""10"" cy=""10"" r=""1.5"" fill=""currentColor""/><circle cx=""10"" cy=""4"" r=""1.5"" fill=""currentColor""/><circle cx=""10"" cy=""16"" r=""1.5"" fill=""currentColor""/></svg>",
-
-            "scanner" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""2"" width=""6"" height=""6"" rx=""0.5"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""3.5"" y=""3.5"" width=""3"" height=""3"" rx=""0.5"" fill=""currentColor""/><rect x=""12"" y=""2"" width=""6"" height=""6"" rx=""0.5"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""13.5"" y=""3.5"" width=""3"" height=""3"" rx=""0.5"" fill=""currentColor""/><rect x=""2"" y=""12"" width=""6"" height=""6"" rx=""0.5"" stroke=""currentColor"" stroke-width=""1.5""/><rect x=""3.5"" y=""13.5"" width=""3"" height=""3"" rx=""0.5"" fill=""currentColor""/><rect x=""12"" y=""12"" width=""2"" height=""2"" rx=""0.5"" fill=""currentColor""/><rect x=""14"" y=""14"" width=""2"" height=""2"" rx=""0.5"" fill=""currentColor""/><rect x=""12"" y=""16"" width=""2"" height=""2"" rx=""0.5"" fill=""currentColor""/><rect x=""16"" y=""12"" width=""2"" height=""2"" rx=""0.5"" fill=""currentColor""/><rect x=""16"" y=""16"" width=""2"" height=""2"" rx=""0.5"" fill=""currentColor""/></svg>",
-
-            "messages" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M17 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9l4 3V4a1 1 0 0 0-1-1z"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linejoin=""round""/><line x1=""6"" y1=""8"" x2=""14"" y2=""8"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/><line x1=""6"" y1=""11"" x2=""11"" y2=""11"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
-
-            "newsletter" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><rect x=""2"" y=""4"" width=""16"" height=""12"" rx=""2"" stroke=""currentColor"" stroke-width=""1.5""/><path d=""M2 7l8 5 8-5"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round"" stroke-linejoin=""round""/></svg>",
-
-            "analytics" => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><path d=""M3 17V10M10 17V3M17 17V7"" stroke=""currentColor"" stroke-width=""1.5"" stroke-linecap=""round""/></svg>",
-
-            _ => @"<svg width=""20"" height=""20"" viewBox=""0 0 20 20"" fill=""none""><circle cx=""10"" cy=""10"" r=""8"" stroke=""currentColor"" stroke-width=""1.5""/></svg>"
-        };
-        builder.AddMarkupContent(0, svg);
-    };
-
-    public async ValueTask DisposeAsync()
-    {
-        if (jsModule != null)
-        {
-            try
-            {
-                await jsModule.InvokeVoidAsync("dispose");
-                await jsModule.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                MID_HelperFunctions.DebugMessage(
-                    $"Error disposing AdminNavMenu: {ex.Message}", LogLevel.Warning);
-            }
-        }
-
-        dotNetRef?.Dispose();
-    }
-
-    public class NavigationSection
-    {
-        public string Title { get; set; } = "";
-        public List<NavigationItem> Items { get; set; } = new();
-    }
-
-    public class NavigationItem
-    {
-        public string Id    { get; set; } = "";
-        public string Label { get; set; } = "";
-        public string Path  { get; set; } = "";
-        public string Icon  { get; set; } = "";
-        public int    Badge { get; set; }
-        public List<NavigationItem>? Children { get; set; }
     }
 }
