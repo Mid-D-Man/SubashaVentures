@@ -20,42 +20,42 @@ public partial class AdminNavMenu : LayoutComponentBase
     [Inject]
     public AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
 
-    private bool isCollapsed = false;
-    private string adminName = "Admin";
-    private string adminRole = "Administrator";
-    private int pendingTemplateCount = 0;
-    private int pendingPayoutCount = 0;
+    public bool isCollapsed = false;
+    public string adminName = "Admin";
+    public string adminRole = "Administrator";
+    public int pendingTemplateCount = 0;
+    public int pendingPayoutCount = 0;
 
     // SVG fields
-    private string dashSvg = string.Empty;
-    private string analyticsSvg = string.Empty;
-    private string orderSvg = string.Empty;
-    private string productSvg = string.Empty;
-    private string categorySvg = string.Empty;
-    private string inventorySvg = string.Empty;
-    private string partnerAppSvg = string.Empty;
-    private string partnerTemplateSvg = string.Empty;
-    private string partnerPayoutSvg = string.Empty;
-    private string usersSvg = string.Empty;
-    private string segmentSvg = string.Empty;
-    private string newsletterSvg = string.Empty;
-    private string offerSvg = string.Empty;
-    private string bannerSvg = string.Empty;
-    private string supportSvg = string.Empty;
-    private string reviewSvg = string.Empty;
-    private string adminUserSvg = string.Empty;
-    private string settingsSvg = string.Empty;
-    private string logsSvg = string.Empty;
-    private string signOutSvg = string.Empty;
-    private string collapseIconSvg = string.Empty;
-    private string paymentSvg = string.Empty;
+    public string dashSvg = string.Empty;
+    public string analyticsSvg = string.Empty;
+    public string orderSvg = string.Empty;
+    public string productSvg = string.Empty;
+    public string categorySvg = string.Empty;
+    public string inventorySvg = string.Empty;
+    public string partnerAppSvg = string.Empty;
+    public string partnerTemplateSvg = string.Empty;
+    public string partnerPayoutSvg = string.Empty;
+    public string usersSvg = string.Empty;
+    public string segmentSvg = string.Empty;
+    public string newsletterSvg = string.Empty;
+    public string offerSvg = string.Empty;
+    public string bannerSvg = string.Empty;
+    public string supportSvg = string.Empty;
+    public string reviewSvg = string.Empty;
+    public string adminUserSvg = string.Empty;
+    public string settingsSvg = string.Empty;
+    public string logsSvg = string.Empty;
+    public string signOutSvg = string.Empty;
+    public string collapseIconSvg = string.Empty;
+    public string paymentSvg = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         await Task.WhenAll(LoadSvgsAsync(), LoadAdminInfoAsync(), LoadBadgeCountsAsync());
     }
 
-    private async Task LoadSvgsAsync()
+    public async Task LoadSvgsAsync()
     {
         try
         {
@@ -112,7 +112,7 @@ public partial class AdminNavMenu : LayoutComponentBase
         }
     }
 
-    private async Task LoadAdminInfoAsync()
+    public async Task LoadAdminInfoAsync()
     {
         try
         {
@@ -133,7 +133,7 @@ public partial class AdminNavMenu : LayoutComponentBase
         }
     }
 
-    private async Task LoadBadgeCountsAsync()
+    public async Task LoadBadgeCountsAsync()
     {
         try
         {
@@ -145,7 +145,7 @@ public partial class AdminNavMenu : LayoutComponentBase
         }
     }
 
-    private void ToggleCollapse()
+    public void ToggleCollapse()
     {
         isCollapsed = !isCollapsed;
         StateHasChanged();
