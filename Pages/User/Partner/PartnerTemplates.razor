@@ -1,6 +1,6 @@
 @page "/user/partner/templates"
-@layout UserLayout
-@using SubashaVentures.Layout.User
+@layout PartnerLayout
+@using SubashaVentures.Layout.Partner
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
@@ -148,17 +148,11 @@
         <div class="template-form">
 
             <div class="modal-steps">
-                <button class="modal-step @(modalStep == 1 ? "active" : "")" @onclick="@(() => modalStep = 1)">
-                    1. Details
-                </button>
+                <button class="modal-step @(modalStep == 1 ? "active" : "")" @onclick="@(() => modalStep = 1)">1. Details</button>
                 <div class="modal-step-line"></div>
-                <button class="modal-step @(modalStep == 2 ? "active" : "")" @onclick="@(() => modalStep = 2)">
-                    2. Variants
-                </button>
+                <button class="modal-step @(modalStep == 2 ? "active" : "")" @onclick="@(() => modalStep = 2)">2. Variants</button>
                 <div class="modal-step-line"></div>
-                <button class="modal-step @(modalStep == 3 ? "active" : "")" @onclick="@(() => modalStep = 3)">
-                    3. Images
-                </button>
+                <button class="modal-step @(modalStep == 3 ? "active" : "")" @onclick="@(() => modalStep = 3)">3. Images</button>
             </div>
 
             @if (modalStep == 1)
@@ -209,12 +203,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Weight (kg) <span class="required">*</span></label>
-                            <input type="number"
-                                   class="form-input"
-                                   @bind="templateForm.WeightKg"
-                                   step="0.1"
-                                   min="0.1"
-                                   placeholder="1.0" />
+                            <input type="number" class="form-input" @bind="templateForm.WeightKg" step="0.1" min="0.1" placeholder="1.0" />
                         </div>
                     </div>
 
@@ -234,20 +223,13 @@
 
                         <div class="form-group">
                             <label class="form-label">Original Price (₦) — optional</label>
-                            <input type="number"
-                                   class="form-input"
-                                   @bind="templateForm.ProposedOriginalPrice"
-                                   placeholder="7000 (for showing a discount)"
-                                   min="0" />
+                            <input type="number" class="form-input" @bind="templateForm.ProposedOriginalPrice" placeholder="7000" min="0" />
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Tags (comma separated)</label>
-                        <input type="text"
-                               class="form-input"
-                               @bind="tagsInput"
-                               placeholder="e.g. ankara, dress, women, formal" />
+                        <input type="text" class="form-input" @bind="tagsInput" placeholder="e.g. ankara, dress, women, formal" />
                     </div>
 
                     <div class="toggle-row">
@@ -259,13 +241,8 @@
                     </div>
 
                     <div class="modal-step-actions">
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                        OnClick="CloseModal">
-                            Cancel
-                        </SecondaryButton>
-                        <PrimaryButton OnClick="GoToModalStep2">
-                            Next: Variants →
-                        </PrimaryButton>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CloseModal">Cancel</SecondaryButton>
+                        <PrimaryButton OnClick="GoToModalStep2">Next: Variants →</PrimaryButton>
                     </div>
                 </div>
             }
@@ -274,9 +251,7 @@
             {
                 <div class="modal-step-content">
                     <div class="variants-header">
-                        <p class="variants-desc">
-                            Add at least one variant. If your product has no size or colour options just add one with a generic SKU.
-                        </p>
+                        <p class="variants-desc">Add at least one variant. If your product has no size or colour options just add one with a generic SKU.</p>
                         <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
                                         Variant="SecondaryButton.ButtonVariant.Outline"
                                         OnClick="AddVariant">
@@ -286,9 +261,7 @@
 
                     @if (!templateForm.Variants.Any())
                     {
-                        <div class="no-variants">
-                            <p>No variants yet. Add at least one.</p>
-                        </div>
+                        <div class="no-variants"><p>No variants yet. Add at least one.</p></div>
                     }
 
                     @for (int i = 0; i < templateForm.Variants.Count; i++)
@@ -301,13 +274,9 @@
                                 <span class="variant-number">Variant @(index + 1)</span>
                                 @if (templateForm.Variants.Count > 1)
                                 {
-                                    <button class="variant-remove"
-                                            @onclick="@(() => RemoveVariant(index))">
-                                        ✕
-                                    </button>
+                                    <button class="variant-remove" @onclick="@(() => RemoveVariant(index))">✕</button>
                                 }
                             </div>
-
                             <div class="variant-fields">
                                 <div class="form-group">
                                     <label class="form-label">SKU <span class="required">*</span></label>
@@ -339,13 +308,8 @@
                     }
 
                     <div class="modal-step-actions">
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                        OnClick="@(() => modalStep = 1)">
-                            ← Back
-                        </SecondaryButton>
-                        <PrimaryButton OnClick="GoToModalStep3">
-                            Next: Images →
-                        </PrimaryButton>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="@(() => modalStep = 1)">← Back</SecondaryButton>
+                        <PrimaryButton OnClick="GoToModalStep3">Next: Images →</PrimaryButton>
                     </div>
                 </div>
             }
@@ -353,9 +317,7 @@
             @if (modalStep == 3)
             {
                 <div class="modal-step-content">
-                    <p class="variants-desc">
-                        Upload at least one product image. Max 10 images, 5MB each. JPEG, PNG or WebP only.
-                    </p>
+                    <p class="variants-desc">Upload at least one product image. Max 10 images, 5MB each. JPEG, PNG or WebP only.</p>
 
                     @if (templateForm.ImageUrls.Any())
                     {
@@ -401,10 +363,7 @@
                     }
 
                     <div class="modal-step-actions">
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                        OnClick="@(() => modalStep = 2)">
-                            ← Back
-                        </SecondaryButton>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="@(() => modalStep = 2)">← Back</SecondaryButton>
                         <PrimaryButton OnClick="HandleSaveDraft"
                                       IsLoading="@isSaving"
                                       IsDisabled="@(isSaving || isUploading)">
