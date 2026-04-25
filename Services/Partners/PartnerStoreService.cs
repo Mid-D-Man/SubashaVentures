@@ -102,14 +102,11 @@ public class PartnerStoreService : IPartnerStoreService
                 return false;
             }
 
-            // ── Apply only display fields ──────────────────────
-            // is_active, store_slug, partner_id are intentionally
-            // NOT updateable here — admin-only via direct DB access
-            if (request.StoreName  != null) store.StoreName  = request.StoreName.Trim();
-            if (request.Tagline    != null) store.Tagline    = request.Tagline.Trim();
+            if (request.StoreName   != null) store.StoreName   = request.StoreName.Trim();
+            if (request.Tagline     != null) store.Tagline     = request.Tagline.Trim();
             if (request.Description != null) store.Description = request.Description.Trim();
-            if (request.LogoUrl    != null) store.LogoUrl    = request.LogoUrl;
-            if (request.BannerUrl  != null) store.BannerUrl  = request.BannerUrl;
+            if (request.LogoUrl     != null) store.LogoUrl     = request.LogoUrl;
+            if (request.BannerUrl   != null) store.BannerUrl   = request.BannerUrl;
             if (request.PublicPhone != null)
                 store.PublicPhone = string.IsNullOrWhiteSpace(request.PublicPhone)
                     ? null : request.PublicPhone.Trim();
@@ -139,18 +136,16 @@ public class PartnerStoreService : IPartnerStoreService
     {
         try
         {
-            // ── Fetch partner record ──────────────────────────
             var partners = await _database.GetWithFilterAsync<PartnerModel>(
                 "id", Constants.Operator.Equals, partnerId);
 
             var partner = partners.FirstOrDefault();
             if (partner == null) return null;
 
-            // ── Fetch in parallel ──────────────────────────────
-            var storeTask       = GetStoreByPartnerIdAsync(partnerId);
-            var templatesTask   = _database.GetWithFilterAsync<PartnerProductTemplateModel>(
+            var storeTask     = GetStoreByPartnerIdAsync(partnerId);
+            var templatesTask = _database.GetWithFilterAsync<PartnerProductTemplateModel>(
                 "partner_id", Constants.Operator.Equals, partnerId);
-            var payoutsTask     = _database.GetWithFilterAsync<PartnerPayoutRequestModel>(
+            var payoutsTask   = _database.GetWithFilterAsync<PartnerPayoutRequestModel>(
                 "partner_id", Constants.Operator.Equals, partnerId);
 
             await Task.WhenAll(storeTask, templatesTask, payoutsTask);
@@ -159,15 +154,12 @@ public class PartnerStoreService : IPartnerStoreService
             var templates = await templatesTask;
             var payouts   = await payoutsTask;
 
-            // ── Template breakdown ────────────────────────────
             var draftCount    = templates.Count(t => t.Status == PartnerTemplateStatus.Draft);
             var pendingCount  = templates.Count(t => t.Status == PartnerTemplateStatus.PendingReview);
             var rejectedCount = templates.Count(t => t.Status == PartnerTemplateStatus.Rejected);
             var approvedCount = templates.Count(t => t.Status == PartnerTemplateStatus.Approved);
 
-            // ── Payout status ──────────────────────────────────
-            var hasOpenPayout = payouts.Any(p =>
-                PayoutRequestStatus.Open.Contains(p.Status));
+            var hasOpenPayout = payouts.Any(p => PayoutRequestStatus.Open.Contains(p.Status));
 
             var recentPayouts = payouts
                 .OrderByDescending(p => p.RequestedAt)
@@ -175,18 +167,24 @@ public class PartnerStoreService : IPartnerStoreService
                 .Select(PartnerPayoutRequestViewModel.FromCloudModel)
                 .ToList();
 
-            // ── Build alerts ───────────────────────────────────
-            var alerts = BuildDashboardAlerts(
-                partner, templates.ToList(), payouts.ToList(), store);
+            // ── FIX: Active partners who went through approval are effectively verified.
+            // If the verification_status is still "pending" but the partner is active,
+            // show "verified" at the display layer so the badge reads correctly.
+            // The PartnerApplicationService now also sets this in the DB on approval.
+            var displayVerification = partner.VerificationStatus;
+            if (partner.IsActive && displayVerification == "pending")
+                displayVerification = "verified";
 
-            var dashboard = new PartnerDashboardViewModel
+            var alerts = BuildDashboardAlerts(partner, templates.ToList(), payouts.ToList(), store);
+
+            return new PartnerDashboardViewModel
             {
                 PartnerId              = partner.Id.ToString(),
                 UserId                 = userId,
                 PartnerName            = partner.Name,
                 UniquePartnerId        = partner.UniquePartnerId,
                 CommissionRate         = partner.CommissionRate.ToString("F0"),
-                VerificationStatus     = partner.VerificationStatus,
+                VerificationStatus     = displayVerification,
                 Store                  = store,
                 TotalApprovedProducts  = approvedCount,
                 TotalDraftTemplates    = draftCount,
@@ -204,8 +202,6 @@ public class PartnerStoreService : IPartnerStoreService
                 RecentPayouts          = recentPayouts,
                 Alerts                 = alerts
             };
-
-            return dashboard;
         }
         catch (Exception ex)
         {
@@ -226,7 +222,7 @@ public class PartnerStoreService : IPartnerStoreService
             var partner = partners.FirstOrDefault();
             if (partner == null) return null;
 
-            var payouts     = await _database.GetWithFilterAsync<PartnerPayoutRequestModel>(
+            var payouts      = await _database.GetWithFilterAsync<PartnerPayoutRequestModel>(
                 "partner_id", Constants.Operator.Equals, partnerId);
 
             var bankRequests = await _database
@@ -237,28 +233,26 @@ public class PartnerStoreService : IPartnerStoreService
                 .Where(p => p.Status == PayoutRequestStatus.Paid)
                 .Sum(p => p.AmountRequested);
 
-            var hasOpenPayout = payouts
-                .Any(p => PayoutRequestStatus.Open.Contains(p.Status));
+            var hasOpenPayout = payouts.Any(p => PayoutRequestStatus.Open.Contains(p.Status));
 
-            var hasPendingBankUpdate = bankRequests
-                .Any(b => b.Status == BankUpdateRequestStatus.Pending);
+            var hasPendingBankUpdate = bankRequests.Any(b => b.Status == BankUpdateRequestStatus.Pending);
 
             return new PartnerEarningsSummary
             {
-                PartnerId                  = partnerId,
-                TotalRevenue               = partner.TotalSales,
-                TotalCommissionPaid        = partner.TotalCommission,
-                PendingPayout              = partner.PendingPayout,
-                TotalWithdrawn             = totalWithdrawn,
-                HasOpenPayoutRequest       = hasOpenPayout,
-                RecentPayoutRequests       = payouts
+                PartnerId                   = partnerId,
+                TotalRevenue                = partner.TotalSales,
+                TotalCommissionPaid         = partner.TotalCommission,
+                PendingPayout               = partner.PendingPayout,
+                TotalWithdrawn              = totalWithdrawn,
+                HasOpenPayoutRequest        = hasOpenPayout,
+                RecentPayoutRequests        = payouts
                     .OrderByDescending(p => p.RequestedAt)
                     .Take(10)
                     .Select(PartnerPayoutRequestViewModel.FromCloudModel)
                     .ToList(),
-                CurrentBankAccountName     = partner.BankDetails?.AccountName,
-                CurrentBankAccountNumber   = partner.BankDetails?.AccountNumber,
-                CurrentBankName            = partner.BankDetails?.BankName,
+                CurrentBankAccountName      = partner.BankDetails?.AccountName,
+                CurrentBankAccountNumber    = partner.BankDetails?.AccountNumber,
+                CurrentBankName             = partner.BankDetails?.BankName,
                 HasPendingBankUpdateRequest = hasPendingBankUpdate
             };
         }
@@ -280,7 +274,6 @@ public class PartnerStoreService : IPartnerStoreService
                 !Guid.TryParse(userId, out var userGuid))
                 return PayoutSubmissionResult.Fail("Invalid IDs");
 
-            // ── Fetch partner ─────────────────────────────────
             var partners = await _database.GetWithFilterAsync<PartnerModel>(
                 "id", Constants.Operator.Equals, partnerId);
 
@@ -288,54 +281,45 @@ public class PartnerStoreService : IPartnerStoreService
             if (partner == null)
                 return PayoutSubmissionResult.Fail("Partner not found");
 
-            // ── Validate threshold ────────────────────────────
             if (partner.PendingPayout < PayoutConstants.MinimumPayoutAmount)
                 return PayoutSubmissionResult.Fail(
-                    $"Minimum payout is {PayoutConstants.MinimumPayoutAmount:N0}. " +
+                    $"Minimum payout is ₦{PayoutConstants.MinimumPayoutAmount:N0}. " +
                     $"Your balance is ₦{partner.PendingPayout:N0}");
 
             if (request.AmountRequested > partner.PendingPayout)
                 return PayoutSubmissionResult.Fail(
-                    $"Requested amount exceeds available balance " +
-                    $"of ₦{partner.PendingPayout:N0}");
+                    $"Requested amount exceeds available balance of ₦{partner.PendingPayout:N0}");
 
             if (request.AmountRequested < PayoutConstants.MinimumPayoutAmount)
                 return PayoutSubmissionResult.Fail(
                     $"Minimum payout is ₦{PayoutConstants.MinimumPayoutAmount:N0}");
 
-            // ── Check for open request ────────────────────────
             var existingPayouts = await _database
                 .GetWithFilterAsync<PartnerPayoutRequestModel>(
                     "partner_id", Constants.Operator.Equals, partnerId);
 
-            var hasOpenRequest = existingPayouts
-                .Any(p => PayoutRequestStatus.Open.Contains(p.Status));
+            if (existingPayouts.Any(p => PayoutRequestStatus.Open.Contains(p.Status)))
+                return PayoutSubmissionResult.Fail("You already have an open payout request");
 
-            if (hasOpenRequest)
-                return PayoutSubmissionResult.Fail(
-                    "You already have an open payout request");
-
-            // ── Validate bank details ─────────────────────────
             if (partner.BankDetails == null ||
                 string.IsNullOrEmpty(partner.BankDetails.AccountNumber))
                 return PayoutSubmissionResult.Fail(
                     "No bank details found. Please add bank details first");
 
-            // ── Create request ────────────────────────────────
             var payoutRequest = new PartnerPayoutRequestModel
             {
-                Id                 = Guid.NewGuid(),
-                PartnerId          = partnerGuid,
-                UserId             = userGuid,
-                AmountRequested    = request.AmountRequested,
-                BankAccountName    = partner.BankDetails.AccountName,
-                BankAccountNumber  = partner.BankDetails.AccountNumber,
-                BankName           = partner.BankDetails.BankName,
-                BankCode           = partner.BankDetails.BankCode,
-                Status             = PayoutRequestStatus.Pending,
-                PaymentMethod      = PayoutConstants.DefaultPaymentMethod,
-                RequestedAt        = DateTime.UtcNow,
-                CreatedAt          = DateTime.UtcNow
+                Id                = Guid.NewGuid(),
+                PartnerId         = partnerGuid,
+                UserId            = userGuid,
+                AmountRequested   = request.AmountRequested,
+                BankAccountName   = partner.BankDetails.AccountName,
+                BankAccountNumber = partner.BankDetails.AccountNumber,
+                BankName          = partner.BankDetails.BankName,
+                BankCode          = partner.BankDetails.BankCode,
+                Status            = PayoutRequestStatus.Pending,
+                PaymentMethod     = PayoutConstants.DefaultPaymentMethod,
+                RequestedAt       = DateTime.UtcNow,
+                CreatedAt         = DateTime.UtcNow
             };
 
             var result = await _database.InsertAsync(payoutRequest);
@@ -344,8 +328,7 @@ public class PartnerStoreService : IPartnerStoreService
                 return PayoutSubmissionResult.Fail("Failed to create payout request");
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Payout request created: {result.First().Id} " +
-                $"(₦{request.AmountRequested:N0})",
+                $"Payout request created: {result.First().Id} (₦{request.AmountRequested:N0})",
                 LogLevel.Info);
 
             return PayoutSubmissionResult.Ok(result.First().Id.ToString());
@@ -357,9 +340,7 @@ public class PartnerStoreService : IPartnerStoreService
         }
     }
 
-    public async Task<bool> CancelPayoutRequestAsync(
-        string payoutRequestId,
-        string partnerId)
+    public async Task<bool> CancelPayoutRequestAsync(string payoutRequestId, string partnerId)
     {
         try
         {
@@ -373,12 +354,7 @@ public class PartnerStoreService : IPartnerStoreService
                 request.PartnerId != partnerGuid)
                 return false;
 
-            if (request.Status != PayoutRequestStatus.Pending)
-            {
-                _logger.LogWarning(
-                    "Cannot cancel payout in status: {Status}", request.Status);
-                return false;
-            }
+            if (request.Status != PayoutRequestStatus.Pending) return false;
 
             await _database.DeleteAsync(request);
 
@@ -395,9 +371,7 @@ public class PartnerStoreService : IPartnerStoreService
     }
 
     public async Task<bool> RequestBankUpdateAsync(
-        string partnerId,
-        string userId,
-        RequestBankUpdateRequest request)
+        string partnerId, string userId, RequestBankUpdateRequest request)
     {
         try
         {
@@ -405,23 +379,18 @@ public class PartnerStoreService : IPartnerStoreService
                 !Guid.TryParse(userId, out var userGuid))
                 return false;
 
-            // ── Validate no pending request ───────────────────
             var existing = await _database
                 .GetWithFilterAsync<PartnerBankUpdateRequestModel>(
                     "partner_id", Constants.Operator.Equals, partnerId);
 
             if (existing.Any(r => r.Status == BankUpdateRequestStatus.Pending))
             {
-                _logger.LogWarning(
-                    "Partner {PartnerId} already has a pending bank update",
-                    partnerId);
+                _logger.LogWarning("Partner {PartnerId} already has a pending bank update", partnerId);
                 return false;
             }
 
-            // ── Snapshot current bank details ─────────────────
             var partners = await _database.GetWithFilterAsync<PartnerModel>(
                 "id", Constants.Operator.Equals, partnerId);
-
             var partner = partners.FirstOrDefault();
 
             var model = new PartnerBankUpdateRequestModel
@@ -445,8 +414,7 @@ public class PartnerStoreService : IPartnerStoreService
             var result = await _database.InsertAsync(model);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Bank update request created for partner {partnerId}",
-                LogLevel.Info);
+                $"Bank update request created for partner {partnerId}", LogLevel.Info);
 
             return result != null && result.Any();
         }
@@ -457,8 +425,7 @@ public class PartnerStoreService : IPartnerStoreService
         }
     }
 
-    public async Task<List<PartnerPayoutRequestViewModel>> GetPayoutRequestsAsync(
-        string partnerId)
+    public async Task<List<PartnerPayoutRequestViewModel>> GetPayoutRequestsAsync(string partnerId)
     {
         try
         {
@@ -477,8 +444,7 @@ public class PartnerStoreService : IPartnerStoreService
         }
     }
 
-    public async Task<List<PartnerBankUpdateRequestViewModel>> GetBankUpdateRequestsAsync(
-        string partnerId)
+    public async Task<List<PartnerBankUpdateRequestViewModel>> GetBankUpdateRequestsAsync(string partnerId)
     {
         try
         {
@@ -515,9 +481,7 @@ public class PartnerStoreService : IPartnerStoreService
             }
             else
             {
-                requests = (await _database
-                    .GetAllAsync<PartnerPayoutRequestModel>())
-                    .ToList();
+                requests = (await _database.GetAllAsync<PartnerPayoutRequestModel>()).ToList();
             }
 
             return requests
@@ -532,9 +496,7 @@ public class PartnerStoreService : IPartnerStoreService
         }
     }
 
-    public async Task<bool> MarkPayoutProcessingAsync(
-        string payoutRequestId,
-        string adminUserId)
+    public async Task<bool> MarkPayoutProcessingAsync(string payoutRequestId, string adminUserId)
     {
         try
         {
@@ -542,8 +504,7 @@ public class PartnerStoreService : IPartnerStoreService
                 "id", Constants.Operator.Equals, payoutRequestId);
 
             var request = requests.FirstOrDefault();
-            if (request == null || request.Status != PayoutRequestStatus.Pending)
-                return false;
+            if (request == null || request.Status != PayoutRequestStatus.Pending) return false;
 
             request.Status      = PayoutRequestStatus.Processing;
             request.ProcessedBy = adminUserId;
@@ -568,8 +529,7 @@ public class PartnerStoreService : IPartnerStoreService
 
             var payoutRequest = requests.FirstOrDefault();
 
-            if (payoutRequest == null ||
-                payoutRequest.Status == PayoutRequestStatus.Paid)
+            if (payoutRequest == null || payoutRequest.Status == PayoutRequestStatus.Paid)
                 return false;
 
             payoutRequest.Status               = PayoutRequestStatus.Paid;
@@ -580,18 +540,15 @@ public class PartnerStoreService : IPartnerStoreService
             payoutRequest.ProcessedAt          = DateTime.UtcNow;
 
             var updateResult = await _database.UpdateAsync(payoutRequest);
-
             if (updateResult == null || !updateResult.Any()) return false;
 
-            // ── Deduct from partner pending_payout ────────────
             var partners = await _database.GetWithFilterAsync<PartnerModel>(
                 "id", Constants.Operator.Equals, payoutRequest.PartnerId.ToString());
 
             var partner = partners.FirstOrDefault();
             if (partner != null)
             {
-                partner.PendingPayout = Math.Max(
-                    0,
+                partner.PendingPayout = Math.Max(0,
                     partner.PendingPayout - payoutRequest.AmountRequested);
 
                 await _database.UpdateAsync(partner);
@@ -612,9 +569,7 @@ public class PartnerStoreService : IPartnerStoreService
     }
 
     public async Task<bool> RejectPayoutRequestAsync(
-        string payoutRequestId,
-        string adminUserId,
-        string reason)
+        string payoutRequestId, string adminUserId, string reason)
     {
         try
         {
@@ -656,9 +611,7 @@ public class PartnerStoreService : IPartnerStoreService
             }
             else
             {
-                requests = (await _database
-                    .GetAllAsync<PartnerBankUpdateRequestModel>())
-                    .ToList();
+                requests = (await _database.GetAllAsync<PartnerBankUpdateRequestModel>()).ToList();
             }
 
             return requests
@@ -674,9 +627,7 @@ public class PartnerStoreService : IPartnerStoreService
     }
 
     public async Task<bool> ApproveBankUpdateAsync(
-        string requestId,
-        string adminUserId,
-        string? adminNotes = null)
+        string requestId, string adminUserId, string? adminNotes = null)
     {
         try
         {
@@ -686,16 +637,13 @@ public class PartnerStoreService : IPartnerStoreService
 
             var bankRequest = requests.FirstOrDefault();
 
-            if (bankRequest == null ||
-                bankRequest.Status != BankUpdateRequestStatus.Pending)
+            if (bankRequest == null || bankRequest.Status != BankUpdateRequestStatus.Pending)
                 return false;
 
-            // ── Update partner bank details ───────────────────
             var partners = await _database.GetWithFilterAsync<PartnerModel>(
                 "id", Constants.Operator.Equals, bankRequest.PartnerId.ToString());
 
             var partner = partners.FirstOrDefault();
-
             if (partner != null)
             {
                 partner.BankDetails = new BankDetails
@@ -705,22 +653,19 @@ public class PartnerStoreService : IPartnerStoreService
                     BankName      = bankRequest.NewBankName,
                     BankCode      = bankRequest.NewBankCode
                 };
-
                 partner.UpdatedAt = DateTime.UtcNow;
                 await _database.UpdateAsync(partner);
             }
 
-            // ── Mark request as approved ──────────────────────
-            bankRequest.Status      = BankUpdateRequestStatus.Approved;
-            bankRequest.ReviewedBy  = adminUserId;
-            bankRequest.ReviewedAt  = DateTime.UtcNow;
-            bankRequest.AdminNotes  = adminNotes;
+            bankRequest.Status     = BankUpdateRequestStatus.Approved;
+            bankRequest.ReviewedBy = adminUserId;
+            bankRequest.ReviewedAt = DateTime.UtcNow;
+            bankRequest.AdminNotes = adminNotes;
 
             var result = await _database.UpdateAsync(bankRequest);
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"Bank update approved for partner {bankRequest.PartnerId}",
-                LogLevel.Info);
+                $"Bank update approved for partner {bankRequest.PartnerId}", LogLevel.Info);
 
             return result != null && result.Any();
         }
@@ -732,9 +677,7 @@ public class PartnerStoreService : IPartnerStoreService
     }
 
     public async Task<bool> RejectBankUpdateAsync(
-        string requestId,
-        string adminUserId,
-        string rejectionReason)
+        string requestId, string adminUserId, string rejectionReason)
     {
         try
         {
@@ -744,8 +687,7 @@ public class PartnerStoreService : IPartnerStoreService
 
             var bankRequest = requests.FirstOrDefault();
 
-            if (bankRequest == null ||
-                bankRequest.Status != BankUpdateRequestStatus.Pending)
+            if (bankRequest == null || bankRequest.Status != BankUpdateRequestStatus.Pending)
                 return false;
 
             bankRequest.Status          = BankUpdateRequestStatus.Rejected;
@@ -773,10 +715,11 @@ public class PartnerStoreService : IPartnerStoreService
     {
         var alerts = new List<PartnerAlert>();
 
-        if (partner.VerificationStatus == "pending")
-            alerts.Add(PartnerAlert.Warning(
-                "Your account is pending verification. " +
-                "Our team will contact you shortly."));
+        // FIX: Only show verification alert if explicitly rejected (not just default pending).
+        // Active partners have been approved — the "pending" default no longer triggers an alert.
+        if (partner.VerificationStatus == "rejected")
+            alerts.Add(PartnerAlert.Danger(
+                "Your account verification was rejected. Please contact support."));
 
         if (store == null)
             alerts.Add(PartnerAlert.Warning(
@@ -785,18 +728,16 @@ public class PartnerStoreService : IPartnerStoreService
                 actionUrl: "user/partner/store",
                 actionLabel: "Set Up Store"));
 
-        var rejectedTemplates = templates
-            .Count(t => t.Status == PartnerTemplateStatus.Rejected);
+        var rejectedTemplates = templates.Count(t => t.Status == PartnerTemplateStatus.Rejected);
 
         if (rejectedTemplates > 0)
             alerts.Add(PartnerAlert.Danger(
                 $"You have {rejectedTemplates} rejected product template(s). " +
-                $"Review the feedback and resubmit.",
+                "Review the feedback and resubmit.",
                 actionUrl: "user/partner/templates",
                 actionLabel: "View Templates"));
 
-        var processingPayout = payouts
-            .Any(p => p.Status == PayoutRequestStatus.Processing);
+        var processingPayout = payouts.Any(p => p.Status == PayoutRequestStatus.Processing);
 
         if (processingPayout)
             alerts.Add(PartnerAlert.Info(
