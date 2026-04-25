@@ -6,7 +6,8 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Layout.Admin;
 
-public partial class AdminNavMenu : ComponentBase
+public partial class AdminNavMenu : LayoutComponentBase
+
 {
     [Inject] private IPartnerApplicationService PartnerApplicationService { get; set; } = default!;
 
