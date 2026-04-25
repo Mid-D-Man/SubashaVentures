@@ -1,119 +1,318 @@
-@inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
-@using SubashaVentures.Components.Shared.Buttons
-@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Components.Authorization
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IVisualElementsService VisualElements
+@inject AuthenticationStateProvider AuthStateProvider
+@namespace SubashaVentures.Layout.Admin
 
-<nav class="admin-nav-menu @(isExpanded ? "expanded" : "collapsed") @(isMobileOpen ? "mobile-open" : "")"
-     @ref="navElement"
-     @onmouseenter="HandleMouseEnter"
-     @onmouseleave="HandleMouseLeave">
+<nav class="admin-nav @(isCollapsed ? "collapsed" : "")">
 
-    <!-- Navigation Header -->
-    <div class="nav-header">
-        <div class="nav-brand">
-            <div class="brand-icon-svg" title="SubashaVentures">
-                <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="36" height="36" rx="8" fill="var(--primary-color, #96994A)"/>
-                    <path d="M25 13C25 11.343 23.657 10 22 10H15C13.343 10 12 11.343 12 13C12 14.657 13.343 16 15 16H21C22.657 16 24 17.343 24 19C24 20.657 22.657 22 21 22H11.5"
-                          stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-        </div>
-
-        <button class="nav-toggle-btn desktop-only"
-                @onclick="TogglePinned"
-                title="@(isPinned ? "Collapse sidebar" : "Expand sidebar")">
-            <span class="toggle-chevron">@(isPinned ? "«" : "»")</span>
-        </button>
-
-        <button class="nav-close-btn mobile-only" @onclick="CloseMobileNav">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        </button>
-    </div>
-
-    <!-- Navigation Items -->
-    <div class="nav-items">
-        @foreach (var navSection in NavigationSections)
+    <div class="admin-nav-header">
+        @if (!isCollapsed)
         {
-            @if (!string.IsNullOrEmpty(navSection.Title))
-            {
-                <div class="nav-section-title">@navSection.Title</div>
-            }
-
-            @foreach (var item in navSection.Items)
-            {
-                @if (item.Children?.Any() == true)
-                {
-                    <!-- Expandable Item -->
-                    <div class="nav-item-group @(expandedGroups.Contains(item.Id) ? "expanded" : "")">
-                        <button class="nav-item @(IsCurrentPath(item.Path) ? "active" : "")"
-                                @onclick="() => ToggleGroup(item.Id)">
-                            <span class="nav-item-icon">@GetIconSvg(item.Icon)</span>
-                            <span class="nav-item-label">@item.Label</span>
-                            @if (item.Badge > 0)
-                            {
-                                <span class="nav-item-badge">@item.Badge</span>
-                            }
-                            <span class="nav-item-arrow">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            </span>
-                        </button>
-
-                        <div class="nav-item-children">
-                            @foreach (var child in item.Children)
-                            {
-                                <a href="@child.Path"
-                                   class="nav-item child @(IsCurrentPath(child.Path) ? "active" : "")"
-                                   @onclick="() => HandleNavigation(child.Path)">
-                                    <span class="nav-item-icon">@GetIconSvg(child.Icon)</span>
-                                    <span class="nav-item-label">@child.Label</span>
-                                    @if (child.Badge > 0)
-                                    {
-                                        <span class="nav-item-badge">@child.Badge</span>
-                                    }
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <!-- Single Item -->
-                    <a href="@item.Path"
-                       class="nav-item @(IsCurrentPath(item.Path) ? "active" : "")"
-                       @onclick="() => HandleNavigation(item.Path)">
-                        <span class="nav-item-icon">@GetIconSvg(item.Icon)</span>
-                        <span class="nav-item-label">@item.Label</span>
-                        @if (item.Badge > 0)
-                        {
-                            <span class="nav-item-badge">@item.Badge</span>
-                        }
-                    </a>
-                }
-            }
+            <span class="admin-nav-logo">Admin</span>
         }
+        <button class="nav-collapse-btn" @onclick="ToggleCollapse" aria-label="Toggle sidebar">
+            <span>@((MarkupString)collapseIconSvg)</span>
+        </button>
     </div>
 
-    <!-- Navigation Footer -->
-    <div class="nav-footer">
-        <a href="admin/settings" class="nav-item @(IsCurrentPath("admin/settings") ? "active" : "")">
-            <span class="nav-item-icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M16 10C16 10.5 15.7 11 15.2 11.2L14.5 11.5C14.2 11.6 14 11.8 13.9 12.1L13.7 12.7C13.6 13 13.6 13.3 13.8 13.5L14.3 14C14.7 14.4 14.8 15 14.5 15.5L13.8 16.5C13.5 17 12.9 17.1 12.4 16.8L11.9 16.5C11.6 16.4 11.3 16.4 11.1 16.5L10.5 16.8C10.2 16.9 10 17.2 10 17.5V18.2C10 18.7 9.6 19 9.1 19H7.9C7.4 19 7 18.7 7 18.2V17.5C7 17.2 6.8 16.9 6.5 16.8L5.9 16.5C5.6 16.4 5.3 16.4 5.1 16.5L4.6 16.8C4.1 17.1 3.5 17 3.2 16.5L2.5 15.5C2.2 15 2.3 14.4 2.7 14L3.2 13.5C3.4 13.3 3.4 13 3.3 12.7L3.1 12.1C3 11.8 2.8 11.6 2.5 11.5L1.8 11.2C1.3 11 1 10.5 1 10V8.8C1 8.3 1.3 7.8 1.8 7.6L2.5 7.3C2.8 7.2 3 7 3.1 6.7L3.3 6.1C3.4 5.8 3.4 5.5 3.2 5.3L2.7 4.8C2.3 4.4 2.2 3.8 2.5 3.3L3.2 2.3C3.5 1.8 4.1 1.7 4.6 2L5.1 2.3C5.3 2.4 5.6 2.4 5.9 2.3L6.5 2C6.8 1.9 7 1.6 7 1.3V0.6C7 0.1 7.4 -0.2 7.9 -0.2H9.1C9.6 -0.2 10 0.1 10 0.6V1.3C10 1.6 10.2 1.9 10.5 2L11.1 2.3C11.4 2.4 11.7 2.4 11.9 2.3L12.4 2C12.9 1.7 13.5 1.8 13.8 2.3L14.5 3.3C14.8 3.8 14.7 4.4 14.3 4.8L13.8 5.3C13.6 5.5 13.6 5.8 13.7 6.1L13.9 6.7C14 7 14.2 7.2 14.5 7.3L15.2 7.6C15.7 7.8 16 8.3 16 8.8V10Z" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-            </span>
-            <span class="nav-item-label">Settings</span>
-        </a>
+    <div class="admin-nav-scroll">
+
+        <!-- ── Overview ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">Overview</div>
+
+        <NavItem Href="admin"
+                 Icon="@dashSvg"
+                 Label="Dashboard"
+                 IsCollapsed="@isCollapsed"
+                 ExactMatch="true" />
+
+        <NavItem Href="admin/analytics"
+                 Icon="@analyticsSvg"
+                 Label="Analytics"
+                 IsCollapsed="@isCollapsed" />
+
+        <!-- ── Commerce ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">Commerce</div>
+
+        <NavItem Href="admin/orders"
+                 Icon="@orderSvg"
+                 Label="Orders"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/products"
+                 Icon="@productSvg"
+                 Label="Products"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/categories"
+                 Icon="@categorySvg"
+                 Label="Categories"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/inventory"
+                 Icon="@inventorySvg"
+                 Label="Inventory"
+                 IsCollapsed="@isCollapsed" />
+
+        <!-- ── Partners ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">Partners</div>
+
+        <NavItem Href="admin/partner-applications"
+                 Icon="@partnerAppSvg"
+                 Label="Applications"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/partner-templates"
+                 Icon="@partnerTemplateSvg"
+                 Label="Template Review"
+                 IsCollapsed="@isCollapsed"
+                 BadgeCount="@pendingTemplateCount" />
+
+        <NavItem Href="admin/partner-payouts"
+                 Icon="@partnerPayoutSvg"
+                 Label="Payouts"
+                 IsCollapsed="@isCollapsed"
+                 BadgeCount="@pendingPayoutCount" />
+
+        <!-- ── Users ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">Users</div>
+
+        <NavItem Href="admin/users"
+                 Icon="@usersSvg"
+                 Label="All Users"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/users/segments"
+                 Icon="@segmentSvg"
+                 Label="Segmentation"
+                 IsCollapsed="@isCollapsed" />
+
+        <!-- ── Marketing ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">Marketing</div>
+
+        <NavItem Href="admin/newsletter"
+                 Icon="@newsletterSvg"
+                 Label="Newsletter"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/offers"
+                 Icon="@offerSvg"
+                 Label="Offers"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/banners"
+                 Icon="@bannerSvg"
+                 Label="Banners"
+                 IsCollapsed="@isCollapsed" />
+
+        <!-- ── Support ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">Support</div>
+
+        <NavItem Href="admin/support"
+                 Icon="@supportSvg"
+                 Label="Support Tickets"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/reviews"
+                 Icon="@reviewSvg"
+                 Label="Reviews"
+                 IsCollapsed="@isCollapsed" />
+
+        <!-- ── System ── -->
+        <div class="nav-section-label @(isCollapsed ? "hidden" : "")">System</div>
+
+        <NavItem Href="admin/admins"
+                 Icon="@adminUserSvg"
+                 Label="Admin Users"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/settings"
+                 Icon="@settingsSvg"
+                 Label="Settings"
+                 IsCollapsed="@isCollapsed" />
+
+        <NavItem Href="admin/logs"
+                 Icon="@logsSvg"
+                 Label="Logs"
+                 IsCollapsed="@isCollapsed" />
+    </div>
+
+    <div class="admin-nav-footer">
+        <div class="admin-nav-admin-info @(isCollapsed ? "collapsed" : "")">
+            @if (!isCollapsed)
+            {
+                <span class="admin-nav-name">@adminName</span>
+                <span class="admin-nav-role">@adminRole</span>
+            }
+        </div>
+        <NavItem Href="signout"
+                 Icon="@signOutSvg"
+                 Label="Sign Out"
+                 IsCollapsed="@isCollapsed"
+                 CssClass="nav-signout" />
     </div>
 </nav>
 
-<!-- Mobile Overlay -->
-@if (isMobileOpen)
-{
-    <div class="mobile-overlay" @onclick="CloseMobileNav"></div>
+@code {
+    private bool   isCollapsed        = false;
+    private string adminName          = "Admin";
+    private string adminRole          = "Administrator";
+    private int    pendingTemplateCount = 0;
+    private int    pendingPayoutCount   = 0;
+
+    // ── SVG fields ──────────────────────────────────────────────────────────
+    private string dashSvg             = string.Empty;
+    private string analyticsSvg        = string.Empty;
+    private string orderSvg            = string.Empty;
+    private string productSvg          = string.Empty;
+    private string categorySvg         = string.Empty;
+    private string inventorySvg        = string.Empty;
+    private string partnerAppSvg       = string.Empty;
+    private string partnerTemplateSvg  = string.Empty;
+    private string partnerPayoutSvg    = string.Empty;
+    private string usersSvg            = string.Empty;
+    private string segmentSvg          = string.Empty;
+    private string newsletterSvg       = string.Empty;
+    private string offerSvg            = string.Empty;
+    private string bannerSvg           = string.Empty;
+    private string supportSvg          = string.Empty;
+    private string reviewSvg           = string.Empty;
+    private string adminUserSvg        = string.Empty;
+    private string settingsSvg         = string.Empty;
+    private string logsSvg             = string.Empty;
+    private string signOutSvg          = string.Empty;
+    private string collapseIconSvg     = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadSvgsAsync(), LoadAdminInfoAsync(), LoadBadgeCountsAsync());
+    }
+
+    private async Task LoadSvgsAsync()
+    {
+        try
+        {
+            dashSvg = await VisualElements.GetCustomSvgAsync(SvgType.Stats,       20, 20);
+            analyticsSvg = await VisualElements.GetCustomSvgAsync(SvgType.Stats,  20, 20);
+            orderSvg = await VisualElements.GetCustomSvgAsync(SvgType.Order,      20, 20);
+            productSvg = await VisualElements.GetCustomSvgAsync(SvgType.AllProducts, 20, 20);
+            categorySvg = await VisualElements.GetCustomSvgAsync(SvgType.Records,  20, 20);
+            inventorySvg = await VisualElements.GetCustomSvgAsync(SvgType.AllProducts, 20, 20);
+            usersSvg = await VisualElements.GetCustomSvgAsync(SvgType.User,        20, 20);
+            newsletterSvg = await VisualElements.GetCustomSvgAsync(SvgType.Messages, 20, 20);
+            offerSvg = await VisualElements.GetCustomSvgAsync(SvgType.Offer,       20, 20);
+            supportSvg = await VisualElements.GetCustomSvgAsync(SvgType.HelpCenter, 20, 20);
+            reviewSvg = await VisualElements.GetCustomSvgAsync(SvgType.Star,       20, 20);
+            settingsSvg = await VisualElements.GetCustomSvgAsync(SvgType.Settings,  20, 20);
+            paymentSvg: adminUserSvg = await VisualElements.GetCustomSvgAsync(SvgType.User, 20, 20);
+
+            // Inline SVGs without a matching SvgType
+            partnerAppSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 " +
+                "3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 " +
+                "3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 " +
+                "3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 " +
+                "3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 " +
+                "3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            partnerTemplateSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 " +
+                "002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 " +
+                "2 0 012 2m-6 9l2 2 4-4'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            partnerPayoutSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 " +
+                "002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 " +
+                "002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            segmentSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 " +
+                "0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0" +
+                "-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            bannerSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586" +
+                "-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 " +
+                "2 0 00-2 2v12a2 2 0 002 2z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            logsSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 " +
+                "012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            signOutSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 " +
+                "3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            collapseIconSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='2' stroke-linecap='round' " +
+                "stroke-linejoin='round' d='M4 6h16M4 12h16M4 18h16'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AdminNavMenu SVG load error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAdminInfoAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user      = authState.User;
+            if (user.Identity?.IsAuthenticated != true) return;
+
+            var first = user.FindFirst("first_name")?.Value ?? "";
+            var last  = user.FindFirst("last_name")?.Value  ?? "";
+            adminName = $"{first} {last}".Trim();
+            if (string.IsNullOrEmpty(adminName)) adminName = "Admin";
+
+            adminRole = user.FindFirst("admin_role")?.Value ?? "Administrator";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AdminNavMenu user info: {ex.Message}");
+        }
+    }
+
+    private async Task LoadBadgeCountsAsync()
+    {
+        // Badge counts are best fetched from a lightweight admin summary endpoint.
+        // Using try-catch so a failure here never breaks the nav render.
+        try
+        {
+            // Inject IPartnerTemplateService and IPartnerStoreService if you want live counts.
+            // For now we leave at 0 to avoid DI coupling in the layout itself;
+            // swap in the real calls once those services are registered.
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AdminNavMenu badge counts: {ex.Message}");
+        }
+    }
+
+    private void ToggleCollapse()
+    {
+        isCollapsed = !isCollapsed;
+        StateHasChanged();
+    }
 }
