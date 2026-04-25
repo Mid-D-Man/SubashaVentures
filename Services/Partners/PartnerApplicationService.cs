@@ -15,9 +15,9 @@ namespace SubashaVentures.Services.Partners;
 public class PartnerApplicationService : IPartnerApplicationService
 {
     private readonly ISupabaseDatabaseService _database;
-    private readonly ISupabaseAuthService _auth;
-    private readonly HttpClient _http;
-    private readonly IConfiguration _config;
+    private readonly ISupabaseAuthService     _auth;
+    private readonly HttpClient               _http;
+    private readonly IConfiguration           _config;
     private readonly ILogger<PartnerApplicationService> _logger;
 
     private static readonly Dictionary<int, int> CooldownDaysByRejection = new()
@@ -181,6 +181,7 @@ public class PartnerApplicationService : IPartnerApplicationService
                 return null;
             }
 
+            // Update partner_applied_at (non-fatal)
             try
             {
                 var userRecords = await _database.GetWithFilterAsync<UserModel>(
@@ -305,16 +306,11 @@ public class PartnerApplicationService : IPartnerApplicationService
 
             var application = applications.FirstOrDefault();
 
-            if (application == null)
-            {
-                _logger.LogWarning("Application not found: {Id}", applicationId);
-                return false;
-            }
+            if (application == null) return false;
 
             if (application.Status != PartnerApplicationStatus.Pending)
             {
-                _logger.LogWarning("Cannot mark as under review — current status: {Status}",
-                    application.Status);
+                _logger.LogWarning("Cannot mark as under review — current status: {Status}", application.Status);
                 return false;
             }
 
@@ -426,7 +422,40 @@ public class PartnerApplicationService : IPartnerApplicationService
                     ErrorMessage = result?.Error ?? "Unknown error from edge function"
                 };
 
-            // ── Fire approval email (non-fatal) ───────────────
+            // ── FIX: Set verification_status to "verified" after successful approval ──
+            // The edge function creates the partner with verification_status = "pending" by default.
+            // Since approval IS the verification in this flow, we update it here.
+            if (!string.IsNullOrEmpty(result.PartnerId))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var partners = await _database.GetWithFilterAsync<PartnerModel>(
+                            "id", Constants.Operator.Equals, result.PartnerId);
+
+                        var partner = partners.FirstOrDefault();
+                        if (partner != null)
+                        {
+                            partner.VerificationStatus = "verified";
+                            partner.UpdatedAt          = DateTime.UtcNow;
+                            await _database.UpdateAsync(partner);
+
+                            await MID_HelperFunctions.DebugMessageAsync(
+                                $"Partner {result.PartnerId} verification_status set to verified",
+                                LogLevel.Info);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Failed to set verification_status after approval (non-fatal): {PartnerId}",
+                            result.PartnerId);
+                    }
+                });
+            }
+
+            // ── Fire approval email (non-fatal) ──────────────────────────────
             _ = SendPartnerApprovedEmailAsync(
                 toEmail:         result.UserEmail,
                 partnerName:     result.UserFirstName,
@@ -448,7 +477,9 @@ public class PartnerApplicationService : IPartnerApplicationService
             {
                 Success        = true,
                 PartnerId      = result.PartnerId,
-                PartnerStoreId = result.StoreId
+                PartnerStoreId = result.StoreId,
+                UniquePartnerId = result.UniquePartnerId,
+                StoreSlug      = result.StoreSlug
             };
         }
         catch (Exception ex)
@@ -511,12 +542,11 @@ public class PartnerApplicationService : IPartnerApplicationService
             application.ReviewedBy      = adminUserId;
             application.ReviewedAt      = DateTime.UtcNow;
 
-            var result = await _database.UpdateAsync(application);
+            var result  = await _database.UpdateAsync(application);
             var success = result != null && result.Any();
 
             if (success)
             {
-                // ── Fire rejection email (non-fatal) ──────────
                 _ = SendPartnerRejectedEmailAsync(
                     toEmail:         application.Email,
                     partnerName:     application.FullName,
@@ -566,11 +596,8 @@ public class PartnerApplicationService : IPartnerApplicationService
     // ── Email Helpers ──────────────────────────────────────────
 
     private async Task SendPartnerApprovedEmailAsync(
-        string? toEmail,
-        string? partnerName,
-        string? businessName,
-        string? uniquePartnerId,
-        string? storeSlug)
+        string? toEmail, string? partnerName, string? businessName,
+        string? uniquePartnerId, string? storeSlug)
     {
         if (string.IsNullOrWhiteSpace(toEmail)) return;
 
@@ -589,19 +616,13 @@ public class PartnerApplicationService : IPartnerApplicationService
     }
 
     private async Task SendPartnerRejectedEmailAsync(
-        string toEmail,
-        string partnerName,
-        string rejectionReason)
+        string toEmail, string partnerName, string rejectionReason)
     {
         await SendEmailAsync(new
         {
             type = "partner_rejected",
             to   = toEmail,
-            data = new
-            {
-                partnerName,
-                rejectionReason
-            }
+            data = new { partnerName, rejectionReason }
         });
     }
 
@@ -616,14 +637,11 @@ public class PartnerApplicationService : IPartnerApplicationService
                 ?? throw new InvalidOperationException("Supabase:ServiceRoleKey not configured");
 
             var request = new HttpRequestMessage(
-                HttpMethod.Post,
-                $"{supabaseUrl}/functions/v1/send-email")
+                HttpMethod.Post, $"{supabaseUrl}/functions/v1/send-email")
             {
                 Content = JsonContent.Create(payload)
             };
 
-            // Use service role key here — send-email doesn't validate caller JWT,
-            // it just needs the apikey header to pass the Supabase gateway
             request.Headers.Authorization =
                 new AuthenticationHeaderValue("Bearer", serviceRoleKey);
 
@@ -631,14 +649,12 @@ public class PartnerApplicationService : IPartnerApplicationService
             var body     = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                _logger.LogWarning("send-email returned {Status}: {Body}",
-                    response.StatusCode, body);
+                _logger.LogWarning("send-email returned {Status}: {Body}", response.StatusCode, body);
             else
                 _logger.LogInformation("Email dispatched: {Body}", body);
         }
         catch (Exception ex)
         {
-            // Always non-fatal — email must never break business logic
             _logger.LogError(ex, "SendEmailAsync failed");
         }
     }
@@ -684,8 +700,6 @@ public class PartnerApplicationService : IPartnerApplicationService
 
         return errors;
     }
-
-    // ── Edge Function Response Shapes ──────────────────────────
 
     private class EdgeApprovalResponse
     {
