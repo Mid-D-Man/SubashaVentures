@@ -1,6 +1,6 @@
 @page "/user/partner/store"
-@layout UserLayout
-@using SubashaVentures.Layout.User
+@layout PartnerLayout
+@using SubashaVentures.Layout.Partner
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Buttons
 @using SubashaVentures.Components.Shared.Forms
@@ -88,14 +88,7 @@
                             <InputFile OnChange="HandleLogoUpload"
                                        accept="image/jpeg,image/png,image/webp"
                                        class="hidden-input" />
-                            @if (isUploadingLogo)
-                            {
-                                <span>...</span>
-                            }
-                            else
-                            {
-                                <span>📷</span>
-                            }
+                            @if (isUploadingLogo) { <span>...</span> } else { <span>📷</span> }
                         </label>
                     </div>
                     <div class="ps-store-name-preview">@(form.StoreName.Length > 0 ? form.StoreName : store.StoreName)</div>
@@ -165,8 +158,7 @@
                 </div>
 
                 <div class="ps-save-row">
-                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
-                                    OnClick="ResetForm">
+                    <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="ResetForm">
                         Discard Changes
                     </SecondaryButton>
                     <PrimaryButton OnClick="HandleSave"
