@@ -10,18 +10,17 @@ namespace SubashaVentures.Pages.User.Partner;
 
 public partial class PartnerDashboard : ComponentBase
 {
-    [Inject] private IPartnerStoreService         PartnerStoreService { get; set; } = default!;
-    [Inject] private IUserService                 UserService         { get; set; } = default!;
-    [Inject] private IVisualElementsService       VisualElements      { get; set; } = default!;
-    [Inject] private AuthenticationStateProvider  AuthStateProvider   { get; set; } = default!;
-    [Inject] private NavigationManager            Navigation          { get; set; } = default!;
+    [Inject] private IPartnerStoreService        PartnerStoreService { get; set; } = default!;
+    [Inject] private IUserService                UserService         { get; set; } = default!;
+    [Inject] private IVisualElementsService      VisualElements      { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider   { get; set; } = default!;
+    [Inject] private NavigationManager           Navigation          { get; set; } = default!;
 
     private bool   isLoading  = true;
     private string userId     = string.Empty;
     private string partnerId  = string.Empty;
     private PartnerDashboardViewModel? dashboard = null;
 
-    // ── SVG icon strings (no emojis) ──────────────────────────────────────────
     private string productsIconSvg     = string.Empty;
     private string templatesIconSvg    = string.Empty;
     private string payoutIconSvg       = string.Empty;
@@ -55,7 +54,7 @@ public partial class PartnerDashboard : ComponentBase
                 return;
             }
 
-            // ── Check JWT claims first ─────────────────────────────────────────
+            // ── JWT claims first ───────────────────────────────────────────────
             var isPartner = user.FindFirst("is_partner")?.Value == "true";
             var claimPid  = user.FindFirst("partner_id")?.Value ?? string.Empty;
 
@@ -65,21 +64,22 @@ public partial class PartnerDashboard : ComponentBase
                 partnerId = claimPid;
             }
 
-            // ── JWT may be stale immediately after approval — fall back to DB ──
-            if (!isPartner)
+            // ── DB fallback (JWT stale after approval) ─────────────────────────
+            if (!isPartner || string.IsNullOrEmpty(partnerId))
             {
                 try
                 {
-                    var userProfile = await UserService.GetUserByIdAsync(userId);
-                    if (userProfile?.IsPartner == true)
+                    var dbProfile = await UserService.GetUserByIdAsync(userId);
+                    if (dbProfile?.IsPartner == true)
                     {
                         isPartner = true;
-                        partnerId = userProfile.PartnerId ?? string.Empty;
+                        if (string.IsNullOrEmpty(partnerId))
+                            partnerId = dbProfile.PartnerId ?? string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"DB partner check error: {ex.Message}");
+                    Console.WriteLine($"PartnerDashboard DB partner check: {ex.Message}");
                 }
             }
 
@@ -89,18 +89,17 @@ public partial class PartnerDashboard : ComponentBase
                 return;
             }
 
-            // If we have isPartner=true but still no partnerId, get it from DB
             if (string.IsNullOrEmpty(partnerId))
             {
+                // Still no partnerId — try once more directly
                 try
                 {
-                    var userProfile = await UserService.GetUserByIdAsync(userId);
-                    partnerId = userProfile?.PartnerId ?? string.Empty;
+                    var dbProfile = await UserService.GetUserByIdAsync(userId);
+                    partnerId = dbProfile?.PartnerId ?? string.Empty;
                 }
                 catch { /* non-fatal */ }
             }
 
-            // ── Load icons and dashboard in parallel ──────────────────────────
             await Task.WhenAll(LoadIconsAsync(), LoadDashboard());
         }
         catch (Exception ex)
@@ -135,7 +134,6 @@ public partial class PartnerDashboard : ComponentBase
             thumbPlaceholderSvg = await VisualElements.GetCustomSvgAsync(
                 SvgType.AllProducts, width: 24, height: 24, fillColor: "currentColor");
 
-            // Inline SVGs for actions without a matching SvgType
             addIconSvg = VisualElements.GenerateSvg(
                 "<path stroke='currentColor' stroke-width='2' stroke-linecap='round' d='M12 5v14M5 12h14'/>",
                 28, 28, "0 0 24 24", "fill='none'");
@@ -147,7 +145,7 @@ public partial class PartnerDashboard : ComponentBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading dashboard icons: {ex.Message}");
+            Console.WriteLine($"PartnerDashboard icon error: {ex.Message}");
         }
     }
 
