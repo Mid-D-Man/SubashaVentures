@@ -1,3 +1,4 @@
+@* Pages/User/Partner/PartnerTemplates.razor *@
 @page "/user/partner/templates"
 @layout PartnerLayout
 @using SubashaVentures.Layout.Partner
@@ -51,7 +52,7 @@
         <div class="pt-empty">
             <div class="empty-icon">📦</div>
             <h3>No templates found</h3>
-            <p>@(activeTab == "all" ? "Create your first product template to get started." : $"No {activeTab} templates.")</p>
+            <p>@(activeTab == "all" ? "Create your first product template to get started." : $"No {activeTab.Replace("_", " ")} templates.")</p>
             @if (activeTab == "all")
             {
                 <PrimaryButton OnClick="OpenCreateModal">Create Template</PrimaryButton>
@@ -84,13 +85,13 @@
 
                         <div class="pt-card-meta">
                             <span class="meta-price">@template.DisplayEffectivePrice</span>
-                            <span class="meta-stock">@template.TotalStock units</span>
+                            <span class="meta-stock">@template.TotalStock units · @template.Variants.Count variant@(template.Variants.Count != 1 ? "s" : "")</span>
                         </div>
 
                         @if (template.IsRejected && template.LatestRejection != null)
                         {
                             <div class="pt-rejection-snippet">
-                                <span class="rejection-label">Rejection reason:</span>
+                                <span class="rejection-label">⚠ Rejection reason:</span>
                                 <p>@template.LatestRejection.Reason</p>
                             </div>
                         }
@@ -137,6 +138,7 @@
     }
 </div>
 
+<!-- ── Template Modal ─────────────────────────────────────── -->
 <DynamicModal @ref="templateModal"
               Title="@(isEditMode ? "Edit Template" : "New Product Template")"
               Size="DynamicModal.ModalSize.Large"
@@ -147,227 +149,396 @@
     <BodyContent>
         <div class="template-form">
 
+            <!-- Step indicator -->
             <div class="modal-steps">
-                <button class="modal-step @(modalStep == 1 ? "active" : "")" @onclick="@(() => modalStep = 1)">1. Details</button>
-                <div class="modal-step-line"></div>
-                <button class="modal-step @(modalStep == 2 ? "active" : "")" @onclick="@(() => modalStep = 2)">2. Variants</button>
-                <div class="modal-step-line"></div>
-                <button class="modal-step @(modalStep == 3 ? "active" : "")" @onclick="@(() => modalStep = 3)">3. Images</button>
+                <button class="modal-step @(modalStep == 1 ? "active" : "") @(modalStep > 1 ? "done" : "")"
+                        @onclick="@(() => TryNavigateToStep(1))">
+                    <span class="step-num">@(modalStep > 1 ? "✓" : "1")</span>
+                    <span class="step-name">Details</span>
+                </button>
+                <div class="modal-step-line @(modalStep > 1 ? "done" : "")"></div>
+                <button class="modal-step @(modalStep == 2 ? "active" : "") @(modalStep > 2 ? "done" : "")"
+                        @onclick="@(() => TryNavigateToStep(2))">
+                    <span class="step-num">@(modalStep > 2 ? "✓" : "2")</span>
+                    <span class="step-name">Variants</span>
+                </button>
+                <div class="modal-step-line @(modalStep > 2 ? "done" : "")"></div>
+                <button class="modal-step @(modalStep == 3 ? "active" : "")"
+                        @onclick="@(() => TryNavigateToStep(3))">
+                    <span class="step-num">3</span>
+                    <span class="step-name">Images</span>
+                </button>
             </div>
 
+            <!-- ── Step 1: Details ─────────────────────────── -->
             @if (modalStep == 1)
             {
                 <div class="modal-step-content">
-                    <InputField @bind-Value="templateForm.TemplateName"
-                               Label="Template Name (internal label)"
-                               Placeholder="e.g. Red Ankara Dress - Draft 1"
-                               IsRequired="true"
-                               HasError="@HasFormError("TemplateName")"
-                               ErrorMessage="@GetFormError("TemplateName")" />
+                    <div class="form-section">
+                        <h3 class="section-title">Template & Product Info</h3>
 
-                    <InputField @bind-Value="templateForm.ProductName"
-                               Label="Product Name (shown to customers)"
-                               Placeholder="e.g. Ankara Print Midi Dress"
-                               IsRequired="true"
-                               HasError="@HasFormError("ProductName")"
-                               ErrorMessage="@GetFormError("ProductName")" />
+                        <InputField @bind-Value="templateForm.TemplateName"
+                                   Label="Template Name (your internal label)"
+                                   Placeholder="e.g. Ankara Dress – Draft 1"
+                                   IsRequired="true"
+                                   HasError="@HasFormError("TemplateName")"
+                                   ErrorMessage="@GetFormError("TemplateName")" />
 
-                    <div class="form-group">
-                        <label class="form-label">Description <span class="required">*</span></label>
-                        <textarea class="form-textarea @(HasFormError("Description") ? "has-error" : "")"
-                                  @bind="templateForm.Description"
-                                  placeholder="Describe your product in detail. Minimum 20 characters."
-                                  rows="4"></textarea>
-                        @if (HasFormError("Description"))
+                        <InputField @bind-Value="templateForm.ProductName"
+                                   Label="Product Name (shown to customers)"
+                                   Placeholder="e.g. Ankara Print Midi Dress"
+                                   IsRequired="true"
+                                   HasError="@HasFormError("ProductName")"
+                                   ErrorMessage="@GetFormError("ProductName")" />
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                Description <span class="required">*</span>
+                                <span class="char-hint">(@templateForm.Description.Length chars, min 20)</span>
+                            </label>
+                            <textarea class="form-textarea @(HasFormError("Description") ? "has-error" : "")"
+                                      @bind="templateForm.Description"
+                                      @bind:event="oninput"
+                                      placeholder="Describe your product in detail. Minimum 20 characters."
+                                      rows="4"></textarea>
+                            @if (HasFormError("Description"))
+                            {
+                                <span class="error-text">@GetFormError("Description")</span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Category & Shipping</h3>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">Category <span class="required">*</span></label>
+                                <select class="form-select @(HasFormError("CategoryId") ? "has-error" : "")"
+                                        @bind="templateForm.CategoryId">
+                                    <option value="">Select category…</option>
+                                    @foreach (var cat in availableCategories)
+                                    {
+                                        <option value="@cat.Id">@cat.Name</option>
+                                    }
+                                </select>
+                                @if (HasFormError("CategoryId"))
+                                {
+                                    <span class="error-text">@GetFormError("CategoryId")</span>
+                                }
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Weight (kg) <span class="required">*</span></label>
+                                <input type="number" class="form-input"
+                                       @bind="templateForm.WeightKg"
+                                       @bind:event="oninput"
+                                       step="0.1" min="0.1" placeholder="1.0" />
+                            </div>
+                        </div>
+
+                        <div class="toggle-row">
+                            <label class="toggle-switch">
+                                <input type="checkbox" @bind="templateForm.HasFreeShipping" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label">Free Shipping</span>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Pricing</h3>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label class="form-label">Proposed Price (₦) <span class="required">*</span></label>
+                                <input type="number"
+                                       class="form-input @(HasFormError("ProposedPrice") ? "has-error" : "")"
+                                       @bind="templateForm.ProposedPrice"
+                                       @bind:event="oninput"
+                                       placeholder="5000" min="1" />
+                                @if (HasFormError("ProposedPrice"))
+                                {
+                                    <span class="error-text">@GetFormError("ProposedPrice")</span>
+                                }
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Original Price (₦) <span class="label-hint">optional</span></label>
+                                <input type="number" class="form-input"
+                                       @bind="templateForm.ProposedOriginalPrice"
+                                       @bind:event="oninput"
+                                       placeholder="7000" min="0" />
+                                @if (templateForm.ProposedOriginalPrice > templateForm.ProposedPrice && templateForm.ProposedPrice > 0)
+                                {
+                                    <span class="discount-hint">
+                                        @(Math.Round((templateForm.ProposedOriginalPrice - templateForm.ProposedPrice) / templateForm.ProposedOriginalPrice * 100, 0))% discount
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Tags <span class="label-hint">optional</span></h3>
+                        <div class="form-group">
+                            <input type="text" class="form-input"
+                                   @bind="tagsInput"
+                                   @bind:event="oninput"
+                                   placeholder="e.g. ankara, dress, women, formal" />
+                            <span class="helper-text">Comma-separated tags help customers find your product.</span>
+                        </div>
+                        @if (ParsedTags.Any())
                         {
-                            <span class="error-text">@GetFormError("Description")</span>
+                            <div class="tag-preview-list">
+                                @foreach (var tag in ParsedTags)
+                                {
+                                    <span class="tag-pill">@tag</span>
+                                }
+                            </div>
                         }
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Category <span class="required">*</span></label>
-                            <select class="form-select @(HasFormError("CategoryId") ? "has-error" : "")"
-                                    @bind="templateForm.CategoryId">
-                                <option value="">Select category...</option>
-                                @foreach (var cat in availableCategories)
-                                {
-                                    <option value="@cat.Id">@cat.Name</option>
-                                }
-                            </select>
-                            @if (HasFormError("CategoryId"))
-                            {
-                                <span class="error-text">@GetFormError("CategoryId")</span>
-                            }
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Weight (kg) <span class="required">*</span></label>
-                            <input type="number" class="form-input" @bind="templateForm.WeightKg" step="0.1" min="0.1" placeholder="1.0" />
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Proposed Price (₦) <span class="required">*</span></label>
-                            <input type="number"
-                                   class="form-input @(HasFormError("ProposedPrice") ? "has-error" : "")"
-                                   @bind="templateForm.ProposedPrice"
-                                   placeholder="5000"
-                                   min="1" />
-                            @if (HasFormError("ProposedPrice"))
-                            {
-                                <span class="error-text">@GetFormError("ProposedPrice")</span>
-                            }
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Original Price (₦) — optional</label>
-                            <input type="number" class="form-input" @bind="templateForm.ProposedOriginalPrice" placeholder="7000" min="0" />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Tags (comma separated)</label>
-                        <input type="text" class="form-input" @bind="tagsInput" placeholder="e.g. ankara, dress, women, formal" />
-                    </div>
-
-                    <div class="toggle-row">
-                        <label class="toggle-switch">
-                            <input type="checkbox" @bind="templateForm.HasFreeShipping" />
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="toggle-label">Free Shipping</span>
-                    </div>
-
                     <div class="modal-step-actions">
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="CloseModal">Cancel</SecondaryButton>
-                        <PrimaryButton OnClick="GoToModalStep2">Next: Variants →</PrimaryButton>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="CloseModal">Cancel</SecondaryButton>
+                        <PrimaryButton OnClick="GoToStep2">Next: Variants →</PrimaryButton>
                     </div>
                 </div>
             }
 
+            <!-- ── Step 2: Variants ────────────────────────── -->
             @if (modalStep == 2)
             {
                 <div class="modal-step-content">
-                    <div class="variants-header">
-                        <p class="variants-desc">Add at least one variant. If your product has no size or colour options just add one with a generic SKU.</p>
-                        <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
-                                        Variant="SecondaryButton.ButtonVariant.Outline"
-                                        OnClick="AddVariant">
-                            + Add Variant
-                        </SecondaryButton>
-                    </div>
+                    <div class="form-section">
+                        <div class="variants-section-header">
+                            <div>
+                                <h3 class="section-title">Product Variants</h3>
+                                <p class="section-desc">Add at least one variant. If your product has no size or colour options, add one with a default SKU.</p>
+                            </div>
+                            @if (!isAddingVariant && editingVariantIndex < 0)
+                            {
+                                <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                                Variant="SecondaryButton.ButtonVariant.Outline"
+                                                OnClick="StartAddVariant"
+                                                Icon="➕">
+                                    Add Variant
+                                </SecondaryButton>
+                            }
+                        </div>
 
-                    @if (!templateForm.Variants.Any())
-                    {
-                        <div class="no-variants"><p>No variants yet. Add at least one.</p></div>
-                    }
+                        @if (HasFormError("Variants"))
+                        {
+                            <div class="form-error-banner">⚠ @GetFormError("Variants")</div>
+                        }
 
-                    @for (int i = 0; i < templateForm.Variants.Count; i++)
-                    {
-                        var index   = i;
-                        var variant = templateForm.Variants[index];
-
-                        <div class="variant-row">
-                            <div class="variant-row-header">
-                                <span class="variant-number">Variant @(index + 1)</span>
-                                @if (templateForm.Variants.Count > 1)
+                        <!-- Existing variant cards -->
+                        @if (templateForm.Variants.Any())
+                        {
+                            <div class="variant-list">
+                                @for (int i = 0; i < templateForm.Variants.Count; i++)
                                 {
-                                    <button class="variant-remove" @onclick="@(() => RemoveVariant(index))">✕</button>
+                                    var index = i;
+                                    var v = templateForm.Variants[index];
+                                    bool isBeingEdited = editingVariantIndex == index;
+
+                                    <div class="variant-card @(isBeingEdited ? "editing" : "")">
+                                        <div class="variant-card-header">
+                                            <div class="variant-card-info">
+                                                <span class="variant-sku">@(string.IsNullOrEmpty(v.Sku) ? "(no SKU)" : v.Sku)</span>
+                                                @if (!string.IsNullOrWhiteSpace(v.Size))
+                                                {
+                                                    <span class="vtag size">Size: @v.Size</span>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(v.Color))
+                                                {
+                                                    <span class="vtag color">@v.Color</span>
+                                                }
+                                            </div>
+                                            <div class="variant-card-right">
+                                                <span class="variant-stock-badge">@v.Stock units</span>
+                                                @if (v.PriceAdjustment != 0)
+                                                {
+                                                    <span class="variant-adj @(v.PriceAdjustment > 0 ? "pos" : "neg")">
+                                                        @(v.PriceAdjustment > 0 ? "+" : "")₦@v.PriceAdjustment.ToString("N0")
+                                                    </span>
+                                                }
+                                                @if (!isBeingEdited && editingVariantIndex < 0 && !isAddingVariant)
+                                                {
+                                                    <button class="variant-edit-btn" @onclick="@(() => StartEditVariant(index))" title="Edit">✏️</button>
+                                                    @if (templateForm.Variants.Count > 1)
+                                                    {
+                                                        <button class="variant-remove-btn" @onclick="@(() => RemoveVariant(index))" title="Remove">✕</button>
+                                                    }
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
                                 }
                             </div>
-                            <div class="variant-fields">
-                                <div class="form-group">
-                                    <label class="form-label">SKU <span class="required">*</span></label>
-                                    <input type="text" class="form-input" @bind="variant.Sku" placeholder="e.g. DRESS-RED-M" />
+                        }
+                        else if (!isAddingVariant)
+                        {
+                            <div class="no-variants-placeholder">
+                                <span>📦</span>
+                                <p>No variants yet. Click "Add Variant" to create your first one.</p>
+                            </div>
+                        }
+
+                        <!-- Inline variant form -->
+                        @if (isAddingVariant || editingVariantIndex >= 0)
+                        {
+                            <div class="variant-inline-form">
+                                <h4 class="variant-form-title">
+                                    @(isAddingVariant ? "Add Variant" : $"Edit Variant {editingVariantIndex + 1}")
+                                </h4>
+
+                                <div class="variant-form-grid">
+                                    <div class="form-group sku-group">
+                                        <label class="form-label">SKU <span class="required">*</span></label>
+                                        <div class="sku-row">
+                                            <input type="text" class="form-input"
+                                                   @bind="activeVariantForm.Sku"
+                                                   @bind:event="oninput"
+                                                   placeholder="e.g. DRESS-RED-M" />
+                                            <button class="generate-sku-btn" type="button"
+                                                    @onclick="GenerateVariantSkuForActive"
+                                                    title="Generate unique SKU">
+                                                🎲 Generate
+                                            </button>
+                                        </div>
+                                        @if (HasVariantError("Sku"))
+                                        {
+                                            <span class="error-text">@GetVariantError("Sku")</span>
+                                        }
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Size <span class="label-hint">optional</span></label>
+                                        <input type="text" class="form-input"
+                                               @bind="activeVariantForm.Size"
+                                               @bind:event="oninput"
+                                               placeholder="e.g. M, L, XL" />
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Colour <span class="label-hint">optional</span></label>
+                                        <input type="text" class="form-input"
+                                               @bind="activeVariantForm.Color"
+                                               @bind:event="oninput"
+                                               placeholder="e.g. Red, Blue" />
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Stock Quantity <span class="required">*</span></label>
+                                        <input type="number" class="form-input"
+                                               @bind="activeVariantForm.Stock"
+                                               @bind:event="oninput"
+                                               min="0" placeholder="10" />
+                                        @if (HasVariantError("Stock"))
+                                        {
+                                            <span class="error-text">@GetVariantError("Stock")</span>
+                                        }
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Price Adjustment (₦) <span class="label-hint">optional</span></label>
+                                        <input type="number" class="form-input"
+                                               @bind="activeVariantForm.PriceAdjustment"
+                                               @bind:event="oninput"
+                                               placeholder="0" step="100" />
+                                        @if (activeVariantForm.PriceAdjustment != 0 && templateForm.ProposedPrice > 0)
+                                        {
+                                            <span class="price-calc-hint">
+                                                Effective: ₦@((templateForm.ProposedPrice + activeVariantForm.PriceAdjustment).ToString("N0"))
+                                            </span>
+                                        }
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label class="form-label">Size</label>
-                                    <input type="text" class="form-input" @bind="variant.Size" placeholder="e.g. M" />
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Color</label>
-                                    <input type="text" class="form-input" @bind="variant.Color" placeholder="e.g. Red" />
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Stock <span class="required">*</span></label>
-                                    <input type="number" class="form-input" @bind="variant.Stock" min="0" placeholder="10" />
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Price Adjustment (₦)</label>
-                                    <input type="number" class="form-input" @bind="variant.PriceAdjustment" placeholder="0" step="100" />
+
+                                <div class="variant-form-actions">
+                                    <SecondaryButton Size="SecondaryButton.ButtonSize.Small"
+                                                    Variant="SecondaryButton.ButtonVariant.Outline"
+                                                    OnClick="CancelVariant">Cancel</SecondaryButton>
+                                    <PrimaryButton Size="PrimaryButton.ButtonSize.Small"
+                                                  OnClick="SaveVariant">
+                                        @(isAddingVariant ? "Add Variant" : "Save Changes")
+                                    </PrimaryButton>
                                 </div>
                             </div>
-                        </div>
-                    }
-
-                    @if (HasFormError("Variants"))
-                    {
-                        <span class="error-text">@GetFormError("Variants")</span>
-                    }
+                        }
+                    </div>
 
                     <div class="modal-step-actions">
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="@(() => modalStep = 1)">← Back</SecondaryButton>
-                        <PrimaryButton OnClick="GoToModalStep3">Next: Images →</PrimaryButton>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="@(() => modalStep = 1)">← Back</SecondaryButton>
+                        <PrimaryButton OnClick="GoToStep3">Next: Images →</PrimaryButton>
                     </div>
                 </div>
             }
 
+            <!-- ── Step 3: Images ─────────────────────────── -->
             @if (modalStep == 3)
             {
                 <div class="modal-step-content">
-                    <p class="variants-desc">Upload at least one product image. Max 10 images, 5MB each. JPEG, PNG or WebP only.</p>
+                    <div class="form-section">
+                        <h3 class="section-title">Product Images</h3>
+                        <p class="section-desc">Upload at least one clear product image. Max 10 images, 5 MB each. JPEG, PNG or WebP only.</p>
 
-                    @if (templateForm.ImageUrls.Any())
-                    {
-                        <div class="image-grid">
-                            @for (int i = 0; i < templateForm.ImageUrls.Count; i++)
-                            {
-                                var index = i;
-                                var url   = templateForm.ImageUrls[index];
-                                <div class="image-thumb-wrapper">
-                                    <img src="@url" alt="Product image @(index+1)" class="image-thumb" />
-                                    <button class="image-remove" @onclick="@(() => RemoveImage(index))">✕</button>
-                                </div>
-                            }
-                        </div>
-                    }
-
-                    @if (templateForm.ImageUrls.Count < 10)
-                    {
-                        <div class="image-upload-area">
-                            <InputFile OnChange="HandleImageUpload"
-                                       accept="image/jpeg,image/png,image/webp"
-                                       multiple
-                                       class="image-input" />
-                            <div class="upload-placeholder">
-                                <span class="upload-icon">📷</span>
-                                <span>Click to upload images</span>
-                                <span class="upload-hint">JPEG, PNG, WebP — max 5MB each</span>
+                        @if (templateForm.ImageUrls.Any())
+                        {
+                            <div class="image-grid">
+                                @for (int i = 0; i < templateForm.ImageUrls.Count; i++)
+                                {
+                                    var index = i;
+                                    var url = templateForm.ImageUrls[index];
+                                    <div class="image-thumb-wrapper">
+                                        <img src="@url" alt="Product image @(index + 1)" class="image-thumb" />
+                                        @if (index == 0)
+                                        {
+                                            <span class="image-main-badge">Main</span>
+                                        }
+                                        <button class="image-remove" @onclick="@(() => RemoveImage(index))" title="Remove">✕</button>
+                                    </div>
+                                }
                             </div>
-                        </div>
-                    }
+                        }
 
-                    @if (isUploading)
-                    {
-                        <div class="upload-progress">
-                            <div class="upload-spinner"></div>
-                            <span>Uploading @uploadingCount image(s)...</span>
-                        </div>
-                    }
+                        @if (templateForm.ImageUrls.Count < 10)
+                        {
+                            <label class="image-upload-area @(isUploading ? "uploading" : "")">
+                                <InputFile OnChange="HandleImageUpload"
+                                           accept="image/jpeg,image/png,image/webp"
+                                           multiple
+                                           class="image-input-hidden" />
+                                <div class="upload-placeholder">
+                                    @if (isUploading)
+                                    {
+                                        <div class="upload-spinner-sm"></div>
+                                        <span>Uploading @uploadingCount image@(uploadingCount != 1 ? "s" : "")…</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="upload-icon">📷</span>
+                                        <span>Click to upload images</span>
+                                        <span class="upload-hint">JPEG, PNG, WebP — max 5 MB each</span>
+                                    }
+                                </div>
+                            </label>
+                        }
 
-                    @if (HasFormError("ImageUrls"))
-                    {
-                        <span class="error-text">@GetFormError("ImageUrls")</span>
-                    }
+                        @if (HasFormError("ImageUrls"))
+                        {
+                            <div class="form-error-banner">⚠ @GetFormError("ImageUrls")</div>
+                        }
+                    </div>
 
                     <div class="modal-step-actions">
-                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline" OnClick="@(() => modalStep = 2)">← Back</SecondaryButton>
+                        <SecondaryButton Variant="SecondaryButton.ButtonVariant.Outline"
+                                        OnClick="@(() => modalStep = 2)">← Back</SecondaryButton>
                         <PrimaryButton OnClick="HandleSaveDraft"
                                       IsLoading="@isSaving"
                                       IsDisabled="@(isSaving || isUploading)">
-                            Save Draft
+                            💾 Save Draft
                         </PrimaryButton>
                     </div>
                 </div>
@@ -376,10 +547,11 @@
     </BodyContent>
 </DynamicModal>
 
+<!-- Delete Confirmation -->
 <ConfirmationPopup @ref="deleteConfirmation"
                   IsOpen="@showDeleteConfirm"
                   Title="Delete Draft?"
-                  Message="@($"Delete '{templateToDelete?.TemplateName}'? This will also remove uploaded images.")"
+                  Message="@($"Delete '{templateToDelete?.TemplateName}'? This will also remove any uploaded images.")"
                   WarningText="This cannot be undone."
                   Variant="ConfirmationPopup.ConfirmationVariant.Danger"
                   ConfirmButtonText="Delete"
