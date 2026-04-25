@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using SubashaVentures.Domain.Partner;
 using SubashaVentures.Services.Partners;
+using SubashaVentures.Services.Users;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Notifications;
 
@@ -9,24 +10,24 @@ namespace SubashaVentures.Pages.User.Partner;
 
 public partial class PartnerFinancials : ComponentBase
 {
-    [Inject] private IPartnerStoreService PartnerStoreService { get; set; } = default!;
-    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IPartnerStoreService        PartnerStoreService { get; set; } = default!;
+    [Inject] private IUserService                UserService         { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider   { get; set; } = default!;
+    [Inject] private NavigationManager           Navigation          { get; set; } = default!;
 
-    private bool isLoading            = true;
-    private bool isBankModalOpen      = false;
-    private bool isRequestingPayout   = false;
-    private bool isSubmittingBankUpdate = false;
+    private bool    isLoading              = true;
+    private bool    isBankModalOpen        = false;
+    private bool    isRequestingPayout     = false;
+    private bool    isSubmittingBankUpdate = false;
+    private string  userId                 = string.Empty;
+    private string  partnerId              = string.Empty;
+    private decimal payoutAmount           = 10000;
 
-    private string userId    = string.Empty;
-    private string partnerId = string.Empty;
-    private decimal payoutAmount = 10000;
+    private PartnerEarningsSummary?       summary   = null;
+    private Dictionary<string, string>    bankErrors = new();
+    private BankUpdateFormData            bankForm   = new();
 
-    private PartnerEarningsSummary? summary = null;
-    private Dictionary<string, string> bankErrors = new();
-    private BankUpdateFormData bankForm = new();
-
-    private DynamicModal? bankModal;
+    private DynamicModal?           bankModal;
     private NotificationComponent? notificationComponent;
 
     protected override async Task OnInitializedAsync()
@@ -44,6 +45,21 @@ public partial class PartnerFinancials : ComponentBase
 
             userId    = user.FindFirst("sub")?.Value ?? user.FindFirst("id")?.Value ?? string.Empty;
             partnerId = user.FindFirst("partner_id")?.Value ?? string.Empty;
+
+            // ── DB fallback when JWT is stale ──────────────────────────────────
+            if (string.IsNullOrEmpty(partnerId))
+            {
+                try
+                {
+                    var dbProfile = await UserService.GetUserByIdAsync(userId);
+                    if (dbProfile?.IsPartner == true)
+                        partnerId = dbProfile.PartnerId ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"PartnerFinancials DB partnerId fallback: {ex.Message}");
+                }
+            }
 
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(partnerId))
             {
@@ -70,7 +86,7 @@ public partial class PartnerFinancials : ComponentBase
             summary = await PartnerStoreService.GetEarningsSummaryAsync(partnerId);
 
             if (summary != null)
-                payoutAmount = Math.Min(summary.PendingPayout, summary.PendingPayout);
+                payoutAmount = summary.PendingPayout;
         }
         catch (Exception ex)
         {
@@ -111,8 +127,7 @@ public partial class PartnerFinancials : ComponentBase
                 AmountRequested = payoutAmount,
             };
 
-            var result = await PartnerStoreService.RequestPayoutAsync(
-                partnerId, userId, request);
+            var result = await PartnerStoreService.RequestPayoutAsync(partnerId, userId, request);
 
             if (result.Success)
             {
@@ -135,11 +150,9 @@ public partial class PartnerFinancials : ComponentBase
         }
     }
 
-    // ── Bank Update ────────────────────────────────────────────
-
     private void OpenBankUpdateModal()
     {
-        bankForm  = new BankUpdateFormData();
+        bankForm = new BankUpdateFormData();
         bankErrors.Clear();
         isBankModalOpen = true;
     }
@@ -169,11 +182,7 @@ public partial class PartnerFinancials : ComponentBase
         if (string.IsNullOrWhiteSpace(bankForm.Reason) || bankForm.Reason.Trim().Length < 10)
             bankErrors["Reason"] = "Please provide a reason (minimum 10 characters)";
 
-        if (bankErrors.Any())
-        {
-            StateHasChanged();
-            return;
-        }
+        if (bankErrors.Any()) { StateHasChanged(); return; }
 
         isSubmittingBankUpdate = true;
         StateHasChanged();
@@ -190,8 +199,7 @@ public partial class PartnerFinancials : ComponentBase
                 Reason           = bankForm.Reason.Trim(),
             };
 
-            var success = await PartnerStoreService.RequestBankUpdateAsync(
-                partnerId, userId, request);
+            var success = await PartnerStoreService.RequestBankUpdateAsync(partnerId, userId, request);
 
             if (success)
             {
@@ -215,7 +223,7 @@ public partial class PartnerFinancials : ComponentBase
         }
     }
 
-    private bool HasBankError(string field)   => bankErrors.ContainsKey(field);
+    private bool   HasBankError(string field) => bankErrors.ContainsKey(field);
     private string GetBankError(string field) => bankErrors.GetValueOrDefault(field, string.Empty);
 
     public class BankUpdateFormData
