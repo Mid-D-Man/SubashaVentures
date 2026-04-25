@@ -4,28 +4,29 @@ using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Domain.Partner;
 using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Storage;
+using SubashaVentures.Services.Users;
 using SubashaVentures.Components.Shared.Notifications;
 
 namespace SubashaVentures.Pages.User.Partner;
 
 public partial class PartnerStore : ComponentBase
 {
-    [Inject] private IPartnerStoreService PartnerStoreService { get; set; } = default!;
-    [Inject] private ICloudflareR2Service R2Service           { get; set; } = default!;
-    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private NavigationManager Navigation             { get; set; } = default!;
+    [Inject] private IPartnerStoreService        PartnerStoreService { get; set; } = default!;
+    [Inject] private ICloudflareR2Service        R2Service           { get; set; } = default!;
+    [Inject] private IUserService                UserService         { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider   { get; set; } = default!;
+    [Inject] private NavigationManager           Navigation          { get; set; } = default!;
 
-    private bool isLoading        = true;
-    private bool isSaving         = false;
-    private bool isUploadingLogo   = false;
-    private bool isUploadingBanner = false;
+    private bool   isLoading         = true;
+    private bool   isSaving          = false;
+    private bool   isUploadingLogo   = false;
+    private bool   isUploadingBanner = false;
+    private string userId            = string.Empty;
+    private string partnerId         = string.Empty;
+    private string storeId           = string.Empty;
 
-    private string userId    = string.Empty;
-    private string partnerId = string.Empty;
-    private string storeId   = string.Empty;
-
-    private PartnerStoreViewModel? store = null;
-    private StoreFormData form           = new();
+    private PartnerStoreViewModel?     store  = null;
+    private StoreFormData              form   = new();
     private Dictionary<string, string> errors = new();
 
     private NotificationComponent? notificationComponent;
@@ -45,6 +46,21 @@ public partial class PartnerStore : ComponentBase
 
             userId    = user.FindFirst("sub")?.Value ?? user.FindFirst("id")?.Value ?? string.Empty;
             partnerId = user.FindFirst("partner_id")?.Value ?? string.Empty;
+
+            // ── DB fallback when JWT is stale ──────────────────────────────────
+            if (string.IsNullOrEmpty(partnerId))
+            {
+                try
+                {
+                    var dbProfile = await UserService.GetUserByIdAsync(userId);
+                    if (dbProfile?.IsPartner == true)
+                        partnerId = dbProfile.PartnerId ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"PartnerStore DB partnerId fallback: {ex.Message}");
+                }
+            }
 
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(partnerId))
             {
@@ -106,8 +122,6 @@ public partial class PartnerStore : ComponentBase
 
     private void ResetForm() => MapStoreToForm();
 
-    // ── Image uploads ──────────────────────────────────────────
-
     private async Task HandleLogoUpload(InputFileChangeEventArgs e)
     {
         var file = e.File;
@@ -139,10 +153,7 @@ public partial class PartnerStore : ComponentBase
                 notificationComponent?.ShowError("Failed to upload logo");
             }
         }
-        catch (Exception ex)
-        {
-            notificationComponent?.ShowError($"Upload error: {ex.Message}");
-        }
+        catch (Exception ex) { notificationComponent?.ShowError($"Upload error: {ex.Message}"); }
         finally
         {
             isUploadingLogo = false;
@@ -181,10 +192,7 @@ public partial class PartnerStore : ComponentBase
                 notificationComponent?.ShowError("Failed to upload banner");
             }
         }
-        catch (Exception ex)
-        {
-            notificationComponent?.ShowError($"Upload error: {ex.Message}");
-        }
+        catch (Exception ex) { notificationComponent?.ShowError($"Upload error: {ex.Message}"); }
         finally
         {
             isUploadingBanner = false;
@@ -198,8 +206,6 @@ public partial class PartnerStore : ComponentBase
         StateHasChanged();
     }
 
-    // ── Save ───────────────────────────────────────────────────
-
     private async Task HandleSave()
     {
         errors.Clear();
@@ -207,11 +213,7 @@ public partial class PartnerStore : ComponentBase
         if (string.IsNullOrWhiteSpace(form.StoreName) || form.StoreName.Trim().Length < 2)
             errors["StoreName"] = "Store name is required";
 
-        if (errors.Any())
-        {
-            StateHasChanged();
-            return;
-        }
+        if (errors.Any()) { StateHasChanged(); return; }
 
         isSaving = true;
         StateHasChanged();
@@ -241,10 +243,7 @@ public partial class PartnerStore : ComponentBase
                 notificationComponent?.ShowError("Failed to save store profile. Please try again.");
             }
         }
-        catch (Exception ex)
-        {
-            notificationComponent?.ShowError($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { notificationComponent?.ShowError($"Error: {ex.Message}"); }
         finally
         {
             isSaving = false;
@@ -252,7 +251,7 @@ public partial class PartnerStore : ComponentBase
         }
     }
 
-    private bool HasError(string field)   => errors.ContainsKey(field);
+    private bool   HasError(string field) => errors.ContainsKey(field);
     private string GetError(string field) => errors.GetValueOrDefault(field, string.Empty);
 
     public class StoreFormData
