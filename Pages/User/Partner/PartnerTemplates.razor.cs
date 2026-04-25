@@ -1,4 +1,3 @@
-// Pages/User/Partner/PartnerTemplates.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -8,6 +7,7 @@ using SubashaVentures.Models.Supabase;
 using SubashaVentures.Services.Categories;
 using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Storage;
+using SubashaVentures.Services.Users;
 using SubashaVentures.Components.Shared.Modals;
 using SubashaVentures.Components.Shared.Notifications;
 
@@ -15,36 +15,36 @@ namespace SubashaVentures.Pages.User.Partner;
 
 public partial class PartnerTemplates : ComponentBase
 {
-    [Inject] private IPartnerTemplateService PartnerTemplateService { get; set; } = default!;
-    [Inject] private ICloudflareR2Service R2Service { get; set; } = default!;
-    [Inject] private ICategoryService CategoryService { get; set; } = default!;
-    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IPartnerTemplateService     PartnerTemplateService { get; set; } = default!;
+    [Inject] private ICloudflareR2Service        R2Service              { get; set; } = default!;
+    [Inject] private ICategoryService            CategoryService        { get; set; } = default!;
+    [Inject] private IUserService                UserService            { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider      { get; set; } = default!;
+    [Inject] private NavigationManager           Navigation             { get; set; } = default!;
 
-    private bool isLoading = true;
-    private bool isModalOpen = false;
-    private bool isEditMode = false;
-    private bool isSaving = false;
-    private bool isUploading = false;
-    private bool showDeleteConfirm = false;
-    private int modalStep = 1;
-    private int uploadingCount = 0;
+    private bool   isLoading         = true;
+    private bool   isModalOpen        = false;
+    private bool   isEditMode         = false;
+    private bool   isSaving           = false;
+    private bool   isUploading        = false;
+    private bool   showDeleteConfirm  = false;
+    private int    modalStep          = 1;
+    private int    uploadingCount     = 0;
+    private string userId             = string.Empty;
+    private string partnerId          = string.Empty;
+    private string activeTab          = "all";
+    private string tagsInput          = string.Empty;
 
-    private string userId = string.Empty;
-    private string partnerId = string.Empty;
-    private string activeTab = "all";
-    private string tagsInput = string.Empty;
-
-    private List<PartnerTemplateViewModel> allTemplates = new();
-    private List<PartnerTemplateViewModel> filteredTemplates = new();
-    private List<CategoryViewModel> availableCategories = new();
+    private List<PartnerTemplateViewModel> allTemplates        = new();
+    private List<PartnerTemplateViewModel> filteredTemplates   = new();
+    private List<CategoryViewModel>        availableCategories = new();
 
     private PartnerTemplateViewModel? templateToDelete = null;
-    private TemplateFormData templateForm = new();
-    private Dictionary<string, string> formErrors = new();
+    private TemplateFormData          templateForm     = new();
+    private Dictionary<string, string> formErrors      = new();
 
-    private DynamicModal? templateModal;
-    private ConfirmationPopup? deleteConfirmation;
+    private DynamicModal?          templateModal;
+    private ConfirmationPopup?     deleteConfirmation;
     private NotificationComponent? notificationComponent;
 
     private record TabInfo(string Key, string Label, int Count);
@@ -55,7 +55,7 @@ public partial class PartnerTemplates : ComponentBase
         try
         {
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
+            var user      = authState.User;
 
             if (user.Identity?.IsAuthenticated != true)
             {
@@ -65,6 +65,21 @@ public partial class PartnerTemplates : ComponentBase
 
             userId    = user.FindFirst("sub")?.Value ?? user.FindFirst("id")?.Value ?? string.Empty;
             partnerId = user.FindFirst("partner_id")?.Value ?? string.Empty;
+
+            // ── DB fallback when JWT is stale ──────────────────────────────────
+            if (string.IsNullOrEmpty(partnerId))
+            {
+                try
+                {
+                    var dbProfile = await UserService.GetUserByIdAsync(userId);
+                    if (dbProfile?.IsPartner == true)
+                        partnerId = dbProfile.PartnerId ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"PartnerTemplates DB partnerId fallback: {ex.Message}");
+                }
+            }
 
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(partnerId))
             {
@@ -93,7 +108,6 @@ public partial class PartnerTemplates : ComponentBase
 
     private async Task LoadCategoriesAsync()
     {
-        // FIX: was GetActiveCategoriesAsync — now correctly calls the interface method
         availableCategories = await CategoryService.GetActiveCategoriesAsync();
     }
 
@@ -124,8 +138,6 @@ public partial class PartnerTemplates : ComponentBase
         StateHasChanged();
     }
 
-    // ── Modal ──────────────────────────────────────────────────
-
     private void OpenCreateModal()
     {
         isEditMode   = false;
@@ -142,7 +154,6 @@ public partial class PartnerTemplates : ComponentBase
         modalStep  = 1;
         formErrors.Clear();
 
-        // FIX: ProposedOriginalPrice is decimal? in VM but decimal in form — use ?? 0m
         templateForm = new TemplateFormData
         {
             TemplateId            = template.Id,
@@ -176,8 +187,6 @@ public partial class PartnerTemplates : ComponentBase
         templateForm = new TemplateFormData();
         formErrors.Clear();
     }
-
-    // ── Step navigation ────────────────────────────────────────
 
     private void GoToModalStep2()
     {
@@ -223,28 +232,12 @@ public partial class PartnerTemplates : ComponentBase
         }
 
         var skus = templateForm.Variants.Select(v => v.Sku?.Trim()).ToList();
-        if (skus.Any(string.IsNullOrEmpty))
-        {
-            formErrors["Variants"] = "All variants must have a SKU";
-            return;
-        }
-
-        if (skus.Distinct().Count() != skus.Count)
-        {
-            formErrors["Variants"] = "Variant SKUs must be unique";
-            return;
-        }
-
-        if (templateForm.Variants.Any(v => v.Stock < 0))
-        {
-            formErrors["Variants"] = "Stock cannot be negative";
-            return;
-        }
+        if (skus.Any(string.IsNullOrEmpty))     { formErrors["Variants"] = "All variants must have a SKU"; return; }
+        if (skus.Distinct().Count() != skus.Count) { formErrors["Variants"] = "Variant SKUs must be unique"; return; }
+        if (templateForm.Variants.Any(v => v.Stock < 0)) { formErrors["Variants"] = "Stock cannot be negative"; return; }
 
         modalStep = 3;
     }
-
-    // ── Variants ───────────────────────────────────────────────
 
     private void AddVariant()
     {
@@ -258,8 +251,6 @@ public partial class PartnerTemplates : ComponentBase
             templateForm.Variants.RemoveAt(index);
         StateHasChanged();
     }
-
-    // ── Images ─────────────────────────────────────────────────
 
     private async Task HandleImageUpload(InputFileChangeEventArgs e)
     {
@@ -284,12 +275,8 @@ public partial class PartnerTemplates : ComponentBase
                     continue;
                 }
 
-                var objectKey = R2Service.BuildTemplateImageKey(
-                    partnerId,
-                    templateForm.TemplateId!,
-                    file.Name);
-
-                var result = await R2Service.UploadFileAsync(file, objectKey, file.ContentType);
+                var objectKey = R2Service.BuildTemplateImageKey(partnerId, templateForm.TemplateId!, file.Name);
+                var result    = await R2Service.UploadFileAsync(file, objectKey, file.ContentType);
 
                 if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
                     templateForm.ImageUrls.Add(result.PublicUrl);
@@ -312,8 +299,6 @@ public partial class PartnerTemplates : ComponentBase
         templateForm.ImageUrls.RemoveAt(index);
         StateHasChanged();
     }
-
-    // ── Save draft ─────────────────────────────────────────────
 
     private async Task SaveDraftSilentlyAsync()
     {
@@ -339,8 +324,7 @@ public partial class PartnerTemplates : ComponentBase
 
         try
         {
-            var request = BuildSaveRequest();
-            var result  = await PartnerTemplateService.SaveDraftAsync(partnerId, userId, request);
+            var result = await PartnerTemplateService.SaveDraftAsync(partnerId, userId, BuildSaveRequest());
 
             if (result != null)
             {
@@ -364,30 +348,22 @@ public partial class PartnerTemplates : ComponentBase
         }
     }
 
-    private SaveTemplateRequest BuildSaveRequest()
+    private SaveTemplateRequest BuildSaveRequest() => new SaveTemplateRequest
     {
-        return new SaveTemplateRequest
-        {
-            TemplateId            = string.IsNullOrEmpty(templateForm.TemplateId) ? null : templateForm.TemplateId,
-            TemplateName          = templateForm.TemplateName.Trim(),
-            ProductName           = templateForm.ProductName.Trim(),
-            Description           = templateForm.Description.Trim(),
-            CategoryId            = templateForm.CategoryId,
-            CategoryName          = templateForm.CategoryName,
-            ProposedPrice         = templateForm.ProposedPrice,
-            // FIX: only pass optional original price when it has a meaningful value
-            ProposedOriginalPrice = templateForm.ProposedOriginalPrice > 0
-                ? templateForm.ProposedOriginalPrice
-                : null,
-            WeightKg              = templateForm.WeightKg,
-            HasFreeShipping       = templateForm.HasFreeShipping,
-            ImageUrls             = templateForm.ImageUrls,
-            Tags                  = templateForm.Tags,
-            Variants              = templateForm.Variants,
-        };
-    }
-
-    // ── Submit / Resubmit / Delete ─────────────────────────────
+        TemplateId            = string.IsNullOrEmpty(templateForm.TemplateId) ? null : templateForm.TemplateId,
+        TemplateName          = templateForm.TemplateName.Trim(),
+        ProductName           = templateForm.ProductName.Trim(),
+        Description           = templateForm.Description.Trim(),
+        CategoryId            = templateForm.CategoryId,
+        CategoryName          = templateForm.CategoryName,
+        ProposedPrice         = templateForm.ProposedPrice,
+        ProposedOriginalPrice = templateForm.ProposedOriginalPrice > 0 ? templateForm.ProposedOriginalPrice : null,
+        WeightKg              = templateForm.WeightKg,
+        HasFreeShipping       = templateForm.HasFreeShipping,
+        ImageUrls             = templateForm.ImageUrls,
+        Tags                  = templateForm.Tags,
+        Variants              = templateForm.Variants,
+    };
 
     private async Task HandleSubmitForReview(PartnerTemplateViewModel template)
     {
@@ -407,10 +383,7 @@ public partial class PartnerTemplates : ComponentBase
                 notificationComponent?.ShowError(msg);
             }
         }
-        catch (Exception ex)
-        {
-            notificationComponent?.ShowError($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { notificationComponent?.ShowError($"Error: {ex.Message}"); }
     }
 
     private async Task HandleResubmit(PartnerTemplateViewModel template)
@@ -428,10 +401,7 @@ public partial class PartnerTemplates : ComponentBase
                 notificationComponent?.ShowError(result.ErrorMessage ?? "Resubmission failed");
             }
         }
-        catch (Exception ex)
-        {
-            notificationComponent?.ShowError($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { notificationComponent?.ShowError($"Error: {ex.Message}"); }
     }
 
     private void HandleDeleteDraft(PartnerTemplateViewModel template)
@@ -461,10 +431,7 @@ public partial class PartnerTemplates : ComponentBase
                 notificationComponent?.ShowError("Failed to delete draft.");
             }
         }
-        catch (Exception ex)
-        {
-            notificationComponent?.ShowError($"Error: {ex.Message}");
-        }
+        catch (Exception ex) { notificationComponent?.ShowError($"Error: {ex.Message}"); }
         finally
         {
             isSaving          = false;
@@ -474,12 +441,8 @@ public partial class PartnerTemplates : ComponentBase
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────
-
-    private bool HasFormError(string field)   => formErrors.ContainsKey(field);
+    private bool   HasFormError(string field) => formErrors.ContainsKey(field);
     private string GetFormError(string field) => formErrors.GetValueOrDefault(field, string.Empty);
-
-    // ── Form model ─────────────────────────────────────────────
 
     public class TemplateFormData
     {
@@ -490,7 +453,6 @@ public partial class PartnerTemplates : ComponentBase
         public string   CategoryId            { get; set; } = string.Empty;
         public string   CategoryName          { get; set; } = string.Empty;
         public decimal  ProposedPrice         { get; set; }
-        // FIX: decimal (not decimal?) — 0 means "no original price set"
         public decimal  ProposedOriginalPrice { get; set; }
         public decimal  WeightKg              { get; set; } = 1.0m;
         public bool     HasFreeShipping       { get; set; }
