@@ -1,5 +1,5 @@
 // Pages/User/Settings.razor.cs
-// Avatar upload migrated from Supabase Storage → Cloudflare R2
+// Avatar upload via Cloudflare R2 — WebP auto-conversion
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -20,24 +20,23 @@ namespace SubashaVentures.Pages.User;
 
 public partial class Settings
 {
-    [Inject] private IUserService              UserService      { get; set; } = default!;
-    [Inject] private IPermissionService        PermissionService { get; set; } = default!;
-    [Inject] private ISupabaseAuthService      AuthService      { get; set; } = default!;
-    [Inject] private ISupabaseStorageService   StorageService   { get; set; } = default!;
-    // NEW: avatar uploads go to Cloudflare R2
-    [Inject] private ICloudflareR2Service      R2Service        { get; set; } = default!;
-    [Inject] private NavigationManager         Navigation       { get; set; } = default!;
+    [Inject] private IUserService                UserService       { get; set; } = default!;
+    [Inject] private IPermissionService          PermissionService { get; set; } = default!;
+    [Inject] private ISupabaseAuthService        AuthService       { get; set; } = default!;
+    [Inject] private ISupabaseStorageService     StorageService    { get; set; } = default!;
+    [Inject] private ICloudflareR2Service        R2Service         { get; set; } = default!;
+    [Inject] private NavigationManager           Navigation        { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private IJSRuntime                JSRuntime        { get; set; } = default!;
-    [Inject] private IVisualElementsService    VisualElements   { get; set; } = default!;
+    [Inject] private IJSRuntime                  JSRuntime         { get; set; } = default!;
+    [Inject] private IVisualElementsService      VisualElements    { get; set; } = default!;
 
-    // STATE
+    // ── State ─────────────────────────────────────────────────────────────────
     private bool IsLoading = true;
     private UserProfileViewModel? UserProfile;
     private string? CurrentUserId;
     private bool CanChangePassword = true;
 
-    // SVG MARKUP
+    // ── SVG markup ────────────────────────────────────────────────────────────
     private string profileIconSvg      = string.Empty;
     private string notificationIconSvg = string.Empty;
     private string emailIconSvg        = string.Empty;
@@ -58,25 +57,25 @@ public partial class Settings
     private string cameraIconSvg       = string.Empty;
     private string shieldCheckIconSvg  = string.Empty;
 
-    // PROFILE EDIT
+    // ── Profile edit ──────────────────────────────────────────────────────────
     private DynamicModal? ProfileModal;
     private bool IsProfileModalOpen  = false;
     private bool IsSavingProfile     = false;
     private bool IsUploadingAvatar   = false;
 
-    private string    TempFirstName    = "";
-    private string    TempLastName     = "";
-    private string    TempNickname     = "";
-    private string    TempPhoneNumber  = "";
-    private string    TempAvatarUrl    = "";
+    private string    TempFirstName   = "";
+    private string    TempLastName    = "";
+    private string    TempNickname    = "";
+    private string    TempPhoneNumber = "";
+    private string    TempAvatarUrl   = "";
     private DateTime? TempDateOfBirth;
-    private string    TempGender       = "";
+    private string    TempGender      = "";
 
-    // NOTIFICATIONS
+    // ── Notifications ─────────────────────────────────────────────────────────
     private bool EmailNotificationsEnabled = true;
     private bool SmsNotificationsEnabled   = false;
 
-    // PREFERENCES
+    // ── Preferences ───────────────────────────────────────────────────────────
     private DynamicModal? CurrencyModal;
     private DynamicModal? LanguageModal;
     private bool IsCurrencyModalOpen = false;
@@ -96,31 +95,31 @@ public partial class Settings
     private readonly List<string> AvailableLanguages = new()
         { "English", "Hausa", "Yoruba", "Igbo" };
 
-    // SECURITY
+    // ── Security ──────────────────────────────────────────────────────────────
     private DynamicModal? SecurityModal;
-    private bool IsSecurityModalOpen  = false;
-    private bool IsChangingPassword   = false;
+    private bool IsSecurityModalOpen = false;
+    private bool IsChangingPassword  = false;
 
-    private string CurrentPassword   = "";
+    private string CurrentPassword    = "";
     private string NewPassword        = "";
     private string ConfirmPassword    = "";
     private string PasswordChangeError = "";
 
-    // MFA
+    // ── MFA ───────────────────────────────────────────────────────────────────
     private DynamicModal? MfaModal;
-    private bool IsMfaModalOpen       = false;
-    private bool IsMfaEnabled         = false;
-    private bool IsProcessingMfa      = false;
-    private int  MfaEnrollmentStep    = 0;
+    private bool IsMfaModalOpen     = false;
+    private bool IsMfaEnabled       = false;
+    private bool IsProcessingMfa    = false;
+    private int  MfaEnrollmentStep  = 0;
 
-    private string MfaQrCodeUrl        = "";
-    private string MfaSecret           = "";
-    private string MfaVerificationCode = "";
-    private string MfaEnrollmentError  = "";
+    private string  MfaQrCodeUrl        = "";
+    private string  MfaSecret           = "";
+    private string  MfaVerificationCode = "";
+    private string  MfaEnrollmentError  = "";
     private string? MfaFactorId;
-    private bool SecretCopied          = false;
+    private bool    SecretCopied        = false;
 
-    // LOGOUT / DELETE
+    // ── Logout / Delete ───────────────────────────────────────────────────────
     private ConfirmationPopup? LogoutPopup;
     private bool ShowLogoutPopup        = false;
     private ConfirmationPopup? DeleteAccountPopup;
@@ -128,6 +127,8 @@ public partial class Settings
     private bool IsDeletingAccount      = false;
 
     private const int MaxPhoneLength = 20;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
@@ -270,8 +271,8 @@ public partial class Settings
     {
         try
         {
-            var authState    = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user         = authState.User;
+            var authState      = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user           = authState.User;
             var providersClaim = user?.FindFirst("app_metadata.providers")?.Value
                 ?? user?.FindFirst("providers")?.Value;
 
@@ -283,6 +284,8 @@ public partial class Settings
             await MID_HelperFunctions.LogExceptionAsync(ex, "Checking password change capability");
         }
     }
+
+    // ── Profile modal ─────────────────────────────────────────────────────────
 
     private void OpenProfileModal()
     {
@@ -307,9 +310,9 @@ public partial class Settings
     }
 
     /// <summary>
-    /// Upload avatar to Cloudflare R2 instead of Supabase Storage.
-    /// R2 path: users/{userId}/avatar.{ext}
-    /// The R2 proxy worker validates the JWT and checks path ownership.
+    /// Upload avatar to Cloudflare R2 (auto-compresses to WebP).
+    /// Key: users/{userId}/avatar.webp
+    /// Always overwrites the previous avatar — no orphan files.
     /// </summary>
     private async Task HandleAvatarUpload(InputFileChangeEventArgs e)
     {
@@ -320,90 +323,48 @@ public partial class Settings
 
             if (!file.ContentType.StartsWith("image/"))
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Please select an image file");
+                await JSRuntime.InvokeVoidAsync("alert", "Please select an image file.");
                 return;
             }
 
             const long maxFileSize = 1 * 1024 * 1024; // 1 MB
             if (file.Size > maxFileSize)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Image must be less than 1MB");
+                await JSRuntime.InvokeVoidAsync("alert", "Image must be less than 1 MB.");
                 return;
             }
 
             IsUploadingAvatar = true;
             StateHasChanged();
 
-            // Delete existing avatar first (handles both R2 and old Supabase URLs)
-            var existingAvatarUrl = UserProfile?.AvatarUrl;
-            if (!string.IsNullOrEmpty(existingAvatarUrl))
-                await DeleteExistingAvatarAsync(existingAvatarUrl);
+            // Key is always the same → uploading a new avatar overwrites the old one automatically
+            // BuildUserAvatarKey(userId) → "users/{userId}/avatar.webp"
+            var objectKey = R2Service.BuildUserAvatarKey(CurrentUserId!);
 
-            // Build R2 object key: users/{userId}/avatar.{ext}
-            var rawExt    = Path.GetExtension(file.Name).TrimStart('.').ToLowerInvariant();
-            var ext       = string.IsNullOrEmpty(rawExt) ? "jpg" : rawExt;
-            var objectKey = R2Service.BuildUserAvatarKey(CurrentUserId!, ext);
-
-            // Read bytes (capped at maxFileSize)
-            await using var stream = file.OpenReadStream(maxFileSize);
-            using var ms           = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            var bytes = ms.ToArray();
-
-            // Upload to R2 via the proxy worker
-            var result = await R2Service.UploadBytesAsync(bytes, objectKey, file.ContentType);
+            // UploadImageAsync handles compression + WebP conversion
+            var result = await R2Service.UploadImageAsync(file, objectKey, maxFileSize);
 
             if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
             {
                 TempAvatarUrl = result.PublicUrl;
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"[Avatar] ✓ Uploaded to R2: {objectKey}", LogLevel.Info);
+                    $"[Avatar] ✓ Uploaded to R2 as WebP: {objectKey}", LogLevel.Info);
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Upload failed: {result.ErrorMessage}");
+                await JSRuntime.InvokeVoidAsync("alert",
+                    $"Upload failed: {result.ErrorMessage}");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Uploading avatar to R2");
-            await JSRuntime.InvokeVoidAsync("alert", "Failed to upload image");
+            await JSRuntime.InvokeVoidAsync("alert", "Failed to upload image. Please try again.");
         }
         finally
         {
             IsUploadingAvatar = false;
             StateHasChanged();
-        }
-    }
-
-    /// <summary>
-    /// Delete the avatar from wherever it currently lives.
-    /// Checks R2 first (new), falls back to Supabase (old users).
-    /// </summary>
-    private async Task DeleteExistingAvatarAsync(string? publicUrl)
-    {
-        if (string.IsNullOrEmpty(publicUrl)) return;
-        try
-        {
-            // Try R2 first — ExtractObjectKey returns null if URL isn't an R2 URL
-            var r2Key = R2Service.ExtractObjectKey(publicUrl);
-            if (!string.IsNullOrEmpty(r2Key))
-            {
-                await R2Service.DeleteFileAsync(r2Key);
-                return;
-            }
-
-            // Fall back: old Supabase URL
-            if (StorageService is SupabaseStorageService concrete)
-            {
-                var filePath = concrete.ExtractFilePathFromUrl(publicUrl, "users");
-                if (!string.IsNullOrEmpty(filePath))
-                    await StorageService.DeleteImageAsync(filePath, "users");
-            }
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Deleting old avatar");
         }
     }
 
@@ -413,13 +374,14 @@ public partial class Settings
         {
             if (string.IsNullOrWhiteSpace(TempFirstName) || string.IsNullOrWhiteSpace(TempLastName))
             {
-                await JSRuntime.InvokeVoidAsync("alert", "First name and last name are required");
+                await JSRuntime.InvokeVoidAsync("alert", "First name and last name are required.");
                 return;
             }
 
             if (!string.IsNullOrEmpty(TempPhoneNumber) && TempPhoneNumber.Length > MaxPhoneLength)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Phone number must be {MaxPhoneLength} characters or fewer");
+                await JSRuntime.InvokeVoidAsync("alert",
+                    $"Phone number must be {MaxPhoneLength} characters or fewer.");
                 return;
             }
 
@@ -427,11 +389,13 @@ public partial class Settings
             StateHasChanged();
 
             var trimmedPhone = TempPhoneNumber.Trim();
+
             var updateRequest = new UpdateUserRequest
             {
                 FirstName   = TempFirstName.Trim(),
                 LastName    = TempLastName.Trim(),
-                Nickname    = string.IsNullOrWhiteSpace(TempNickname) ? null : TempNickname.Trim(),
+                Nickname    = string.IsNullOrWhiteSpace(TempNickname)
+                    ? null : TempNickname.Trim(),
                 PhoneNumber = string.IsNullOrWhiteSpace(trimmedPhone)
                     ? null
                     : trimmedPhone[..Math.Min(trimmedPhone.Length, MaxPhoneLength)],
@@ -450,13 +414,13 @@ public partial class Settings
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Failed to update profile");
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to update profile.");
             }
         }
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Saving profile");
-            await JSRuntime.InvokeVoidAsync("alert", "An error occurred while saving");
+            await JSRuntime.InvokeVoidAsync("alert", "An error occurred while saving.");
         }
         finally
         {
@@ -464,6 +428,8 @@ public partial class Settings
             StateHasChanged();
         }
     }
+
+    // ── Notification toggles ──────────────────────────────────────────────────
 
     private async Task HandleEmailNotificationToggle(ChangeEventArgs e)
     {
@@ -478,7 +444,7 @@ public partial class Settings
             {
                 EmailNotificationsEnabled = !enabled;
                 StateHasChanged();
-                await JSRuntime.InvokeVoidAsync("alert", "Failed to update notification settings");
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to update notification settings.");
             }
         }
         catch (Exception ex)
@@ -500,7 +466,7 @@ public partial class Settings
             {
                 SmsNotificationsEnabled = !enabled;
                 StateHasChanged();
-                await JSRuntime.InvokeVoidAsync("alert", "Failed to update notification settings");
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to update notification settings.");
             }
         }
         catch (Exception ex)
@@ -508,6 +474,8 @@ public partial class Settings
             await MID_HelperFunctions.LogExceptionAsync(ex, "Toggling SMS notifications");
         }
     }
+
+    // ── Currency / Language ───────────────────────────────────────────────────
 
     private void OpenCurrencyModal()  { IsCurrencyModalOpen = true;  StateHasChanged(); }
     private void CloseCurrencyModal() { IsCurrencyModalOpen = false; StateHasChanged(); }
@@ -520,7 +488,7 @@ public partial class Settings
                 new UpdateUserRequest { Currency = currencyCode });
 
             if (success) SelectedCurrency = currencyCode;
-            else await JSRuntime.InvokeVoidAsync("alert", "Failed to update currency");
+            else await JSRuntime.InvokeVoidAsync("alert", "Failed to update currency.");
         }
         catch (Exception ex)
         {
@@ -538,14 +506,18 @@ public partial class Settings
         {
             var languageCode = language switch
             {
-                "English" => "en", "Hausa" => "ha", "Yoruba" => "yo", "Igbo" => "ig", _ => "en"
+                "English" => "en",
+                "Hausa"   => "ha",
+                "Yoruba"  => "yo",
+                "Igbo"    => "ig",
+                _         => "en"
             };
 
             var success = await UserService.UpdateUserProfileAsync(CurrentUserId!,
                 new UpdateUserRequest { PreferredLanguage = languageCode });
 
             if (success) SelectedLanguage = language;
-            else await JSRuntime.InvokeVoidAsync("alert", "Failed to update language");
+            else await JSRuntime.InvokeVoidAsync("alert", "Failed to update language.");
         }
         catch (Exception ex)
         {
@@ -554,10 +526,13 @@ public partial class Settings
         finally { CloseLanguageModal(); }
     }
 
+    // ── Password change ───────────────────────────────────────────────────────
+
     private void OpenSecurityModal()
     {
         if (!CanChangePassword) return;
-        CurrentPassword = ""; NewPassword = ""; ConfirmPassword = ""; PasswordChangeError = "";
+        CurrentPassword = ""; NewPassword = ""; ConfirmPassword = "";
+        PasswordChangeError = "";
         IsSecurityModalOpen = true;
         StateHasChanged();
     }
@@ -574,19 +549,19 @@ public partial class Settings
                 string.IsNullOrWhiteSpace(NewPassword)     ||
                 string.IsNullOrWhiteSpace(ConfirmPassword))
             {
-                PasswordChangeError = "All fields are required";
+                PasswordChangeError = "All fields are required.";
                 return;
             }
 
             if (NewPassword.Length < 8)
             {
-                PasswordChangeError = "New password must be at least 8 characters";
+                PasswordChangeError = "New password must be at least 8 characters.";
                 return;
             }
 
             if (NewPassword != ConfirmPassword)
             {
-                PasswordChangeError = "Passwords do not match";
+                PasswordChangeError = "Passwords do not match.";
                 return;
             }
 
@@ -602,7 +577,7 @@ public partial class Settings
             }
             else
             {
-                PasswordChangeError = result.Message ?? "Failed to change password";
+                PasswordChangeError = result.Message ?? "Failed to change password.";
             }
         }
         catch (Exception ex)
@@ -616,6 +591,8 @@ public partial class Settings
             StateHasChanged();
         }
     }
+
+    // ── MFA ───────────────────────────────────────────────────────────────────
 
     private async Task CheckMfaStatus()
     {
@@ -681,7 +658,7 @@ public partial class Settings
             }
             else
             {
-                MfaEnrollmentError = enrollResult.ErrorMessage ?? "Failed to start MFA enrollment";
+                MfaEnrollmentError = enrollResult.ErrorMessage ?? "Failed to start MFA enrollment.";
             }
         }
         catch (Exception ex)
@@ -700,9 +677,10 @@ public partial class Settings
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(MfaVerificationCode) || MfaVerificationCode.Length != 6)
+            if (string.IsNullOrWhiteSpace(MfaVerificationCode) ||
+                MfaVerificationCode.Length != 6)
             {
-                MfaEnrollmentError = "Please enter a valid 6-digit code";
+                MfaEnrollmentError = "Please enter a valid 6-digit code.";
                 return;
             }
 
@@ -721,12 +699,13 @@ public partial class Settings
             if (verifyResult.Success)
             {
                 IsMfaEnabled = true;
-                await JSRuntime.InvokeVoidAsync("alert", "Two-Factor Authentication enabled successfully!");
+                await JSRuntime.InvokeVoidAsync("alert",
+                    "Two-Factor Authentication enabled successfully!");
                 CloseMfaModal();
             }
             else
             {
-                MfaEnrollmentError = verifyResult.Message ?? "Invalid verification code";
+                MfaEnrollmentError = verifyResult.Message ?? "Invalid verification code.";
             }
         }
         catch (Exception ex)
@@ -766,8 +745,12 @@ public partial class Settings
         catch (Exception ex)
         {
             await MID_HelperFunctions.LogExceptionAsync(ex, "Copy secret to clipboard");
+            // Fallback: select text so user can copy manually
             await JSRuntime.InvokeVoidAsync("eval",
-                "var el = document.getElementById('mfa-secret-code'); if(el){var r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}");
+                "var el=document.getElementById('mfa-secret-code');" +
+                "if(el){var r=document.createRange();r.selectNode(el);" +
+                "window.getSelection().removeAllRanges();" +
+                "window.getSelection().addRange(r);}");
         }
     }
 
@@ -792,24 +775,27 @@ public partial class Settings
                     if (!result.Success)
                     {
                         allSucceeded = false;
-                        await JSRuntime.InvokeVoidAsync("alert", $"Failed to disable MFA: {result.Message}");
+                        await JSRuntime.InvokeVoidAsync("alert",
+                            $"Failed to disable MFA: {result.Message}");
                         break;
                     }
                 }
 
                 if (allSucceeded)
                 {
-                    var remainingFactors = await AuthService.GetMfaFactorsAsync();
-                    IsMfaEnabled = remainingFactors != null && remainingFactors.Any();
+                    var remaining = await AuthService.GetMfaFactorsAsync();
+                    IsMfaEnabled  = remaining != null && remaining.Any();
 
                     if (!IsMfaEnabled)
                     {
-                        await JSRuntime.InvokeVoidAsync("alert", "Two-Factor Authentication has been disabled.");
+                        await JSRuntime.InvokeVoidAsync("alert",
+                            "Two-Factor Authentication has been disabled.");
                         CloseMfaModal();
                     }
                     else
                     {
-                        await JSRuntime.InvokeVoidAsync("alert", "Some factors could not be removed. Please try again.");
+                        await JSRuntime.InvokeVoidAsync("alert",
+                            "Some factors could not be removed. Please try again.");
                     }
                 }
             }
@@ -832,15 +818,21 @@ public partial class Settings
         }
     }
 
+    // ── Data export ───────────────────────────────────────────────────────────
+
     private async Task ExportMyData()
     {
         try
         {
-            if (UserProfile == null) { await JSRuntime.InvokeVoidAsync("alert", "Unable to export data."); return; }
+            if (UserProfile == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Unable to export data.");
+                return;
+            }
 
             var exportData = new
             {
-                ExportDate = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
+                ExportDate  = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
                 UserProfile = new
                 {
                     UserProfile.Id, UserProfile.Email,
@@ -858,7 +850,7 @@ public partial class Settings
                 Preferences = new
                 {
                     UserProfile.EmailNotifications, UserProfile.SmsNotifications,
-                    UserProfile.PreferredLanguage, UserProfile.Currency
+                    UserProfile.PreferredLanguage,  UserProfile.Currency
                 },
                 Security = new
                 {
@@ -867,7 +859,8 @@ public partial class Settings
                 }
             };
 
-            var json     = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
+            var json     = JsonSerializer.Serialize(exportData,
+                new JsonSerializerOptions { WriteIndented = true });
             var fileName = $"SubashaVentures_UserData_{DateTime.Now:yyyyMMdd_HHmmss}.json";
             var base64   = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
 
@@ -878,7 +871,8 @@ public partial class Settings
                 link.click();
             ");
 
-            await JSRuntime.InvokeVoidAsync("alert", "Your data has been exported successfully!");
+            await JSRuntime.InvokeVoidAsync("alert",
+                "Your data has been exported successfully!");
         }
         catch (Exception ex)
         {
@@ -886,6 +880,8 @@ public partial class Settings
             await JSRuntime.InvokeVoidAsync("alert", "Failed to export data. Please try again.");
         }
     }
+
+    // ── Delete account ────────────────────────────────────────────────────────
 
     private void ShowDeleteAccountConfirmation() { ShowDeleteAccountPopup = true;  StateHasChanged(); }
     private void CancelDeleteAccount()           { ShowDeleteAccountPopup = false; StateHasChanged(); }
@@ -908,7 +904,8 @@ public partial class Settings
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Failed to delete account. Please try again.");
+                await JSRuntime.InvokeVoidAsync("alert",
+                    "Failed to delete account. Please try again.");
             }
         }
         catch (Exception ex)
@@ -922,6 +919,8 @@ public partial class Settings
             StateHasChanged();
         }
     }
+
+    // ── Logout ────────────────────────────────────────────────────────────────
 
     private void ShowLogoutConfirmation() { ShowLogoutPopup = true;  StateHasChanged(); }
     private void CancelLogout()           { ShowLogoutPopup = false; StateHasChanged(); }
@@ -941,6 +940,8 @@ public partial class Settings
             await JSRuntime.InvokeVoidAsync("alert", "Failed to logout. Please try again.");
         }
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private string GetMembershipBadgeClass() => UserProfile?.MembershipTier switch
     {
