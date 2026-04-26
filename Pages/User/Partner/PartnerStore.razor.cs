@@ -1,3 +1,4 @@
+// Pages/User/Partner/PartnerStore.razor.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -47,7 +48,6 @@ public partial class PartnerStore : ComponentBase
             userId    = user.FindFirst("sub")?.Value ?? user.FindFirst("id")?.Value ?? string.Empty;
             partnerId = user.FindFirst("partner_id")?.Value ?? string.Empty;
 
-            // ── DB fallback when JWT is stale ──────────────────────────────────
             if (string.IsNullOrEmpty(partnerId))
             {
                 try
@@ -107,7 +107,6 @@ public partial class PartnerStore : ComponentBase
     private void MapStoreToForm()
     {
         if (store == null) return;
-
         form = new StoreFormData
         {
             StoreName   = store.StoreName,
@@ -121,6 +120,8 @@ public partial class PartnerStore : ComponentBase
     }
 
     private void ResetForm() => MapStoreToForm();
+
+    // ── Logo Upload ────────────────────────────────────────────────────────────
 
     private async Task HandleLogoUpload(InputFileChangeEventArgs e)
     {
@@ -139,21 +140,26 @@ public partial class PartnerStore : ComponentBase
 
         try
         {
-            var ext       = Services.Storage.R2AllowedContentTypes.GetExtension(file.ContentType);
-            var objectKey = R2Service.BuildStoreLogoKey(partnerId, ext);
-            var result    = await R2Service.UploadFileAsync(file, objectKey, file.ContentType);
+            // Key is always partners/{id}/store/logo.webp
+            var objectKey = R2Service.BuildStoreLogoKey(partnerId);
+
+            // UploadImageAsync handles compression + WebP conversion
+            var result = await R2Service.UploadImageAsync(file, objectKey);
 
             if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
             {
                 form.LogoUrl = result.PublicUrl;
-                notificationComponent?.ShowSuccess("Logo uploaded successfully");
+                notificationComponent?.ShowSuccess("Logo uploaded and converted to WebP ✓");
             }
             else
             {
-                notificationComponent?.ShowError("Failed to upload logo");
+                notificationComponent?.ShowError($"Logo upload failed: {result.ErrorMessage}");
             }
         }
-        catch (Exception ex) { notificationComponent?.ShowError($"Upload error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            notificationComponent?.ShowError($"Upload error: {ex.Message}");
+        }
         finally
         {
             isUploadingLogo = false;
@@ -161,11 +167,14 @@ public partial class PartnerStore : ComponentBase
         }
     }
 
+    // ── Banner Upload ──────────────────────────────────────────────────────────
+
     private async Task HandleBannerUpload(InputFileChangeEventArgs e)
     {
         var file = e.File;
         if (file == null) return;
 
+        // Banners allow 5 MB
         var validation = R2Service.ValidateImageFile(file, 5_242_880);
         if (!validation.IsValid)
         {
@@ -178,21 +187,23 @@ public partial class PartnerStore : ComponentBase
 
         try
         {
-            var ext       = Services.Storage.R2AllowedContentTypes.GetExtension(file.ContentType);
-            var objectKey = R2Service.BuildStoreBannerKey(partnerId, ext);
-            var result    = await R2Service.UploadFileAsync(file, objectKey, file.ContentType);
+            var objectKey = R2Service.BuildStoreBannerKey(partnerId);
+            var result    = await R2Service.UploadImageAsync(file, objectKey, 5_242_880);
 
             if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
             {
                 form.BannerUrl = result.PublicUrl;
-                notificationComponent?.ShowSuccess("Banner uploaded successfully");
+                notificationComponent?.ShowSuccess("Banner uploaded and converted to WebP ✓");
             }
             else
             {
-                notificationComponent?.ShowError("Failed to upload banner");
+                notificationComponent?.ShowError($"Banner upload failed: {result.ErrorMessage}");
             }
         }
-        catch (Exception ex) { notificationComponent?.ShowError($"Upload error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            notificationComponent?.ShowError($"Upload error: {ex.Message}");
+        }
         finally
         {
             isUploadingBanner = false;
@@ -205,6 +216,8 @@ public partial class PartnerStore : ComponentBase
         form.BannerUrl = string.Empty;
         StateHasChanged();
     }
+
+    // ── Save ───────────────────────────────────────────────────────────────────
 
     private async Task HandleSave()
     {
@@ -235,15 +248,18 @@ public partial class PartnerStore : ComponentBase
 
             if (success)
             {
-                notificationComponent?.ShowSuccess("Store profile updated successfully!");
+                notificationComponent?.ShowSuccess("Store profile saved ✓");
                 await LoadStore();
             }
             else
             {
-                notificationComponent?.ShowError("Failed to save store profile. Please try again.");
+                notificationComponent?.ShowError("Failed to save. Please try again.");
             }
         }
-        catch (Exception ex) { notificationComponent?.ShowError($"Error: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            notificationComponent?.ShowError($"Error: {ex.Message}");
+        }
         finally
         {
             isSaving = false;
