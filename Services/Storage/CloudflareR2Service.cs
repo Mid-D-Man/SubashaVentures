@@ -1,6 +1,6 @@
 // Services/Storage/CloudflareR2Service.cs
 using System.Net.Http.Headers;
-using System.Net.Http.Json;          // ← FIX: JsonContent lives here
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components.Forms;
 using SubashaVentures.Services.Supabase;
@@ -10,23 +10,18 @@ using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 namespace SubashaVentures.Services.Storage;
 
 /// <summary>
-/// Implementation of ICloudflareR2Service.
-///
-/// All requests go through the R2 proxy Cloudflare Worker which:
-///   1. Validates the Supabase JWT (Authorization: Bearer {token})
-///   2. Checks the caller has permission for the target object key
-///   3. Proxies the request to R2 (or generates a presigned URL)
-///
-/// The Worker URL is configured in appsettings.json:
-///   "CloudflareR2": { "WorkerBaseUrl": "https://r2-proxy.mysubasha.com" }
-///
-/// No R2 API key is ever exposed to the browser. The Worker holds
-/// the R2 credentials as Worker secrets (set via wrangler CLI).
+/// Cloudflare R2 upload service.
+/// Every image upload is automatically:
+///   1. Validated (type + size)
+///   2. Compressed and converted to WebP via ImageCompressionService
+///   3. Renamed to a clean, predictable key
+///   4. Uploaded to R2 via the proxy Worker
 /// </summary>
 public class CloudflareR2Service : ICloudflareR2Service
 {
-    private readonly HttpClient _http;
-    private readonly ISupabaseAuthService _auth;
+    private readonly HttpClient               _http;
+    private readonly ISupabaseAuthService     _auth;
+    private readonly IImageCompressionService _compression;
     private readonly ILogger<CloudflareR2Service> _logger;
     private readonly string _workerBaseUrl;
 
@@ -36,155 +31,110 @@ public class CloudflareR2Service : ICloudflareR2Service
     };
 
     public CloudflareR2Service(
-        HttpClient http,
-        ISupabaseAuthService auth,
-        IConfiguration config,
+        HttpClient               http,
+        ISupabaseAuthService     auth,
+        IImageCompressionService compression,
+        IConfiguration           config,
         ILogger<CloudflareR2Service> logger)
     {
-        _http          = http;
-        _auth          = auth;
-        _logger        = logger;
+        _http        = http;
+        _auth        = auth;
+        _compression = compression;
+        _logger      = logger;
+
         _workerBaseUrl = (config["CloudflareR2:WorkerBaseUrl"]
             ?? throw new InvalidOperationException(
-                "CloudflareR2:WorkerBaseUrl is not configured in appsettings.json"))
+                "CloudflareR2:WorkerBaseUrl missing from appsettings.json"))
             .TrimEnd('/');
     }
 
-    // ── Presigned Upload ───────────────────────────────────────
+    // ── Upload ─────────────────────────────────────────────────────────────────
 
-    public async Task<R2PresignedUrlResult?> GetPresignedUploadUrlAsync(
-        string objectKey,
-        string contentType,
-        long maxFileSizeBytes = 5_242_880)
-    {
-        try
-        {
-            var token = await GetAuthTokenAsync();
-            if (token == null)
-                return new R2PresignedUrlResult
-                {
-                    Success = false,
-                    ErrorMessage = "Not authenticated"
-                };
-
-            var request = new HttpRequestMessage(
-                HttpMethod.Post,
-                $"{_workerBaseUrl}/presign");
-
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
-
-            request.Content = JsonContent.Create(new
-            {
-                object_key   = objectKey,
-                content_type = contentType,
-                max_size     = maxFileSizeBytes
-            });
-
-            var response = await _http.SendAsync(request);
-            var raw      = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"R2 presign failed ({response.StatusCode}): {raw}",
-                    LogLevel.Error);
-
-                return new R2PresignedUrlResult
-                {
-                    Success      = false,
-                    ErrorMessage = $"Worker error: {response.StatusCode}"
-                };
-            }
-
-            var result = JsonSerializer.Deserialize<WorkerPresignResponse>(raw, _jsonOptions);
-
-            if (result == null || string.IsNullOrEmpty(result.PresignedUrl))
-                return new R2PresignedUrlResult
-                {
-                    Success      = false,
-                    ErrorMessage = "Empty presign response from Worker"
-                };
-
-            return new R2PresignedUrlResult
-            {
-                Success          = true,
-                PresignedUrl     = result.PresignedUrl,
-                ObjectKey        = objectKey,
-                ExpiresInSeconds = result.ExpiresIn
-            };
-        }
-        catch (Exception ex)
-        {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 GetPresignedUploadUrl");
-            return new R2PresignedUrlResult
-            {
-                Success      = false,
-                ErrorMessage = ex.Message
-            };
-        }
-    }
-
-    // ── Direct Upload ──────────────────────────────────────────
-
-    public async Task<R2UploadResult> UploadFileAsync(
+    /// <summary>
+    /// Upload a browser file to R2.
+    /// Automatically compresses and converts to WebP before upload.
+    /// </summary>
+    public async Task<R2UploadResult> UploadImageAsync(
         IBrowserFile file,
         string objectKey,
-        string contentType,
         long maxFileSizeBytes = 5_242_880)
     {
         try
         {
+            // 1. Validate
             var validation = ValidateImageFile(file, maxFileSizeBytes);
             if (!validation.IsValid)
-                return new R2UploadResult
-                {
-                    Success      = false,
-                    ErrorMessage = string.Join("; ", validation.Errors)
-                };
+                return Fail(string.Join("; ", validation.Errors));
 
-            await using var stream = file.OpenReadStream(maxFileSizeBytes);
-            var bytes = new byte[file.Size];
-            var read  = await stream.ReadAsync(bytes, 0, (int)file.Size);
+            // 2. Compress + convert to WebP
+            await MID_HelperFunctions.DebugMessageAsync(
+                $"[R2] Compressing {file.Name} ({file.Size / 1024.0:F0} KB) → WebP",
+                LogLevel.Info);
 
-            if (read != file.Size)
-                return new R2UploadResult
-                {
-                    Success      = false,
-                    ErrorMessage = "Failed to read file completely"
-                };
+            var compression = await _compression.CompressImageAsync(
+                file,
+                maxWidth:          2000,
+                maxHeight:         2000,
+                quality:           85,
+                enableCompression: true,
+                outputFormat:      ImageOutputFormat.WebP);
 
-            return await UploadBytesAsync(bytes, objectKey, contentType);
+            byte[] bytes;
+            string finalContentType;
+
+            if (compression.Success && compression.CompressedStream != null)
+            {
+                using var ms = new MemoryStream();
+                await compression.CompressedStream.CopyToAsync(ms);
+                bytes           = ms.ToArray();
+                finalContentType = compression.ContentType; // image/webp
+
+                await MID_HelperFunctions.DebugMessageAsync(
+                    $"[R2] Compressed: {file.Size / 1024.0:F0} KB → {bytes.Length / 1024.0:F0} KB " +
+                    $"({compression.CompressionRatio * 100:F1}% saved)",
+                    LogLevel.Info);
+            }
+            else
+            {
+                // Fallback: use original bytes if compression fails
+                _logger.LogWarning("WebP compression failed for {Name}, using original", file.Name);
+                await using var stream = file.OpenReadStream(maxFileSizeBytes);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                bytes           = ms.ToArray();
+                finalContentType = file.ContentType;
+            }
+
+            // 3. Force .webp extension on the key
+            var webpKey = EnsureWebpExtension(objectKey, finalContentType);
+
+            // 4. Upload
+            return await UploadBytesAsync(bytes, webpKey, finalContentType);
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 UploadFile");
-            return new R2UploadResult
-            {
-                Success      = false,
-                ErrorMessage = ex.Message
-            };
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"R2 UploadImageAsync: {file.Name}");
+            return Fail(ex.Message);
         }
     }
 
+    /// <summary>Upload raw bytes. Use when you already have processed data.</summary>
     public async Task<R2UploadResult> UploadBytesAsync(
         byte[] bytes,
         string objectKey,
-        string contentType)
+        string contentType = "image/webp")
     {
         try
         {
             var token = await GetAuthTokenAsync();
-            if (token == null)
-                return new R2UploadResult
-                {
-                    Success      = false,
-                    ErrorMessage = "Not authenticated"
-                };
+            if (token == null) return Fail("Not authenticated");
+
+            var encodedKey = string.Join("/",
+                objectKey.Split('/').Select(Uri.EscapeDataString));
 
             var request = new HttpRequestMessage(
                 HttpMethod.Put,
-                $"{_workerBaseUrl}/upload/{Uri.EscapeDataString(objectKey)}");
+                $"{_workerBaseUrl}/upload/{encodedKey}");
 
             request.Headers.Authorization =
                 new AuthenticationHeaderValue("Bearer", token);
@@ -192,6 +142,7 @@ public class CloudflareR2Service : ICloudflareR2Service
             request.Content = new ByteArrayContent(bytes);
             request.Content.Headers.ContentType =
                 new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            request.Content.Headers.Add("Content-Length", bytes.Length.ToString());
 
             var response = await _http.SendAsync(request);
             var raw      = await response.Content.ReadAsStringAsync();
@@ -199,18 +150,12 @@ public class CloudflareR2Service : ICloudflareR2Service
             if (!response.IsSuccessStatusCode)
             {
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"R2 upload failed ({response.StatusCode}): {raw}",
-                    LogLevel.Error);
-
-                return new R2UploadResult
-                {
-                    Success      = false,
-                    ErrorMessage = $"Upload failed: {response.StatusCode}"
-                };
+                    $"[R2] Upload failed ({response.StatusCode}): {raw}", LogLevel.Error);
+                return Fail($"Upload failed ({response.StatusCode}): {raw}");
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"R2 upload success: {objectKey} ({bytes.Length} bytes)",
+                $"[R2] ✓ Uploaded: {objectKey} ({bytes.Length / 1024.0:F1} KB)",
                 LogLevel.Info);
 
             return new R2UploadResult
@@ -224,16 +169,12 @@ public class CloudflareR2Service : ICloudflareR2Service
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 UploadBytes");
-            return new R2UploadResult
-            {
-                Success      = false,
-                ErrorMessage = ex.Message
-            };
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"R2 UploadBytesAsync: {objectKey}");
+            return Fail(ex.Message);
         }
     }
 
-    // ── Delete ─────────────────────────────────────────────────
+    // ── Delete ─────────────────────────────────────────────────────────────────
 
     public async Task<bool> DeleteFileAsync(string objectKey)
     {
@@ -242,10 +183,12 @@ public class CloudflareR2Service : ICloudflareR2Service
             var token = await GetAuthTokenAsync();
             if (token == null) return false;
 
+            var encodedKey = string.Join("/",
+                objectKey.Split('/').Select(Uri.EscapeDataString));
+
             var request = new HttpRequestMessage(
                 HttpMethod.Delete,
-                $"{_workerBaseUrl}/delete/{Uri.EscapeDataString(objectKey)}");
-
+                $"{_workerBaseUrl}/delete/{encodedKey}");
             request.Headers.Authorization =
                 new AuthenticationHeaderValue("Bearer", token);
 
@@ -255,19 +198,17 @@ public class CloudflareR2Service : ICloudflareR2Service
             {
                 var raw = await response.Content.ReadAsStringAsync();
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"R2 delete failed ({response.StatusCode}): {raw}",
-                    LogLevel.Error);
+                    $"[R2] Delete failed ({response.StatusCode}): {raw}", LogLevel.Error);
                 return false;
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"R2 deleted: {objectKey}", LogLevel.Info);
-
+                $"[R2] ✓ Deleted: {objectKey}", LogLevel.Info);
             return true;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 DeleteFile");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"R2 DeleteFileAsync: {objectKey}");
             return false;
         }
     }
@@ -277,86 +218,71 @@ public class CloudflareR2Service : ICloudflareR2Service
         try
         {
             var objects = await ListObjectsAsync(prefix);
-
-            if (!objects.Any())
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"R2 DeleteFolder: no objects found under {prefix}",
-                    LogLevel.Info);
-                return true;
-            }
+            if (!objects.Any()) return true;
 
             var allDeleted = true;
-
             foreach (var obj in objects)
             {
-                var deleted = await DeleteFileAsync(obj.Key);
-                if (!deleted)
-                {
+                if (!await DeleteFileAsync(obj.Key))
                     allDeleted = false;
-                    await MID_HelperFunctions.DebugMessageAsync(
-                        $"R2 DeleteFolder: failed to delete {obj.Key}",
-                        LogLevel.Warning);
-                }
             }
 
             await MID_HelperFunctions.DebugMessageAsync(
-                $"R2 DeleteFolder: deleted {objects.Count} object(s) under {prefix}",
-                LogLevel.Info);
-
+                $"[R2] Deleted folder: {prefix} ({objects.Count} objects)", LogLevel.Info);
             return allDeleted;
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 DeleteFolder");
+            await MID_HelperFunctions.LogExceptionAsync(ex, $"R2 DeleteFolderAsync: {prefix}");
             return false;
         }
     }
 
-    // ── Public URL ─────────────────────────────────────────────
+    // ── Public URL ─────────────────────────────────────────────────────────────
 
     public string GetPublicUrl(string objectKey)
     {
-        if (string.IsNullOrWhiteSpace(objectKey))
-            return string.Empty;
-
+        if (string.IsNullOrWhiteSpace(objectKey)) return string.Empty;
         return $"{_workerBaseUrl}/{objectKey.TrimStart('/')}";
     }
 
     public string? ExtractObjectKey(string publicUrl)
     {
-        if (string.IsNullOrWhiteSpace(publicUrl))
-            return null;
-
+        if (string.IsNullOrWhiteSpace(publicUrl)) return null;
         if (!publicUrl.StartsWith(_workerBaseUrl, StringComparison.OrdinalIgnoreCase))
             return null;
-
         var key = publicUrl[_workerBaseUrl.Length..].TrimStart('/');
         return string.IsNullOrEmpty(key) ? null : key;
     }
 
-    // ── Object Key Builders ────────────────────────────────────
+    // ── Key Builders ───────────────────────────────────────────────────────────
+    // All keys are always .webp — clean, predictable, overwrite-safe.
 
-    public string BuildStoreLogoKey(string partnerId, string fileExtension) =>
-        $"partners/{partnerId}/store/logo.{fileExtension.TrimStart('.')}";
+    /// <summary>partners/{partnerId}/store/logo.webp</summary>
+    public string BuildStoreLogoKey(string partnerId) =>
+        $"partners/{partnerId}/store/logo.webp";
 
-    public string BuildStoreBannerKey(string partnerId, string fileExtension) =>
-        $"partners/{partnerId}/store/banner.{fileExtension.TrimStart('.')}";
+    /// <summary>partners/{partnerId}/store/banner.webp</summary>
+    public string BuildStoreBannerKey(string partnerId) =>
+        $"partners/{partnerId}/store/banner.webp";
 
-    public string BuildTemplateImageKey(
-        string partnerId,
-        string templateId,
-        string fileName) =>
-        $"partners/{partnerId}/templates/{templateId}/{SanitizeFileName(fileName)}";
+    /// <summary>
+    /// partners/{partnerId}/templates/{templateId}/img_{index}_{token}.webp
+    /// imageIndex is the 0-based position in the template's image list.
+    /// </summary>
+    public string BuildTemplateImageKey(string partnerId, string templateId, int imageIndex)
+    {
+        var token = Guid.NewGuid().ToString("N")[..8];
+        return $"partners/{partnerId}/templates/{templateId}/img_{imageIndex:D2}_{token}.webp";
+    }
 
-    public string BuildUserAvatarKey(string userId, string fileExtension) =>
-        $"users/{userId}/avatar.{fileExtension.TrimStart('.')}";
+    /// <summary>users/{userId}/avatar.webp</summary>
+    public string BuildUserAvatarKey(string userId) =>
+        $"users/{userId}/avatar.webp";
 
-    // ── Validation ─────────────────────────────────────────────
+    // ── Validation ─────────────────────────────────────────────────────────────
 
-    public R2ValidationResult ValidateImageFile(
-        IBrowserFile file,
-        long maxBytes = 5_242_880)
+    public R2ValidationResult ValidateImageFile(IBrowserFile file, long maxBytes = 5_242_880)
     {
         var errors = new List<string>();
 
@@ -368,13 +294,13 @@ public class CloudflareR2Service : ICloudflareR2Service
 
         if (!R2AllowedContentTypes.IsAllowedImage(file.ContentType))
             errors.Add(
-                $"File type '{file.ContentType}' is not allowed. " +
-                $"Accepted types: JPEG, PNG, WebP, GIF");
+                $"'{file.ContentType}' is not allowed. " +
+                "Accepted: JPEG, PNG, WebP, GIF");
 
         if (file.Size > maxBytes)
             errors.Add(
                 $"File size {file.Size / 1_048_576.0:F1} MB exceeds " +
-                $"the maximum of {maxBytes / 1_048_576.0:F0} MB");
+                $"limit of {maxBytes / 1_048_576.0:F0} MB");
 
         if (file.Size == 0)
             errors.Add("File is empty");
@@ -384,16 +310,15 @@ public class CloudflareR2Service : ICloudflareR2Service
             : new R2ValidationResult { IsValid = false, Errors = errors };
     }
 
-    // ── List ───────────────────────────────────────────────────
+    // ── List ───────────────────────────────────────────────────────────────────
 
     public async Task<List<R2ObjectInfo>> ListObjectsAsync(
-        string prefix = "",
-        int maxKeys = 1000)
+        string prefix = "", int maxKeys = 1000)
     {
         try
         {
             var token = await GetAuthTokenAsync();
-            if (token == null) return new List<R2ObjectInfo>();
+            if (token == null) return new();
 
             var url = string.IsNullOrEmpty(prefix)
                 ? $"{_workerBaseUrl}/list?max_keys={maxKeys}"
@@ -404,22 +329,20 @@ public class CloudflareR2Service : ICloudflareR2Service
                 new AuthenticationHeaderValue("Bearer", token);
 
             var response = await _http.SendAsync(request);
-
             if (!response.IsSuccessStatusCode)
             {
                 var raw = await response.Content.ReadAsStringAsync();
                 await MID_HelperFunctions.DebugMessageAsync(
-                    $"R2 list failed ({response.StatusCode}): {raw}",
-                    LogLevel.Error);
-                return new List<R2ObjectInfo>();
+                    $"[R2] List failed ({response.StatusCode}): {raw}", LogLevel.Error);
+                return new();
             }
 
             var json    = await response.Content.ReadAsStringAsync();
-            var objects = JsonSerializer.Deserialize<WorkerListResponse>(json, _jsonOptions);
+            var listed  = JsonSerializer.Deserialize<WorkerListResponse>(json, _jsonOptions);
 
-            if (objects?.Objects == null) return new List<R2ObjectInfo>();
+            if (listed?.Objects == null) return new();
 
-            return objects.Objects.Select(o => new R2ObjectInfo
+            return listed.Objects.Select(o => new R2ObjectInfo
             {
                 Key          = o.Key,
                 Size         = o.Size,
@@ -430,12 +353,12 @@ public class CloudflareR2Service : ICloudflareR2Service
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 ListObjects");
-            return new List<R2ObjectInfo>();
+            await MID_HelperFunctions.LogExceptionAsync(ex, "R2 ListObjectsAsync");
+            return new();
         }
     }
 
-    // ── Private Helpers ────────────────────────────────────────
+    // ── Private helpers ────────────────────────────────────────────────────────
 
     private async Task<string?> GetAuthTokenAsync()
     {
@@ -446,41 +369,43 @@ public class CloudflareR2Service : ICloudflareR2Service
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get auth token for R2 request");
+            _logger.LogError(ex, "Failed to get auth token for R2");
             return null;
         }
     }
 
-    private static string SanitizeFileName(string fileName)
+    /// <summary>
+    /// If the image was converted to WebP, switch the key extension to .webp.
+    /// Otherwise keep the original extension (gif stays gif, etc.).
+    /// </summary>
+    private static string EnsureWebpExtension(string objectKey, string contentType)
     {
-        var sanitized = new string(fileName
-            .Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_')
-            .ToArray());
-
-        return string.IsNullOrEmpty(sanitized)
-            ? $"file_{Guid.NewGuid():N}"
-            : sanitized;
+        if (contentType == "image/webp")
+        {
+            var lastDot = objectKey.LastIndexOf('.');
+            return lastDot >= 0
+                ? objectKey[..lastDot] + ".webp"
+                : objectKey + ".webp";
+        }
+        return objectKey;
     }
 
-    // ── Worker Response Shapes ─────────────────────────────────
+    private static R2UploadResult Fail(string msg) =>
+        new() { Success = false, ErrorMessage = msg };
 
-    private class WorkerPresignResponse
-    {
-        public string? PresignedUrl { get; set; }
-        public int ExpiresIn { get; set; } = 300;
-    }
+    // ── Worker response shapes ─────────────────────────────────────────────────
 
     private class WorkerListResponse
     {
-        public List<WorkerObjectEntry>? Objects { get; set; }
-        public bool Truncated { get; set; }
+        public List<WorkerObject>? Objects   { get; set; }
+        public bool                Truncated { get; set; }
     }
 
-    private class WorkerObjectEntry
+    private class WorkerObject
     {
-        public string Key { get; set; } = string.Empty;
-        public long Size { get; set; }
+        public string   Key          { get; set; } = string.Empty;
+        public long     Size         { get; set; }
         public DateTime LastModified { get; set; }
-        public string? ContentType { get; set; }
+        public string?  ContentType  { get; set; }
     }
 }
