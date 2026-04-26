@@ -407,51 +407,62 @@ public partial class PartnerTemplates : ComponentBase
 
     // ── Image handling ────────────────────────────────────────────────────────
 
-    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    // Replacement HandleImageUpload method for PartnerTemplates.razor.cs
+// (drop this in to replace the existing method — everything else stays the same)
+
+private async Task HandleImageUpload(InputFileChangeEventArgs e)
+{
+    var remaining = 10 - templateForm.ImageUrls.Count;
+    if (remaining <= 0) return;
+
+    var files = e.GetMultipleFiles(remaining);
+    if (!files.Any()) return;
+
+    isUploading    = true;
+    uploadingCount = files.Count;
+    StateHasChanged();
+
+    // Ensure we have a template ID before attaching images
+    if (string.IsNullOrEmpty(templateForm.TemplateId))
+        await SaveDraftSilentlyAsync();
+
+    var startIndex = templateForm.ImageUrls.Count;
+
+    foreach (var (file, localIndex) in files.Select((f, i) => (f, i)))
     {
-        var remaining = 10 - templateForm.ImageUrls.Count;
-        if (remaining <= 0) return;
-
-        var files = e.GetMultipleFiles(remaining);
-        if (!files.Any()) return;
-
-        isUploading    = true;
-        uploadingCount = files.Count;
-        StateHasChanged();
-
-        // Ensure we have a template ID to attach images to
-        if (string.IsNullOrEmpty(templateForm.TemplateId))
-            await SaveDraftSilentlyAsync();
-
-        foreach (var file in files)
+        try
         {
-            try
+            var validation = R2Service.ValidateImageFile(file);
+            if (!validation.IsValid)
             {
-                var validation = R2Service.ValidateImageFile(file);
-                if (!validation.IsValid)
-                {
-                    notificationComponent?.ShowWarning($"{file.Name}: {validation.Errors.First()}");
-                    continue;
-                }
-
-                var objectKey = R2Service.BuildTemplateImageKey(partnerId, templateForm.TemplateId!, file.Name);
-                var result    = await R2Service.UploadFileAsync(file, objectKey, file.ContentType);
-
-                if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
-                    templateForm.ImageUrls.Add(result.PublicUrl);
-                else
-                    notificationComponent?.ShowError($"Failed to upload {file.Name}");
+                notificationComponent?.ShowWarning($"{file.Name}: {validation.Errors.First()}");
+                continue;
             }
-            catch (Exception ex)
-            {
-                notificationComponent?.ShowError($"Upload error: {ex.Message}");
-            }
+
+            // Key: partners/{id}/templates/{templateId}/img_{n}_{token}.webp
+            var imageIndex = startIndex + localIndex;
+            var objectKey  = R2Service.BuildTemplateImageKey(
+                partnerId, templateForm.TemplateId!, imageIndex);
+
+            // UploadImageAsync handles compression + WebP conversion automatically
+            var result = await R2Service.UploadImageAsync(file, objectKey);
+
+            if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
+                templateForm.ImageUrls.Add(result.PublicUrl);
+            else
+                notificationComponent?.ShowError(
+                    $"Failed to upload {file.Name}: {result.ErrorMessage}");
         }
-
-        isUploading    = false;
-        uploadingCount = 0;
-        StateHasChanged();
+        catch (Exception ex)
+        {
+            notificationComponent?.ShowError($"Upload error: {ex.Message}");
+        }
     }
+
+    isUploading    = false;
+    uploadingCount = 0;
+    StateHasChanged();
+}
 
     private void RemoveImage(int index)
     {
