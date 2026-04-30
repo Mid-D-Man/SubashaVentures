@@ -1,7 +1,7 @@
 Project Structure Documentation - SubashaVentures
-Generated: Sun Apr 26 15:10:04 UTC 2026
+Generated: Thu Apr 30 11:50:00 UTC 2026
 Repository: Mid-D-Man/SubashaVentures
-Commit: fb78f98fd9c448e5c91a2674b5ae56fef3cf3057
+Commit: 180127efca45c9d442223fdeb492c16d10079304
 Branch: master
 ==================================
 
@@ -10,6 +10,7 @@ Source Files:
 .github/workflows/deploy-cloudflare.yml
 .github/workflows/deploy.yml
 .github/workflows/nuke-workflow-history.yml
+.github/workflows/setup-wrangler.yml
 App.razor
 App.razor.css
 Components/Admin/Images/AdminImageCard.razor
