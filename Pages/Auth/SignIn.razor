@@ -2,6 +2,9 @@
 @using SubashaVentures.Layout.Auth
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Buttons
+@using SubashaVentures.Services.VisualElements
+@using SubashaVentures.Domain.Enums
+@inject IVisualElementsService VisualElements
 @layout AuthLayout
 
 <div class="signin-page">
@@ -11,95 +14,94 @@
     </div>
 
     <form class="signin-form" @onsubmit="HandleSignIn">
-        <!-- Success Message (from registration) -->
+
         @if (!string.IsNullOrEmpty(successMessage))
         {
-            <div class="success-banner">
-                <span class="success-icon">✓</span>
-                <span class="success-text">@successMessage</span>
+            <div class="alert-banner alert-success">
+                <span class="alert-icon">@((MarkupString)_checkIcon)</span>
+                <span class="alert-text">@successMessage</span>
             </div>
         }
 
-        <!-- General Error Message -->
         @if (!string.IsNullOrEmpty(generalError))
         {
-            <div class="error-banner">
-                <span class="error-icon">!</span>
-                <span class="error-text">@generalError</span>
+            <div class="alert-banner alert-error">
+                <span class="alert-icon">@((MarkupString)_warningIcon)</span>
+                <span class="alert-text">@generalError</span>
             </div>
         }
 
-        <!-- Return URL Notice -->
         @if (!string.IsNullOrEmpty(ReturnUrl))
         {
-            <div class="info-banner">
-                <span class="info-icon">ℹ</span>
-                <span class="info-text">Please sign in to continue</span>
+            <div class="alert-banner alert-info">
+                <span class="alert-icon">@((MarkupString)_infoIcon)</span>
+                <span class="alert-text">Please sign in to continue</span>
             </div>
         }
 
-        <!-- Google Sign In -->
         <button type="button"
-                class="social-btn google"
+                class="google-btn"
                 @onclick="HandleGoogleSignIn"
                 disabled="@isLoading">
-            <span class="social-icon">G</span>
-            <span class="social-text">Continue with Google</span>
+            <span class="google-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+            </span>
+            <span class="google-text">Continue with Google</span>
         </button>
 
-        <!-- Divider -->
         <div class="divider">
             <span class="divider-line"></span>
             <span class="divider-text">OR</span>
             <span class="divider-line"></span>
         </div>
 
-        <!-- Email Field -->
-        <InputField
-            Label="Email Address"
-            Type="email"
-            @bind-Value="email"
-            Placeholder="Enter your email"
-            PrefixIcon="✉"
-            IsRequired="true"
-            HasError="@(!string.IsNullOrEmpty(emailError))"
-            ErrorMessage="@emailError"
-            ShowClearButton="true"
-            Size="InputField.InputSize.Medium" />
+        <div class="field-stack">
+            <InputField
+                Label="Email Address"
+                Type="email"
+                @bind-Value="email"
+                Placeholder="Enter your email"
+                PrefixIcon="@_mailIcon"
+                IsRequired="true"
+                HasError="@(!string.IsNullOrEmpty(emailError))"
+                ErrorMessage="@emailError"
+                ShowClearButton="true"
+                Size="InputField.InputSize.Medium" />
 
-        <!-- Password Field -->
-        <InputField
-            Label="Password"
-            Type="@(showPassword ? "text" : "password")"
-            @bind-Value="password"
-            Placeholder="Enter your password"
-            PrefixIcon="🔒"
-            IsRequired="true"
-            HasError="@(!string.IsNullOrEmpty(passwordError))"
-            ErrorMessage="@passwordError"
-            Size="InputField.InputSize.Medium" />
+            <InputField
+                Label="Password"
+                Type="@(showPassword ? "text" : "password")"
+                @bind-Value="password"
+                Placeholder="Enter your password"
+                PrefixIcon="@_lockIcon"
+                IsRequired="true"
+                HasError="@(!string.IsNullOrEmpty(passwordError))"
+                ErrorMessage="@passwordError"
+                Size="InputField.InputSize.Medium" />
+        </div>
 
-        <!-- Remember Me & Forgot Password -->
         <div class="form-options">
             <label class="remember-label">
                 <input type="checkbox" @bind="rememberMe" class="checkbox-input" />
                 <span class="checkbox-text">Remember me</span>
             </label>
-
             <a href="forgot-password" class="forgot-link">Forgot Password?</a>
         </div>
 
-        <!-- Sign In Button -->
         <PrimaryButton
             Type="submit"
             Size="PrimaryButton.ButtonSize.Large"
             IsDisabled="@isLoading"
             IsLoading="@isLoading"
-            CssClass="signin-button">
+            CssClass="submit-btn">
             Sign In
         </PrimaryButton>
 
-        <!-- Sign Up Link -->
         <div class="form-footer">
             <p class="footer-question">Don't have an account?</p>
             <a href="signup" class="footer-link">Sign Up</a>
@@ -109,5 +111,5 @@
 </div>
 
 @code {
-    // Code is in SignIn.razor.cs
+    // Code-behind in SignIn.razor.cs
 }
