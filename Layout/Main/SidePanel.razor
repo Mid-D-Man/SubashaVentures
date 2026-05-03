@@ -223,30 +223,29 @@
     [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
     [Parameter] public EventCallback<string>     OnNavigate    { get; set; }
 
+    // Cascading auth state — Blazor re-evaluates this whenever
+    // NotifyAuthenticationStateChanged() is called, triggering OnParametersSetAsync.
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
     // ── Auth / user state ─────────────────────────────────────────────────
     private bool   isAuthenticated = false;
     private string userName  = "";
     private string userEmail = "";
 
     // ── Avatar ────────────────────────────────────────────────────────────
-    // Priority: R2/profile URL → Gravatar → initials
     private string _profileAvatarUrl      = string.Empty;
     private string _gravatarUrl           = string.Empty;
-    private bool   _usingGravatar         = false;   // true when profile URL failed
-    private bool   _allAvatarsFailed      = false;   // true when both URLs failed
+    private bool   _usingGravatar         = false;
+    private bool   _allAvatarsFailed      = false;
     private string _avatarCachedForUserId = string.Empty;
 
-    /// <summary>
-    /// Returns the URL that the current <img> tag should use.
-    /// Profile (R2) URL takes priority; falls back to Gravatar once profile fails.
-    /// </summary>
     private string DisplayAvatarUrl =>
         (!_usingGravatar && !string.IsNullOrEmpty(_profileAvatarUrl))
             ? _profileAvatarUrl
             : _gravatarUrl;
 
     // ── Categories ────────────────────────────────────────────────────────
-    private List<CategoryViewModel> TopCategories      = new();
+    private List<CategoryViewModel> TopCategories       = new();
     private bool                    IsLoadingCategories = true;
     private bool                    HasMoreCategories   = false;
 
@@ -261,29 +260,64 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Load auth state first so the profile section renders correctly
-        // on the very first paint, then kick off the heavier loads.
+        // Subscribe to auth-state changes (fires when NotifyAuthenticationStateChanged is called)
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+
+        // Subscribe to navigation — after sign-in there is always a NavigateTo call,
+        // so this guarantees a re-check even if the auth event was not fired.
+        NavigationManager.LocationChanged += OnLocationChanged;
+
         await LoadAuthenticationState();
-        StateHasChanged();  // reflect auth immediately; icons/categories follow
+        StateHasChanged();
 
         await LoadNavigationIcons();
         await LoadTopCategories();
-
-        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
     }
 
+    // Fires whenever the cascading Task<AuthenticationState> is replaced by the
+    // CascadingAuthenticationState wrapper — i.e. on every NotifyAuthenticationStateChanged().
     protected override async Task OnParametersSetAsync()
     {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            var nowAuth   = authState.User?.Identity?.IsAuthenticated ?? false;
+
+            // Only do the expensive user-info work when auth status actually flips
+            if (nowAuth != isAuthenticated)
+            {
+                isAuthenticated = nowAuth;
+
+                if (isAuthenticated)
+                    await LoadUserInfoFromAuthState(authState);
+                else
+                    ResetUserState();
+
+                StateHasChanged();
+            }
+        }
+
+        // Refresh everything when the panel is explicitly opened
         if (IsOpen)
         {
-            // Refresh auth state every time the panel is opened so
-            // sign-in/out changes are reflected without a full page reload.
             await LoadAuthenticationState();
             StateHasChanged();
 
             if (!TopCategories.Any() && !IsLoadingCategories)
                 await LoadTopCategories();
         }
+    }
+
+    // Fires on every navigation (e.g. after sign-in redirects to home)
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _ = RefreshAuthOnNavigationAsync();
+    }
+
+    private async Task RefreshAuthOnNavigationAsync()
+    {
+        await LoadAuthenticationState();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
@@ -306,65 +340,67 @@
             isAuthenticated = user?.Identity?.IsAuthenticated ?? false;
 
             if (isAuthenticated)
-            {
-                userEmail = user?.FindFirst(ClaimTypes.Email)?.Value ?? "";
-
-                // Support both the standard ClaimTypes URI form (used by
-                // CustomSupabaseClaimsFactory) AND raw JWT field name strings
-                // (produced by the JwtTokenHelper fallback path).
-                var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value
-                             ?? user?.FindFirst("first_name")?.Value
-                             ?? "";
-                var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value
-                             ?? user?.FindFirst("last_name")?.Value
-                             ?? "";
-                var userId    = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                             ?? user?.FindFirst("sub")?.Value
-                             ?? "";
-
-                userName = !string.IsNullOrEmpty(firstName)
-                    ? $"{firstName} {lastName}".Trim()
-                    : userEmail.Split('@')[0];
-
-                await LoadAvatarAsync(userId, userEmail);
-            }
+                await LoadUserInfoFromAuthState(authState);
             else
-            {
-                // Reset everything on sign-out
-                userName               = "";
-                userEmail              = "";
-                _profileAvatarUrl      = string.Empty;
-                _gravatarUrl           = string.Empty;
-                _usingGravatar         = false;
-                _allAvatarsFailed      = false;
-                _avatarCachedForUserId = string.Empty;
-            }
+                ResetUserState();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"SidePanel: error loading auth state: {ex.Message}");
             isAuthenticated = false;
-            userName        = "";
-            userEmail       = "";
+            ResetUserState();
         }
     }
 
-    /// <summary>
-    /// Loads the avatar URL from the user's profile (Cloudflare R2) and
-    /// builds the Gravatar fallback URL. Call order on success:
-    ///   R2/profile URL  →  (on error) Gravatar  →  (on error) initials
-    /// </summary>
+    private async Task LoadUserInfoFromAuthState(AuthenticationState authState)
+    {
+        var user = authState.User;
+
+        // Email — support both ClaimTypes URI form and raw JWT field name
+        userEmail = user?.FindFirst(ClaimTypes.Email)?.Value
+                 ?? user?.FindFirst("email")?.Value
+                 ?? user?.Identity?.Name
+                 ?? "";
+
+        // Name — support both CustomSupabaseClaimsFactory and raw JWT names
+        var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value
+                     ?? user?.FindFirst("first_name")?.Value
+                     ?? "";
+        var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value
+                     ?? user?.FindFirst("last_name")?.Value
+                     ?? "";
+
+        userName = !string.IsNullOrEmpty(firstName)
+            ? $"{firstName} {lastName}".Trim()
+            : (!string.IsNullOrEmpty(userEmail) ? userEmail.Split('@')[0] : "User");
+
+        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? user?.FindFirst("sub")?.Value
+                  ?? "";
+
+        await LoadAvatarAsync(userId, userEmail);
+    }
+
+    private void ResetUserState()
+    {
+        userName               = "";
+        userEmail              = "";
+        _profileAvatarUrl      = string.Empty;
+        _gravatarUrl           = string.Empty;
+        _usingGravatar         = false;
+        _allAvatarsFailed      = false;
+        _avatarCachedForUserId = string.Empty;
+    }
+
     private async Task LoadAvatarAsync(string userId, string email)
     {
-        // Always rebuild Gravatar URL (cheap, no network call)
         if (!string.IsNullOrEmpty(email))
             _gravatarUrl = BuildGravatarUrl(email, size: 200);
 
-        // Skip expensive DB call if we already have this user's avatar
+        // Skip the DB call if we already loaded this user's avatar
         if (!string.IsNullOrEmpty(userId) && userId == _avatarCachedForUserId)
             return;
 
-        // Reset avatar state for the new user
         _avatarCachedForUserId = userId;
         _profileAvatarUrl      = string.Empty;
         _usingGravatar         = false;
@@ -380,7 +416,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"SidePanel: could not load profile avatar: {ex.Message}");
-            // _profileAvatarUrl stays empty → DisplayAvatarUrl will return Gravatar
         }
     }
 
@@ -392,27 +427,19 @@
         var hashBytes  = MD5.HashData(System.Text.Encoding.UTF8.GetBytes(normalised));
         var hash       = Convert.ToHexString(hashBytes).ToLower();
 
-        // d=404 means Gravatar returns 404 (not a placeholder) if no avatar
-        // exists, which triggers our @onerror handler to fall through to initials.
+        // d=404 means Gravatar returns 404 if no avatar exists, triggering our @onerror handler.
         return $"https://www.gravatar.com/avatar/{hash}?s={size}&d=404";
     }
 
-    /// <summary>
-    /// Called when the currently-displayed avatar image fails to load.
-    /// First failure: switch from profile URL to Gravatar.
-    /// Second failure: give up and show initials.
-    /// </summary>
     private void HandleAvatarError()
     {
         if (!_usingGravatar && !string.IsNullOrEmpty(_gravatarUrl))
         {
-            // Profile (R2) URL failed → try Gravatar next
             _usingGravatar = true;
             StateHasChanged();
         }
         else
         {
-            // Gravatar also failed (or wasn't available) → show initials
             _allAvatarsFailed = true;
             StateHasChanged();
         }
@@ -420,7 +447,7 @@
 
     private string GetUserInitial()
     {
-        if (!string.IsNullOrEmpty(userName)) return userName[0].ToString().ToUpper();
+        if (!string.IsNullOrEmpty(userName))  return userName[0].ToString().ToUpper();
         if (!string.IsNullOrEmpty(userEmail)) return userEmail[0].ToString().ToUpper();
         return "?";
     }
@@ -445,8 +472,6 @@
             navIconCache["contact"]     = await VisualElements.GetSvgWithColorAsync(SvgType.Contact,     20, 20, color);
             navIconCache["help"]        = await VisualElements.GetSvgWithColorAsync(SvgType.HelpCenter,  20, 20, color);
             navIconCache["track"]       = await VisualElements.GetSvgWithColorAsync(SvgType.TrackOrders, 20, 20, color);
-
-            Console.WriteLine($"✓ Loaded {navIconCache.Count} navigation icons");
         }
         catch (Exception ex)
         {
@@ -559,5 +584,6 @@
     public void Dispose()
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        NavigationManager.LocationChanged            -= OnLocationChanged;
     }
 }
