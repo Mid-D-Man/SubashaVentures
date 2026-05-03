@@ -8,7 +8,7 @@ using SubashaVentures.Services.Authorization;
 using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Products;
 using SubashaVentures.Services.VisualElements;
-
+using SubashaVentures.Models.Firebase;  
 namespace SubashaVentures.Pages.Store;
 
 public partial class StorePage : ComponentBase
