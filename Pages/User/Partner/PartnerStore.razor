@@ -37,7 +37,7 @@
     else if (store == null)
     {
         <div class="ps-error">
-            <span>⚠️</span>
+            <span class="ps-error-icon">@((MarkupString)warningIconSvg)</span>
             <p>Store profile not found. It may not have been created yet.</p>
             <PrimaryButton OnClick="LoadStore">Retry</PrimaryButton>
         </div>
@@ -64,7 +64,10 @@
                             }
                             else
                             {
-                                <span>📷 Change Banner</span>
+                                <span class="banner-upload-inner">
+                                    @((MarkupString)cameraIconSvg)
+                                    Change Banner
+                                </span>
                             }
                         </label>
                         @if (!string.IsNullOrEmpty(form.BannerUrl))
@@ -82,13 +85,20 @@
                         }
                         else
                         {
-                            <span class="logo-placeholder">🏪</span>
+                            <span class="logo-placeholder">@((MarkupString)storeIconSvg)</span>
                         }
                         <label class="logo-upload-btn">
                             <InputFile OnChange="HandleLogoUpload"
                                        accept="image/jpeg,image/png,image/webp"
                                        class="hidden-input" />
-                            @if (isUploadingLogo) { <span>...</span> } else { <span>📷</span> }
+                            @if (isUploadingLogo)
+                            {
+                                <span class="logo-upload-spinner"></span>
+                            }
+                            else
+                            {
+                                <span class="logo-upload-icon">@((MarkupString)cameraSmallSvg)</span>
+                            }
                         </label>
                     </div>
                     <div class="ps-store-name-preview">@(form.StoreName.Length > 0 ? form.StoreName : store.StoreName)</div>
