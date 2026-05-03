@@ -1,45 +1,54 @@
-// Pages/Auth/SignUp.razor.cs - FIXED REDIRECT
+// Pages/Auth/SignUp.razor.cs
 using Microsoft.AspNetCore.Components;
 using SubashaVentures.Services.Auth;
 using SubashaVentures.Models.Supabase;
 using SubashaVentures.Utilities.HelperScripts;
 using Microsoft.AspNetCore.Components.Authorization;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Storage;
+using SubashaVentures.Services.VisualElements;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;
 
 public partial class SignUp : ComponentBase
 {
-    [Inject] private SupabaseAuthService AuthService { get; set; } = default!;
-    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
-    [Inject] private ILogger<SignUp> Logger { get; set; } = default!;
-    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
-    [Inject] private IUserService UserService { get; set; } = default!;
-    [Inject] private IBlazorAppLocalStorageService LocalStorage { get; set; } = default!;
+    [Inject] private SupabaseAuthService           AuthService       { get; set; } = default!;
+    [Inject] private NavigationManager             NavigationManager { get; set; } = default!;
+    [Inject] private ILogger<SignUp>               Logger            { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider   AuthStateProvider { get; set; } = default!;
+    [Inject] private IUserService                  UserService       { get; set; } = default!;
+    [Inject] private IBlazorAppLocalStorageService LocalStorage      { get; set; } = default!;
+    [Inject] private IVisualElementsService        VisualElements    { get; set; } = default!;
 
-    private string firstName = "";
-    private string lastName = "";
-    private string email = "";
-    private string password = "";
+    // ── Form fields ────────────────────────────────────────────────────────
+    private string firstName       = "";
+    private string lastName        = "";
+    private string email           = "";
+    private string password        = "";
     private string confirmPassword = "";
-    private bool acceptTerms = false;
-    
-    private bool showPassword = false;
-    private bool showConfirmPassword = false;
-    
-    private string firstNameError = "";
-    private string lastNameError = "";
-    private string emailError = "";
-    private string passwordError = "";
+    private bool   acceptTerms     = false;
+    private bool   showPassword        = false;
+    private bool   showConfirmPassword = false;
+
+    // ── Errors ────────────────────────────────────────────────────────────
+    private string firstNameError       = "";
+    private string lastNameError        = "";
+    private string emailError           = "";
+    private string passwordError        = "";
     private string confirmPasswordError = "";
-    private string termsError = "";
-    private string generalError = "";
-    private string successMessage = "";
-    
-    private bool isLoading = false;
+    private string termsError           = "";
+    private string generalError         = "";
+    private string successMessage       = "";
+    private bool   isLoading            = false;
+
+    // ── SVG icons ──────────────────────────────────────────────────────────
+    private string _mailIcon    = string.Empty;
+    private string _lockIcon    = string.Empty;
+    private string _checkIcon   = string.Empty;
+    private string _warningIcon = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,95 +56,90 @@ public partial class SignUp : ComponentBase
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         if (authState.User?.Identity?.IsAuthenticated ?? false)
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                "User already authenticated, redirecting...",
-                LogLevel.Info
-            );
-
             var destination = await DetermineRedirectDestinationAsync();
             NavigationManager.NavigateTo(destination, forceLoad: false);
+            return;
+        }
+
+        await LoadIconsAsync();
+    }
+
+    private async Task LoadIconsAsync()
+    {
+        try
+        {
+            _mailIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail, width: 18, height: 18, fillColor: "currentColor");
+
+            _checkIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.CheckMark, width: 16, height: 16, fillColor: "currentColor");
+
+            _warningIcon = await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor");
+
+            _lockIcon = VisualElements.GenerateSvg(
+                "<rect x='3' y='11' width='18' height='11' rx='2' ry='2' stroke='currentColor' stroke-width='1.5' fill='none'/>" +
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' fill='none' d='M7 11V7a5 5 0 0 1 10 0v4'/>",
+                18, 18, "0 0 24 24");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SignUp icon load error: {ex.Message}");
         }
     }
 
-    // ==================== EMAIL/PASSWORD SIGN UP ====================
-    
+    // ── Email/password sign-up ─────────────────────────────────────────────
+
     private async Task HandleSignUp()
     {
         ClearErrors();
         successMessage = "";
-        
-        if (!ValidateForm())
-        {
-            return;
-        }
-        
+
+        if (!ValidateForm()) return;
+
         isLoading = true;
         StateHasChanged();
-        
+
         try
         {
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Starting sign up for: {email}",
-                LogLevel.Info
-            );
-
             var userData = new UserModel
             {
-                FirstName = firstName.Trim(),
-                LastName = lastName.Trim(),
-                Email = email.Trim().ToLowerInvariant(),
-                EmailNotifications = true,
-                SmsNotifications = false,
-                PreferredLanguage = "en",
-                Currency = "NGN",
-                AccountStatus = "Active",
-                MembershipTier = "Bronze",
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = "system"
+                FirstName           = firstName.Trim(),
+                LastName            = lastName.Trim(),
+                Email               = email.Trim().ToLowerInvariant(),
+                EmailNotifications  = true,
+                SmsNotifications    = false,
+                PreferredLanguage   = "en",
+                Currency            = "NGN",
+                AccountStatus       = "Active",
+                MembershipTier      = "Bronze",
+                CreatedAt           = DateTime.UtcNow,
+                CreatedBy           = "system"
             };
 
             var result = await AuthService.SignUpAsync(email, password, userData);
-            
+
             if (result.Success)
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"✓ User signed up successfully: {email}",
-                    LogLevel.Info
-                );
-
-                Logger.LogInformation("User signed up successfully: {Email}", email);
-                
                 successMessage = result.Message;
-                
-                // Notify auth state if needed
-                if (AuthStateProvider is SupabaseAuthStateProvider provider)
-                {
-                    provider.NotifyAuthenticationStateChanged();
-                }
 
-                // Wait and redirect to sign-in
+                if (AuthStateProvider is SupabaseAuthStateProvider provider)
+                    provider.NotifyAuthenticationStateChanged();
+
                 await Task.Delay(3000);
                 NavigationManager.NavigateTo("signin?registered=true", forceLoad: false);
             }
             else
             {
-                // Check for specific errors
                 if (result.ErrorCode == "user_already_exists")
-                {
                     emailError = result.Message;
-                }
                 else
-                {
                     generalError = result.Message;
-                }
-                
-                Logger.LogWarning("Sign up failed for {Email}: {Message}", email, result.Message);
             }
         }
         catch (Exception ex)
         {
-            generalError = "An error occurred during registration. Please try again later.";
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Sign up");
+            generalError = "An error occurred during registration. Please try again.";
             Logger.LogError(ex, "Error during sign up for {Email}", email);
         }
         finally
@@ -145,8 +149,8 @@ public partial class SignUp : ComponentBase
         }
     }
 
-    // ==================== GOOGLE OAUTH SIGN UP ====================
-    
+    // ── Google OAuth ───────────────────────────────────────────────────────
+
     private async Task HandleGoogleSignUp()
     {
         try
@@ -155,214 +159,97 @@ public partial class SignUp : ComponentBase
             isLoading = true;
             StateHasChanged();
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                "Initiating Google sign-up",
-                LogLevel.Info
-            );
-
-            // ✅ For OAuth signup, we don't pass a return URL
-            // After OAuth callback, role-based redirect will happen automatically
             var success = await AuthService.SignInWithGoogleAsync(null);
 
             if (!success)
             {
                 generalError = "Failed to initiate Google sign-up. Please try again.";
-                isLoading = false;
+                isLoading    = false;
                 StateHasChanged();
             }
-            // Note: If successful, user will be redirected to Google
-            // They'll come back to /auth/callback after authentication
-            // OAuthCallback.razor will handle role-based redirect
         }
         catch (Exception ex)
         {
             generalError = "An error occurred with Google sign-up. Please try again.";
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Google sign-up");
             Logger.LogError(ex, "Error during Google sign-up");
-            
             isLoading = false;
             StateHasChanged();
         }
     }
 
-    // ==================== ROLE-BASED REDIRECT ====================
+    // ── Role-based redirect ────────────────────────────────────────────────
 
     private async Task<string> DetermineRedirectDestinationAsync()
     {
         try
         {
-            // Get current user
             var user = await AuthService.GetCurrentUserAsync();
-            if (user == null)
-            {
-                return ""; // ✅ FIXED: Empty string for home
-            }
+            if (user == null) return "";
 
-            // Get user profile with roles
-            var userProfile = await UserService.GetUserByIdAsync(user.Id);
-            
-            if (userProfile == null)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "User profile not found, redirecting to home",
-                    LogLevel.Warning
-                );
-                return ""; // ✅ FIXED: Empty string for home
-            }
-
-            // Check if user is superior admin
-            if (userProfile.IsSuperiorAdmin)
-            {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    $"Superior admin detected: {user.Email}, redirecting to admin panel",
-                    LogLevel.Info
-                );
-                return "admin";
-            }
-
-            // Regular user - go to home
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"Regular user detected: {user.Email}, redirecting to home",
-                LogLevel.Info
-            );
-            
-            return ""; // ✅ FIXED: Empty string for home
+            var profile = await UserService.GetUserByIdAsync(user.Id);
+            return profile?.IsSuperiorAdmin == true ? "admin" : "";
         }
         catch (Exception ex)
         {
-            await MID_HelperFunctions.LogExceptionAsync(ex, "Determining redirect destination");
             Logger.LogError(ex, "Error determining redirect destination");
-            return ""; // ✅ FIXED: Empty string for home on error
+            return "";
         }
     }
 
-    // ==================== VALIDATION ====================
-    
+    // ── Validation ─────────────────────────────────────────────────────────
+
     private bool ValidateForm()
     {
-        bool isValid = true;
-        
-        // First name validation
-        if (string.IsNullOrWhiteSpace(firstName))
-        {
-            firstNameError = "First name is required";
-            isValid = false;
-        }
-        else if (firstName.Trim().Length < 2)
-        {
-            firstNameError = "First name must be at least 2 characters";
-            isValid = false;
-        }
+        bool valid = true;
+
+        if (string.IsNullOrWhiteSpace(firstName) || firstName.Trim().Length < 2)
+        { firstNameError = "First name must be at least 2 characters"; valid = false; }
         else if (!IsValidName(firstName))
-        {
-            firstNameError = "First name contains invalid characters";
-            isValid = false;
-        }
-        
-        // Last name validation
-        if (string.IsNullOrWhiteSpace(lastName))
-        {
-            lastNameError = "Last name is required";
-            isValid = false;
-        }
-        else if (lastName.Trim().Length < 2)
-        {
-            lastNameError = "Last name must be at least 2 characters";
-            isValid = false;
-        }
+        { firstNameError = "First name contains invalid characters"; valid = false; }
+
+        if (string.IsNullOrWhiteSpace(lastName) || lastName.Trim().Length < 2)
+        { lastNameError = "Last name must be at least 2 characters"; valid = false; }
         else if (!IsValidName(lastName))
-        {
-            lastNameError = "Last name contains invalid characters";
-            isValid = false;
-        }
-        
-        // Email validation
+        { lastNameError = "Last name contains invalid characters"; valid = false; }
+
         if (string.IsNullOrWhiteSpace(email))
-        {
-            emailError = "Email is required";
-            isValid = false;
-        }
+        { emailError = "Email is required"; valid = false; }
         else if (!IsValidEmail(email))
-        {
-            emailError = "Please enter a valid email address";
-            isValid = false;
-        }
-        
-        // Password validation
+        { emailError = "Please enter a valid email address"; valid = false; }
+
         if (string.IsNullOrWhiteSpace(password))
-        {
-            passwordError = "Password is required";
-            isValid = false;
-        }
+        { passwordError = "Password is required"; valid = false; }
         else if (password.Length < 8)
-        {
-            passwordError = "Password must be at least 8 characters";
-            isValid = false;
-        }
+        { passwordError = "Password must be at least 8 characters"; valid = false; }
         else if (!IsStrongPassword(password))
-        {
-            passwordError = "Password must contain uppercase, lowercase, and number";
-            isValid = false;
-        }
-        
-        // Confirm password validation
+        { passwordError = "Password must contain uppercase, lowercase, and a number"; valid = false; }
+
         if (string.IsNullOrWhiteSpace(confirmPassword))
-        {
-            confirmPasswordError = "Please confirm your password";
-            isValid = false;
-        }
+        { confirmPasswordError = "Please confirm your password"; valid = false; }
         else if (password != confirmPassword)
-        {
-            confirmPasswordError = "Passwords do not match";
-            isValid = false;
-        }
-        
-        // Terms acceptance validation
+        { confirmPasswordError = "Passwords do not match"; valid = false; }
+
         if (!acceptTerms)
-        {
-            termsError = "You must accept the terms and conditions";
-            isValid = false;
-        }
-        
-        return isValid;
+        { termsError = "You must accept the terms and conditions"; valid = false; }
+
+        return valid;
     }
 
     private void ClearErrors()
     {
-        firstNameError = "";
-        lastNameError = "";
-        emailError = "";
-        passwordError = "";
-        confirmPasswordError = "";
-        termsError = "";
-        generalError = "";
+        firstNameError = lastNameError = emailError = passwordError =
+            confirmPasswordError = termsError = generalError = "";
     }
 
     private static bool IsValidEmail(string email)
     {
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
-        }
+        try   { return new System.Net.Mail.MailAddress(email).Address == email; }
+        catch { return false; }
     }
 
-    private static bool IsValidName(string name)
-    {
-        // Allow letters, spaces, hyphens, and apostrophes
-        return name.Trim().All(c => char.IsLetter(c) || c == ' ' || c == '-' || c == '\'');
-    }
+    private static bool IsValidName(string name) =>
+        name.Trim().All(c => char.IsLetter(c) || c == ' ' || c == '-' || c == '\'');
 
-    private static bool IsStrongPassword(string password)
-    {
-        bool hasUpper = password.Any(char.IsUpper);
-        bool hasLower = password.Any(char.IsLower);
-        bool hasDigit = password.Any(char.IsDigit);
-        
-        return hasUpper && hasLower && hasDigit;
-    }
+    private static bool IsStrongPassword(string password) =>
+        password.Any(char.IsUpper) && password.Any(char.IsLower) && password.Any(char.IsDigit);
 }
