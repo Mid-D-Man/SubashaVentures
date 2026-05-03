@@ -4,6 +4,7 @@
 @using SubashaVentures.Components.Shared.Loading
 @using SubashaVentures.Components.Shared.Cards
 @using SubashaVentures.Layout.Main
+@using SubashaVentures.Services.VisualElements
 @layout LandingPageLayout
 
 <PageTitle>@(store?.StoreName ?? "Partner Store") - SubashaVentures</PageTitle>
@@ -20,7 +21,7 @@
     else if (store == null)
     {
         <div class="store-not-found">
-            <div class="snf-icon">🏪</div>
+            <div class="snf-icon">@((MarkupString)storeIconSvg)</div>
             <h2>Store Not Found</h2>
             <p>This store doesn't exist or is no longer active.</p>
             <button class="btn-back" @onclick="GoToShop">Browse Products</button>
@@ -43,7 +44,7 @@
                         else
                         {
                             <div class="store-logo-placeholder">
-                                <span>🏪</span>
+                                @((MarkupString)storeIconLgSvg)
                             </div>
                         }
                     </div>
@@ -55,14 +56,18 @@
                             <p class="store-tagline">@store.Tagline</p>
                         }
                         <div class="store-meta-row">
-                            <span class="store-location">📍 @store.LocationDisplay</span>
+                            <span class="store-location">
+                                <span class="meta-icon">@((MarkupString)locationIconSvg)</span>
+                                @store.LocationDisplay
+                            </span>
                             <span class="store-divider">•</span>
                             <span class="store-member-since">Member since @store.CreatedAtDisplay</span>
                             @if (ratingSummary.TotalReviews > 0)
                             {
                                 <span class="store-divider">•</span>
                                 <span class="store-rating-inline">
-                                    ⭐ @ratingSummary.DisplayAverage
+                                    <span class="meta-icon rating-star-icon">@((MarkupString)starIconSvg)</span>
+                                    @ratingSummary.DisplayAverage
                                     <span class="rating-count">(@ratingSummary.DisplayTotal)</span>
                                 </span>
                             }
@@ -93,7 +98,6 @@
             @* ── Left: info + ratings ── *@
             <aside class="store-sidebar">
 
-                @* Description *@
                 @if (!string.IsNullOrEmpty(store.Description))
                 {
                     <div class="sidebar-card">
@@ -102,7 +106,6 @@
                     </div>
                 }
 
-                @* Contact *@
                 @if (!string.IsNullOrEmpty(store.PublicPhone) ||
                      !string.IsNullOrEmpty(store.PublicEmail))
                 {
@@ -111,7 +114,7 @@
                         @if (!string.IsNullOrEmpty(store.PublicPhone))
                         {
                             <div class="contact-row">
-                                <span class="contact-icon">📞</span>
+                                <span class="contact-icon">@((MarkupString)phoneIconSvg)</span>
                                 <a href="tel:@store.PublicPhone" class="contact-link">
                                     @store.PublicPhone
                                 </a>
@@ -120,7 +123,7 @@
                         @if (!string.IsNullOrEmpty(store.PublicEmail))
                         {
                             <div class="contact-row">
-                                <span class="contact-icon">✉️</span>
+                                <span class="contact-icon">@((MarkupString)mailIconSvg)</span>
                                 <a href="mailto:@store.PublicEmail" class="contact-link">
                                     @store.PublicEmail
                                 </a>
@@ -129,7 +132,6 @@
                     </div>
                 }
 
-                @* Rating Summary *@
                 <div class="sidebar-card rating-card">
                     <h3 class="sidebar-card-title">Store Ratings</h3>
 
@@ -155,14 +157,13 @@
                             <div class="rating-breakdown">
                                 @for (int s = 5; s >= 1; s--)
                                 {
-                                    int star = s;
-                                    int pct  = ratingSummary.PercentFor(star);
+                                    int star  = s;
+                                    int pct   = ratingSummary.PercentFor(star);
                                     int count = ratingSummary.Breakdown.GetValueOrDefault(star, 0);
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">@star ★</span>
                                         <div class="breakdown-bar-track">
-                                            <div class="breakdown-bar-fill"
-                                                 style="width: @pct%"></div>
+                                            <div class="breakdown-bar-fill" style="width: @pct%"></div>
                                         </div>
                                         <span class="breakdown-count">@count</span>
                                     </div>
@@ -171,11 +172,11 @@
                         </div>
                     }
 
-                    @* Write review button *@
                     @if (isAuthenticated && !hasReviewed && !showReviewForm)
                     {
                         <button class="btn-write-review" @onclick="OpenReviewForm">
-                            ✏️ Write a Review
+                            <span class="btn-icon">@((MarkupString)editIconSvg)</span>
+                            Write a Review
                         </button>
                     }
                     else if (!isAuthenticated)
@@ -186,7 +187,10 @@
                     }
                     else if (hasReviewed)
                     {
-                        <p class="already-reviewed">✓ You've reviewed this store</p>
+                        <p class="already-reviewed">
+                            <span class="already-reviewed-icon">@((MarkupString)checkIconSvg)</span>
+                            You've reviewed this store
+                        </p>
                     }
                 </div>
             </aside>
@@ -194,7 +198,6 @@
             @* ── Main: products + reviews ── *@
             <main class="store-main">
 
-                @* Review Form *@
                 @if (showReviewForm)
                 {
                     <div class="store-review-form-wrap">
@@ -204,7 +207,6 @@
                                 <button class="srf-close" @onclick="CloseReviewForm">✕</button>
                             </div>
 
-                            @* Star picker *@
                             <div class="srf-field">
                                 <label class="srf-label">Rating <span class="req">*</span></label>
                                 <div class="star-picker">
@@ -252,19 +254,21 @@
 
                             @if (!string.IsNullOrEmpty(reviewSubmitError))
                             {
-                                <div class="srf-submit-error">⚠️ @reviewSubmitError</div>
+                                <div class="srf-submit-error">
+                                    <span class="srf-notice-icon">@((MarkupString)warningIconSvg)</span>
+                                    @reviewSubmitError
+                                </div>
                             }
                             @if (reviewSubmitSuccess)
                             {
                                 <div class="srf-submit-success">
-                                    ✓ Review submitted! It will appear after admin approval.
+                                    <span class="srf-notice-icon">@((MarkupString)checkIconSvg)</span>
+                                    Review submitted! It will appear after admin approval.
                                 </div>
                             }
 
                             <div class="srf-actions">
-                                <button class="btn-cancel-review" @onclick="CloseReviewForm">
-                                    Cancel
-                                </button>
+                                <button class="btn-cancel-review" @onclick="CloseReviewForm">Cancel</button>
                                 <button class="btn-submit-review @(isSubmittingReview ? "loading" : "")"
                                         @onclick="HandleSubmitReview"
                                         disabled="@isSubmittingReview">
@@ -283,7 +287,6 @@
                     </div>
                 }
 
-                @* Products *@
                 <section class="store-products-section">
                     <div class="section-header">
                         <h2 class="section-title">Products (@products.Count)</h2>
@@ -301,7 +304,7 @@
                     @if (!products.Any())
                     {
                         <div class="no-products">
-                            <span class="no-products-icon">📦</span>
+                            <span class="no-content-icon">@((MarkupString)boxIconSvg)</span>
                             <p>No products available in this store yet.</p>
                         </div>
                     }
@@ -316,14 +319,13 @@
                     }
                 </section>
 
-                @* Reviews *@
                 <section class="store-reviews-section">
                     <h2 class="section-title">Customer Reviews</h2>
 
                     @if (!reviews.Any())
                     {
                         <div class="no-reviews">
-                            <span class="no-reviews-icon">💬</span>
+                            <span class="no-content-icon">@((MarkupString)chatIconSvg)</span>
                             <p>No reviews yet. Share your experience!</p>
                         </div>
                     }
@@ -337,8 +339,7 @@
                                         <div class="src-avatar">
                                             @if (!string.IsNullOrEmpty(review.UserAvatar))
                                             {
-                                                <img src="@review.UserAvatar"
-                                                     alt="@review.UserName" />
+                                                <img src="@review.UserAvatar" alt="@review.UserName" />
                                             }
                                             else
                                             {
@@ -361,7 +362,10 @@
                                             <span class="src-date">@review.TimeAgo</span>
                                             @if (review.IsVerifiedPurchase)
                                             {
-                                                <span class="src-verified">✓ Verified Purchase</span>
+                                                <span class="src-verified">
+                                                    <span class="verified-icon">@((MarkupString)checkIconSvg)</span>
+                                                    Verified Purchase
+                                                </span>
                                             }
                                         </div>
                                     </div>
@@ -375,7 +379,8 @@
                                     <div class="src-footer">
                                         <button class="btn-helpful"
                                                 @onclick="() => HandleMarkHelpful(review.Id)">
-                                            👍 Helpful (@review.HelpfulCount)
+                                            <span class="helpful-icon">@((MarkupString)thumbsUpIconSvg)</span>
+                                            Helpful (@review.HelpfulCount)
                                         </button>
                                     </div>
                                 </div>
