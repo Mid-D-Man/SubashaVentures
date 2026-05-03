@@ -3,6 +3,10 @@
     display: flex;
     flex-direction: column;
     gap: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+    box-sizing: border-box;
 }
 
 /* ===== HEADER ===== */
@@ -66,6 +70,21 @@
     border: 1px solid var(--border-light);
 }
 
+.ps-error-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.ps-error-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
 /* ===== FORM LAYOUT ===== */
 .ps-form-layout {
     display: flex;
@@ -123,9 +142,20 @@
     font-size: 0.8125rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s ease;
     opacity: 0;
     transition: opacity 0.2s ease;
+}
+
+.banner-upload-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.banner-upload-inner svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .banner-remove-btn {
@@ -181,7 +211,16 @@
 }
 
 .logo-placeholder {
-    font-size: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+.logo-placeholder svg {
+    width: 40px;
+    height: 40px;
 }
 
 .logo-upload-btn {
@@ -191,8 +230,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-size: 1.25rem;
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -202,6 +239,29 @@
 .ps-logo-circle:hover .logo-upload-btn {
     opacity: 1;
 }
+
+.logo-upload-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.logo-upload-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.logo-upload-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .ps-store-name-preview {
     font-family: 'Poppins', sans-serif;
@@ -347,6 +407,10 @@
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
+    .partner-store {
+        padding: 1rem;
+    }
+
     .ps-fields {
         padding: 0 1rem 1.5rem;
     }
@@ -376,4 +440,14 @@
     .ps-stats-row {
         grid-template-columns: 1fr 1fr;
     }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+    .logo-upload-spinner { animation: none; }
+    .ps-view-link,
+    .form-textarea,
+    .banner-upload-btn,
+    .banner-remove-btn,
+    .logo-upload-btn { transition: none; }
 }
