@@ -2,10 +2,12 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
+using SubashaVentures.Domain.Enums;
 using SubashaVentures.Domain.Partner;
 using SubashaVentures.Services.Partners;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Services.Users;
+using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Components.Shared.Notifications;
 
 namespace SubashaVentures.Pages.User.Partner;
@@ -15,6 +17,7 @@ public partial class PartnerStore : ComponentBase
     [Inject] private IPartnerStoreService        PartnerStoreService { get; set; } = default!;
     [Inject] private ICloudflareR2Service        R2Service           { get; set; } = default!;
     [Inject] private IUserService                UserService         { get; set; } = default!;
+    [Inject] private IVisualElementsService      VisualElements      { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthStateProvider   { get; set; } = default!;
     [Inject] private NavigationManager           Navigation          { get; set; } = default!;
 
@@ -25,6 +28,12 @@ public partial class PartnerStore : ComponentBase
     private string userId            = string.Empty;
     private string partnerId         = string.Empty;
     private string storeId           = string.Empty;
+
+    // SVGs
+    private string storeIconSvg  = string.Empty;
+    private string cameraIconSvg = string.Empty;
+    private string cameraSmallSvg = string.Empty;
+    private string warningIconSvg = string.Empty;
 
     private PartnerStoreViewModel?     store  = null;
     private StoreFormData              form   = new();
@@ -68,12 +77,41 @@ public partial class PartnerStore : ComponentBase
                 return;
             }
 
-            await LoadStore();
+            await Task.WhenAll(LoadIconsAsync(), LoadStore());
         }
         catch (Exception ex)
         {
             Console.WriteLine($"PartnerStore init error: {ex.Message}");
             isLoading = false;
+        }
+    }
+
+    private async Task LoadIconsAsync()
+    {
+        try
+        {
+            storeIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.ShopNow, width: 40, height: 40, fillColor: "currentColor");
+
+            warningIconSvg = await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning, width: 32, height: 32, fillColor: "var(--warning-color, #f59e0b)");
+
+            // Camera icon — no enum entry, generate inline
+            cameraIconSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' " +
+                "d='M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z'/>" +
+                "<circle stroke='currentColor' stroke-width='1.5' cx='12' cy='13' r='4'/>",
+                20, 20, "0 0 24 24", "fill='none'");
+
+            cameraSmallSvg = VisualElements.GenerateSvg(
+                "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' " +
+                "d='M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z'/>" +
+                "<circle stroke='currentColor' stroke-width='1.5' cx='12' cy='13' r='4'/>",
+                18, 18, "0 0 24 24", "fill='none'");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PartnerStore icon load error: {ex.Message}");
         }
     }
 
@@ -140,11 +178,8 @@ public partial class PartnerStore : ComponentBase
 
         try
         {
-            // Key is always partners/{id}/store/logo.webp
             var objectKey = R2Service.BuildStoreLogoKey(partnerId);
-
-            // UploadImageAsync handles compression + WebP conversion
-            var result = await R2Service.UploadImageAsync(file, objectKey);
+            var result    = await R2Service.UploadImageAsync(file, objectKey);
 
             if (result.Success && !string.IsNullOrEmpty(result.PublicUrl))
             {
@@ -174,7 +209,6 @@ public partial class PartnerStore : ComponentBase
         var file = e.File;
         if (file == null) return;
 
-        // Banners allow 5 MB
         var validation = R2Service.ValidateImageFile(file, 5_242_880);
         if (!validation.IsValid)
         {
