@@ -1,7 +1,5 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
-@using System.Security.Cryptography
-@using System.Text
 @using Microsoft.AspNetCore.WebUtilities
 @using SubashaVentures.Services.Categories
 @using SubashaVentures.Services.VisualElements
@@ -15,6 +13,7 @@
 @inject IVisualElementsService VisualElements
 @inject IUserService UserService
 @inject ShopStateService ShopState
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <div class="side-panel-overlay @(IsOpen ? "active" : "")" @onclick="HandleOverlayClick">
@@ -214,7 +213,6 @@
     private const string OrdersDirectory     = "user/orders";
     private const string WishlistDirectory   = "user/wishlist-cart";
     private const string SignInDirectory     = "signin";
-    private const string SignUpDirectory     = "signup";
 
     private const int MAX_CATEGORIES_TO_SHOW = 4;
 
@@ -223,16 +221,14 @@
     [Parameter] public EventCallback<ActionType> OnActionClick { get; set; }
     [Parameter] public EventCallback<string>     OnNavigate    { get; set; }
 
-    // Cascading auth state — Blazor re-evaluates this whenever
-    // NotifyAuthenticationStateChanged() is called, triggering OnParametersSetAsync.
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
-    // ── Auth / user state ─────────────────────────────────────────────────
+    // ── Auth / user state ─────────────────────────────────────────────────────
     private bool   isAuthenticated = false;
     private string userName  = "";
     private string userEmail = "";
 
-    // ── Avatar ────────────────────────────────────────────────────────────
+    // ── Avatar ────────────────────────────────────────────────────────────────
     private string _profileAvatarUrl      = string.Empty;
     private string _gravatarUrl           = string.Empty;
     private bool   _usingGravatar         = false;
@@ -244,7 +240,7 @@
             ? _profileAvatarUrl
             : _gravatarUrl;
 
-    // ── Categories ────────────────────────────────────────────────────────
+    // ── Categories ────────────────────────────────────────────────────────────
     private List<CategoryViewModel> TopCategories       = new();
     private bool                    IsLoadingCategories = true;
     private bool                    HasMoreCategories   = false;
@@ -254,17 +250,13 @@
 
     public enum ActionType { SignIn, SignUp, Profile, Logout }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Lifecycle
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to auth-state changes (fires when NotifyAuthenticationStateChanged is called)
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
-
-        // Subscribe to navigation — after sign-in there is always a NavigateTo call,
-        // so this guarantees a re-check even if the auth event was not fired.
         NavigationManager.LocationChanged += OnLocationChanged;
 
         await LoadAuthenticationState();
@@ -274,30 +266,33 @@
         await LoadTopCategories();
     }
 
-    // Fires whenever the cascading Task<AuthenticationState> is replaced by the
-    // CascadingAuthenticationState wrapper — i.e. on every NotifyAuthenticationStateChanged().
     protected override async Task OnParametersSetAsync()
     {
         if (AuthenticationStateTask != null)
         {
-            var authState = await AuthenticationStateTask;
-            var nowAuth   = authState.User?.Identity?.IsAuthenticated ?? false;
-
-            // Only do the expensive user-info work when auth status actually flips
-            if (nowAuth != isAuthenticated)
+            try
             {
-                isAuthenticated = nowAuth;
+                var authState = await AuthenticationStateTask;
+                var nowAuth   = authState.User?.Identity?.IsAuthenticated ?? false;
 
-                if (isAuthenticated)
-                    await LoadUserInfoFromAuthState(authState);
-                else
-                    ResetUserState();
+                if (nowAuth != isAuthenticated)
+                {
+                    isAuthenticated = nowAuth;
 
-                StateHasChanged();
+                    if (isAuthenticated)
+                        await LoadUserInfoFromAuthState(authState);
+                    else
+                        ResetUserState();
+
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SidePanel: OnParametersSetAsync error: {ex.Message}");
             }
         }
 
-        // Refresh everything when the panel is explicitly opened
         if (IsOpen)
         {
             await LoadAuthenticationState();
@@ -308,7 +303,6 @@
         }
     }
 
-    // Fires on every navigation (e.g. after sign-in redirects to home)
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         _ = RefreshAuthOnNavigationAsync();
@@ -326,9 +320,9 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Auth + Avatar loading
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     private async Task LoadAuthenticationState()
     {
@@ -354,31 +348,37 @@
 
     private async Task LoadUserInfoFromAuthState(AuthenticationState authState)
     {
-        var user = authState.User;
+        try
+        {
+            var user = authState.User;
 
-        // Email — support both ClaimTypes URI form and raw JWT field name
-        userEmail = user?.FindFirst(ClaimTypes.Email)?.Value
-                 ?? user?.FindFirst("email")?.Value
-                 ?? user?.Identity?.Name
-                 ?? "";
-
-        // Name — support both CustomSupabaseClaimsFactory and raw JWT names
-        var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value
-                     ?? user?.FindFirst("first_name")?.Value
-                     ?? "";
-        var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value
-                     ?? user?.FindFirst("last_name")?.Value
+            userEmail = user?.FindFirst(ClaimTypes.Email)?.Value
+                     ?? user?.FindFirst("email")?.Value
+                     ?? user?.Identity?.Name
                      ?? "";
 
-        userName = !string.IsNullOrEmpty(firstName)
-            ? $"{firstName} {lastName}".Trim()
-            : (!string.IsNullOrEmpty(userEmail) ? userEmail.Split('@')[0] : "User");
+            var firstName = user?.FindFirst(ClaimTypes.GivenName)?.Value
+                         ?? user?.FindFirst("first_name")?.Value
+                         ?? "";
+            var lastName  = user?.FindFirst(ClaimTypes.Surname)?.Value
+                         ?? user?.FindFirst("last_name")?.Value
+                         ?? "";
 
-        var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                  ?? user?.FindFirst("sub")?.Value
-                  ?? "";
+            userName = !string.IsNullOrEmpty(firstName)
+                ? $"{firstName} {lastName}".Trim()
+                : (!string.IsNullOrEmpty(userEmail) ? userEmail.Split('@')[0] : "User");
 
-        await LoadAvatarAsync(userId, userEmail);
+            var userId = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                      ?? user?.FindFirst("sub")?.Value
+                      ?? "";
+
+            await LoadAvatarAsync(userId, userEmail);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SidePanel: error loading user info: {ex.Message}");
+            // Don't reset — keep whatever partial state was set
+        }
     }
 
     private void ResetUserState()
@@ -394,10 +394,12 @@
 
     private async Task LoadAvatarAsync(string userId, string email)
     {
+        // Build Gravatar URL using JS MD5 (System.Security.Cryptography.MD5
+        // is not available in Blazor WASM — using cryptographyHandler.hashMD5 instead)
         if (!string.IsNullOrEmpty(email))
-            _gravatarUrl = BuildGravatarUrl(email, size: 200);
+            _gravatarUrl = await BuildGravatarUrlAsync(email, size: 200);
 
-        // Skip the DB call if we already loaded this user's avatar
+        // Skip DB call if we already loaded this user's avatar
         if (!string.IsNullOrEmpty(userId) && userId == _avatarCachedForUserId)
             return;
 
@@ -419,16 +421,28 @@
         }
     }
 
-    private static string BuildGravatarUrl(string email, int size = 200)
+    /// <summary>
+    /// Builds a Gravatar URL using the JS MD5 implementation.
+    /// MD5 via System.Security.Cryptography is NOT available in Blazor WASM
+    /// (.NET 7), so we delegate to window.cryptographyHandler.hashMD5 which
+    /// is already loaded in wwwroot/js/cryptographyHandler.js.
+    /// </summary>
+    private async Task<string> BuildGravatarUrlAsync(string email, int size = 200)
     {
         if (string.IsNullOrWhiteSpace(email)) return string.Empty;
 
-        var normalised = email.Trim().ToLowerInvariant();
-        var hashBytes  = MD5.HashData(System.Text.Encoding.UTF8.GetBytes(normalised));
-        var hash       = Convert.ToHexString(hashBytes).ToLower();
-
-        // d=404 means Gravatar returns 404 if no avatar exists, triggering our @onerror handler.
-        return $"https://www.gravatar.com/avatar/{hash}?s={size}&d=404";
+        try
+        {
+            var normalised = email.Trim().ToLowerInvariant();
+            var hash = await JSRuntime.InvokeAsync<string>(
+                "cryptographyHandler.hashMD5", normalised);
+            return $"https://www.gravatar.com/avatar/{hash}?s={size}&d=404";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SidePanel: Gravatar hash error: {ex.Message}");
+            return string.Empty;
+        }
     }
 
     private void HandleAvatarError()
@@ -452,9 +466,9 @@
         return "?";
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Navigation icons
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     private async Task LoadNavigationIcons()
     {
@@ -479,9 +493,9 @@
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Categories
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     private async Task LoadTopCategories()
     {
@@ -526,9 +540,9 @@
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Panel actions
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     private async Task NavigateToShopWithCategory(CategoryViewModel category)
     {
