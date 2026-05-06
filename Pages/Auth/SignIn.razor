@@ -2,7 +2,6 @@
 @using SubashaVentures.Layout.Auth
 @using SubashaVentures.Components.Shared.Forms
 @using SubashaVentures.Components.Shared.Buttons
-
 @using SubashaVentures.Domain.Enums
 
 @layout AuthLayout
@@ -13,12 +12,18 @@
         <p class="form-subtitle">Sign in to your account to continue</p>
     </div>
 
-    <form class="signin-form" @onsubmit="HandleSignIn">
+    @* autocomplete="on" hints the browser to offer saved credentials.
+       Real per-field autofill (email / current-password) depends on
+       InputField exposing an autocomplete parameter — see SignIn.razor.cs. *@
+    <form class="signin-form" @onsubmit="HandleSignIn" autocomplete="on">
 
         @if (!string.IsNullOrEmpty(successMessage))
         {
             <div class="alert-banner alert-success">
-                <span class="alert-icon">@((MarkupString)_checkIcon)</span>
+                @if (!string.IsNullOrEmpty(_checkIcon))
+                {
+                    <span class="alert-icon">@((MarkupString)_checkIcon)</span>
+                }
                 <span class="alert-text">@successMessage</span>
             </div>
         }
@@ -26,7 +31,10 @@
         @if (!string.IsNullOrEmpty(generalError))
         {
             <div class="alert-banner alert-error">
-                <span class="alert-icon">@((MarkupString)_warningIcon)</span>
+                @if (!string.IsNullOrEmpty(_warningIcon))
+                {
+                    <span class="alert-icon">@((MarkupString)_warningIcon)</span>
+                }
                 <span class="alert-text">@generalError</span>
             </div>
         }
@@ -34,7 +42,10 @@
         @if (!string.IsNullOrEmpty(ReturnUrl))
         {
             <div class="alert-banner alert-info">
-                <span class="alert-icon">@((MarkupString)_infoIcon)</span>
+                @if (!string.IsNullOrEmpty(_infoIcon))
+                {
+                    <span class="alert-icon">@((MarkupString)_infoIcon)</span>
+                }
                 <span class="alert-text">Please sign in to continue</span>
             </div>
         }
