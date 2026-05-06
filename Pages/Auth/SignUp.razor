@@ -13,12 +13,15 @@
         <p class="form-subtitle">Join us and start your shopping journey</p>
     </div>
 
-    <form class="signup-form" @onsubmit="HandleSignUp">
+    <form class="signup-form" @onsubmit="HandleSignUp" autocomplete="on">
 
         @if (!string.IsNullOrEmpty(generalError))
         {
             <div class="alert-banner alert-error">
-                <span class="alert-icon">@((MarkupString)_warningIcon)</span>
+                @if (!string.IsNullOrEmpty(_warningIcon))
+                {
+                    <span class="alert-icon">@((MarkupString)_warningIcon)</span>
+                }
                 <span class="alert-text">@generalError</span>
             </div>
         }
@@ -26,7 +29,10 @@
         @if (!string.IsNullOrEmpty(successMessage))
         {
             <div class="alert-banner alert-success">
-                <span class="alert-icon">@((MarkupString)_checkIcon)</span>
+                @if (!string.IsNullOrEmpty(_checkIcon))
+                {
+                    <span class="alert-icon">@((MarkupString)_checkIcon)</span>
+                }
                 <span class="alert-text">@successMessage</span>
             </div>
         }
