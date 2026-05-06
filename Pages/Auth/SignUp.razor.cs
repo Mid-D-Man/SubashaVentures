@@ -9,6 +9,7 @@ using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.Storage;
 using SubashaVentures.Services.VisualElements;
+using System.Text.RegularExpressions;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;
@@ -68,15 +69,17 @@ public partial class SignUp : ComponentBase
     {
         try
         {
-            _mailIcon = await VisualElements.GetCustomSvgAsync(
-                SvgType.Mail, width: 18, height: 18, fillColor: "currentColor");
+            // CleanSvg strips <?xml?> and <!DOCTYPE> headers — see comment in SignIn.razor.cs
+            _mailIcon = CleanSvg(await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail, width: 18, height: 18, fillColor: "currentColor"));
 
-            _checkIcon = await VisualElements.GetCustomSvgAsync(
-                SvgType.CheckMark, width: 16, height: 16, fillColor: "currentColor");
+            _checkIcon = CleanSvg(await VisualElements.GetCustomSvgAsync(
+                SvgType.CheckMark, width: 16, height: 16, fillColor: "currentColor"));
 
-            _warningIcon = await VisualElements.GetCustomSvgAsync(
-                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor");
+            _warningIcon = CleanSvg(await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor"));
 
+            // Generated inline — no XML declarations, already clean
             _lockIcon = VisualElements.GenerateSvg(
                 "<rect x='3' y='11' width='18' height='11' rx='2' ry='2' stroke='currentColor' stroke-width='1.5' fill='none'/>" +
                 "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' fill='none' d='M7 11V7a5 5 0 0 1 10 0v4'/>",
@@ -252,4 +255,27 @@ public partial class SignUp : ComponentBase
 
     private static bool IsStrongPassword(string password) =>
         password.Any(char.IsUpper) && password.Any(char.IsLower) && password.Any(char.IsDigit);
+
+    /// <summary>
+    /// Strips XML processing instructions and DOCTYPE declarations from SVG strings.
+    /// See SignIn.razor.cs for the full explanation.
+    /// </summary>
+    private static string CleanSvg(string svg)
+    {
+        if (string.IsNullOrEmpty(svg)) return svg;
+
+        var result = Regex.Replace(
+            svg,
+            @"<\?xml[^?]*\?>",
+            string.Empty,
+            RegexOptions.IgnoreCase).Trim();
+
+        result = Regex.Replace(
+            result,
+            @"<!DOCTYPE[^>]*>",
+            string.Empty,
+            RegexOptions.IgnoreCase).Trim();
+
+        return result;
+    }
 }
