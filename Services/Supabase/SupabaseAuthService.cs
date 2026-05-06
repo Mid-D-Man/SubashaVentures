@@ -42,6 +42,15 @@ public class SupabaseAuthService : ISupabaseAuthService
         {
             await MID_HelperFunctions.DebugMessageAsync("🔐 Initializing SupabaseAuthService...", LogLevel.Info);
 
+            // If Supabase already has a session in memory (e.g. after a hot reload), use it
+            if (_supabase.Auth.CurrentSession != null &&
+                !string.IsNullOrEmpty(_supabase.Auth.CurrentSession.AccessToken))
+            {
+                await MID_HelperFunctions.DebugMessageAsync(
+                    "✓ In-memory session already active", LogLevel.Info);
+                return;
+            }
+
             var storedSession = await _sessionManager.GetStoredSessionAsync();
 
             if (storedSession != null)
@@ -56,8 +65,30 @@ public class SupabaseAuthService : ISupabaseAuthService
                 }
                 else
                 {
-                    await _supabase.Auth.SetSession(storedSession.AccessToken, storedSession.RefreshToken);
-                    await MID_HelperFunctions.DebugMessageAsync("✓ Session restored successfully", LogLevel.Info);
+                    try
+                    {
+                        var restored = await _supabase.Auth.SetSession(
+                            storedSession.AccessToken, storedSession.RefreshToken);
+
+                        // CRITICAL: Supabase rotates refresh tokens on every use.
+                        // We must persist the new tokens so the next call doesn't fail
+                        // with "Invalid Refresh Token: Refresh Token Not Found".
+                        if (restored != null)
+                            await _sessionManager.StoreSessionAsync(restored);
+
+                        await MID_HelperFunctions.DebugMessageAsync(
+                            "✓ Session restored successfully", LogLevel.Info);
+                    }
+                    catch (GotrueException ex) when (IsRefreshTokenError(ex))
+                    {
+                        _logger.LogWarning("Stored refresh token invalid during init, clearing session: {Msg}", ex.Message);
+                        await _sessionManager.ClearSessionAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Session restore failed during init, clearing");
+                        await _sessionManager.ClearSessionAsync();
+                    }
                 }
             }
             else
@@ -368,15 +399,31 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
+            // Check in-memory session first — avoids unnecessary storage reads and token rotation
             var session = _supabase.Auth.CurrentSession;
             if (session?.User != null) return session.User;
 
+            // Fall back to stored session
             var storedSession = await _sessionManager.GetStoredSessionAsync();
             if (storedSession != null)
             {
-                var restoredSession = await _supabase.Auth.SetSession(
-                    storedSession.AccessToken, storedSession.RefreshToken);
-                return restoredSession?.User;
+                try
+                {
+                    var restoredSession = await _supabase.Auth.SetSession(
+                        storedSession.AccessToken, storedSession.RefreshToken);
+
+                    // Persist new tokens after rotation
+                    if (restoredSession != null)
+                        await _sessionManager.StoreSessionAsync(restoredSession);
+
+                    return restoredSession?.User;
+                }
+                catch (GotrueException ex) when (IsRefreshTokenError(ex))
+                {
+                    _logger.LogWarning("Refresh token invalid in GetCurrentUserAsync, clearing session");
+                    await _sessionManager.ClearSessionAsync();
+                    return null;
+                }
             }
 
             return null;
@@ -392,18 +439,41 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         try
         {
+            // 1. Check in-memory session — this is the fast path.
+            //    The Supabase client manages token refresh automatically when
+            //    AutoRefreshToken = true, so if we have a current session, trust it.
             var session = _supabase.Auth.CurrentSession;
             if (session != null && !string.IsNullOrEmpty(session.AccessToken))
                 return session;
 
+            // 2. Try to restore from local storage
             var storedSession = await _sessionManager.GetStoredSessionAsync();
-            if (storedSession != null)
-            {
-                return await _supabase.Auth.SetSession(
-                    storedSession.AccessToken, storedSession.RefreshToken);
-            }
+            if (storedSession == null) return null;
 
-            return null;
+            try
+            {
+                var restoredSession = await _supabase.Auth.SetSession(
+                    storedSession.AccessToken, storedSession.RefreshToken);
+
+                // CRITICAL: Supabase rotates refresh tokens on every use.
+                // If we don't save the new token here, the NEXT call will fail with
+                // "Invalid Refresh Token: Refresh Token Not Found".
+                if (restoredSession != null)
+                    await _sessionManager.StoreSessionAsync(restoredSession);
+
+                return restoredSession;
+            }
+            catch (GotrueException ex) when (IsRefreshTokenError(ex))
+            {
+                // Refresh token revoked / rotated out / expired — user must sign in again.
+                // This is normal when the user signs in on another device or Supabase
+                // revokes sessions. Clear cleanly instead of spamming the error log.
+                _logger.LogWarning(
+                    "Stored refresh token no longer valid (token rotated or revoked). " +
+                    "Clearing local session — user will need to sign in again.");
+                await _sessionManager.ClearSessionAsync();
+                return null;
+            }
         }
         catch (Exception ex)
         {
@@ -422,8 +492,24 @@ public class SupabaseAuthService : ISupabaseAuthService
     {
         var refreshedSession = await _sessionManager.ExecuteRefreshWithLockAsync(async () =>
         {
-            try { return await _supabase.Auth.RefreshSession(); }
-            catch (Exception ex) { _logger.LogError(ex, "Refresh failed"); return null; }
+            try
+            {
+                var s = await _supabase.Auth.RefreshSession();
+                // Persist the rotated refresh token immediately
+                if (s != null) await _sessionManager.StoreSessionAsync(s);
+                return s;
+            }
+            catch (GotrueException ex) when (IsRefreshTokenError(ex))
+            {
+                _logger.LogWarning("Refresh token invalid during RefreshSessionAsync, clearing");
+                await _sessionManager.ClearSessionAsync();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Refresh failed");
+                return null;
+            }
         });
 
         return refreshedSession != null;
@@ -562,10 +648,6 @@ public class SupabaseAuthService : ISupabaseAuthService
             var otpauthUri = enrollResponse.Totp?.Uri
                 ?? BuildOtpAuthUri(enrollResponse.Totp?.Secret ?? "", user.Email ?? "user");
 
-            await MID_HelperFunctions.DebugMessageAsync(
-                $"MFA enroll: using otpauth URI (len={otpauthUri.Length}) for QR generation",
-                LogLevel.Info);
-
             return new MfaEnrollmentResult
             {
                 Success = true,
@@ -620,11 +702,7 @@ public class SupabaseAuthService : ISupabaseAuthService
 
             try
             {
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "Refreshing session after MFA unenroll to update AAL claim...", LogLevel.Info);
                 await RefreshSessionAsync();
-                await MID_HelperFunctions.DebugMessageAsync(
-                    "✅ Session refreshed after MFA unenroll", LogLevel.Info);
             }
             catch (Exception refreshEx)
             {
@@ -717,6 +795,20 @@ public class SupabaseAuthService : ISupabaseAuthService
     }
 
     // ==================== PRIVATE HELPER METHODS ====================
+
+    /// <summary>
+    /// Returns true for any GotrueException that indicates the refresh token
+    /// is invalid, rotated, or revoked. Used to cleanly clear local session
+    /// instead of logging a fatal error repeatedly.
+    /// </summary>
+    private static bool IsRefreshTokenError(GotrueException ex)
+    {
+        var msg = ex.Message ?? string.Empty;
+        return msg.Contains("refresh_token_not_found", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("Invalid Refresh Token", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("Refresh Token Not Found", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("token_not_found", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string BuildOtpAuthUri(string secret, string accountEmail)
     {
