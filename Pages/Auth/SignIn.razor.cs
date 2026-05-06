@@ -8,6 +8,7 @@ using SubashaVentures.Services.Supabase;
 using SubashaVentures.Services.Users;
 using SubashaVentures.Services.VisualElements;
 using SubashaVentures.Utilities.HelperScripts;
+using System.Text.RegularExpressions;
 using LogLevel = SubashaVentures.Utilities.Logging.LogLevel;
 
 namespace SubashaVentures.Pages.Auth;
@@ -65,22 +66,25 @@ public partial class SignIn : ComponentBase
     {
         try
         {
-            _mailIcon = await VisualElements.GetCustomSvgAsync(
-                SvgType.Mail, width: 18, height: 18, fillColor: "currentColor");
+            // CleanSvg strips <?xml?> and <!DOCTYPE> headers that GetCustomSvgAsync
+            // may return from file-based SVG assets. Without stripping, these headers
+            // render as visible raw text when the string is used as HTML markup.
+            _mailIcon = CleanSvg(await VisualElements.GetCustomSvgAsync(
+                SvgType.Mail, width: 18, height: 18, fillColor: "currentColor"));
 
-            _checkIcon = await VisualElements.GetCustomSvgAsync(
-                SvgType.CheckMark, width: 16, height: 16, fillColor: "currentColor");
+            _checkIcon = CleanSvg(await VisualElements.GetCustomSvgAsync(
+                SvgType.CheckMark, width: 16, height: 16, fillColor: "currentColor"));
 
-            _warningIcon = await VisualElements.GetCustomSvgAsync(
-                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor");
+            _warningIcon = CleanSvg(await VisualElements.GetCustomSvgAsync(
+                SvgType.Warning, width: 16, height: 16, fillColor: "currentColor"));
 
-            // Lock — inline generated (no SvgType entry)
+            // Lock — generated inline, already clean (no XML declarations)
             _lockIcon = VisualElements.GenerateSvg(
                 "<rect x='3' y='11' width='18' height='11' rx='2' ry='2' stroke='currentColor' stroke-width='1.5' fill='none'/>" +
                 "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' fill='none' d='M7 11V7a5 5 0 0 1 10 0v4'/>",
                 18, 18, "0 0 24 24");
 
-            // Info circle — inline generated
+            // Info circle — generated inline, already clean
             _infoIcon = VisualElements.GenerateSvg(
                 "<circle cx='12' cy='12' r='10' stroke='currentColor' stroke-width='1.5' fill='none'/>" +
                 "<path stroke='currentColor' stroke-width='1.5' stroke-linecap='round' fill='none' d='M12 16v-4M12 8h.01'/>",
@@ -236,5 +240,33 @@ public partial class SignIn : ComponentBase
     {
         try   { return new System.Net.Mail.MailAddress(email).Address == email; }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// Strips XML processing instructions and DOCTYPE declarations from SVG strings.
+    /// GetCustomSvgAsync may return SVGs loaded from .svg files that include
+    /// &lt;?xml version="1.0"?&gt; or &lt;!DOCTYPE svg...&gt; headers. These are
+    /// not valid inside HTML markup and render as visible raw text in the browser.
+    /// GenerateSvg() already returns clean &lt;svg&gt; elements — this is a no-op for those.
+    /// </summary>
+    private static string CleanSvg(string svg)
+    {
+        if (string.IsNullOrEmpty(svg)) return svg;
+
+        // Remove <?xml ... ?> processing instruction
+        var result = Regex.Replace(
+            svg,
+            @"<\?xml[^?]*\?>",
+            string.Empty,
+            RegexOptions.IgnoreCase).Trim();
+
+        // Remove <!DOCTYPE svg ... > declaration
+        result = Regex.Replace(
+            result,
+            @"<!DOCTYPE[^>]*>",
+            string.Empty,
+            RegexOptions.IgnoreCase).Trim();
+
+        return result;
     }
 }
